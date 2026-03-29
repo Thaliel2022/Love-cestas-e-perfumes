@@ -4793,11 +4793,17 @@ app.get('/api/settings/theme', async (req, res) => {
     }
 });
 
+// ATENÇÃO: Substitua APENAS a rota 'PUT /api/settings/theme' no seu server.js.
+// Não precisa copiar o arquivo inteiro, apenas esta rota que fica na área de Configurações do Site.
+
 app.put('/api/settings/theme', verifyToken, verifyAdmin, async (req, res) => {
     const { themeConfig } = req.body;
     const clientIp = req.ip || req.connection.remoteAddress;
     
-    if (!themeConfig || !themeConfig.primary || !themeConfig.bg) {
+    // CORREÇÃO: Aceita a configuração de cores tanto no formato direto quanto aninhado (themeConfig.colors)
+    const colors = themeConfig?.colors || themeConfig;
+
+    if (!colors || !colors.primary || !colors.bg) {
         return res.status(400).json({ message: "Configuração de tema inválida. Cores obrigatórias ausentes." });
     }
 
@@ -4807,11 +4813,11 @@ app.put('/api/settings/theme', verifyToken, verifyAdmin, async (req, res) => {
             "INSERT INTO site_settings (setting_key, setting_value) VALUES ('theme_config', ?) ON DUPLICATE KEY UPDATE setting_value = ?", 
             [configString, configString]
         );
-        logAdminAction(req.user, 'ATUALIZOU TEMA VISUAL', 'Cores principais do site alteradas', clientIp);
+        logAdminAction(req.user, 'ATUALIZOU TEMA VISUAL', 'Cores do site alteradas', clientIp);
         res.json({ message: "Tema atualizado com sucesso!" });
     } catch (err) {
         console.error("Erro ao salvar tema:", err);
-        res.status(500).json({ message: "Erro ao salvar tema." });
+        res.status(500).json({ message: "Erro ao salvar configuração." });
     }
 });
 // (Público/Admin) Busca configurações de ícones do App

@@ -15454,11 +15454,11 @@ const AdminThemeSettings = () => {
 
     // Temas Sazonais (Demonstração no painel)
     const seasonalThemesPreview = [
-        { name: 'Natal', date: 'Dezembro', colors: { primary: '#ef4444', surface: '#052e16' } },
-        { name: 'Namorados', date: 'Junho', colors: { primary: '#ec4899', surface: '#4a044e' } },
-        { name: 'Pais', date: 'Agosto', colors: { primary: '#3b82f6', surface: '#0f172a' } },
-        { name: 'Mães', date: 'Maio', colors: { primary: '#f43f5e', surface: '#2e1065' } },
-        { name: 'Black Friday', date: 'Novembro', colors: { primary: '#a855f7', surface: '#18181b' } },
+        { name: 'Natal', date: 'Dezembro', colors: { primary: '#ef4444', primaryHover: '#dc2626', bg: '#000000', surface: '#052e16', surfaceHover: '#064e3b', text: '#ffffff', textMuted: '#a7f3d0' } },
+        { name: 'Namorados', date: 'Junho', colors: { primary: '#ec4899', primaryHover: '#db2777', bg: '#000000', surface: '#4a044e', surfaceHover: '#701a75', text: '#ffffff', textMuted: '#fbcfe8' } },
+        { name: 'Pais', date: 'Agosto', colors: { primary: '#3b82f6', primaryHover: '#2563eb', bg: '#000000', surface: '#0f172a', surfaceHover: '#1e293b', text: '#ffffff', textMuted: '#94a3b8' } },
+        { name: 'Mães', date: 'Maio', colors: { primary: '#f43f5e', primaryHover: '#e11d48', bg: '#000000', surface: '#2e1065', surfaceHover: '#4c1d95', text: '#ffffff', textMuted: '#e2e8f0' } },
+        { name: 'Black Friday', date: 'Novembro', colors: { primary: '#a855f7', primaryHover: '#9333ea', bg: '#000000', surface: '#18181b', surfaceHover: '#27272a', text: '#ffffff', textMuted: '#a1a1aa' } },
     ];
 
     // Presets Premium
@@ -15481,7 +15481,6 @@ const AdminThemeSettings = () => {
     useEffect(() => {
         apiService('/settings/theme')
             .then(data => {
-                // Adaptação caso o banco tenha o formato antigo (só cores) ou o novo
                 const loadedConfig = data.colors ? data : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: false };
                 setLocalConfig(loadedConfig);
                 setOriginalConfig(loadedConfig);
@@ -15490,7 +15489,6 @@ const AdminThemeSettings = () => {
             .finally(() => setIsLoading(false));
     }, [notification]);
 
-    // Aplica o preview em tempo real emitindo o evento
     const dispatchPreview = (newConfig) => {
         window.dispatchEvent(new CustomEvent('app-theme-updated', { detail: newConfig }));
     };
@@ -15532,7 +15530,6 @@ const AdminThemeSettings = () => {
             async () => {
                 setIsSaving(true);
                 try {
-                    // Salva o objeto completo (colors + autoSeasonal)
                     await apiService('/settings/theme', 'PUT', { themeConfig: localConfig });
                     setOriginalConfig(localConfig); 
                     notification.show("Novo tema aplicado com sucesso!");
@@ -15597,18 +15594,24 @@ const AdminThemeSettings = () => {
                     </div>
                 </div>
                 
-                {/* Preview dos Sazonais */}
+                {/* CORREÇÃO: Temas sazonais agora são botões clicáveis para preview */}
                 <div className="px-6 pb-6 pt-2">
-                    <p className="text-xs text-indigo-300 mb-3 uppercase tracking-wider font-bold">Calendário Automático Integrado:</p>
+                    <p className="text-xs text-indigo-300 mb-3 uppercase tracking-wider font-bold">Clique para testar os temas do calendário:</p>
                     <div className="flex flex-wrap gap-3">
                         {seasonalThemesPreview.map(season => (
-                            <div key={season.name} className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-lg px-3 py-1.5">
+                            <button 
+                                key={season.name} 
+                                type="button"
+                                onClick={() => applyPreset(season.colors)}
+                                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-amber-300 rounded-lg px-3 py-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
+                                title={`Clique para testar as cores de ${season.name}`}
+                            >
                                 <div className="flex -space-x-2">
-                                    <div className="w-4 h-4 rounded-full border border-white/30" style={{ backgroundColor: season.colors.surface }}></div>
-                                    <div className="w-4 h-4 rounded-full border border-white/30" style={{ backgroundColor: season.colors.primary }}></div>
+                                    <div className="w-4 h-4 rounded-full border border-slate-800 shadow-sm" style={{ backgroundColor: season.colors.surface }}></div>
+                                    <div className="w-4 h-4 rounded-full border border-slate-800 shadow-sm" style={{ backgroundColor: season.colors.primary }}></div>
                                 </div>
-                                <span className="text-xs text-white font-medium">{season.name} <span className="text-indigo-300">({season.date})</span></span>
-                            </div>
+                                <span className="text-xs text-white font-bold">{season.name} <span className="text-indigo-300 font-normal">({season.date})</span></span>
+                            </button>
                         ))}
                     </div>
                 </div>
@@ -15743,7 +15746,7 @@ const AdminThemeSettings = () => {
             </div>
 
             {/* Ações Fixas */}
-            <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-200 sticky bottom-0 bg-gray-50/90 backdrop-blur p-4 -mx-4 sm:mx-0 sm:bg-transparent sm:p-0 z-10">
+            <div className="flex items-center justify-end gap-4 pt-6 border-t border-gray-200 sticky bottom-0 bg-gray-50 p-4 -mx-4 sm:mx-0 sm:bg-transparent sm:p-0 z-10">
                 <button 
                     onClick={handleCancel}
                     disabled={isSaving}
@@ -15754,7 +15757,7 @@ const AdminThemeSettings = () => {
                 <button 
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-md flex items-center gap-2 transition-all active:scale-95 disabled:opacity-70"
+                    className="px-8 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 shadow-md flex items-center gap-2 transition-all active:scale-95 disabled:opacity-70"
                 >
                     {isSaving ? <SpinnerIcon className="h-5 w-5"/> : <CheckBadgeIcon className="h-5 w-5"/>}
                     Salvar e Publicar
@@ -15763,7 +15766,6 @@ const AdminThemeSettings = () => {
         </div>
     );
 };
-
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
