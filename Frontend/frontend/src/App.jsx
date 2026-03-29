@@ -429,12 +429,13 @@ const ShopProvider = ({ children }) => {
     const [couponMessage, setCouponMessage] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState(null);
 
+    // Novo estado para configuração de frete local
     const [localShippingConfig, setLocalShippingConfig] = useState({ base_price: 20, rules: [] });
-    // NOVO ESTADO: Configurações de Retirada na Loja
-    const [pickupConfig, setPickupConfig] = useState(null);
 
+    // --- NOVO: Estado para Notificações de Pedidos ---
     const [orderNotificationCount, setOrderNotificationCount] = useState(0);
 
+    // Helpers internos
     const normalize = (str) => str ? String(str).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
     const safeParse = (val) => {
         if (!val) return [];
@@ -442,18 +443,31 @@ const ShopProvider = ({ children }) => {
         try { return JSON.parse(val) || []; } catch { return []; }
     };
 
+    // --- Busca notificações de pedidos (Polling) ---
     const checkNotifications = useCallback(async () => {
-        if (!isAuthenticated) { setOrderNotificationCount(0); return; }
+        if (!isAuthenticated) {
+            setOrderNotificationCount(0);
+            return;
+        }
         try {
             const data = await apiService('/notifications/orders/count', 'GET', null, { suppressAuthError: true });
-            if (data && typeof data.count === 'number') setOrderNotificationCount(data.count);
-        } catch (error) {}
+            if (data && typeof data.count === 'number') {
+                setOrderNotificationCount(data.count);
+            }
+        } catch (error) {
+            // Silencia erros de polling
+        }
     }, [isAuthenticated]);
 
+    // --- Marca pedido como visto ---
     const markOrderAsSeen = useCallback(async (orderId) => {
         if (!isAuthenticated) return;
-        try { await apiService(`/orders/${orderId}/mark-seen`, 'PUT'); checkNotifications(); } 
-        catch (error) { console.error("Erro ao marcar pedido como visto:", error); }
+        try {
+            await apiService(`/orders/${orderId}/mark-seen`, 'PUT');
+            checkNotifications(); 
+        } catch (error) {
+            console.error("Erro ao marcar pedido como visto:", error);
+        }
     }, [isAuthenticated, checkNotifications]);
 
     useEffect(() => {
@@ -462,68 +476,75 @@ const ShopProvider = ({ children }) => {
         return () => clearInterval(interval);
     }, [checkNotifications]);
 
+    // --- LÓGICA DE CÁLCULO DE DATA (FERIADOS) ---
     const calculateDeliveryDate = useCallback((daysToAdd) => {
         const date = new Date();
         let added = 0;
-        const holidays = ["01/01", "21/04", "01/05", "24/06", "07/09", "12/10", "02/11", "15/11", "25/12"];
+        
+        const holidays = [
+            "01/01", "21/04", "01/05", "24/06", "07/09", "12/10", "02/11", "15/11", "25/12"
+        ];
+
         while (added < daysToAdd) {
             date.setDate(date.getDate() + 1);
+            
             const dayOfWeek = date.getDay();
             const day = String(date.getDate()).padStart(2, '0');
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const dateString = `${day}/${month}`;
+            
             const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; 
             const isHoliday = holidays.includes(dateString);
-            if (!isWeekend && !isHoliday) added++;
+
+            if (!isWeekend && !isHoliday) {
+                added++;
+            }
         }
         return date;
     }, []);
     
-    // NOVA FUNÇÃO: Busca as configs de retirada na loja
-    const fetchPickupConfig = useCallback(() => {
-        apiService('/settings/pickup')
-            .then(data => {
-                setPickupConfig(prev => JSON.stringify(prev) !== JSON.stringify(data) ? data : prev);
-            })
-            .catch(err => console.error("Falha ao buscar config de retirada:", err));
-    }, []);
-
     const fetchShippingConfig = useCallback(() => {
         apiService('/settings/shipping-local')
             .then(data => {
-                setLocalShippingConfig(prev => JSON.stringify(prev) !== JSON.stringify(data) ? data : prev);
+                setLocalShippingConfig(prev => {
+                    if (JSON.stringify(prev) !== JSON.stringify(data)) {
+                        return data;
+                    }
+                    return prev;
+                });
             })
             .catch(err => console.error("Falha ao buscar config de frete local:", err));
     }, []);
 
     useEffect(() => {
         fetchShippingConfig(); 
-        fetchPickupConfig();
-        const intervalId = setInterval(() => {
-            fetchShippingConfig();
-            fetchPickupConfig();
-        }, 30000); // 30 segundos
+        const intervalId = setInterval(fetchShippingConfig, 5000);
         return () => clearInterval(intervalId);
-    }, [fetchShippingConfig, fetchPickupConfig]);
+    }, [fetchShippingConfig]);
 
     const calculateLocalDeliveryPrice = useCallback((items) => {
         const defaultBasePrice = parseFloat(localShippingConfig.base_price) || 20;
         if (!items || items.length === 0) return defaultBasePrice;
+
         let highestBasePriceFound = 0;
         let totalSurcharges = 0;
         let totalDiscounts = 0;
+
         for (const item of items) {
             const itemCategory = normalize(item.category || "");
             const itemBrand = normalize(item.brand || "");
             let itemEffectiveBasePrice = defaultBasePrice; 
+            
             if (localShippingConfig.rules && localShippingConfig.rules.length > 0) {
                 for (const rule of localShippingConfig.rules) {
                     const ruleValue = normalize(rule.value);
                     const ruleAmount = parseFloat(rule.amount) || 0;
                     if (!ruleValue) continue;
+
                     let match = false;
                     if (rule.type === 'category' && (itemCategory === ruleValue || itemCategory.includes(ruleValue))) match = true;
                     if (rule.type === 'brand' && (itemBrand === ruleValue || itemBrand.includes(ruleValue))) match = true;
+
                     if (match) {
                         switch (rule.action) {
                             case 'free_shipping': itemEffectiveBasePrice = 0; break;
@@ -534,7 +555,9 @@ const ShopProvider = ({ children }) => {
                     }
                 }
             }
-            if (itemEffectiveBasePrice > highestBasePriceFound) highestBasePriceFound = itemEffectiveBasePrice;
+            if (itemEffectiveBasePrice > highestBasePriceFound) {
+                highestBasePriceFound = itemEffectiveBasePrice;
+            }
         }
         let finalPrice = highestBasePriceFound + totalSurcharges - totalDiscounts;
         return Math.max(0, finalPrice); 
@@ -597,20 +620,27 @@ const ShopProvider = ({ children }) => {
         return false;
     }, []);
 
+    // --- LÓGICA DE GEOLOCALIZAÇÃO COM CACHE (BLINDADA) ---
     const determineShippingLocation = useCallback(async () => {
         let locationDetermined = false;
+        
+        // 1. Prioriza o endereço do cliente logado
         if (isAuthenticated) {
             const userAddresses = await fetchAddresses();
             if (userAddresses && userAddresses.length > 0) {
                 locationDetermined = updateDefaultShippingLocation(userAddresses);
             }
         }
+        
+        // 2. Se não estiver logado, procura no Cache Local (Salva de F5 e problemas no Computador)
         if (!locationDetermined) {
             try {
                 const cachedLocStr = localStorage.getItem('lovecestas_cached_location');
                 if (cachedLocStr) {
                     const cachedLoc = JSON.parse(cachedLocStr);
                     if (cachedLoc && cachedLoc.cep && cachedLoc.cep.replace(/\D/g, '').length === 8) {
+                        // CORREÇÃO: Limpa apelidos/nomes próprios se o usuário não estiver logado.
+                        // Evita mostrar "Casa do Thaliel" se você tiver acabado de deslogar.
                         if (!isAuthenticated && cachedLoc.alias && cachedLoc.alias !== 'Localização Atual' && !cachedLoc.alias.startsWith('CEP')) {
                             cachedLoc.alias = `CEP ${cachedLoc.cep}`;
                         }
@@ -618,52 +648,90 @@ const ShopProvider = ({ children }) => {
                         locationDetermined = true;
                     }
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.warn("Erro ao ler cache de localização", e);
+            }
         }
+        
+        // 3. Se não tem cache, busca no GPS/IP
         if (!locationDetermined) {
             setIsGeolocating(true);
+            
             const saveAndSetLocation = (cep, city, state) => {
                 let finalCep = cep ? String(cep).replace(/\D/g, '') : '';
+                
+                // Fallback Inteligente: Se achou cidade mas a API falhou no CEP
                 if (finalCep.length !== 8) {
                     const cityLower = (city || '').toLowerCase();
                     if (cityLower.includes('joão pessoa') || cityLower.includes('joao pessoa')) finalCep = '58030000';
                     else if (cityLower.includes('cabedelo')) finalCep = '58100000';
                 }
+                
                 if (finalCep.length === 8) {
-                    setShippingLocation({ cep: finalCep, city: city || '', state: state || '', alias: 'Localização Atual' });
+                    const newLocation = { cep: finalCep, city: city || '', state: state || '', alias: 'Localização Atual' };
+                    setShippingLocation(newLocation);
                     return true;
                 }
                 return false;
             };
+
             const fetchGeoIP = async () => {
                 try {
                     const ipRes = await fetch('https://ipapi.co/json/');
                     if (!ipRes.ok) throw new Error('API Rate Limited'); 
                     const ipData = await ipRes.json();
-                    if (ipData && ipData.postal) saveAndSetLocation(ipData.postal, ipData.city, ipData.region_code);
-                } catch (e) {} finally { setIsGeolocating(false); }
+                    
+                    if (ipData && ipData.postal) {
+                        saveAndSetLocation(ipData.postal, ipData.city, ipData.region_code);
+                    }
+                } catch (e) {
+                    console.warn("Erro no fallback de IP:", e);
+                } finally {
+                    setIsGeolocating(false);
+                }
             };
 
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     async (position) => {
                         try {
-                            const lat = position.coords.latitude; const lon = position.coords.longitude;
+                            const lat = position.coords.latitude;
+                            const lon = position.coords.longitude;
+                            
+                            // Tenta a API Rápida (BigDataCloud)
                             const bdcResponse = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=pt`);
                             const bdcData = await bdcResponse.json();
-                            let cepFound = bdcData.postcode || ''; let cityFound = bdcData.city || bdcData.locality || ''; let stateFound = bdcData.principalSubdivision || '';
+                            
+                            let cepFound = bdcData.postcode || '';
+                            let cityFound = bdcData.city || bdcData.locality || '';
+                            let stateFound = bdcData.principalSubdivision || '';
+
+                            // Se a API rápida não achou CEP, tenta a API secundária (OpenStreetMap)
                             if (!cepFound || String(cepFound).replace(/\D/g, '').length !== 8) {
                                 const osmResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&email=loja@lovecestaseperfumes.com.br`);
                                 const osmData = await osmResponse.json();
                                 if (osmData && osmData.address) {
-                                    cepFound = osmData.address.postcode || cepFound; cityFound = osmData.address.city || osmData.address.town || cityFound; stateFound = osmData.address.state || stateFound;
+                                    cepFound = osmData.address.postcode || cepFound;
+                                    cityFound = osmData.address.city || osmData.address.town || cityFound;
+                                    stateFound = osmData.address.state || stateFound;
                                 }
                             }
+
                             const success = saveAndSetLocation(cepFound, cityFound, stateFound);
-                            if (!success) fetchGeoIP(); else setIsGeolocating(false);
-                        } catch (error) { fetchGeoIP(); } 
+                            
+                            // Se as duas de GPS falharem no CEP, usa a de IP
+                            if (!success) fetchGeoIP();
+                            else setIsGeolocating(false);
+
+                        } catch (error) { 
+                            console.warn("Erro no GPS:", error); 
+                            fetchGeoIP(); // Aciona fallback se GPS der erro
+                        } 
                     }, 
-                    (error) => { fetchGeoIP(); }, 
+                    (error) => {
+                        console.warn("GPS negado/indisponível:", error.message);
+                        fetchGeoIP(); // Aciona fallback se cliente não der permissão de GPS
+                    }, 
                     { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
                 );
             } else {
@@ -672,9 +740,11 @@ const ShopProvider = ({ children }) => {
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
 
+    // --- NOVO: Salva qualquer alteração de CEP no cache de forma blindada ---
     useEffect(() => {
         if (shippingLocation && shippingLocation.cep && shippingLocation.cep.replace(/\D/g, '').length === 8) {
             const locationToCache = { ...shippingLocation };
+            // CORREÇÃO: Nunca salva nome/apelido no cache se o usuário estiver deslogado
             if (!isAuthenticated && locationToCache.alias && locationToCache.alias !== 'Localização Atual' && !locationToCache.alias.startsWith('CEP')) {
                 locationToCache.alias = `CEP ${locationToCache.cep}`;
             }
@@ -701,6 +771,8 @@ const ShopProvider = ({ children }) => {
             } else {
                 const localCart = localStorage.getItem('lovecestas_cart');
                 if (localCart) { try { const parsed = JSON.parse(localCart); if (Array.isArray(parsed)) setCart(parsed); } catch (e) { setCart([]); } }
+                
+                // Se o usuário entrou no site deslogado, zera tudo, e confia no determineShippingLocation para puxar o cache limpo
                 setWishlist([]); setAddresses([]); setShippingLocation({ cep: '', city: '', state: '', alias: '' }); setAutoCalculatedShipping(null); setCouponCode(''); setAppliedCoupon(null); setCouponMessage(''); 
                 determineShippingLocation(); 
                 setOrderNotificationCount(0);
@@ -869,7 +941,6 @@ const ShopProvider = ({ children }) => {
 
     const clearOrderState = useCallback(() => { clearCart(); removeCoupon(); determineShippingLocation(); }, [clearCart, removeCoupon, determineShippingLocation]);
 
-    // O pickConfig FOI ADICIONADO AQUI NO PROVIDER VALUE
     return (
         <ShopContext.Provider value={{
             cart, setCart, clearOrderState, wishlist, addToCart, addToWishlist, removeFromWishlist, updateQuantity, removeFromCart, 
@@ -878,8 +949,7 @@ const ShopProvider = ({ children }) => {
             updateDefaultShippingLocation, determineShippingLocation, setPreviewShippingItem, setSelectedShippingName, isGeolocating, 
             couponCode, setCouponCode, couponMessage, applyCoupon, appliedCoupon, removeCoupon, discount,
             calculateLocalDeliveryPrice, calculateDeliveryDate,
-            orderNotificationCount, markOrderAsSeen, checkNotifications,
-            pickupConfig 
+            orderNotificationCount, markOrderAsSeen, checkNotifications
         }}>
             {children}
         </ShopContext.Provider>
@@ -1102,7 +1172,6 @@ const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
 });
 
 const TrackingModal = memo(({ isOpen, onClose, order }) => {
-    const { pickupConfig } = useShop(); // Chama a config global dinâmica
     const [trackingInfo, setTrackingInfo] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -1152,16 +1221,11 @@ const TrackingModal = memo(({ isOpen, onClose, order }) => {
                     <p className="flex items-center gap-2 text-red-700 font-semibold"><XCircleIcon className="h-5 w-5"/> Este pedido foi cancelado.</p>
                 );
                 break;
-            default:
+            default: // Pendente, Pagamento Aprovado, Separando Pedido
                 statusMessage = (
                     <p className="flex items-center gap-2 text-amber-700 font-semibold"><ClockIcon className="h-5 w-5"/> Estamos preparando seu pedido. Você será notificado assim que estiver pronto.</p>
                 );
         }
-
-        // Usa config do BD ou Fallback caso falhe o load
-        const address = pickupConfig?.address || 'R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB';
-        const hours = pickupConfig?.hours || 'Segunda a Sábado, das 9h às 11h30 e das 15h às 17h30';
-        const instructions = pickupConfig?.instructions || 'Apresentar documento com foto (RG/CNH) e número do pedido.';
 
         return (
             <div className="space-y-6 text-gray-800">
@@ -1175,28 +1239,13 @@ const TrackingModal = memo(({ isOpen, onClose, order }) => {
                 <div>
                     <h3 className="font-bold text-gray-900 mb-2">Instruções para Retirada</h3>
                     <div className="text-sm bg-gray-100 p-4 rounded-lg border space-y-3">
-                        <div className="flex items-start gap-2">
-                            <MapPinIcon className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                            <div>
-                                <p><strong>Endereço:</strong><br/> {address}</p>
-                                {pickupConfig?.mapsLink && (
-                                    <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 hover:underline text-xs font-bold mt-1 inline-flex items-center gap-1 bg-blue-50 px-2 py-1 rounded-md border border-blue-200">
-                                        Abrir no Google Maps &rarr;
-                                    </a>
-                                )}
-                            </div>
-                        </div>
-                        <div className="flex items-start gap-2 pt-3 border-t border-gray-200">
-                            <ClockIcon className="h-5 w-5 text-gray-500 flex-shrink-0 mt-0.5" />
-                            <p><strong>Horário:</strong><br/> {hours}</p>
-                        </div>
-                        <div className="flex items-start gap-2 pt-3 border-t border-gray-200">
-                            <ClipboardDocListIcon className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                            <div>
-                                <p><strong>No momento da retirada, é necessário:</strong></p>
-                                <p className="text-gray-600 mt-1">{instructions}</p>
-                            </div>
-                        </div>
+                        <p><strong>Endereço:</strong><br/> R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
+                        <p><strong>Horário:</strong><br/> Segunda a Sábado, das 9h às 11h30 e das 15h às 17h30 (exceto feriados).</p>
+                        <p className="font-semibold pt-2 border-t">No momento da retirada, é necessário apresentar:</p>
+                        <ul className="list-disc list-inside">
+                            <li>Documento com foto (RG ou CNH)</li>
+                            <li>O número do pedido: <span className="font-bold">#{order.id}</span></li>
+                        </ul>
                     </div>
                 </div>
             </div>
@@ -5870,8 +5919,7 @@ const CheckoutPage = ({ onNavigate }) => {
         setShippingLocation,
         shippingOptions,
         setAutoCalculatedShipping,
-        setSelectedShippingName,
-        pickupConfig // Pega do Context
+        setSelectedShippingName
     } = useShop();
     const notification = useNotification();
 
@@ -5887,6 +5935,7 @@ const CheckoutPage = ({ onNavigate }) => {
     const [whatsapp, setWhatsapp] = useState(''); 
 
     useEffect(() => {
+        // --- CORREÇÃO: Usando localStorage em vez de sessionStorage ---
         const pendingOrderId = localStorage.getItem('pendingOrderId');
         if (pendingOrderId) {
             onNavigate(`order-success/${pendingOrderId}`);
@@ -6129,6 +6178,7 @@ const CheckoutPage = ({ onNavigate }) => {
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
 
             if (paymentMethod === 'mercadopago') {
+                // --- CORREÇÃO: Usando localStorage ---
                 localStorage.setItem('pendingOrderId', orderId);
                 const { init_point } = await apiService('/create-mercadopago-payment', 'POST', { orderId });
                 if (init_point) window.location.assign(init_point);
@@ -6145,6 +6195,7 @@ const CheckoutPage = ({ onNavigate }) => {
 
     return (
         <>
+            {/* OVERLAY DE PROCESSAMENTO DE PEDIDO EM TELA CHEIA */}
             <AnimatePresence>
                 {isLoading && (
                     <motion.div
@@ -6223,35 +6274,14 @@ const CheckoutPage = ({ onNavigate }) => {
                                 </div>
                             </CheckoutSection>
 
-                            {/* SEÇÃO MODIFICADA E DINÂMICA: Retirada na loja com Maps e BD */}
                             {autoCalculatedShipping?.isPickup ? (
                                 <CheckoutSection title="Detalhes da Retirada" icon={BoxIcon}>
-                                     <div className="text-sm bg-gray-800 p-4 rounded-md space-y-3 border border-gray-700">
-                                        <div className="flex items-start gap-2">
-                                            <MapPinIcon className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
-                                            <div>
-                                                <p className="font-bold text-white">Endereço:</p>
-                                                <p className="text-gray-300">{pickupConfig?.address || 'R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB'}</p>
-                                                {pickupConfig?.mapsLink && (
-                                                    <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 hover:underline text-xs font-bold mt-1 inline-flex items-center gap-1 bg-amber-400/10 px-2 py-1 rounded border border-amber-400/30">
-                                                        Ver localização no mapa <ArrowUturnLeftIcon className="h-3 w-3 rotate-180" />
-                                                    </a>
-                                                )}
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="flex items-start gap-2 pt-3 border-t border-gray-700">
-                                            <ClockIcon className="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" />
-                                            <div>
-                                                <p className="font-bold text-white">Horário de Funcionamento:</p>
-                                                <p className="text-gray-300">{pickupConfig?.hours || 'Seg a Sáb: 09h-11h30 e 15h-17h30 (exceto feriados)'}</p>
-                                            </div>
-                                        </div>
-
-                                        <p className="text-amber-300 text-xs mt-2 font-semibold bg-amber-900/30 p-2 rounded border border-amber-800 flex items-center gap-1.5">
-                                            <ExclamationCircleIcon className="h-4 w-4" />
-                                            Aguarde a notificação "Pronto para Retirada" antes de se dirigir ao local.
-                                        </p>
+                                     <div className="text-sm bg-gray-800 p-4 rounded-md space-y-2 border border-gray-700">
+                                        <p className="font-bold">Endereço:</p>
+                                        <p>R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
+                                        <p className="font-bold mt-2">Horário:</p>
+                                        <p>Seg a Sáb: 09h-11h30 e 15h-17h30 (exceto feriados)</p>
+                                        <p className="text-amber-300 text-xs mt-2 font-semibold">Aguarde a notificação "Pronto para Retirada".</p>
                                     </div>
                                     <div className="mt-5 space-y-3">
                                         <div className="flex items-center">
@@ -6321,7 +6351,7 @@ const CheckoutPage = ({ onNavigate }) => {
                         <div className="lg:col-span-1">
                              <div className="bg-gray-900 rounded-lg border border-gray-800 p-5 lg:p-6 shadow-lg h-fit lg:sticky lg:top-24">
                                 <h2 className="text-xl font-bold mb-5 text-amber-400 border-b border-gray-700 pb-3">Resumo do Pedido</h2>
-                                <div className="space-y-2 mb-4 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                                <div className="space-y-2 mb-4 max-h-60 overflow-y-auto pr-2">
                                     {cart.map(item => (
                                         <div key={item.cartItemId} className="flex justify-between items-start text-gray-300 text-sm py-2 gap-2 border-b border-gray-800 last:border-0">
                                             <div className="flex items-start gap-3 overflow-hidden">
@@ -7029,7 +7059,7 @@ const ProductReviewForm = ({ productId, orderId, onReviewSubmitted }) => {
 
 const OrderDetailPage = ({ onNavigate, orderId }) => {
     const { user, logout } = useAuth(); 
-    const { addToCart, markOrderAsSeen, pickupConfig } = useShop(); // Chama a config global dinâmica
+    const { addToCart, markOrderAsSeen } = useShop(); 
     const notification = useNotification();
     const [order, setOrder] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -7282,7 +7312,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const refundInfo = order.refund_id ? getRefundStatusInfo(order.refund_status) : null;
     const isOrderInactive = ['Cancelado', 'Reembolsado', 'Pagamento Recusado'].includes(order.status);
 
-    // Timeline interna customizada omitida para brevidade (já está configurada corretamente)
     const LocalDeliveryTimeline = ({ history, currentStatus, onStatusClick }) => {
         const displayLabels = {
             'Pendente': 'Pedido Pendente',
@@ -7458,6 +7487,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                         </div>
                     )}
                     
+                    {/* --- ÁREA DE AVISO DE REEMBOLSO NEGADO (VISÍVEL E DESTACADA) --- */}
                     {isRefundDenied && (
                         <div className="my-6 p-5 bg-red-950/60 border border-red-600 rounded-lg animate-fade-in shadow-lg shadow-red-900/30">
                             <div className="flex items-start gap-3">
@@ -7467,10 +7497,13 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                                     <p className="text-sm text-gray-300 mb-3 leading-relaxed">
                                         Nossa equipe analisou sua solicitação e, infelizmente, ela não pôde ser aprovada no momento.
                                     </p>
+                                    
+                                    {/* Mostra o motivo vindo do banco */}
                                     <div className="bg-black/40 p-4 rounded-md text-sm text-white border border-red-500/30 mb-3">
                                         <strong className="text-red-400 block mb-1">Motivo da recusa:</strong>
                                         <span className="italic">"{refundDeniedReason}"</span>
                                     </div>
+
                                     <p className="text-xs text-gray-400">
                                         Se você acredita que houve um erro ou deseja enviar novas informações, por favor, clique em <strong>"Nova Solicitação"</strong> abaixo e forneça mais detalhes.
                                     </p>
@@ -7519,22 +7552,13 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                         </div>
                     </div>
 
-                    {/* SEÇÃO MODIFICADA E DINÂMICA: Retirada na loja com Maps e BD */}
                     {isPickupOrder ? (
                         <div className="my-4 p-3 bg-gray-800 rounded-md text-sm space-y-2">
-                            <div className="flex items-center gap-2 mb-1">
-                                <MapPinIcon className="h-5 w-5 text-amber-500" />
-                                <strong>Informações para Retirada:</strong>
-                            </div>
-                            <p><strong>Endereço:</strong> {pickupConfig?.address || 'R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB'}</p>
-                            {pickupConfig?.mapsLink && (
-                                <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 hover:underline text-xs font-bold mt-1 inline-block">
-                                    Abrir no Google Maps &rarr;
-                                </a>
-                            )}
-                            <p className="pt-2"><strong>Horário:</strong> {pickupConfig?.hours || 'Seg a Sáb, 09h-11h30 e 15h-17h30'}</p>
+                            <p><strong>Informações para Retirada:</strong></p>
+                            <p><strong>Endereço:</strong> R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB</p>
+                            <p><strong>Horário:</strong> Seg a Sáb, 09h-11h30 e 15h-17h30</p>
                             {pickupDetails?.personName && <p><strong>Pessoa autorizada:</strong> {pickupDetails.personName}</p>}
-                            <p className="text-amber-300 text-xs mt-2 font-semibold bg-amber-900/20 p-2 rounded">Aguarde a notificação "Pronto para Retirada" e apresente documento com foto.</p>
+                            <p className="text-amber-300 text-xs mt-2 font-semibold">Apresente um documento com foto e o número do pedido no momento da retirada.</p>
                         </div>
                     ) : (
                         <div className="my-4 p-3 bg-gray-800 rounded-md text-sm space-y-2">
@@ -7549,6 +7573,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                                 </div>
                             ) : <p>Endereço não informado.</p>}
                             
+                            {/* Lógica de Rastreamento (Uber vs Correios) - OCULTA se cancelado/reembolsado */}
                             {order.tracking_code && !isOrderInactive && (
                                 <div className="mt-4 pt-3 border-t border-gray-700">
                                     {isLocalDelivery ? (
@@ -7616,6 +7641,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
 
                     <div className="pt-4 mt-4 border-t border-gray-800 space-y-4 sm:space-y-0 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-2">
                         <div className="flex flex-wrap items-center gap-2">
+                            {/* CORREÇÃO APLICADA AQUI: Botão alterado para usar as cores temáticas e dar destaque */}
                             <button onClick={() => handleRepeatOrder(order.items)} className="bg-amber-500 text-black text-sm font-bold px-4 py-1.5 rounded-md hover:bg-amber-400 shadow-sm transition-colors">Repetir Pedido</button>
                             {isPickupOrder ? (
                                 <button onClick={() => setIsTrackingModalOpen(true)} className="bg-gray-800 text-white text-sm font-bold px-4 py-1.5 rounded-md hover:bg-gray-700 transition-colors">Ver Status da Retirada</button>
@@ -9208,56 +9234,33 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     );
 });
 const AdminShippingSettings = () => {
-    const [activeTab, setActiveTab] = useState('pickup'); // Abas: 'pickup' ou 'motoboy'
-    
-    // Estados do Motoboy
     const [config, setConfig] = useState({ base_price: 20, rules: [] });
     const [productsData, setProductsData] = useState({ brands: [], categories: [] });
-    const [newRule, setNewRule] = useState({ type: 'category', value: '', action: 'free_shipping', amount: 0 });
-
-    // Estados da Retirada na Loja
-    const [pickupConfig, setPickupConfig] = useState({ 
-        address: '', hours: '', instructions: '', mapsLink: '' 
-    });
-
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const notification = useNotification();
-    const confirmation = useConfirmation();
+    const confirmation = useConfirmation(); // Usaremos o hook de confirmação existente
 
-    // Estados para o Modal de Autenticação Local
-    const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-    const [authInput, setAuthInput] = useState('');
-    const [isAuthVerify, setIsAuthVerify] = useState(false);
+    // Estado para nova regra
+    const [newRule, setNewRule] = useState({ type: 'category', value: '', action: 'free_shipping', amount: 0 });
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // Busca todas as configurações de uma vez
-                const [configData, pickupData, products, collections] = await Promise.all([
-                    apiService('/settings/shipping-local'),
-                    apiService('/settings/pickup'),
-                    apiService('/products/all'),
-                    apiService('/collections/admin')
-                ]);
-
-                // Seta Motoboy
+                // Busca configuração atual
+                const configData = await apiService('/settings/shipping-local');
+                // Garante que base_price seja número e rules um array
                 setConfig({
                     base_price: parseFloat(configData.base_price) || 20,
                     rules: Array.isArray(configData.rules) ? configData.rules : []
                 });
 
-                // Seta Pickup (Retirada)
-                if (pickupData) {
-                    setPickupConfig({
-                        address: pickupData.address || '',
-                        hours: pickupData.hours || '',
-                        instructions: pickupData.instructions || '',
-                        mapsLink: pickupData.mapsLink || ''
-                    });
-                }
+                // Busca dados para os selects (Marcas e Categorias)
+                const [products, collections] = await Promise.all([
+                    apiService('/products/all'),
+                    apiService('/collections/admin')
+                ]);
 
-                // Seta dados para os selects (Marcas e Categorias)
                 const uniqueBrands = [...new Set(products.map(p => p.brand).filter(Boolean))].sort();
                 const uniqueCats = [...new Set([...products.map(p => p.category), ...collections.map(c => c.filter)].filter(Boolean))].sort();
 
@@ -9271,27 +9274,59 @@ const AdminShippingSettings = () => {
         fetchData();
     }, []);
 
-    // --- Lógica Motoboy ---
     const handleAddRule = () => {
-        if (!newRule.value) { notification.show("Selecione um valor para a regra.", "error"); return; }
-        setConfig(prev => ({ ...prev, rules: [...prev.rules, { ...newRule, id: Date.now(), amount: parseFloat(newRule.amount) || 0 }] }));
+        if (!newRule.value) {
+            notification.show("Selecione um valor para a regra.", "error");
+            return;
+        }
+        setConfig(prev => ({
+            ...prev,
+            rules: [...prev.rules, { ...newRule, id: Date.now(), amount: parseFloat(newRule.amount) || 0 }]
+        }));
         setNewRule({ type: 'category', value: '', action: 'free_shipping', amount: 0 });
     };
 
     const handleRemoveRule = (id) => {
-        setConfig(prev => ({ ...prev, rules: prev.rules.filter(r => r.id !== id) }));
+        setConfig(prev => ({
+            ...prev,
+            rules: prev.rules.filter(r => r.id !== id)
+        }));
     };
 
-    // --- Lógica Pickup (Retirada) ---
-    const handlePickupChange = (e) => {
-        const { name, value } = e.target;
-        setPickupConfig(prev => ({ ...prev, [name]: value }));
-    };
+    const handleSave = async () => {
+        // Usa o hook de confirmação que já lida com senha/2FA
+        confirmation.show(
+            "Esta é uma alteração crítica nas regras de frete. Por favor, confirme sua identidade para salvar.",
+            async () => {
+                setIsSaving(true);
+                try {
+                    // O confirmation.show já cuidou da verificação prévia (/auth/verify-action),
+                    // mas o endpoint específico de settings TAMBÉM pode exigir a senha no corpo se foi configurado assim.
+                    // No entanto, se o endpoint de settings pede senha no body, precisamos coletá-la.
+                    // O hook `useConfirmation` padrão geralmente apenas verifica a sessão/token.
+                    // SE o backend exige a senha NO CORPO da requisição de settings, precisamos de uma abordagem diferente.
+                    // Assumindo que o backend exige senha/token NO BODY da requisição PUT:
 
-    // --- Salvamento Geral (Abre modal de senha) ---
-    const handleSave = () => {
+                    // Como o hook `useConfirmation` do projeto atual é genérico e não retorna o valor digitado (apenas chama o callback),
+                    // precisaremos reimplementar um modal simples AQUI ou ajustar a lógica.
+                    // Pela estrutura atual do backend que você enviou, ele espera `password` ou `token` no body.
+                    
+                    // VAMOS SIMPLIFICAR: Como não tenho acesso fácil ao valor digitado no `useConfirmation` padrão sem alterá-lo,
+                    // Vou criar um estado local para um modal de confirmação específico deste componente.
+                } catch (err) {
+                   // ...
+                }
+            },
+            { requiresAuth: false } // Desativamos a auth do hook padrão para usar o nosso modal específico abaixo
+        );
+        // Ajeitando para usar a lógica correta abaixo com modal local
         setIsAuthModalOpen(true);
     };
+    
+    // Estados para o Modal de Autenticação Local
+    const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+    const [authInput, setAuthInput] = useState('');
+    const [isAuthVerify, setIsAuthVerify] = useState(false);
 
     const confirmSaveWithAuth = async (e) => {
         e.preventDefault();
@@ -9299,25 +9334,25 @@ const AdminShippingSettings = () => {
         setIsSaving(true);
         
         try {
-            if (activeTab === 'motoboy') {
-                const payload = {
-                    base_price: parseFloat(config.base_price),
-                    rules: config.rules.map(r => ({ ...r, amount: parseFloat(r.amount) || 0 })),
-                    password: authInput, 
-                    token: authInput.length === 6 && !isNaN(authInput) ? authInput : null 
-                };
-                await apiService('/settings/shipping-local', 'PUT', payload);
-                notification.show("Configurações de frete salvas com sucesso!");
-            } else {
-                const payload = {
-                    config: pickupConfig,
-                    password: authInput, 
-                    token: authInput.length === 6 && !isNaN(authInput) ? authInput : null 
-                };
-                await apiService('/settings/pickup', 'PUT', payload);
-                notification.show("Configurações de retirada salvas com sucesso!");
-            }
+            // Garante envio de números corretos
+            const payload = {
+                base_price: parseFloat(config.base_price),
+                rules: config.rules.map(r => ({
+                    ...r,
+                    amount: parseFloat(r.amount) || 0
+                })),
+                // Envia a senha ou token dependendo do que for (aqui assumimos senha por padrão, 
+                // mas se for 2FA o backend tenta validar como token também se falhar a senha, ou podemos enviar ambos)
+                // O backend espera `password` OU `token`. Vamos enviar como `password` se for longo, ou tentar inferir.
+                // Mas para ser seguro e compatível com o backend que espera campos distintos:
+                password: authInput, 
+                token: authInput.length === 6 && !isNaN(authInput) ? authInput : null 
+                // Nota: Se a senha for de 6 números, pode dar conflito, mas geralmente senha é mais complexa.
+                // O ideal é ter campos separados ou um input inteligente. Vamos mandar nos dois e o backend decide a prioridade.
+            };
             
+            await apiService('/settings/shipping-local', 'PUT', payload);
+            notification.show("Configurações de frete salvas com sucesso!");
             setIsAuthModalOpen(false);
             setAuthInput('');
         } catch (err) {
@@ -9367,221 +9402,128 @@ const AdminShippingSettings = () => {
             </AnimatePresence>
 
             <div>
-                <h1 className="text-3xl font-bold text-slate-800">Métodos de Entrega e Retirada</h1>
-                <p className="text-slate-500">Configure as opções locais oferecidas aos clientes.</p>
+                <h1 className="text-3xl font-bold text-slate-800">Configuração de Entrega Local</h1>
+                <p className="text-slate-500">Defina os preços para entregas via Motoboy (João Pessoa).</p>
             </div>
 
-            {/* ABAS DE NAVEGAÇÃO */}
-            <div className="flex border-b border-gray-200 bg-white rounded-t-lg shadow-sm">
-                <button 
-                    onClick={() => setActiveTab('pickup')} 
-                    className={`flex-1 px-6 py-4 font-bold text-sm transition-all border-b-2 flex justify-center items-center gap-2 ${activeTab === 'pickup' ? 'border-indigo-600 text-indigo-700 bg-indigo-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
-                >
-                    <BoxIcon className="h-5 w-5"/> Retirada na Loja
-                </button>
-                <button 
-                    onClick={() => setActiveTab('motoboy')} 
-                    className={`flex-1 px-6 py-4 font-bold text-sm transition-all border-b-2 flex justify-center items-center gap-2 ${activeTab === 'motoboy' ? 'border-indigo-600 text-indigo-700 bg-indigo-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
-                >
-                    <TruckIcon className="h-5 w-5"/> Frete Local (Motoboy)
-                </button>
+            {/* Configuração Base */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <TruckIcon className="h-5 w-5 text-indigo-600"/> Preço Base
+                </h3>
+                <div className="flex items-center gap-4">
+                    <div className="flex-1 max-w-xs">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Valor Padrão (R$)</label>
+                        <input 
+                            type="number" 
+                            step="0.01" 
+                            value={config.base_price} 
+                            onChange={(e) => setConfig({...config, base_price: e.target.value})}
+                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                    </div>
+                    <div className="flex-1 text-sm text-gray-500 pt-6">
+                        Este valor será cobrado se nenhuma regra específica for aplicada.
+                    </div>
+                </div>
             </div>
 
-            <motion.div
-                key={activeTab}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-            >
-                {/* --- CONTEÚDO: RETIRADA NA LOJA --- */}
-                {activeTab === 'pickup' && (
-                    <div className="space-y-6">
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                            <h3 className="text-lg font-bold text-slate-800 mb-1 flex items-center gap-2">
-                                <MapPinIcon className="h-5 w-5 text-indigo-600"/> Endereço Principal
-                            </h3>
-                            <p className="text-xs text-gray-500 mb-4">Este é o local onde o cliente buscará o pedido.</p>
-                            
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Endereço Completo</label>
-                                    <textarea 
-                                        name="address"
-                                        value={pickupConfig.address}
-                                        onChange={handlePickupChange}
-                                        rows="2"
-                                        placeholder="R. Nome da Rua, 123 - Bairro, Cidade - Estado"
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 text-sm"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Link do Google Maps (Opcional, mas recomendado)</label>
-                                    <input 
-                                        type="url" 
-                                        name="mapsLink"
-                                        value={pickupConfig.mapsLink}
-                                        onChange={handlePickupChange}
-                                        placeholder="https://maps.app.goo.gl/..."
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 text-sm"
-                                    />
-                                </div>
-                            </div>
-                        </div>
+            {/* Regras Avançadas */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <TagIcon className="h-5 w-5 text-indigo-600"/> Regras Específicas
+                </h3>
+                
+                {/* Formulário de Nova Regra */}
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                    <div className="md:col-span-2">
+                        <label className="text-xs font-bold text-gray-500 uppercase">Se</label>
+                        <select 
+                            value={newRule.type} 
+                            onChange={(e) => setNewRule({...newRule, type: e.target.value, value: ''})}
+                            className="w-full p-2 text-sm border rounded-md"
+                        >
+                            <option value="category">Categoria</option>
+                            <option value="brand">Marca</option>
+                        </select>
+                    </div>
+                    <div className="md:col-span-3">
+                        <label className="text-xs font-bold text-gray-500 uppercase">For Igual A</label>
+                        <select 
+                            value={newRule.value} 
+                            onChange={(e) => setNewRule({...newRule, value: e.target.value})}
+                            className="w-full p-2 text-sm border rounded-md"
+                        >
+                            <option value="">Selecione...</option>
+                            {newRule.type === 'category' 
+                                ? productsData.categories.map(c => <option key={c} value={c}>{c}</option>)
+                                : productsData.brands.map(b => <option key={b} value={b}>{b}</option>)
+                            }
+                        </select>
+                    </div>
+                    <div className="md:col-span-3">
+                        <label className="text-xs font-bold text-gray-500 uppercase">Aplicar</label>
+                        <select 
+                            value={newRule.action} 
+                            onChange={(e) => setNewRule({...newRule, action: e.target.value})}
+                            className="w-full p-2 text-sm border rounded-md"
+                        >
+                            <option value="free_shipping">Frete Grátis</option>
+                            <option value="surcharge">Acréscimo (+R$)</option>
+                            <option value="discount">Desconto (-R$)</option>
+                        </select>
+                    </div>
+                    <div className="md:col-span-2">
+                        <label className="text-xs font-bold text-gray-500 uppercase">Valor</label>
+                        <input 
+                            type="number" 
+                            disabled={newRule.action === 'free_shipping'}
+                            value={newRule.amount}
+                            onChange={(e) => setNewRule({...newRule, amount: e.target.value})}
+                            className={`w-full p-2 text-sm border rounded-md ${newRule.action === 'free_shipping' ? 'bg-gray-200 cursor-not-allowed' : 'bg-white'}`}
+                            placeholder="0.00"
+                        />
+                    </div>
+                    <div className="md:col-span-2">
+                        <button 
+                            onClick={handleAddRule}
+                            className="w-full bg-indigo-600 text-white p-2 rounded-md font-bold text-sm hover:bg-indigo-700 transition-colors"
+                        >
+                            + Adicionar
+                        </button>
+                    </div>
+                </div>
 
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                            <h3 className="text-lg font-bold text-slate-800 mb-1 flex items-center gap-2">
-                                <ClockIcon className="h-5 w-5 text-indigo-600"/> Detalhes do Funcionamento
-                            </h3>
-                            <p className="text-xs text-gray-500 mb-4">Informações importantes exibidas no Checkout e Rastreador.</p>
-                            
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Horário de Atendimento</label>
-                                    <textarea 
-                                        name="hours"
-                                        value={pickupConfig.hours}
-                                        onChange={handlePickupChange}
-                                        rows="2"
-                                        placeholder="Segunda a Sábado, das 9h às 18h."
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 text-sm"
-                                    />
+                {/* Lista de Regras */}
+                {config.rules.length === 0 ? (
+                    <p className="text-center text-gray-400 py-4 text-sm">Nenhuma regra configurada.</p>
+                ) : (
+                    <div className="space-y-2">
+                        {config.rules.map((rule, index) => (
+                            <div key={rule.id || index} className="flex items-center justify-between p-3 bg-white border rounded-md shadow-sm">
+                                <div className="flex items-center gap-2 text-sm">
+                                    <span className="font-bold bg-gray-100 px-2 py-1 rounded text-gray-600 capitalize">{rule.type === 'category' ? 'Categoria' : 'Marca'}</span>
+                                    <span className="text-gray-400">é</span>
+                                    <span className="font-bold text-indigo-700">{rule.value}</span>
+                                    <span className="text-gray-400">→</span>
+                                    {rule.action === 'free_shipping' && <span className="text-green-600 font-bold bg-green-50 px-2 py-1 rounded border border-green-200">Frete Grátis</span>}
+                                    {rule.action === 'surcharge' && <span className="text-red-600 font-bold">Acréscimo de R$ {Number(rule.amount).toFixed(2)}</span>}
+                                    {rule.action === 'discount' && <span className="text-blue-600 font-bold">Desconto de R$ {Number(rule.amount).toFixed(2)}</span>}
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Instruções / O que levar</label>
-                                    <textarea 
-                                        name="instructions"
-                                        value={pickupConfig.instructions}
-                                        onChange={handlePickupChange}
-                                        rows="2"
-                                        placeholder="Apresentar documento com foto e número do pedido."
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 text-sm"
-                                    />
-                                </div>
+                                <button onClick={() => handleRemoveRule(rule.id)} className="text-red-400 hover:text-red-600 p-1">
+                                    <TrashIcon className="h-4 w-4"/>
+                                </button>
                             </div>
-                        </div>
+                        ))}
                     </div>
                 )}
-
-                {/* --- CONTEÚDO: FRETE LOCAL --- */}
-                {activeTab === 'motoboy' && (
-                    <div className="space-y-6">
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                <TruckIcon className="h-5 w-5 text-indigo-600"/> Preço Base
-                            </h3>
-                            <div className="flex items-center gap-4">
-                                <div className="flex-1 max-w-xs">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Valor Padrão (R$)</label>
-                                    <input 
-                                        type="number" 
-                                        step="0.01" 
-                                        value={config.base_price} 
-                                        onChange={(e) => setConfig({...config, base_price: e.target.value})}
-                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                                    />
-                                </div>
-                                <div className="flex-1 text-sm text-gray-500 pt-6">
-                                    Este valor será cobrado se nenhuma regra específica for aplicada.
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                <TagIcon className="h-5 w-5 text-indigo-600"/> Regras Específicas
-                            </h3>
-                            
-                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                                <div className="md:col-span-2">
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Se</label>
-                                    <select 
-                                        value={newRule.type} 
-                                        onChange={(e) => setNewRule({...newRule, type: e.target.value, value: ''})}
-                                        className="w-full p-2 text-sm border rounded-md"
-                                    >
-                                        <option value="category">Categoria</option>
-                                        <option value="brand">Marca</option>
-                                    </select>
-                                </div>
-                                <div className="md:col-span-3">
-                                    <label className="text-xs font-bold text-gray-500 uppercase">For Igual A</label>
-                                    <select 
-                                        value={newRule.value} 
-                                        onChange={(e) => setNewRule({...newRule, value: e.target.value})}
-                                        className="w-full p-2 text-sm border rounded-md"
-                                    >
-                                        <option value="">Selecione...</option>
-                                        {newRule.type === 'category' 
-                                            ? productsData.categories.map(c => <option key={c} value={c}>{c}</option>)
-                                            : productsData.brands.map(b => <option key={b} value={b}>{b}</option>)
-                                        }
-                                    </select>
-                                </div>
-                                <div className="md:col-span-3">
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Aplicar</label>
-                                    <select 
-                                        value={newRule.action} 
-                                        onChange={(e) => setNewRule({...newRule, action: e.target.value})}
-                                        className="w-full p-2 text-sm border rounded-md"
-                                    >
-                                        <option value="free_shipping">Frete Grátis</option>
-                                        <option value="surcharge">Acréscimo (+R$)</option>
-                                        <option value="discount">Desconto (-R$)</option>
-                                    </select>
-                                </div>
-                                <div className="md:col-span-2">
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Valor</label>
-                                    <input 
-                                        type="number" 
-                                        disabled={newRule.action === 'free_shipping'}
-                                        value={newRule.amount}
-                                        onChange={(e) => setNewRule({...newRule, amount: e.target.value})}
-                                        className={`w-full p-2 text-sm border rounded-md ${newRule.action === 'free_shipping' ? 'bg-gray-200 cursor-not-allowed' : 'bg-white'}`}
-                                        placeholder="0.00"
-                                    />
-                                </div>
-                                <div className="md:col-span-2">
-                                    <button 
-                                        onClick={handleAddRule}
-                                        className="w-full bg-indigo-600 text-white p-2 rounded-md font-bold text-sm hover:bg-indigo-700 transition-colors"
-                                    >
-                                        + Adicionar
-                                    </button>
-                                </div>
-                            </div>
-
-                            {config.rules.length === 0 ? (
-                                <p className="text-center text-gray-400 py-4 text-sm">Nenhuma regra configurada.</p>
-                            ) : (
-                                <div className="space-y-2">
-                                    {config.rules.map((rule, index) => (
-                                        <div key={rule.id || index} className="flex items-center justify-between p-3 bg-white border rounded-md shadow-sm">
-                                            <div className="flex items-center gap-2 text-sm">
-                                                <span className="font-bold bg-gray-100 px-2 py-1 rounded text-gray-600 capitalize">{rule.type === 'category' ? 'Categoria' : 'Marca'}</span>
-                                                <span className="text-gray-400">é</span>
-                                                <span className="font-bold text-indigo-700">{rule.value}</span>
-                                                <span className="text-gray-400">→</span>
-                                                {rule.action === 'free_shipping' && <span className="text-green-600 font-bold bg-green-50 px-2 py-1 rounded border border-green-200">Frete Grátis</span>}
-                                                {rule.action === 'surcharge' && <span className="text-red-600 font-bold">Acréscimo de R$ {Number(rule.amount).toFixed(2)}</span>}
-                                                {rule.action === 'discount' && <span className="text-blue-600 font-bold">Desconto de R$ {Number(rule.amount).toFixed(2)}</span>}
-                                            </div>
-                                            <button onClick={() => handleRemoveRule(rule.id)} className="text-red-400 hover:text-red-600 p-1">
-                                                <TrashIcon className="h-4 w-4"/>
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-            </motion.div>
+            </div>
 
             <div className="flex justify-end pt-4">
                 <button 
-                    onClick={handleSave} 
+                    onClick={() => setIsAuthModalOpen(true)} 
                     disabled={isSaving}
-                    className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-green-700 shadow-md flex items-center gap-2 disabled:opacity-70 active:scale-95 transition-all"
+                    className="bg-green-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-green-700 shadow-md flex items-center gap-2 disabled:opacity-70"
                 >
                     {isSaving ? <SpinnerIcon className="h-5 w-5"/> : <CheckIcon className="h-5 w-5"/>}
                     Salvar Alterações
@@ -12395,7 +12337,6 @@ const AdminRefunds = ({ onNavigate }) => {
 };
 
 const AdminOrders = ({ appName }) => {
-    const { pickupConfig } = useShop(); // Trazendo a configuração dinâmica do banco
     const [orders, setOrders] = useState([]);
     const [filteredOrders, setFilteredOrders] = useState([]);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -12518,7 +12459,7 @@ const AdminOrders = ({ appName }) => {
         );
     };
 
-    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS (ATUALIZADA) ---
+    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS ---
     const generateWhatsAppStatusMessage = (status, order, trackingCode) => {
         const customerName = order.user_name;
         const orderId = order.id;
@@ -12526,7 +12467,9 @@ const AdminOrders = ({ appName }) => {
         const isPickup = order.shipping_method === 'Retirar na loja';
         const isLocalDelivery = order.shipping_method && (order.shipping_method.toLowerCase().includes('motoboy') || order.shipping_method.toLowerCase().includes('entrega local'));
         
+        // Link principal para detalhes (acompanhamento)
         const orderLink = `${window.location.origin}/#account/orders/${orderId}`;
+        // Link específico para pagamento direto (Página de Sucesso/Checkout)
         const paymentLink = `${window.location.origin}/#order-success/${orderId}`;
 
         const EMOJI = {
@@ -12551,17 +12494,25 @@ const AdminOrders = ({ appName }) => {
 
         let text = `Olá, *${firstName}*.\n\n`;
 
+        // --- LÓGICA ESPECIAL PARA COBRANÇA (PENDENTE) ---
         if (status === 'Pendente') {
              text += `🔔 *Lembrete de Pagamento: Pedido #${orderId}*\n\n`;
              text += `Recebemos seu pedido, mas ainda não identificamos a confirmação do pagamento.\n\n`;
+             
              text += `${EMOJI.PAY} *Para realizar o pagamento, acesse:* \n${paymentLink}\n\n`;
+             
              text += `⚠️ *Caso já tenha efetuado o pagamento:* \nPor favor, desconsidere esta mensagem. O sistema pode levar alguns instantes para processar.\n\n`;
+             
              text += `${EMOJI.DOC} *Acompanhe o status do pedido aqui:* \n${orderLink}\n\n`;
+             
              text += `${EMOJI.CHECK} Assim que confirmado, você será notificado automaticamente por aqui e por e-mail.\n`;
+             
+             // Encerra a mensagem aqui para focar na ação de pagamento, usando o NOME DINÂMICO
              text += `\nAtenciosamente,\n*Equipe ${appName || 'da Loja'}*\n${EMOJI.PHONE} (83) 98737-9573`;
              return text;
         }
 
+        // --- LÓGICA PADRÃO PARA OUTROS STATUS ---
         text += `O status do seu pedido *#${orderId}* foi atualizado:\n\n`;
 
         switch (status) {
@@ -12613,19 +12564,13 @@ const AdminOrders = ({ appName }) => {
                 text += `${EMOJI.NEW} *Novo Status:* ${status}`;
         }
 
+        // Se cancelado, recusado ou reembolsado, NÃO mostra endereço
         if (status !== 'Cancelado' && status !== 'Reembolsado' && status !== 'Pagamento Recusado') {
              text += `\n\n--------------------------------\n`;
              if (isPickup) {
-                // INJEÇÃO DA CONFIGURAÇÃO DINÂMICA
-                const pAddr = pickupConfig?.address || 'R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB';
-                const pHours = pickupConfig?.hours || 'Seg a Sáb, 09h-11h30 e 15h-17h30';
-                const pInst = pickupConfig?.instructions || 'Documento com foto e número do pedido.';
-                const pMaps = pickupConfig?.mapsLink || '';
-
-                text += `${EMOJI.PIN} *Local de Retirada:*\n${pAddr}\n`;
-                if (pMaps) text += `\n${EMOJI.LINK} *Mapa:* ${pMaps}\n`;
-                text += `\n${EMOJI.CLOCK} *Horário:* ${pHours}\n`;
-                text += `\n${EMOJI.DOC} *Necessário:* ${pInst}`;
+                text += `${EMOJI.PIN} *Local de Retirada:*\nR. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB\n\n`;
+                text += `${EMOJI.CLOCK} *Horário:* Seg a Sáb, 09h-11h30 e 15h-17h30\n`;
+                text += `${EMOJI.DOC} *Necessário:* Documento com foto e número do pedido.`;
             } else {
                 try {
                     const addr = JSON.parse(order.shipping_address);
@@ -12931,6 +12876,7 @@ const AdminOrders = ({ appName }) => {
             </AnimatePresence>
             <AnimatePresence>
                 {editingOrder && (() => {
+                    // --- VARIÁVEIS DE ESTADO ---
                     const isLocalDelivery = editingOrder.shipping_method && (editingOrder.shipping_method.toLowerCase().includes('motoboy') || editingOrder.shipping_method.toLowerCase().includes('entrega local'));
                     const isPickup = editingOrder.shipping_method === 'Retirar na loja';
 
@@ -12989,6 +12935,7 @@ const AdminOrders = ({ appName }) => {
                                                                     try { variation = JSON.parse(variation); } catch(e) {}
                                                                 }
                                                                 
+                                                                // Lógica de Badge baseada na presença de variação
                                                                 const isClothing = !!variation;
                                                                 const itemTypeLabel = isClothing ? 'ROUPA' : 'PERFUME';
                                                                 const itemTypeClass = isClothing ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-purple-100 text-purple-700 border-purple-200';
@@ -13077,6 +13024,7 @@ const AdminOrders = ({ appName }) => {
                                                         {maskPhone(editingOrder.user_phone || '')}
                                                     </a>
                                                 </div>
+                                                {/* BOTÃO ADICIONADO: CONVERSAR NO WHATSAPP */}
                                                 {editingOrder.user_phone && (
                                                     <a 
                                                         href={`https://api.whatsapp.com/send?phone=55${editingOrder.user_phone.replace(/\D/g, '')}`}
@@ -13092,24 +13040,19 @@ const AdminOrders = ({ appName }) => {
                                         </DetailCard>
 
                                         <DetailCard title="Entrega" icon={MapPinIcon}>
+                                            {/* --- EXIBIÇÃO EXPLÍCITA DO MÉTODO --- */}
                                             <div className="mb-3 pb-2 border-b border-gray-100">
                                                 <span className="text-xs text-gray-500 block">Método Escolhido</span>
                                                 <p className="font-bold text-indigo-700 text-sm">{editingOrder.shipping_method || 'Não informado'}</p>
                                             </div>
 
                                             {isPickup ? (
-                                                <div className="bg-amber-50 border border-amber-200 rounded p-3 text-xs text-amber-800 space-y-1.5">
-                                                    <p><strong>Retirada na Loja</strong></p>
-                                                    {/* Usando os dados dinâmicos da Configuração aqui também */}
-                                                    <p>{pickupConfig?.address || 'Endereço não configurado'}</p>
-                                                    {pickupConfig?.mapsLink && (
-                                                        <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline font-bold mt-1 inline-block">Ver no Mapa &rarr;</a>
-                                                    )}
-                                                    
+                                                <div className="bg-amber-50 border border-amber-200 rounded p-2 text-xs text-amber-800">
+                                                    <strong>Retirada na Loja</strong>
                                                     {editingOrder.pickup_details && (() => {
                                                         try {
                                                             const p = JSON.parse(editingOrder.pickup_details);
-                                                            return <div className="mt-2 pt-2 border-t border-amber-200"><p className="font-semibold text-amber-900">Retirado por:</p><p>{p.personName} (CPF: {p.personCpf})</p></div>
+                                                            return <p className="mt-1">Retirado por: {p.personName} (CPF: {p.personCpf})</p>
                                                         } catch { return null; }
                                                     })()}
                                                 </div>
