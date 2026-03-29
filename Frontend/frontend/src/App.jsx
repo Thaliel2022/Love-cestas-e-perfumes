@@ -7712,7 +7712,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
         const lowerStatus = status.toLowerCase();
         if (lowerStatus.includes('entregue')) return 'bg-[#86efac] text-green-900'; 
         if (lowerStatus.includes('cancelado') || lowerStatus.includes('recusado')) return 'bg-red-200 text-red-800';
-        if (lowerStatus.includes('pendente')) return 'bg-[#fde047] text-yellow-900'; // Cor exata da imagem
+        if (lowerStatus.includes('pendente')) return 'bg-[#fde047] text-yellow-900'; // Cor fiel à imagem
         return 'bg-blue-200 text-blue-800';
     };
 
@@ -7780,9 +7780,9 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                     </div>
                                 )}
 
-                                {/* SEÇÃO DO PRODUTO COM A LINHA DIVISÓRIA RESTAURADA (border-b pb-4 mb-4) */}
+                                {/* SEÇÃO DO PRODUTO: COM A LINHA DIVISÓRIA RESTAURADA E VISÍVEL (border-gray-600) */}
                                 {firstItem && (
-                                    <div className="flex items-center gap-4 border-b border-gray-700 pb-4 mb-4">
+                                    <div className="flex items-center gap-4 border-b border-gray-600 pb-4 mb-4">
                                         <div onClick={() => onNavigate(`product/${firstItem.product_id}`)} className="cursor-pointer flex-shrink-0">
                                             <img src={getFirstImage(firstItem.images)} alt={firstItem.name} className="w-14 h-14 object-contain bg-white rounded p-1"/>
                                         </div>
@@ -7795,9 +7795,9 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                     </div>
                                 )}
                                 
-                                {/* SEÇÃO DO RESUMO DO PEDIDO (Removido o border-t duplo daqui) */}
-                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 text-left w-full sm:w-auto">
+                                {/* SEÇÃO DO RESUMO DO PEDIDO: GRID ALINHADO RESTAURADO */}
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 text-left">
                                         <div className="flex flex-col">
                                             <span className="text-[11px] text-gray-400 mb-1">Pedido</span>
                                             <span className="font-bold text-white text-sm">#{order.id}</span>
@@ -7818,7 +7818,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                         </div>
                                     </div>
 
-                                    {/* BOTÕES À DIREITA */}
+                                    {/* BOTÕES ALINHADOS À DIREITA RESTAURADOS */}
                                     <div className="flex-shrink-0 w-full sm:w-auto flex flex-col items-stretch gap-2 mt-2 sm:mt-0">
                                         <button 
                                             onClick={() => onNavigate(`account/orders/${order.id}`)} 
