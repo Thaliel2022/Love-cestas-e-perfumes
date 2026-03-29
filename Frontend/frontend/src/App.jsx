@@ -15822,12 +15822,26 @@ function AppContent({ deferredPrompt }) {
       return null;
   }, []);
 
-  const [appThemeConfig, setAppThemeConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false });
+  // --- ATUALIZAÇÃO: Busca inicial otimizada com localStorage para evitar o Flash na tela de loading ---
+  const [appThemeConfig, setAppThemeConfig] = useState(() => {
+      try {
+          const cached = localStorage.getItem('lovecestas_theme_config');
+          if (cached) return JSON.parse(cached);
+      } catch(e) {}
+      return { colors: defaultThemeFallback, autoSeasonal: false };
+  });
+
   const [appLogo, setAppLogo] = useState(() => {
       return localStorage.getItem('lovecestas_app_logo') || 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
   });
   
-  const [appNameConfig, setAppNameConfig] = useState({ short_name: 'Love Cestas', name: 'Love Cestas e Perfumes', logo_text: 'LovecestasePerfumes' });
+  const [appNameConfig, setAppNameConfig] = useState(() => {
+      try {
+          const cached = localStorage.getItem('lovecestas_app_name');
+          if (cached) return JSON.parse(cached);
+      } catch(e) {}
+      return { short_name: 'Love Cestas', name: 'Love Cestas e Perfumes', logo_text: 'LovecestasePerfumes' };
+  });
 
   const activeThemeColors = useMemo(() => {
       if (appThemeConfig.autoSeasonal) {
@@ -15837,8 +15851,8 @@ function AppContent({ deferredPrompt }) {
       return appThemeConfig.colors || defaultThemeFallback;
   }, [appThemeConfig, getSeasonalTheme]);
 
-  // --- MÁGICA DOS TEMAS: Injeção Dinâmica de CSS Variables Global (CORRIGIDA) ---
-  useEffect(() => {
+  // --- MÁGICA DOS TEMAS: Injeção Dinâmica de CSS Variables (useLayoutEffect impede que a cor antiga pisque) ---
+  React.useLayoutEffect(() => {
       const t = activeThemeColors;
       const isAdmin = currentPath.startsWith('admin');
       
@@ -15856,8 +15870,6 @@ function AppContent({ deferredPrompt }) {
           return;
       }
 
-      // CORREÇÃO: As classes hardcoded do Tailwind como bg-black e text-white agora são sobrescritas 
-      // usando as variáveis CSS dinâmicas para aplicar o tema em toda a UI do cliente.
       styleElement.innerHTML = `
           :root {
               --theme-primary: ${t.primary};
@@ -15923,11 +15935,15 @@ function AppContent({ deferredPrompt }) {
       const handleNameUpdate = (event) => {
           if (event.detail) {
               setAppNameConfig(event.detail);
+              localStorage.setItem('lovecestas_app_name', JSON.stringify(event.detail));
           }
       };
 
       const handleThemeUpdate = (event) => {
-          if (event.detail) setAppThemeConfig(event.detail);
+          if (event.detail) {
+              setAppThemeConfig(event.detail);
+              localStorage.setItem('lovecestas_theme_config', JSON.stringify(event.detail));
+          }
       };
 
       window.addEventListener('app-name-updated', handleNameUpdate);
@@ -15946,11 +15962,12 @@ function AppContent({ deferredPrompt }) {
                   const isAuto = data.autoSeasonal === true || data.autoSeasonal === 'true' || data.autoSeasonal === 1;
                   const loadedConfig = data.colors ? { ...data, autoSeasonal: isAuto } : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto };
                   setAppThemeConfig(loadedConfig); 
+                  localStorage.setItem('lovecestas_theme_config', JSON.stringify(loadedConfig));
               }
           })
           .catch(err => {
               console.log("Usando tema local estático fallback.");
-              setAppThemeConfig({ colors: defaultThemeFallback, autoSeasonal: false });
+              // Em caso de erro, continua usando o que já estava em memória
           });
 
       apiService(`/settings/app-icons?v=${new Date().getTime()}`)
@@ -15971,6 +15988,7 @@ function AppContent({ deferredPrompt }) {
           .then(data => {
               if (data && data.name) {
                   setAppNameConfig(data);
+                  localStorage.setItem('lovecestas_app_name', JSON.stringify(data));
               }
           })
           .catch(err => console.log("Nome mantido como original."));
@@ -16089,7 +16107,8 @@ function AppContent({ deferredPrompt }) {
             </motion.div>
             <div className="flex flex-col items-center gap-3">
                 <SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin"/>
-                <p className="text-amber-400/80 font-bold tracking-[0.2em] text-xs uppercase animate-pulse">Preparando a loja...</p>
+                {/* Alterado: Removido o /80 (arbitrário do tailwind) e trocado por opacity-80 para não piscar no FOUC */}
+                <p className="text-amber-400 opacity-80 font-bold tracking-[0.2em] text-xs uppercase animate-pulse">Preparando a loja...</p>
             </div>
         </div>
       );
