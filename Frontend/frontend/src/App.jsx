@@ -15485,16 +15485,15 @@ const AdminThemeSettings = () => {
     useEffect(() => {
         apiService('/settings/theme')
             .then(data => {
-                // Correção Crítica do Boolean: Evita que "false" em string vire true
                 const isAuto = data.autoSeasonal === true || data.autoSeasonal === 'true' || data.autoSeasonal === 1;
                 const loadedConfig = data.colors ? { ...data, autoSeasonal: isAuto } : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto };
                 
                 setLocalConfig(loadedConfig);
                 setOriginalConfig(loadedConfig);
             })
-            .catch(err => notification.show("Erro ao carregar o tema atual.", "error"))
+            .catch(err => console.log("Usando tema padrão. Banco não respondeu com tema salvo."))
             .finally(() => setIsLoading(false));
-    }, [notification]);
+    }, []); // CORREÇÃO: Array de dependências limpo. Evita que o painel resete sozinho.
 
     const dispatchPreview = (newConfig) => {
         window.dispatchEvent(new CustomEvent('app-theme-updated', { detail: newConfig }));
@@ -15507,9 +15506,15 @@ const AdminThemeSettings = () => {
     };
 
     const handleToggleSeasonal = () => {
-        const newConfig = { ...localConfig, autoSeasonal: !localConfig.autoSeasonal };
+        const newSeasonalStatus = !localConfig.autoSeasonal;
+        const newConfig = { ...localConfig, autoSeasonal: newSeasonalStatus };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig);
+        if (newSeasonalStatus) {
+            notification.show("Automação sazonal ATIVADA na pré-visualização.");
+        } else {
+            notification.show("Automação sazonal DESATIVADA.");
+        }
     };
 
     const applyPreset = (presetColors) => {
