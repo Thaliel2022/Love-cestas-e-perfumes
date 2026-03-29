@@ -15997,6 +15997,8 @@ function AppContent({ deferredPrompt }) {
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
+  // LOGICA DO CLIENTE REMOVIDA TOTALMENTE (APENAS O ADMIN CONTROLA)
+
   const defaultThemeFallback = {
       primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af', animationsEnabled: true, activeSeason: null
   };
@@ -16426,8 +16428,7 @@ function AppContent({ deferredPrompt }) {
           />
       )}
 
-      {/* CORREÇÃO: Removido 'z-10' e 'relative' que causavam o bloqueio da tela de categorias */}
-      <main className="flex-grow">{renderPage()}</main>
+      <main className="flex-grow z-10">{renderPage()}</main>
       
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
         <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800 transition-colors duration-500 z-10 relative">
