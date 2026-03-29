@@ -3773,7 +3773,7 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
                 </div>
             </div>
 
-            {/* Seção de Tamanhos - CORRIGIDO AS CORES E TRANSPARÊNCIAS */}
+            {/* Seção de Tamanhos - LIMPA DE ESTILOS INLINE (Usa apenas as classes puras do Tailwind) */}
             <AnimatePresence>
                 {selectedColor && (
                      <motion.div 
@@ -3796,15 +3796,10 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
                                         key={size}
                                         onClick={() => setSelectedSize(size)}
                                         disabled={stock === 0}
-                                        style={
-                                            selectedSize === size 
-                                            ? { backgroundColor: 'var(--theme-primary, #fbbf24)', color: 'var(--theme-bg, #000000)', borderColor: 'var(--theme-primary, #fbbf24)' }
-                                            : { borderColor: '#4b5563', color: '#d1d5db' }
-                                        }
                                         className={`min-w-[3.5rem] h-11 px-3 border rounded-md font-bold text-sm transition-all duration-200 flex items-center justify-center relative overflow-hidden
                                             ${selectedSize === size 
-                                                ? 'shadow-lg scale-105' 
-                                                : 'bg-transparent hover:border-gray-400 hover:bg-gray-800'
+                                                ? 'bg-amber-400 text-black border-amber-400 shadow-lg scale-105' 
+                                                : 'bg-transparent border-gray-600 text-gray-300 hover:border-gray-400 hover:bg-gray-800'
                                             }
                                             ${stock === 0 ? 'opacity-40 cursor-not-allowed bg-gray-900 border-gray-800 text-gray-600 decoration-slice line-through' : ''}
                                             ${showError && !selectedSize ? 'border-red-500 text-red-100 bg-red-900/20' : ''}`
@@ -3863,13 +3858,11 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [timeLeft, setTimeLeft] = useState('');
     const [isPromoActive, setIsPromoActive] = useState(false);
 
-    // --- ESTADO DE IMAGEM (Índice) ---
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
     const galleryRef = useRef(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
-    
     const [canScrollUp, setCanScrollUp] = useState(false);
     const [canScrollDown, setCanScrollDown] = useState(false);
 
@@ -3917,6 +3910,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         }
 
     }, [selectedColor, selectedSize, productVariations, productImages]);
+
 
     useEffect(() => {
         if (product) {
@@ -3982,10 +3976,32 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
     const isClothing = product?.product_type === 'clothing';
     const isPerfume = product?.product_type === 'perfume';
-    const currentStockStatus = isClothing ? selectedVariation?.stock : product?.stock;
-    const productOrVariationOutOfStock = currentStockStatus <= 0;
-    const stockLimit = isClothing ? selectedVariation?.stock : product?.stock;
-    const isQtyAtMax = stockLimit !== undefined ? quantity >= stockLimit : false;
+
+    // --- CORREÇÃO: LÓGICA DE ESTOQUE ---
+    // Garante que Number seja usado para evitar strings "0" passarem batido.
+    const globalStock = Number(product?.stock) || 0;
+    let productOrVariationOutOfStock = false;
+    let stockLimit = 0;
+
+    if (isClothing) {
+        if (globalStock <= 0) {
+            // Se o produto de roupa zerou por completo o estoque global
+            productOrVariationOutOfStock = true;
+        } else if (selectedVariation) {
+            // Se selecionou uma cor e tamanho específicos
+            productOrVariationOutOfStock = Number(selectedVariation.stock) <= 0;
+            stockLimit = Number(selectedVariation.stock);
+        } else {
+            // Se ainda não selecionou tamanho, usa o global para o input provisório
+            stockLimit = globalStock;
+        }
+    } else {
+        // Para perfumes e outros itens sem variação
+        productOrVariationOutOfStock = globalStock <= 0;
+        stockLimit = globalStock;
+    }
+
+    const isQtyAtMax = stockLimit > 0 ? quantity >= stockLimit : false;
 
     const getYouTubeEmbedUrl = (url) => { if (!url) return null; try { let videoId = ''; const urlObj = new URL(url); if (urlObj.hostname === 'youtu.be') { videoId = urlObj.pathname.slice(1); } else if (urlObj.hostname.includes('youtube.com')) { if (urlObj.searchParams.has('v')) { videoId = urlObj.searchParams.get('v'); } else if (urlObj.pathname.includes('/embed/')) { videoId = urlObj.pathname.split('/embed/')[1]; } else if (urlObj.pathname.includes('/shorts/')) { videoId = urlObj.pathname.split('/shorts/')[1]; } } if (!videoId) return null; videoId = videoId.split('?')[0].split('&')[0]; return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`; } catch (e) { if (url && url.includes('youtu.be/')) { const simpleId = url.split('youtu.be/')[1]?.split('?')[0]; return simpleId ? `https://www.youtube.com/embed/${simpleId}?autoplay=1&rel=0` : null; } return null; } };
     const parseTextToList = (text) => { if (!text || text.trim() === '') return null; return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>; };
@@ -4054,10 +4070,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         setQuantity(prev => {
             const newQty = prev + amount;
             if (newQty < 1) return 1;
-            const currentStockLimit = isClothing ? selectedVariation?.stock : product?.stock;
-            if (currentStockLimit !== undefined && newQty > currentStockLimit) {
-                 notification.show(`Apenas ${currentStockLimit} unidades disponíveis.`, 'error');
-                 return currentStockLimit;
+            if (stockLimit !== undefined && newQty > stockLimit) {
+                 notification.show(`Apenas ${stockLimit} unidades disponíveis.`, 'error');
+                 return stockLimit;
             }
             return newQty;
         });
@@ -4207,13 +4222,12 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 )}
             </AnimatePresence>
 
-            {/* --- MODAL DE SELEÇÃO DE ROUPA CORRIGIDO --- */}
             <AnimatePresence>
                 {isSelectionModalOpen && (
                     <>
                         <motion.div 
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-black/80 z-[100] backdrop-blur-md"
+                            className="fixed inset-0 bg-black/80 z-[100] backdrop-blur-sm"
                             onClick={() => setIsSelectionModalOpen(false)}
                         />
                         <div className="fixed inset-0 z-[110] flex items-end md:items-center justify-center pointer-events-none p-0 md:p-4">
@@ -4222,9 +4236,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 animate={{ y: 0 }} 
                                 exit={{ y: "100%" }}
                                 transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                                /* CORREÇÃO: Forçando cor de fundo sólida via inline style e bordas evidentes */
-                                style={{ backgroundColor: 'var(--theme-surface, #111827)' }}
-                                className="pointer-events-auto border border-gray-600 w-full max-w-lg rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden"
+                                className="pointer-events-auto bg-gray-900 border border-gray-700 w-full max-w-lg rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden"
                             >
                                 <div className="p-6 pb-0 flex justify-between items-start">
                                     <div className="pr-4">
@@ -4263,16 +4275,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     </div>
                                     <button 
                                         onClick={handleConfirmSelection}
-                                        /* CORREÇÃO: Forçando cores sólidas no botão de compra do Modal */
-                                        style={
-                                            selectionError && !selectedSize
-                                            ? {}
-                                            : { backgroundColor: 'var(--theme-primary, #fbbf24)', color: 'var(--theme-bg, #000000)' }
-                                        }
                                         className={`w-full font-bold py-4 rounded-xl text-base shadow-lg transition-all transform active:scale-[0.98] uppercase tracking-wide flex items-center justify-center gap-3
                                             ${selectionError && !selectedSize 
                                                 ? 'bg-red-600 text-white animate-pulse' 
-                                                : 'hover:opacity-90'}`
+                                                : 'bg-amber-400 hover:bg-amber-300 text-black'}`
                                         }
                                     >
                                         {selectionError && !selectedSize ? '⚠️ Escolha um Tamanho' : (pendingAction === 'buyNow' ? 'Confirmar Compra' : 'Adicionar à Sacola')}
@@ -4285,29 +4291,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </motion.div>
                         </div>
                     </>
-                )}
-            </AnimatePresence>
-            
-            <AnimatePresence>
-                {isVideoModalOpen && product.video_url && (
-                     <Modal isOpen={true} onClose={() => setIsVideoModalOpen(false)} title="Vídeo do Produto" size="2xl">
-                        <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, backgroundColor: 'black' }}>
-                            {getYouTubeEmbedUrl(product.video_url) ? (
-                                <iframe 
-                                    src={getYouTubeEmbedUrl(product.video_url)} 
-                                    title={product.name} 
-                                    frameBorder="0" 
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                                    allowFullScreen 
-                                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
-                                ></iframe>
-                            ) : (
-                                <div className="absolute inset-0 flex items-center justify-center text-gray-500 text-sm">
-                                    <p>Vídeo indisponível.</p>
-                                </div>
-                            )}
-                        </div>
-                    </Modal>
                 )}
             </AnimatePresence>
 
@@ -4560,6 +4543,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         )}
 
+                        {/* --- BLOCO DO BOTÃO "COMPRAR" / "ESGOTADO" --- */}
                         {!productOrVariationOutOfStock && (
                             <div className="flex items-center space-x-4">
                                 <p className="font-semibold text-sm">Quantidade:</p>
@@ -4575,8 +4559,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
                         <div className="space-y-3 pt-2">
                             {productOrVariationOutOfStock ? ( 
-                                <div className="w-full bg-gray-700 text-gray-400 py-3 rounded-md text-base text-center font-bold"> 
-                                    {isClothing && selectedVariation ? 'Variação Esgotada' : 'Produto Esgotado'} 
+                                <div className="w-full bg-gray-800 border border-gray-700 text-gray-400 py-3.5 rounded-md text-base text-center font-bold"> 
+                                    {isClothing && selectedVariation ? 'Tamanho Esgotado' : 'Produto Esgotado'} 
                                 </div> 
                             ) : ( 
                                 <> 
@@ -4606,7 +4590,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     <div className="text-gray-300 leading-relaxed max-w-3xl mx-auto min-h-[100px] prose prose-invert prose-sm sm:prose-base">
                         {activeTab === 'description' && <p>{product.description || 'Descrição não disponível.'}</p>}
                         
-                        {/* --- ATUALIZAÇÃO DA TAB DE GUIA DE MEDIDAS --- */}
                         {isClothing && activeTab === 'size_guide' && (
                             product.size_guide 
                             ? <SizeGuideDisplay dataString={product.size_guide} /> 
@@ -15845,44 +15828,24 @@ function AppContent({ deferredPrompt }) {
           return;
       }
 
-      // Injeção Cirúrgica: Altera apenas o necessário e protege as transparências (bg-black/80)
+      // CORREÇÃO CRÍTICA: Apenas a cor Primária (Amber) é substituída.
+      // Os fundos (bg-black, bg-gray-900) permanecem usando o Tailwind nativo,
+      // preservando assim as opacidades (bg-black/80) dos modais e elementos.
       styleElement.innerHTML = `
-          /* Backgrounds Principais */
-          body, .min-h-screen.bg-black { background-color: ${t.bg || '#000000'} !important; }
-          .bg-gray-900 { background-color: ${t.surface || '#111827'} !important; }
-          .bg-gray-800 { background-color: ${t.surfaceHover || '#1f2937'} !important; }
-          
-          /* PROTEÇÃO DE TRANSPARÊNCIAS (Mantém o overlay dos modais funcionando) */
-          .bg-black\\/20 { background-color: rgba(0, 0, 0, 0.2) !important; }
-          .bg-black\\/30 { background-color: rgba(0, 0, 0, 0.3) !important; }
-          .bg-black\\/40 { background-color: rgba(0, 0, 0, 0.4) !important; }
-          .bg-black\\/50 { background-color: rgba(0, 0, 0, 0.5) !important; }
-          .bg-black\\/60 { background-color: rgba(0, 0, 0, 0.6) !important; }
-          .bg-black\\/70 { background-color: rgba(0, 0, 0, 0.7) !important; }
-          .bg-black\\/80 { background-color: rgba(0, 0, 0, 0.8) !important; }
-          .bg-black\\/90 { background-color: rgba(0, 0, 0, 0.9) !important; }
-
-          /* Textos Básicos */
-          .text-white { color: ${t.text || '#ffffff'} !important; }
-          .text-gray-300 { color: ${t.text || '#ffffff'} !important; opacity: 0.9; }
-          .text-gray-400 { color: ${t.textMuted || '#9ca3af'} !important; }
-          .text-gray-500 { color: ${t.textMuted || '#9ca3af'} !important; opacity: 0.8; }
+          :root {
+              --theme-primary: ${t.primary};
+              --theme-primary-hover: ${t.primaryHover};
+          }
 
           /* Cor Primária (Botões, Ícones, Textos Destacados) */
-          .bg-amber-400, .bg-amber-500 { background-color: ${t.primary || '#fbbf24'} !important; color: ${t.bg || '#000000'} !important; }
-          .hover\\:bg-amber-300:hover, .hover\\:bg-amber-400:hover { background-color: ${t.primaryHover || '#f59e0b'} !important; color: ${t.bg || '#000000'} !important; }
+          .bg-amber-400, .bg-amber-500 { background-color: var(--theme-primary) !important; color: #000000 !important; }
+          .hover\\:bg-amber-300:hover, .hover\\:bg-amber-400:hover { background-color: var(--theme-primary-hover) !important; color: #000000 !important; }
           
-          .text-amber-400, .text-amber-500 { color: ${t.primary || '#fbbf24'} !important; }
-          .hover\\:text-amber-300:hover, .hover\\:text-amber-400:hover { color: ${t.primaryHover || '#f59e0b'} !important; }
+          .text-amber-400, .text-amber-500 { color: var(--theme-primary) !important; }
+          .hover\\:text-amber-300:hover, .hover\\:text-amber-400:hover { color: var(--theme-primary-hover) !important; }
           
-          .border-amber-400, .border-amber-500 { border-color: ${t.primary || '#fbbf24'} !important; }
-          .ring-amber-400 { --tw-ring-color: ${t.primary || '#fbbf24'} !important; }
-          
-          /* Bordas de Layout (Mantemos as cinzas para não quebrar botões de seleção de tamanho) */
-          .border-gray-800 { border-color: ${t.surfaceHover || '#1f2937'} !important; }
-          .border-gray-700 { border-color: ${t.textMuted || '#9ca3af'} !important; opacity: 0.3; }
-          .border-gray-600 { border-color: ${t.textMuted || '#9ca3af'} !important; opacity: 0.6; }
-          .hover\\:border-gray-400:hover { border-color: ${t.text || '#ffffff'} !important; opacity: 1; }
+          .border-amber-400, .border-amber-500 { border-color: var(--theme-primary) !important; }
+          .ring-amber-400 { --tw-ring-color: var(--theme-primary) !important; }
       `;
 
       return () => {
@@ -15890,7 +15853,6 @@ function AppContent({ deferredPrompt }) {
       };
   }, [activeThemeColors, currentPath]);
 
-  // Atualização instantânea do Título da Aba no Navegador
   useEffect(() => {
       if (appNameConfig && appNameConfig.name) {
           document.title = appNameConfig.name;
@@ -16015,7 +15977,7 @@ function AppContent({ deferredPrompt }) {
         
         const hashParts = hash.split('?');
         if (hashParts.length > 1) {
-            const params = newSearchParams(hashParts[1]);
+            const params = new URLSearchParams(hashParts[1]);
             const externalReference = params.get('external_reference');
             
             if (externalReference && !hash.includes('order-success')) {
@@ -16052,7 +16014,6 @@ function AppContent({ deferredPrompt }) {
     window.scrollTo(0, 0);
   }, [currentPath]);
   
-  // Garantia do Nome Dinâmico 
   const safeName = appNameConfig?.name || 'Love Cestas e Perfumes';
   const safeShortName = appNameConfig?.short_name || 'Love Cestas';
   const safeLogoText = appNameConfig?.logo_text || (safeName ? String(safeName).replace(/\s/g, '') : 'LoveCestas');
