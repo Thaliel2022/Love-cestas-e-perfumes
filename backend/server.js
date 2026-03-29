@@ -5044,7 +5044,13 @@ app.get('/api/settings/pickup', async (req, res) => {
     try {
         const [rows] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'pickup_config'");
         const defaultPickup = { 
-            address: "R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123", 
+            address: {
+                rua: "R. Leopoldo Pereira Lima",
+                numero: "378",
+                bairro: "Mangabeira VIII",
+                cidade: "João Pessoa - PB",
+                cep: "58059-123"
+            }, 
             hours: "Segunda a Sábado, das 9h às 11h30 e das 15h às 17h30 (exceto feriados).", 
             instructions: "Apresentar um documento com foto e o número do pedido.", 
             mapsLink: "" 
@@ -5088,7 +5094,7 @@ app.put('/api/settings/pickup', verifyToken, verifyAdmin, async (req, res) => {
             "INSERT INTO site_settings (setting_key, setting_value) VALUES ('pickup_config', ?) ON DUPLICATE KEY UPDATE setting_value = ?", 
             [configString, configString]
         );
-        logAdminAction(req.user, 'ATUALIZOU RETIRADA NA LOJA', `Endereço: ${config.address}`, clientIp);
+        logAdminAction(req.user, 'ATUALIZOU RETIRADA NA LOJA', `Configurações atualizadas`, clientIp);
         res.json({ message: "Configuração de retirada atualizada com sucesso!" });
     } catch (err) {
         console.error("Erro ao salvar config de retirada:", err);
