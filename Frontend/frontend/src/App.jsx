@@ -15789,7 +15789,7 @@ const AdminThemeSettings = () => {
         </div>
     );
 };
-// Componente de Animações Sazonais (Alta Performance via CSS Animation)
+// Componente de Animações Sazonais (Alta Performance via CSS Animation e Memoização)
 const SeasonalAnimations = memo(({ isEnabled, forcedSeason }) => {
     const [season, setSeason] = useState(null);
 
@@ -15817,44 +15817,28 @@ const SeasonalAnimations = memo(({ isEnabled, forcedSeason }) => {
         else setSeason(null);
     }, [isEnabled, forcedSeason]);
 
-    if (!isEnabled || !season) return null;
+    // CORREÇÃO: O useMemo garante que os valores aleatórios sejam gerados apenas UMA vez por tema.
+    // Isso impede que a animação "resete" ou pare toda vez que o React atualizar a página.
+    const particles = useMemo(() => {
+        if (!season) return [];
+        
+        let count = 0;
+        if (season === 'natal') count = 40;
+        else if (season === 'namorados' || season === 'maes') count = 25;
+        else if (season === 'pais') count = 15;
+        else if (season === 'blackfriday') count = 40;
 
-    const renderParticles = (type, count) => {
-        return [...Array(count)].map((_, i) => {
-            const left = Math.random() * 100;
-            const animDuration = 6 + Math.random() * 8;
-            const delay = Math.random() * -10;
-            const size = 0.8 + Math.random() * 1.5;
+        return [...Array(count)].map((_, i) => ({
+            id: i,
+            left: Math.random() * 100,
+            top: season === 'blackfriday' ? Math.random() * 100 : -10, // -10vh para começar fora da tela
+            animDuration: season === 'blackfriday' ? 1.5 + Math.random() * 2 : 6 + Math.random() * 8,
+            delay: season === 'blackfriday' ? Math.random() * 4 : Math.random() * -10,
+            size: season === 'blackfriday' ? 0.1 + Math.random() * 0.3 : 0.8 + Math.random() * 1.5,
+        }));
+    }, [season]);
 
-            let content;
-            if (type === 'natal') {
-                content = <div className="rounded-full bg-white" style={{ width: `${size * 0.3}rem`, height: `${size * 0.3}rem`, boxShadow: '0 0 10px rgba(255,255,255,1)' }} />;
-            } else if (type === 'namorados') {
-                content = '❤️';
-            } else if (type === 'maes') {
-                content = '🌸';
-            } else if (type === 'pais') {
-                content = '👔';
-            }
-
-            return (
-                <div
-                    key={i}
-                    className="absolute"
-                    style={{
-                        left: `${left}vw`,
-                        top: `-10vh`,
-                        fontSize: type !== 'natal' ? `${size}rem` : undefined,
-                        animation: `fall ${animDuration}s linear ${delay}s infinite`,
-                        opacity: type === 'pais' ? 0.4 : 0.7,
-                        filter: type !== 'natal' ? 'drop-shadow(0px 4px 6px rgba(0,0,0,0.3))' : 'none'
-                    }}
-                >
-                    {content}
-                </div>
-            );
-        });
-    };
+    if (!isEnabled || !season || particles.length === 0) return null;
 
     return (
         <div className="fixed inset-0 pointer-events-none z-[45] overflow-hidden" aria-hidden="true">
@@ -15871,34 +15855,52 @@ const SeasonalAnimations = memo(({ isEnabled, forcedSeason }) => {
                 }
             `}</style>
 
-            {season === 'natal' && renderParticles('natal', 40)}
-            {season === 'namorados' && renderParticles('namorados', 25)}
-            {season === 'maes' && renderParticles('maes', 25)}
-            {season === 'pais' && renderParticles('pais', 15)}
-            
-            {season === 'blackfriday' && (
-                [...Array(40)].map((_, i) => {
-                    const left = Math.random() * 100;
-                    const top = Math.random() * 100;
-                    const delay = Math.random() * 4;
-                    const duration = 1.5 + Math.random() * 2;
-                    const size = 0.1 + Math.random() * 0.3;
+            {particles.map((p) => {
+                if (season === 'blackfriday') {
                     return (
                         <div
-                            key={i}
+                            key={p.id}
                             className="absolute bg-amber-400 rounded-full"
                             style={{
-                                left: `${left}vw`,
-                                top: `${top}vh`,
-                                width: `${size}rem`,
-                                height: `${size}rem`,
+                                left: `${p.left}vw`,
+                                top: `${p.top}vh`,
+                                width: `${p.size}rem`,
+                                height: `${p.size}rem`,
                                 boxShadow: '0 0 12px 4px rgba(251, 191, 36, 0.8)',
-                                animation: `sparkle ${duration}s ease-in-out ${delay}s infinite`,
+                                animation: `sparkle ${p.animDuration}s ease-in-out ${p.delay}s infinite`,
                             }}
                         />
                     );
-                })
-            )}
+                }
+
+                let content;
+                if (season === 'natal') {
+                    content = <div className="rounded-full bg-white" style={{ width: `${p.size * 0.3}rem`, height: `${p.size * 0.3}rem`, boxShadow: '0 0 10px rgba(255,255,255,1)' }} />;
+                } else if (season === 'namorados') {
+                    content = '❤️';
+                } else if (season === 'maes') {
+                    content = '🌸';
+                } else if (season === 'pais') {
+                    content = '👔';
+                }
+
+                return (
+                    <div
+                        key={p.id}
+                        className="absolute"
+                        style={{
+                            left: `${p.left}vw`,
+                            top: `${p.top}vh`,
+                            fontSize: season !== 'natal' ? `${p.size}rem` : undefined,
+                            animation: `fall ${p.animDuration}s linear ${p.delay}s infinite`,
+                            opacity: season === 'pais' ? 0.4 : 0.7,
+                            filter: season !== 'natal' ? 'drop-shadow(0px 4px 6px rgba(0,0,0,0.3))' : 'none'
+                        }}
+                    >
+                        {content}
+                    </div>
+                );
+            })}
         </div>
     );
 });
@@ -15909,7 +15911,6 @@ function AppContent({ deferredPrompt }) {
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
-  // Efeito do usuário (desliga localmente)
   const [userAnimationsDisabled, setUserAnimationsDisabled] = useState(() => {
       return localStorage.getItem('lovecestas_user_anim_disabled') === 'true';
   });
@@ -15951,12 +15952,17 @@ function AppContent({ deferredPrompt }) {
   const [appThemeConfig, setAppThemeConfig] = useState(() => {
       try {
           const cached = localStorage.getItem('lovecestas_theme_config');
-          if (cached) return JSON.parse(cached);
+          if (cached) {
+              const parsed = JSON.parse(cached);
+              // Garante que os controles novos existam no cache antigo
+              if (parsed.animationsEnabled === undefined) parsed.animationsEnabled = true;
+              if (parsed.autoSeasonal === undefined) parsed.autoSeasonal = false;
+              return parsed;
+          }
       } catch(e) {}
       return { colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true };
   });
   
-  // Estado para capturar o tema que o Admin clicou no preview (força a animação a rodar)
   const [previewSeason, setPreviewSeason] = useState(null);
 
   const [appLogo, setAppLogo] = useState(() => {
@@ -16064,7 +16070,7 @@ function AppContent({ deferredPrompt }) {
       const handleThemeUpdate = (event) => {
           if (event.detail) {
               setAppThemeConfig(event.detail);
-              setPreviewSeason(event.detail.previewSeason || null); // Capta se o Admin forçou o preview de uma season
+              setPreviewSeason(event.detail.previewSeason || null); 
               localStorage.setItem('lovecestas_theme_config', JSON.stringify(event.detail));
           }
       };
@@ -16219,6 +16225,7 @@ function AppContent({ deferredPrompt }) {
 
   if (isLoading || isStatusLoading) {
       return (
+        // CORREÇÃO: Style color aplicado na div principal para garantir que o SVG herde a cor
         <div className="h-screen flex flex-col items-center justify-center gap-6" style={{ backgroundColor: activeThemeColors.bg }}>
             <motion.div 
                 animate={{ scale: [1, 1.05, 1], opacity: [0.8, 1, 0.8] }} 
@@ -16228,9 +16235,9 @@ function AppContent({ deferredPrompt }) {
                 <div className="absolute inset-0 blur-2xl opacity-20 rounded-full animate-pulse" style={{ backgroundColor: activeThemeColors.primary }}></div>
                 <img src={appLogo} alt={safeName} className="w-full h-full object-contain relative z-10" />
             </motion.div>
-            <div className="flex flex-col items-center gap-3">
-                <SpinnerIcon className="h-8 w-8 animate-spin" style={{ color: activeThemeColors.primary }}/>
-                <p className="opacity-80 font-bold tracking-[0.2em] text-xs uppercase animate-pulse" style={{ color: activeThemeColors.primary }}>Preparando a loja...</p>
+            <div className="flex flex-col items-center gap-3" style={{ color: activeThemeColors.primary }}>
+                <SpinnerIcon className="h-8 w-8 animate-spin" />
+                <p className="opacity-80 font-bold tracking-[0.2em] text-xs uppercase animate-pulse">Preparando a loja...</p>
             </div>
         </div>
       );
@@ -16321,8 +16328,10 @@ function AppContent({ deferredPrompt }) {
 
   const showHeaderFooter = !currentPath.startsWith('admin');
   
-  // Condição: Animações globais habilitadas pelo Admin E usuário não desligou localmente
-  const shouldRunAnimations = appThemeConfig.animationsEnabled && !userAnimationsDisabled;
+  // CORREÇÃO: Condição para rodar a animação (garante que Admin Preview ou Temporada Ativa ative a animação)
+  const shouldRunAnimations = appThemeConfig.animationsEnabled !== false && 
+                              !userAnimationsDisabled && 
+                              (appThemeConfig.autoSeasonal || previewSeason);
   
   return (
     <div className="bg-black min-h-screen flex flex-col transition-colors duration-500 relative">
@@ -16398,11 +16407,11 @@ function AppContent({ deferredPrompt }) {
                 </div>
             </div>
             
-            {/* BOTÃO DO CLIENTE PARA DESATIVAR ANIMAÇÃO ESTÁ AQUI */}
             <div className="bg-black py-4 border-t border-gray-800 transition-colors duration-500 pb-20 md:pb-4">
                 <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
                     <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} {safeName}. Todos os direitos reservados.</p>
                     
+                    {/* Botão de Controle das Animações no Rodapé */}
                     {appThemeConfig.animationsEnabled && (appThemeConfig.autoSeasonal || previewSeason) && (
                         <button 
                             onClick={toggleUserAnimations} 
