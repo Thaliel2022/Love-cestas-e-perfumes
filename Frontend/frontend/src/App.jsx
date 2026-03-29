@@ -2997,12 +2997,15 @@ const CategoriesPage = ({ onNavigate }) => {
             animate={{ x: 0 }} 
             exit={{ x: '100%' }} 
             transition={{ type: 'tween', ease: 'easeInOut', duration: 0.3 }}
-            className="fixed inset-0 bg-black z-50 overflow-y-auto pb-24"
+            className="fixed inset-0 bg-gray-900 z-[100] overflow-y-auto pb-24"
         >
-            {/* CORREÇÃO AQUI: Trocado bg-black/95 por bg-gray-900/95 para respeitar o tema claro (fundo claro com texto escuro) */}
-            <div className="sticky top-0 bg-gray-900/95 backdrop-blur-md border-b border-gray-800 z-10 px-4 py-4 flex items-center shadow-md">
+            {/* Cabeçalho restaurado para o design original (Foto 1) com z-index alto */}
+            <div className="sticky top-0 bg-gray-900 border-b border-gray-800 z-20 px-4 py-4 flex items-center shadow-md">
                 <button onClick={onBack} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-colors mr-3">
-                    <ArrowUturnLeftIcon className="h-6 w-6" />
+                    {/* Ícone de Seta Simples idêntico ao da primeira foto */}
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
                 </button>
                 <h2 className="text-lg font-bold text-white tracking-wide">{group.title}</h2>
             </div>
@@ -3017,7 +3020,7 @@ const CategoriesPage = ({ onNavigate }) => {
                         <div 
                             key={item.id}
                             onClick={() => onNavigate(`products?category=${item.filter}`)}
-                            className="bg-gray-900 rounded-lg overflow-hidden shadow-sm border border-gray-800 cursor-pointer active:scale-95 transition-transform flex flex-col group"
+                            className="bg-gray-800 rounded-lg overflow-hidden shadow-sm border border-gray-700 cursor-pointer active:scale-95 transition-transform flex flex-col group"
                         >
                             <div className="aspect-square bg-white relative p-2 overflow-hidden">
                                 <img 
@@ -3027,7 +3030,7 @@ const CategoriesPage = ({ onNavigate }) => {
                                     loading="lazy"
                                 />
                             </div>
-                            <div className="p-3 bg-gray-900 flex-grow flex items-center justify-center text-center border-t border-gray-800">
+                            <div className="p-3 bg-gray-800 flex-grow flex items-center justify-center text-center border-t border-gray-700">
                                 <span className="text-sm font-medium text-gray-200 leading-tight line-clamp-2 group-hover:text-amber-400 transition-colors">
                                     {item.name}
                                 </span>
@@ -3040,7 +3043,10 @@ const CategoriesPage = ({ onNavigate }) => {
                     onClick={() => onNavigate(`products?search=${group.title}`)}
                     className="w-full mt-8 py-3.5 bg-gray-800 border border-gray-700 text-white font-bold rounded-lg shadow-md hover:bg-gray-700 transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wide"
                 >
-                    Ver todos em {group.title} <ArrowUturnLeftIcon className="h-4 w-4 rotate-180"/>
+                    Ver todos em {group.title} 
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
                 </button>
             </div>
         </motion.div>
@@ -15991,8 +15997,6 @@ function AppContent({ deferredPrompt }) {
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
-  // LOGICA DO CLIENTE REMOVIDA TOTALMENTE (APENAS O ADMIN CONTROLA)
-
   const defaultThemeFallback = {
       primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af', animationsEnabled: true, activeSeason: null
   };
@@ -16422,7 +16426,8 @@ function AppContent({ deferredPrompt }) {
           />
       )}
 
-      <main className="flex-grow z-10">{renderPage()}</main>
+      {/* CORREÇÃO: Removido 'z-10' e 'relative' que causavam o bloqueio da tela de categorias */}
+      <main className="flex-grow">{renderPage()}</main>
       
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
         <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800 transition-colors duration-500 z-10 relative">
