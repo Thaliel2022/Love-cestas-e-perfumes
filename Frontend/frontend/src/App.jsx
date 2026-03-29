@@ -960,8 +960,12 @@ const NotificationProvider = ({ children }) => {
         }
     }, [remove]);
 
+    // CORREÇÃO CRÍTICA: Memoização garante que o contexto não mude a cada notificação, 
+    // evitando que outros componentes recarreguem dados do banco acidentalmente.
+    const contextValue = useMemo(() => ({ show }), [show]);
+
     return (
-        <NotificationContext.Provider value={{ show }}>
+        <NotificationContext.Provider value={contextValue}>
             {children}
             <div className="fixed bottom-5 right-5 z-[100] space-y-3">
                 <AnimatePresence>
