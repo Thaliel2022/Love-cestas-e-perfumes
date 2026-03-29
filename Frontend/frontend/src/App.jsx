@@ -7712,7 +7712,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
         const lowerStatus = status.toLowerCase();
         if (lowerStatus.includes('entregue')) return 'bg-green-200 text-green-800';
         if (lowerStatus.includes('cancelado') || lowerStatus.includes('recusado')) return 'bg-red-200 text-red-800';
-        if (lowerStatus.includes('pendente')) return 'bg-[#fde047] text-yellow-900'; // Cor exata da imagem
+        if (lowerStatus.includes('pendente')) return 'bg-yellow-200 text-yellow-800';
         return 'bg-blue-200 text-blue-800';
     };
 
@@ -7772,69 +7772,45 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.1 * idx }}
-                                className={`bg-gray-800 p-5 rounded-lg border relative transition-all ${hasNotification ? 'border-amber-500 shadow-lg shadow-amber-900/20' : 'border-gray-700'}`}
+                                className={`bg-gray-800 p-4 rounded-lg border relative transition-all ${hasNotification ? 'border-amber-500 shadow-lg shadow-amber-900/20' : 'border-gray-700'}`}
                             >
                                 {hasNotification && (
-                                    <div className="absolute -top-2.5 -right-2.5 bg-red-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full border-2 border-gray-900 z-10 flex items-center gap-1.5 animate-bounce">
-                                        <span className="h-1.5 w-1.5 bg-white rounded-full inline-block"></span>
+                                    <div className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-full border-2 border-black z-10 flex items-center gap-1 animate-bounce">
+                                        <span className="h-2 w-2 bg-white rounded-full inline-block"></span>
                                         Nova Atualização
                                     </div>
                                 )}
 
                                 {firstItem && (
-                                    <div className="flex items-center gap-4 mb-4">
+                                    <div className="flex items-center gap-4 border-b border-gray-700 pb-4 mb-4">
                                         <div onClick={() => onNavigate(`product/${firstItem.product_id}`)} className="cursor-pointer flex-shrink-0">
-                                            <img src={getFirstImage(firstItem.images)} alt={firstItem.name} className="w-14 h-14 object-contain bg-white rounded p-1"/>
+                                            <img src={getFirstImage(firstItem.images)} alt={firstItem.name} className="w-16 h-16 object-contain bg-white rounded-md"/>
                                         </div>
                                         <div className="flex-grow overflow-hidden">
-                                            <p onClick={() => onNavigate(`product/${firstItem.product_id}`)} className="font-bold text-gray-200 text-sm truncate cursor-pointer hover:text-amber-400 transition-colors">
+                                            <p onClick={() => onNavigate(`product/${firstItem.product_id}`)} className="font-semibold text-white truncate cursor-pointer hover:text-amber-400 transition-colors">
                                                 {firstItem.name}
                                             </p>
-                                            {order.items.length > 1 && ( <p className="text-xs text-gray-400 mt-0.5">+ {order.items.length - 1} outro(s) item(ns)</p> )}
+                                            {order.items.length > 1 && ( <p className="text-sm text-gray-400 mt-1">+ {order.items.length - 1} outro(s) item(ns)</p> )}
                                         </div>
                                     </div>
                                 )}
-                                
-                                {/* Linha divisória e Detalhes alinhados lado a lado */}
-                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-4 border-t border-gray-700">
-                                    <div className="flex flex-wrap sm:flex-nowrap gap-6 md:gap-12 w-full sm:w-auto">
-                                        <div className="flex flex-col">
-                                            <span className="text-[11px] text-gray-400 mb-0.5">Pedido</span>
-                                            <span className="font-bold text-white text-sm">#{order.id}</span>
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-[11px] text-gray-400 mb-0.5">Data</span>
-                                            <span className="font-bold text-white text-sm">{new Date(order.date).toLocaleDateString('pt-BR')}</span>
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-[11px] text-gray-400 mb-0.5">Status</span>
-                                            <span className={`mt-0.5 px-2.5 py-0.5 text-[10px] font-bold rounded-full w-fit ${getStatusChipClass(order.status)}`}>{order.status}</span>
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-[11px] text-gray-400 mb-0.5">Total</span>
-                                            <span className="font-bold text-amber-400 text-sm">R$ {Number(order.total).toFixed(2)}</span>
-                                        </div>
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center sm:text-left">
+                                        <div><p className="text-xs text-gray-400">Pedido</p><p className="font-bold text-white">#{order.id}</p></div>
+                                        <div><p className="text-xs text-gray-400">Data</p><p className="font-semibold text-gray-300">{new Date(order.date).toLocaleDateString('pt-BR')}</p></div>
+                                        <div><p className="text-xs text-gray-400">Status</p><span className={`px-2 py-1 text-xs font-semibold rounded-full inline-block ${getStatusChipClass(order.status)}`}>{order.status}</span></div>
+                                        <div><p className="text-xs text-gray-400">Total</p><p className="font-bold text-amber-400">R$ {Number(order.total).toFixed(2)}</p></div>
                                     </div>
-
-                                    {/* Botões restritos à direita e compactos */}
-                                    <div className="flex-shrink-0 w-full sm:w-auto flex flex-col items-end gap-2 mt-2 sm:mt-0">
+                                    <div className="flex-shrink-0 w-full sm:w-auto flex flex-col items-stretch gap-2">
+                                        {/* CORREÇÃO AQUI: O botão 'Ver Detalhes' usa a cor primária dinâmica com bg-amber-500 */}
                                         <button 
                                             onClick={() => onNavigate(`account/orders/${order.id}`)} 
-                                            className={`w-full sm:w-auto font-bold px-4 py-1.5 rounded-md transition shadow-md active:scale-95 text-xs sm:text-sm border ${
-                                                hasNotification 
-                                                    ? 'bg-amber-400 text-black border-amber-400 hover:bg-amber-300' 
-                                                    : 'bg-[#374151] text-gray-200 border-gray-600 hover:bg-gray-600 hover:text-white'
-                                            }`}
+                                            className="w-full font-bold px-4 py-2 rounded-md transition shadow-md active:scale-95 bg-amber-500 text-black hover:bg-amber-400"
                                         >
                                             {hasNotification ? 'Ver Atualização' : 'Ver Detalhes'}
                                         </button>
                                         {canReviewOrder && (
-                                             <button 
-                                                onClick={() => setOrderToReview(order)} 
-                                                className="w-full sm:w-auto bg-amber-600 text-white font-bold px-4 py-1.5 rounded-md border border-amber-600 hover:bg-amber-500 transition shadow-md active:scale-95 text-xs sm:text-sm"
-                                             >
-                                                Avaliar Pedido
-                                             </button>
+                                             <button onClick={() => setOrderToReview(order)} className="w-full bg-gray-800 text-white font-bold px-4 py-2 rounded-md hover:bg-gray-700 transition">Avaliar Pedido</button>
                                         )}
                                     </div>
                                 </div>
