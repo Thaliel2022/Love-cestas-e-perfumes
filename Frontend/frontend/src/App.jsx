@@ -1102,7 +1102,7 @@ const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
 });
 
 const TrackingModal = memo(({ isOpen, onClose, order }) => {
-    const { pickupConfig } = useShop(); // Chama a config global dinâmica
+    const { pickupConfig } = useShop(); 
     const [trackingInfo, setTrackingInfo] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -1132,34 +1132,25 @@ const TrackingModal = memo(({ isOpen, onClose, order }) => {
         let statusMessage;
         switch (order.status) {
             case 'Pronto para Retirada':
-                statusMessage = (
-                    <p className="flex items-center gap-2 text-green-700 font-semibold"><CheckCircleIcon className="h-5 w-5"/> Seu pedido já está separado e pronto para ser retirado!</p>
-                );
+                statusMessage = <p className="flex items-center gap-2 text-green-700 font-semibold"><CheckCircleIcon className="h-5 w-5"/> Seu pedido já está separado e pronto para ser retirado!</p>;
                 break;
             case 'Entregue':
-                statusMessage = (
-                    <p className="flex items-center gap-2 text-green-700 font-semibold"><CheckBadgeIcon className="h-5 w-5"/> Este pedido já foi retirado.</p>
-                );
+                statusMessage = <p className="flex items-center gap-2 text-green-700 font-semibold"><CheckBadgeIcon className="h-5 w-5"/> Este pedido já foi retirado.</p>;
                 break;
             case 'Reembolsado':
-                statusMessage = (
-                    <p className="flex items-center gap-2 text-gray-700 font-semibold"><CurrencyDollarIcon className="h-5 w-5"/> O pagamento para este pedido foi reembolsado.</p>
-                );
+                statusMessage = <p className="flex items-center gap-2 text-gray-700 font-semibold"><CurrencyDollarIcon className="h-5 w-5"/> O pagamento para este pedido foi reembolsado.</p>;
                 break;
             case 'Cancelado':
             case 'Pagamento Recusado':
-                 statusMessage = (
-                    <p className="flex items-center gap-2 text-red-700 font-semibold"><XCircleIcon className="h-5 w-5"/> Este pedido foi cancelado.</p>
-                );
+                 statusMessage = <p className="flex items-center gap-2 text-red-700 font-semibold"><XCircleIcon className="h-5 w-5"/> Este pedido foi cancelado.</p>;
                 break;
             default:
-                statusMessage = (
-                    <p className="flex items-center gap-2 text-amber-700 font-semibold"><ClockIcon className="h-5 w-5"/> Estamos preparando seu pedido. Você será notificado assim que estiver pronto.</p>
-                );
+                statusMessage = <p className="flex items-center gap-2 text-amber-700 font-semibold"><ClockIcon className="h-5 w-5"/> Estamos preparando seu pedido. Você será notificado assim que estiver pronto.</p>;
         }
 
-        // Usa config do BD ou Fallback caso falhe o load
-        const address = pickupConfig?.address || 'R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB';
+        const address = pickupConfig?.address;
+        const isAddressObj = typeof address === 'object' && address !== null;
+        
         const hours = pickupConfig?.hours || 'Segunda a Sábado, das 9h às 11h30 e das 15h às 17h30';
         const instructions = pickupConfig?.instructions || 'Apresentar documento com foto (RG/CNH) e número do pedido.';
 
@@ -1177,18 +1168,30 @@ const TrackingModal = memo(({ isOpen, onClose, order }) => {
                     <div className="text-sm bg-gray-100 p-4 rounded-lg border space-y-3">
                         <div className="flex items-start gap-2">
                             <MapPinIcon className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                            <div>
-                                <p><strong>Endereço:</strong><br/> {address}</p>
+                            <div className="w-full">
+                                <p className="font-bold text-gray-800 mb-1">Endereço:</p>
+                                {isAddressObj ? (
+                                    <div className="space-y-1 bg-white p-3 border rounded-md shadow-sm">
+                                        <div className="flex"><span className="font-bold text-gray-500 w-16">Rua:</span> <span className="text-gray-800 font-medium">{address.rua}</span></div>
+                                        <div className="flex"><span className="font-bold text-gray-500 w-16">Nº:</span> <span className="text-gray-800">{address.numero}</span></div>
+                                        <div className="flex"><span className="font-bold text-gray-500 w-16">Bairro:</span> <span className="text-gray-800">{address.bairro}</span></div>
+                                        <div className="flex"><span className="font-bold text-gray-500 w-16">Cidade:</span> <span className="text-gray-800">{address.cidade}</span></div>
+                                        <div className="flex"><span className="font-bold text-gray-500 w-16">CEP:</span> <span className="text-gray-800 font-mono bg-gray-100 px-1 rounded">{address.cep}</span></div>
+                                    </div>
+                                ) : (
+                                    <p className="text-gray-600">{address || 'R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB'}</p>
+                                )}
+                                
                                 {pickupConfig?.mapsLink && (
-                                    <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 hover:underline text-xs font-bold mt-1 inline-flex items-center gap-1 bg-blue-50 px-2 py-1 rounded-md border border-blue-200">
-                                        Abrir no Google Maps &rarr;
+                                    <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 hover:underline text-xs font-bold mt-2 inline-flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-md border border-blue-200">
+                                        Abrir Localização no Google Maps &rarr;
                                     </a>
                                 )}
                             </div>
                         </div>
                         <div className="flex items-start gap-2 pt-3 border-t border-gray-200">
                             <ClockIcon className="h-5 w-5 text-gray-500 flex-shrink-0 mt-0.5" />
-                            <p><strong>Horário:</strong><br/> {hours}</p>
+                            <p><strong>Horário:</strong><br/> <span className="text-gray-600">{hours}</span></p>
                         </div>
                         <div className="flex items-start gap-2 pt-3 border-t border-gray-200">
                             <ClipboardDocListIcon className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
@@ -1235,11 +1238,7 @@ const TrackingModal = memo(({ isOpen, onClose, order }) => {
     return (
         <AnimatePresence>
             {isOpen && order && (
-                <Modal 
-                    isOpen={isOpen} 
-                    onClose={onClose} 
-                    title={isPickupOrder ? `Status da Retirada: Pedido #${order.id}` : `Rastreio do Pedido: ${order.tracking_code}`}
-                >
+                <Modal isOpen={isOpen} onClose={onClose} title={isPickupOrder ? `Status da Retirada: Pedido #${order.id}` : `Rastreio do Pedido: ${order.tracking_code}`}>
                     {isPickupOrder ? renderPickupStatus() : renderShippingTracking()}
                 </Modal>
             )}
@@ -5860,18 +5859,9 @@ const CheckoutSection = ({ title, step, children, icon: Icon }) => (
 const CheckoutPage = ({ onNavigate }) => {
     const { user } = useAuth();
     const {
-        cart,
-        autoCalculatedShipping,
-        appliedCoupon,
-        clearOrderState,
-        addresses,
-        fetchAddresses,
-        shippingLocation,
-        setShippingLocation,
-        shippingOptions,
-        setAutoCalculatedShipping,
-        setSelectedShippingName,
-        pickupConfig // Pega do Context
+        cart, autoCalculatedShipping, appliedCoupon, clearOrderState, addresses,
+        fetchAddresses, shippingLocation, setShippingLocation, shippingOptions,
+        setAutoCalculatedShipping, setSelectedShippingName, pickupConfig
     } = useShop();
     const notification = useNotification();
 
@@ -5895,58 +5885,30 @@ const CheckoutPage = ({ onNavigate }) => {
 
     useEffect(() => {
         setIsAddressLoading(true);
-        if (user && user.phone) {
-            setWhatsapp(maskPhone(user.phone));
-        }
+        if (user && user.phone) setWhatsapp(maskPhone(user.phone));
 
         fetchAddresses().then(userAddresses => {
             let addressToSet = null;
-            
             if (shippingLocation && shippingLocation.cep) {
                 const matchingSavedAddress = userAddresses.find(addr =>
-                    addr.cep === shippingLocation.cep &&
-                    addr.logradouro && addr.numero && addr.bairro 
+                    addr.cep === shippingLocation.cep && addr.logradouro && addr.numero && addr.bairro 
                 );
-                
-                if (matchingSavedAddress) {
-                    addressToSet = matchingSavedAddress;
-                } else {
-                    addressToSet = {
-                        cep: shippingLocation.cep,
-                        localidade: shippingLocation.city,
-                        uf: shippingLocation.state,
-                        alias: 'Endereço Incompleto (Preencha os dados)',
-                        logradouro: '',
-                        numero: '',
-                        bairro: '',
-                        is_incomplete: true
-                    };
-                }
+                if (matchingSavedAddress) addressToSet = matchingSavedAddress;
+                else addressToSet = { cep: shippingLocation.cep, localidade: shippingLocation.city, uf: shippingLocation.state, alias: 'Endereço Incompleto (Preencha os dados)', logradouro: '', numero: '', bairro: '', is_incomplete: true };
             }
-
-            if (!addressToSet) {
-                addressToSet = userAddresses.find(addr => addr.is_default) || userAddresses[0] || null;
-            }
-            
+            if (!addressToSet) addressToSet = userAddresses.find(addr => addr.is_default) || userAddresses[0] || null;
             setDisplayAddress(addressToSet);
-
             if (addressToSet && addressToSet.cep && addressToSet.cep !== shippingLocation?.cep) {
-                 setShippingLocation({
-                    cep: addressToSet.cep, city: addressToSet.localidade, state: addressToSet.uf, alias: addressToSet.alias
-                 });
+                 setShippingLocation({ cep: addressToSet.cep, city: addressToSet.localidade, state: addressToSet.uf, alias: addressToSet.alias });
             }
-        }).finally(() => {
-            setIsAddressLoading(false);
-        });
+        }).finally(() => setIsAddressLoading(false));
     }, [fetchAddresses, shippingLocation, setShippingLocation, user]);
 
     useEffect(() => {
         if (user && !isSomeoneElsePickingUp) {
-            setPickupPersonName(user.name || '');
-            setPickupPersonCpf(maskCPF(user.cpf || '')); 
+            setPickupPersonName(user.name || ''); setPickupPersonCpf(maskCPF(user.cpf || '')); 
         } else {
-            setPickupPersonName('');
-            setPickupPersonCpf('');
+            setPickupPersonName(''); setPickupPersonCpf('');
         }
     }, [user, isSomeoneElsePickingUp]);
 
@@ -5956,11 +5918,9 @@ const CheckoutPage = ({ onNavigate }) => {
         if(option.isPickup) {
             setDisplayAddress(null);
             if (!isSomeoneElsePickingUp && user) {
-                setPickupPersonName(user.name || '');
-                setPickupPersonCpf(maskCPF(user.cpf || '')); 
+                setPickupPersonName(user.name || ''); setPickupPersonCpf(maskCPF(user.cpf || '')); 
             } else {
-                 setPickupPersonName('');
-                 setPickupPersonCpf('');
+                 setPickupPersonName(''); setPickupPersonCpf('');
             }
         } else if (!displayAddress && addresses.length > 0) {
              const defaultOrFirst = addresses.find(addr => addr.is_default) || addresses[0];
@@ -5977,10 +5937,7 @@ const CheckoutPage = ({ onNavigate }) => {
         setIsAddressModalOpen(false);
     };
     
-    const handleAddNewAddress = () => {
-        setIsAddressModalOpen(false);
-        setIsNewAddressModalOpen(true);
-    };
+    const handleAddNewAddress = () => { setIsAddressModalOpen(false); setIsNewAddressModalOpen(true); };
     
     const handleSaveNewAddress = async (formData) => {
         try {
@@ -5991,119 +5948,72 @@ const CheckoutPage = ({ onNavigate }) => {
             setDisplayAddress(newAddress);
             setShippingLocation({ cep: newAddress.cep, city: newAddress.localidade, state: newAddress.uf, alias: newAddress.alias });
             setIsNewAddressModalOpen(false);
-        } catch (error) {
-            notification.show(`Erro ao salvar endereço: ${error.message}`, 'error');
-        }
+        } catch (error) { notification.show(`Erro ao salvar endereço: ${error.message}`, 'error'); }
     };
 
-    const handleWhatsappChange = (e) => {
-        setWhatsapp(maskPhone(e.target.value));
-    };
+    const handleWhatsappChange = (e) => setWhatsapp(maskPhone(e.target.value));
 
-    const subtotal = useMemo(() => {
-        return cart.reduce((sum, item) => {
-            const price = Number(item.is_on_sale && item.sale_price ? item.sale_price : item.price) || 0;
-            const quantity = Number(item.qty) || 0;
-            return sum + (price * quantity);
-        }, 0);
-    }, [cart]);
-    
+    const subtotal = useMemo(() => cart.reduce((sum, item) => sum + ((Number(item.is_on_sale && item.sale_price ? item.sale_price : item.price) || 0) * (Number(item.qty) || 0)), 0), [cart]);
     const shippingCost = useMemo(() => Number(autoCalculatedShipping?.price) || 0, [autoCalculatedShipping]);
-    
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
         let val = 0;
         const couponValue = Number(appliedCoupon.value) || 0;
         const currentSubtotal = Number(subtotal) || 0;
         const currentShippingCost = Number(shippingCost) || 0;
-        if (appliedCoupon.type === 'percentage') {
-            val = currentSubtotal * (couponValue / 100);
-        } else if (appliedCoupon.type === 'fixed') {
-            val = couponValue;
-        } else if (appliedCoupon.type === 'free_shipping') {
-            val = currentShippingCost;
-        }
+        if (appliedCoupon.type === 'percentage') val = currentSubtotal * (couponValue / 100);
+        else if (appliedCoupon.type === 'fixed') val = couponValue;
+        else if (appliedCoupon.type === 'free_shipping') val = currentShippingCost;
         const currentTotalBeforeDiscount = currentSubtotal + currentShippingCost;
         return Math.max(0, (appliedCoupon.type !== 'free_shipping' && val > currentTotalBeforeDiscount) ? currentTotalBeforeDiscount : val);
     }, [appliedCoupon, subtotal, shippingCost]);
     
-    const total = useMemo(() => {
-        const finalTotal = (Number(subtotal) || 0) - (Number(discount) || 0) + (Number(shippingCost) || 0);
-        return Math.max(0, finalTotal);
-    }, [subtotal, discount, shippingCost]);
+    const total = useMemo(() => Math.max(0, (Number(subtotal) || 0) - (Number(discount) || 0) + (Number(shippingCost) || 0)), [subtotal, discount, shippingCost]);
 
     const getShippingName = (name) => name?.toLowerCase().includes('pac') ? 'PAC' : (name || 'N/A');
     
     const getDeliveryDateText = (deliveryTime) => {
-        if (typeof deliveryTime === 'string' && deliveryTime.includes('Receba até')) {
-            return `${deliveryTime} (1 dia útil)`;
-        }
-
+        if (typeof deliveryTime === 'string' && deliveryTime.includes('Receba até')) return `${deliveryTime} (1 dia útil)`;
         const timeInDays = Number(deliveryTime);
         if (isNaN(timeInDays) || timeInDays <= 0) return 'Prazo indisponível';
-
         const date = new Date();
         let addedBusinessDays = 0;
         date.setDate(date.getDate() + 1);
         if (date.getDay() === 0) date.setDate(date.getDate() + 1);
         else if (date.getDay() === 6) date.setDate(date.getDate() + 2);
-
         while (addedBusinessDays < timeInDays) {
             date.setDate(date.getDate() + 1);
-            if (date.getDay() !== 0 && date.getDay() !== 6) {
-                addedBusinessDays++;
-            }
+            if (date.getDay() !== 0 && date.getDay() !== 6) addedBusinessDays++;
         }
         return `Previsão: ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
     };
 
-    const handlePickupNameBlur = (e) => { setPickupPersonName(e.target.value); };
-    const handleCpfInputChangeMask = (e) => { e.target.value = maskCPF(e.target.value); };
-    const handlePickupCpfBlur = (e) => { setPickupPersonCpf(maskCPF(e.target.value)); };
+    const handlePickupNameBlur = (e) => setPickupPersonName(e.target.value);
+    const handleCpfInputChangeMask = (e) => e.target.value = maskCPF(e.target.value);
+    const handlePickupCpfBlur = (e) => setPickupPersonCpf(maskCPF(e.target.value));
 
     const canPlaceOrder = useMemo(() => {
-        const isPickup = autoCalculatedShipping?.isPickup;
-        
-        if (isPickup) {
-             if (isSomeoneElsePickingUp) {
-                 return pickupPersonName.length > 3 && pickupPersonCpf.length >= 11;
-             }
-             return true; 
-        }
-
+        if (autoCalculatedShipping?.isPickup) return isSomeoneElsePickingUp ? pickupPersonName.length > 3 && pickupPersonCpf.length >= 11 : true;
         if (!displayAddress) return false;
-        
-        const hasValidStreet = displayAddress.logradouro && displayAddress.logradouro !== 'N/A' && displayAddress.logradouro.trim() !== '';
-        const hasValidNumber = displayAddress.numero && displayAddress.numero !== 'N/A' && displayAddress.numero.trim() !== '';
-        const hasValidNeighborhood = displayAddress.bairro && displayAddress.bairro !== 'N/A' && displayAddress.bairro.trim() !== '';
-        const isNotMarkedIncomplete = !displayAddress.is_incomplete;
-
-        return hasValidStreet && hasValidNumber && hasValidNeighborhood && isNotMarkedIncomplete;
+        return displayAddress.logradouro && displayAddress.logradouro !== 'N/A' && displayAddress.logradouro.trim() !== '' &&
+               displayAddress.numero && displayAddress.numero !== 'N/A' && displayAddress.numero.trim() !== '' &&
+               displayAddress.bairro && displayAddress.bairro !== 'N/A' && displayAddress.bairro.trim() !== '' &&
+               !displayAddress.is_incomplete;
     }, [displayAddress, autoCalculatedShipping, isSomeoneElsePickingUp, pickupPersonName, pickupPersonCpf]);
 
     const handlePlaceOrderAndPay = async () => {
         const isPickup = autoCalculatedShipping?.isPickup;
-        
         if (!canPlaceOrder && !isPickup) {
              notification.show("Por favor, complete o endereço de entrega (Rua, Número e Bairro) para continuar.", 'error');
-             setIsNewAddressModalOpen(true); 
-             return;
+             setIsNewAddressModalOpen(true); return;
         }
-        
-        if (!whatsapp || !validatePhone(whatsapp)) {
-            notification.show("Por favor, informe um número de WhatsApp válido para contato.", 'error');
-            return;
-        }
-
+        if (!whatsapp || !validatePhone(whatsapp)) { notification.show("Por favor, informe um número de WhatsApp válido para contato.", 'error'); return; }
         const nameToCheck = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
         const cpfToCheck = isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf;
         
         if (isPickup && (!nameToCheck || !validateCPF(cpfToCheck))) {
-            if(!isSomeoneElsePickingUp && !user) {
-                 notification.show("Faça login ou marque 'Outra pessoa vai retirar?' e preencha os dados.", 'error');
-            } else {
-                notification.show("Preencha nome e CPF válidos para quem vai retirar.", 'error');
-            }
+            if(!isSomeoneElsePickingUp && !user) notification.show("Faça login ou marque 'Outra pessoa vai retirar?' e preencha os dados.", 'error');
+            else notification.show("Preencha nome e CPF válidos para quem vai retirar.", 'error');
             return;
         }
 
@@ -6115,14 +6025,8 @@ const CheckoutPage = ({ onNavigate }) => {
 
             const orderPayload = {
                 items: cart.map(item => ({ id: item.id, qty: item.qty, price: (item.is_on_sale && item.sale_price ? item.sale_price : item.price), variation: item.variation })),
-                total, 
-                shippingAddress: finalShippingAddress, 
-                paymentMethod,
-                shipping_method: autoCalculatedShipping.name, 
-                shipping_cost: shippingCost,
-                coupon_code: appliedCoupon?.code || null, 
-                discount_amount: discount,
-                pickup_details: isPickup ? JSON.stringify({ personName: nameToSend, personCpf: cpfToSend }) : null,
+                total, shippingAddress: finalShippingAddress, paymentMethod, shipping_method: autoCalculatedShipping.name, shipping_cost: shippingCost,
+                coupon_code: appliedCoupon?.code || null, discount_amount: discount, pickup_details: isPickup ? JSON.stringify({ personName: nameToSend, personCpf: cpfToSend }) : null,
                 phone: whatsapp.replace(/\D/g, '')
             };
             
@@ -6143,16 +6047,14 @@ const CheckoutPage = ({ onNavigate }) => {
         }
     };
 
+    const pAddress = pickupConfig?.address;
+    const isPAddressObj = typeof pAddress === 'object' && pAddress !== null;
+
     return (
         <>
             <AnimatePresence>
                 {isLoading && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/80 backdrop-blur-md"
-                    >
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/80 backdrop-blur-md">
                         <div className="bg-gray-900 border border-gray-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center transform transition-all ring-1 ring-amber-500/30">
                             <SpinnerIcon className="h-16 w-16 text-amber-400 mb-6 animate-spin" />
                             <h3 className="text-2xl font-extrabold text-white mb-2">Processando Pedido</h3>
@@ -6182,23 +6084,13 @@ const CheckoutPage = ({ onNavigate }) => {
                                     <div>
                                         <label className="block text-sm font-medium text-gray-300 mb-2">WhatsApp para notificações do pedido <span className="text-red-500">*</span></label>
                                         <div className="relative">
-                                            <input 
-                                                type="text" 
-                                                value={whatsapp} 
-                                                onChange={handleWhatsappChange} 
-                                                placeholder="(00) 00000-0000" 
-                                                className="w-full pl-10 p-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 text-white" 
-                                            />
+                                            <input type="text" value={whatsapp} onChange={handleWhatsappChange} placeholder="(00) 00000-0000" className="w-full pl-10 p-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 text-white" />
                                             <WhatsappIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-green-500" />
                                         </div>
                                     </div>
                                     <div className="bg-blue-900/30 border border-blue-800 p-3 rounded-md flex gap-3 items-start">
                                         <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                                        <p className="text-sm text-blue-200">
-                                            Manteremos você informado sobre cada etapa do seu pedido (aprovação, envio e entrega) através deste número. 
-                                            <br/>
-                                            <span className="text-xs text-gray-400 mt-1 block">Caso altere o número aqui, seu cadastro será atualizado automaticamente.</span>
-                                        </p>
+                                        <p className="text-sm text-blue-200">Manteremos você informado sobre cada etapa do seu pedido através deste número.<br/><span className="text-xs text-gray-400 mt-1 block">Caso altere o número aqui, seu cadastro será atualizado automaticamente.</span></p>
                                     </div>
                                 </div>
                             </CheckoutSection>
@@ -6206,8 +6098,7 @@ const CheckoutPage = ({ onNavigate }) => {
                             <CheckoutSection title="Forma de Entrega" step={2} icon={TruckIcon}>
                                 <div className="space-y-3">
                                     {shippingOptions.map(option => (
-                                        <div key={option.name} onClick={() => handleSelectShipping(option)}
-                                             className={`relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center justify-between gap-4 ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-gray-800 shadow-inner' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}>
+                                        <div key={option.name} onClick={() => handleSelectShipping(option)} className={`relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center justify-between gap-4 ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-gray-800 shadow-inner' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}>
                                             <div className="absolute top-3 left-3 w-5 h-5 flex items-center justify-center">
                                                 <div className={`w-4 h-4 rounded-full border-2 ${autoCalculatedShipping?.name === option.name ? 'border-amber-400' : 'border-gray-500'}`}>
                                                     {autoCalculatedShipping?.name === option.name && <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-400"></div></div>}
@@ -6223,17 +6114,27 @@ const CheckoutPage = ({ onNavigate }) => {
                                 </div>
                             </CheckoutSection>
 
-                            {/* SEÇÃO MODIFICADA E DINÂMICA: Retirada na loja com Maps e BD */}
                             {autoCalculatedShipping?.isPickup ? (
                                 <CheckoutSection title="Detalhes da Retirada" icon={BoxIcon}>
-                                     <div className="text-sm bg-gray-800 p-4 rounded-md space-y-3 border border-gray-700">
+                                     <div className="text-sm bg-gray-800 p-4 rounded-md space-y-4 border border-gray-700">
                                         <div className="flex items-start gap-2">
                                             <MapPinIcon className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
-                                            <div>
-                                                <p className="font-bold text-white">Endereço:</p>
-                                                <p className="text-gray-300">{pickupConfig?.address || 'R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB'}</p>
+                                            <div className="w-full">
+                                                <p className="font-bold text-white mb-2">Endereço de Retirada:</p>
+                                                {isPAddressObj ? (
+                                                    <div className="space-y-1 bg-gray-900 p-3 rounded-md border border-gray-700">
+                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">Rua:</span> <span className="text-gray-200">{pAddress.rua}</span></div>
+                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">Nº:</span> <span className="text-gray-200">{pAddress.numero}</span></div>
+                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">Bairro:</span> <span className="text-gray-200">{pAddress.bairro}</span></div>
+                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">Cidade:</span> <span className="text-gray-200">{pAddress.cidade}</span></div>
+                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">CEP:</span> <span className="text-gray-200 font-mono">{pAddress.cep}</span></div>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-gray-300">{pAddress || 'Endereço não configurado'}</p>
+                                                )}
+
                                                 {pickupConfig?.mapsLink && (
-                                                    <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 hover:underline text-xs font-bold mt-1 inline-flex items-center gap-1 bg-amber-400/10 px-2 py-1 rounded border border-amber-400/30">
+                                                    <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 hover:underline text-xs font-bold mt-2 inline-flex items-center gap-1 bg-amber-400/10 px-3 py-1.5 rounded-md border border-amber-400/30 transition-all">
                                                         Ver localização no mapa <ArrowUturnLeftIcon className="h-3 w-3 rotate-180" />
                                                     </a>
                                                 )}
@@ -6244,11 +6145,11 @@ const CheckoutPage = ({ onNavigate }) => {
                                             <ClockIcon className="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" />
                                             <div>
                                                 <p className="font-bold text-white">Horário de Funcionamento:</p>
-                                                <p className="text-gray-300">{pickupConfig?.hours || 'Seg a Sáb: 09h-11h30 e 15h-17h30 (exceto feriados)'}</p>
+                                                <p className="text-gray-300 mt-1">{pickupConfig?.hours || 'Seg a Sáb: 09h-11h30 e 15h-17h30 (exceto feriados)'}</p>
                                             </div>
                                         </div>
 
-                                        <p className="text-amber-300 text-xs mt-2 font-semibold bg-amber-900/30 p-2 rounded border border-amber-800 flex items-center gap-1.5">
+                                        <p className="text-amber-300 text-xs mt-3 font-semibold bg-amber-900/30 p-2 rounded border border-amber-800 flex items-center gap-1.5">
                                             <ExclamationCircleIcon className="h-4 w-4" />
                                             Aguarde a notificação "Pronto para Retirada" antes de se dirigir ao local.
                                         </p>
@@ -7029,7 +6930,7 @@ const ProductReviewForm = ({ productId, orderId, onReviewSubmitted }) => {
 
 const OrderDetailPage = ({ onNavigate, orderId }) => {
     const { user, logout } = useAuth(); 
-    const { addToCart, markOrderAsSeen, pickupConfig } = useShop(); // Chama a config global dinâmica
+    const { addToCart, markOrderAsSeen, pickupConfig } = useShop(); 
     const notification = useNotification();
     const [order, setOrder] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -7282,7 +7183,10 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const refundInfo = order.refund_id ? getRefundStatusInfo(order.refund_status) : null;
     const isOrderInactive = ['Cancelado', 'Reembolsado', 'Pagamento Recusado'].includes(order.status);
 
-    // Timeline interna customizada omitida para brevidade (já está configurada corretamente)
+    const pAddress = pickupConfig?.address;
+    const isPAddressObj = typeof pAddress === 'object' && pAddress !== null;
+
+    // Timeline component omitted for brevity
     const LocalDeliveryTimeline = ({ history, currentStatus, onStatusClick }) => {
         const displayLabels = {
             'Pendente': 'Pedido Pendente',
@@ -7400,19 +7304,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
 
     return (
         <>
-            <TrackingModal isOpen={isTrackingModalOpen} onClose={() => setIsTrackingModalOpen(false)} order={order} />
-            <StatusDescriptionModal isOpen={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} details={selectedStatusDetails} />
-            <AnimatePresence>
-                {reviewingItem && (
-                    <Modal isOpen={true} onClose={() => setReviewingItem(null)} title={`Avaliar: ${reviewingItem.name}`}>
-                        <ProductReviewForm 
-                            productId={reviewingItem.product_id}
-                            orderId={order.id}
-                            onReviewSubmitted={handleReviewSuccess}
-                        />
-                    </Modal>
-                )}
-            </AnimatePresence>
             <AnimatePresence>
                 {isRefundModalOpen && (
                     <Modal isOpen={true} onClose={() => setIsRefundModalOpen(false)} title={`Solicitar ${actionText} do Pedido #${order.id}`}>
@@ -7521,18 +7412,31 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
 
                     {/* SEÇÃO MODIFICADA E DINÂMICA: Retirada na loja com Maps e BD */}
                     {isPickupOrder ? (
-                        <div className="my-4 p-3 bg-gray-800 rounded-md text-sm space-y-2">
+                        <div className="my-4 p-4 bg-gray-800 rounded-md text-sm space-y-3">
                             <div className="flex items-center gap-2 mb-1">
                                 <MapPinIcon className="h-5 w-5 text-amber-500" />
                                 <strong>Informações para Retirada:</strong>
                             </div>
-                            <p><strong>Endereço:</strong> {pickupConfig?.address || 'R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB'}</p>
+                            
+                            {isPAddressObj ? (
+                                <div className="space-y-1 bg-gray-900 p-3 rounded-md border border-gray-700 mt-2">
+                                    <div className="flex"><span className="font-semibold text-gray-500 w-16">Rua:</span> <span className="text-gray-200">{pAddress.rua}</span></div>
+                                    <div className="flex"><span className="font-semibold text-gray-500 w-16">Nº:</span> <span className="text-gray-200">{pAddress.numero}</span></div>
+                                    <div className="flex"><span className="font-semibold text-gray-500 w-16">Bairro:</span> <span className="text-gray-200">{pAddress.bairro}</span></div>
+                                    <div className="flex"><span className="font-semibold text-gray-500 w-16">Cidade:</span> <span className="text-gray-200">{pAddress.cidade}</span></div>
+                                    <div className="flex"><span className="font-semibold text-gray-500 w-16">CEP:</span> <span className="text-gray-200 font-mono">{pAddress.cep}</span></div>
+                                </div>
+                            ) : (
+                                <p className="text-gray-300 mt-2">{pAddress || 'Endereço não configurado'}</p>
+                            )}
+
                             {pickupConfig?.mapsLink && (
-                                <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 hover:underline text-xs font-bold mt-1 inline-block">
+                                <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 hover:underline text-xs font-bold mt-1 inline-flex items-center gap-1">
                                     Abrir no Google Maps &rarr;
                                 </a>
                             )}
-                            <p className="pt-2"><strong>Horário:</strong> {pickupConfig?.hours || 'Seg a Sáb, 09h-11h30 e 15h-17h30'}</p>
+                            
+                            <p className="pt-2 border-t border-gray-700 mt-3"><strong>Horário:</strong> {pickupConfig?.hours || 'Seg a Sáb, 09h-11h30 e 15h-17h30'}</p>
                             {pickupDetails?.personName && <p><strong>Pessoa autorizada:</strong> {pickupDetails.personName}</p>}
                             <p className="text-amber-300 text-xs mt-2 font-semibold bg-amber-900/20 p-2 rounded">Aguarde a notificação "Pronto para Retirada" e apresente documento com foto.</p>
                         </div>
@@ -9208,16 +9112,17 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     );
 });
 const AdminShippingSettings = () => {
-    const [activeTab, setActiveTab] = useState('pickup'); // Abas: 'pickup' ou 'motoboy'
+    const [activeTab, setActiveTab] = useState('pickup'); 
     
-    // Estados do Motoboy
     const [config, setConfig] = useState({ base_price: 20, rules: [] });
     const [productsData, setProductsData] = useState({ brands: [], categories: [] });
     const [newRule, setNewRule] = useState({ type: 'category', value: '', action: 'free_shipping', amount: 0 });
 
-    // Estados da Retirada na Loja
     const [pickupConfig, setPickupConfig] = useState({ 
-        address: '', hours: '', instructions: '', mapsLink: '' 
+        address: { rua: '', numero: '', bairro: '', cidade: '', cep: '' }, 
+        hours: '', 
+        instructions: '', 
+        mapsLink: '' 
     });
 
     const [isLoading, setIsLoading] = useState(true);
@@ -9225,7 +9130,6 @@ const AdminShippingSettings = () => {
     const notification = useNotification();
     const confirmation = useConfirmation();
 
-    // Estados para o Modal de Autenticação Local
     const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
     const [authInput, setAuthInput] = useState('');
     const [isAuthVerify, setIsAuthVerify] = useState(false);
@@ -9233,7 +9137,6 @@ const AdminShippingSettings = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // Busca todas as configurações de uma vez
                 const [configData, pickupData, products, collections] = await Promise.all([
                     apiService('/settings/shipping-local'),
                     apiService('/settings/pickup'),
@@ -9241,23 +9144,22 @@ const AdminShippingSettings = () => {
                     apiService('/collections/admin')
                 ]);
 
-                // Seta Motoboy
                 setConfig({
                     base_price: parseFloat(configData.base_price) || 20,
                     rules: Array.isArray(configData.rules) ? configData.rules : []
                 });
 
-                // Seta Pickup (Retirada)
                 if (pickupData) {
                     setPickupConfig({
-                        address: pickupData.address || '',
+                        address: typeof pickupData.address === 'object' && pickupData.address !== null 
+                            ? pickupData.address 
+                            : { rua: pickupData.address || '', numero: '', bairro: '', cidade: '', cep: '' },
                         hours: pickupData.hours || '',
                         instructions: pickupData.instructions || '',
                         mapsLink: pickupData.mapsLink || ''
                     });
                 }
 
-                // Seta dados para os selects (Marcas e Categorias)
                 const uniqueBrands = [...new Set(products.map(p => p.brand).filter(Boolean))].sort();
                 const uniqueCats = [...new Set([...products.map(p => p.category), ...collections.map(c => c.filter)].filter(Boolean))].sort();
 
@@ -9271,7 +9173,6 @@ const AdminShippingSettings = () => {
         fetchData();
     }, []);
 
-    // --- Lógica Motoboy ---
     const handleAddRule = () => {
         if (!newRule.value) { notification.show("Selecione um valor para a regra.", "error"); return; }
         setConfig(prev => ({ ...prev, rules: [...prev.rules, { ...newRule, id: Date.now(), amount: parseFloat(newRule.amount) || 0 }] }));
@@ -9282,13 +9183,19 @@ const AdminShippingSettings = () => {
         setConfig(prev => ({ ...prev, rules: prev.rules.filter(r => r.id !== id) }));
     };
 
-    // --- Lógica Pickup (Retirada) ---
     const handlePickupChange = (e) => {
         const { name, value } = e.target;
         setPickupConfig(prev => ({ ...prev, [name]: value }));
     };
 
-    // --- Salvamento Geral (Abre modal de senha) ---
+    const handleAddressChange = (e) => {
+        const { name, value } = e.target;
+        setPickupConfig(prev => ({ 
+            ...prev, 
+            address: { ...prev.address, [name]: value } 
+        }));
+    };
+
     const handleSave = () => {
         setIsAuthModalOpen(true);
     };
@@ -9332,8 +9239,6 @@ const AdminShippingSettings = () => {
 
     return (
         <div className="max-w-4xl mx-auto space-y-8">
-            
-            {/* MODAL DE CONFIRMAÇÃO DE SEGURANÇA */}
             <AnimatePresence>
                 {isAuthModalOpen && (
                     <Modal isOpen={true} onClose={() => setIsAuthModalOpen(false)} title="Confirmação de Segurança">
@@ -9371,7 +9276,6 @@ const AdminShippingSettings = () => {
                 <p className="text-slate-500">Configure as opções locais oferecidas aos clientes.</p>
             </div>
 
-            {/* ABAS DE NAVEGAÇÃO */}
             <div className="flex border-b border-gray-200 bg-white rounded-t-lg shadow-sm">
                 <button 
                     onClick={() => setActiveTab('pickup')} 
@@ -9393,7 +9297,6 @@ const AdminShippingSettings = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
             >
-                {/* --- CONTEÚDO: RETIRADA NA LOJA --- */}
                 {activeTab === 'pickup' && (
                     <div className="space-y-6">
                         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -9402,18 +9305,30 @@ const AdminShippingSettings = () => {
                             </h3>
                             <p className="text-xs text-gray-500 mb-4">Este é o local onde o cliente buscará o pedido.</p>
                             
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Endereço Completo</label>
-                                    <textarea 
-                                        name="address"
-                                        value={pickupConfig.address}
-                                        onChange={handlePickupChange}
-                                        rows="2"
-                                        placeholder="R. Nome da Rua, 123 - Bairro, Cidade - Estado"
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 text-sm"
-                                    />
+                            <div className="space-y-5">
+                                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <div className="md:col-span-8">
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Rua</label>
+                                        <input type="text" name="rua" value={pickupConfig.address?.rua || ''} onChange={handleAddressChange} className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="Rua / Avenida" />
+                                    </div>
+                                    <div className="md:col-span-4">
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Número</label>
+                                        <input type="text" name="numero" value={pickupConfig.address?.numero || ''} onChange={handleAddressChange} className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="123" />
+                                    </div>
+                                    <div className="md:col-span-4">
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Bairro</label>
+                                        <input type="text" name="bairro" value={pickupConfig.address?.bairro || ''} onChange={handleAddressChange} className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="Bairro" />
+                                    </div>
+                                    <div className="md:col-span-4">
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Cidade - UF</label>
+                                        <input type="text" name="cidade" value={pickupConfig.address?.cidade || ''} onChange={handleAddressChange} className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="Sua Cidade - UF" />
+                                    </div>
+                                    <div className="md:col-span-4">
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">CEP</label>
+                                        <input type="text" name="cep" value={pickupConfig.address?.cep || ''} onChange={handleAddressChange} className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="00000-000" />
+                                    </div>
                                 </div>
+                                
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1">Link do Google Maps (Opcional, mas recomendado)</label>
                                     <input 
@@ -9422,7 +9337,7 @@ const AdminShippingSettings = () => {
                                         value={pickupConfig.mapsLink}
                                         onChange={handlePickupChange}
                                         placeholder="https://maps.app.goo.gl/..."
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 text-sm"
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                                     />
                                 </div>
                             </div>
@@ -9462,7 +9377,6 @@ const AdminShippingSettings = () => {
                     </div>
                 )}
 
-                {/* --- CONTEÚDO: FRETE LOCAL --- */}
                 {activeTab === 'motoboy' && (
                     <div className="space-y-6">
                         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -9494,22 +9408,14 @@ const AdminShippingSettings = () => {
                             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
                                 <div className="md:col-span-2">
                                     <label className="text-xs font-bold text-gray-500 uppercase">Se</label>
-                                    <select 
-                                        value={newRule.type} 
-                                        onChange={(e) => setNewRule({...newRule, type: e.target.value, value: ''})}
-                                        className="w-full p-2 text-sm border rounded-md"
-                                    >
+                                    <select value={newRule.type} onChange={(e) => setNewRule({...newRule, type: e.target.value, value: ''})} className="w-full p-2 text-sm border rounded-md">
                                         <option value="category">Categoria</option>
                                         <option value="brand">Marca</option>
                                     </select>
                                 </div>
                                 <div className="md:col-span-3">
                                     <label className="text-xs font-bold text-gray-500 uppercase">For Igual A</label>
-                                    <select 
-                                        value={newRule.value} 
-                                        onChange={(e) => setNewRule({...newRule, value: e.target.value})}
-                                        className="w-full p-2 text-sm border rounded-md"
-                                    >
+                                    <select value={newRule.value} onChange={(e) => setNewRule({...newRule, value: e.target.value})} className="w-full p-2 text-sm border rounded-md">
                                         <option value="">Selecione...</option>
                                         {newRule.type === 'category' 
                                             ? productsData.categories.map(c => <option key={c} value={c}>{c}</option>)
@@ -9519,11 +9425,7 @@ const AdminShippingSettings = () => {
                                 </div>
                                 <div className="md:col-span-3">
                                     <label className="text-xs font-bold text-gray-500 uppercase">Aplicar</label>
-                                    <select 
-                                        value={newRule.action} 
-                                        onChange={(e) => setNewRule({...newRule, action: e.target.value})}
-                                        className="w-full p-2 text-sm border rounded-md"
-                                    >
+                                    <select value={newRule.action} onChange={(e) => setNewRule({...newRule, action: e.target.value})} className="w-full p-2 text-sm border rounded-md">
                                         <option value="free_shipping">Frete Grátis</option>
                                         <option value="surcharge">Acréscimo (+R$)</option>
                                         <option value="discount">Desconto (-R$)</option>
@@ -9531,22 +9433,10 @@ const AdminShippingSettings = () => {
                                 </div>
                                 <div className="md:col-span-2">
                                     <label className="text-xs font-bold text-gray-500 uppercase">Valor</label>
-                                    <input 
-                                        type="number" 
-                                        disabled={newRule.action === 'free_shipping'}
-                                        value={newRule.amount}
-                                        onChange={(e) => setNewRule({...newRule, amount: e.target.value})}
-                                        className={`w-full p-2 text-sm border rounded-md ${newRule.action === 'free_shipping' ? 'bg-gray-200 cursor-not-allowed' : 'bg-white'}`}
-                                        placeholder="0.00"
-                                    />
+                                    <input type="number" disabled={newRule.action === 'free_shipping'} value={newRule.amount} onChange={(e) => setNewRule({...newRule, amount: e.target.value})} className={`w-full p-2 text-sm border rounded-md ${newRule.action === 'free_shipping' ? 'bg-gray-200 cursor-not-allowed' : 'bg-white'}`} placeholder="0.00" />
                                 </div>
                                 <div className="md:col-span-2">
-                                    <button 
-                                        onClick={handleAddRule}
-                                        className="w-full bg-indigo-600 text-white p-2 rounded-md font-bold text-sm hover:bg-indigo-700 transition-colors"
-                                    >
-                                        + Adicionar
-                                    </button>
+                                    <button onClick={handleAddRule} className="w-full bg-indigo-600 text-white p-2 rounded-md font-bold text-sm hover:bg-indigo-700 transition-colors">+ Adicionar</button>
                                 </div>
                             </div>
 
@@ -9565,9 +9455,7 @@ const AdminShippingSettings = () => {
                                                 {rule.action === 'surcharge' && <span className="text-red-600 font-bold">Acréscimo de R$ {Number(rule.amount).toFixed(2)}</span>}
                                                 {rule.action === 'discount' && <span className="text-blue-600 font-bold">Desconto de R$ {Number(rule.amount).toFixed(2)}</span>}
                                             </div>
-                                            <button onClick={() => handleRemoveRule(rule.id)} className="text-red-400 hover:text-red-600 p-1">
-                                                <TrashIcon className="h-4 w-4"/>
-                                            </button>
+                                            <button onClick={() => handleRemoveRule(rule.id)} className="text-red-400 hover:text-red-600 p-1"><TrashIcon className="h-4 w-4"/></button>
                                         </div>
                                     ))}
                                 </div>
@@ -9578,11 +9466,7 @@ const AdminShippingSettings = () => {
             </motion.div>
 
             <div className="flex justify-end pt-4">
-                <button 
-                    onClick={handleSave} 
-                    disabled={isSaving}
-                    className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-green-700 shadow-md flex items-center gap-2 disabled:opacity-70 active:scale-95 transition-all"
-                >
+                <button onClick={handleSave} disabled={isSaving} className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-green-700 shadow-md flex items-center gap-2 disabled:opacity-70 active:scale-95 transition-all">
                     {isSaving ? <SpinnerIcon className="h-5 w-5"/> : <CheckIcon className="h-5 w-5"/>}
                     Salvar Alterações
                 </button>
@@ -12395,7 +12279,7 @@ const AdminRefunds = ({ onNavigate }) => {
 };
 
 const AdminOrders = ({ appName }) => {
-    const { pickupConfig } = useShop(); // Trazendo a configuração dinâmica do banco
+    const { pickupConfig } = useShop(); 
     const [orders, setOrders] = useState([]);
     const [filteredOrders, setFilteredOrders] = useState([]);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -12617,12 +12501,19 @@ const AdminOrders = ({ appName }) => {
              text += `\n\n--------------------------------\n`;
              if (isPickup) {
                 // INJEÇÃO DA CONFIGURAÇÃO DINÂMICA
-                const pAddr = pickupConfig?.address || 'R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB';
+                const pAddr = pickupConfig?.address;
+                let pAddrStr = 'Endereço não configurado';
+                if (typeof pAddr === 'object' && pAddr !== null) {
+                    pAddrStr = `Rua: ${pAddr.rua}\nNº: ${pAddr.numero}\nBairro: ${pAddr.bairro}\nCidade: ${pAddr.cidade}\nCEP: ${pAddr.cep}`;
+                } else if (typeof pAddr === 'string') {
+                    pAddrStr = pAddr;
+                }
+
                 const pHours = pickupConfig?.hours || 'Seg a Sáb, 09h-11h30 e 15h-17h30';
                 const pInst = pickupConfig?.instructions || 'Documento com foto e número do pedido.';
                 const pMaps = pickupConfig?.mapsLink || '';
 
-                text += `${EMOJI.PIN} *Local de Retirada:*\n${pAddr}\n`;
+                text += `${EMOJI.PIN} *Local de Retirada:*\n${pAddrStr}\n`;
                 if (pMaps) text += `\n${EMOJI.LINK} *Mapa:* ${pMaps}\n`;
                 text += `\n${EMOJI.CLOCK} *Horário:* ${pHours}\n`;
                 text += `\n${EMOJI.DOC} *Necessário:* ${pInst}`;
@@ -12903,6 +12794,9 @@ const AdminOrders = ({ appName }) => {
         );
     };
 
+    const pAddress = pickupConfig?.address;
+    const isPAddressObj = typeof pAddress === 'object' && pAddress !== null;
+
     return (
         <div>
             <AnimatePresence>
@@ -13099,17 +12993,27 @@ const AdminOrders = ({ appName }) => {
 
                                             {isPickup ? (
                                                 <div className="bg-amber-50 border border-amber-200 rounded p-3 text-xs text-amber-800 space-y-1.5">
-                                                    <p><strong>Retirada na Loja</strong></p>
-                                                    {/* Usando os dados dinâmicos da Configuração aqui também */}
-                                                    <p>{pickupConfig?.address || 'Endereço não configurado'}</p>
-                                                    {pickupConfig?.mapsLink && (
-                                                        <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline font-bold mt-1 inline-block">Ver no Mapa &rarr;</a>
+                                                    <p className="font-bold text-amber-900 mb-1">Retirada na Loja</p>
+                                                    {isPAddressObj ? (
+                                                        <div className="space-y-0.5 text-amber-900 bg-amber-100/50 p-2 rounded">
+                                                            <div className="flex"><span className="font-semibold w-12">Rua:</span> <span>{pAddress.rua}</span></div>
+                                                            <div className="flex"><span className="font-semibold w-12">Nº:</span> <span>{pAddress.numero}</span></div>
+                                                            <div className="flex"><span className="font-semibold w-12">Bairro:</span> <span>{pAddress.bairro}</span></div>
+                                                            <div className="flex"><span className="font-semibold w-12">Cidade:</span> <span>{pAddress.cidade}</span></div>
+                                                            <div className="flex"><span className="font-semibold w-12">CEP:</span> <span>{pAddress.cep}</span></div>
+                                                        </div>
+                                                    ) : (
+                                                        <p>{pAddress || 'Endereço não configurado'}</p>
                                                     )}
                                                     
+                                                    {pickupConfig?.mapsLink && (
+                                                        <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline font-bold mt-2 inline-block">Ver no Mapa &rarr;</a>
+                                                    )}
+
                                                     {editingOrder.pickup_details && (() => {
                                                         try {
                                                             const p = JSON.parse(editingOrder.pickup_details);
-                                                            return <div className="mt-2 pt-2 border-t border-amber-200"><p className="font-semibold text-amber-900">Retirado por:</p><p>{p.personName} (CPF: {p.personCpf})</p></div>
+                                                            return <div className="mt-3 pt-2 border-t border-amber-200"><p className="font-semibold text-amber-900">Retirado por:</p><p>{p.personName} (CPF: {p.personCpf})</p></div>
                                                         } catch { return null; }
                                                     })()}
                                                 </div>
@@ -13303,7 +13207,6 @@ const AdminOrders = ({ appName }) => {
                         const shipInfo = getShippingDisplay(o.shipping_method);
                         return (
                         <div key={o.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm relative overflow-hidden">
-                            {/* Faixa lateral de status */}
                             <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${o.status === 'Entregue' ? 'bg-green-500' : (o.status === 'Cancelado' ? 'bg-red-500' : 'bg-indigo-500')}`}></div>
                             
                             <div className="pl-3">
