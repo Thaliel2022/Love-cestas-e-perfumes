@@ -15794,14 +15794,14 @@ const AdminThemeSettings = () => {
     );
 };
 // Componente de Animações Sazonais (Alta Performance via CSS Animation e Memoização)
-const SeasonalAnimations = memo(({ isEnabled, forcedSeason }) => {
+const SeasonalAnimations = memo(({ isEnabled, forcedSeason, isAppReady }) => {
     const [season, setSeason] = useState(null);
-    const [isActive, setIsActive] = useState(true); // Controla a opacidade (fade out)
-    const [isMounted, setIsMounted] = useState(true); // Controla a presença na tela para economizar memória
+    const [isActive, setIsActive] = useState(false); 
+    const [isMounted, setIsMounted] = useState(false); 
 
     useEffect(() => {
-        if (!isEnabled) {
-            setSeason(null);
+        // Se a animação estiver desativada pelo Admin ou se o app ainda estiver na tela de carregamento, não faz nada.
+        if (!isEnabled || !isAppReady) {
             return;
         }
 
@@ -15818,10 +15818,13 @@ const SeasonalAnimations = memo(({ isEnabled, forcedSeason }) => {
             else if (m === 5 && d <= 15) setSeason('maes');
             else if (m === 8 && d <= 15) setSeason('pais');
             else if (m === 11 && d >= 15) setSeason('blackfriday');
-            else setSeason(null);
+            else {
+                setSeason(null);
+                return;
+            }
         }
 
-        // Toda vez que a season muda ou a página carrega, reseta o tempo para rodar por 5s
+        // Inicia a animação apenas quando o app estiver pronto
         setIsActive(true);
         setIsMounted(true);
         
@@ -15837,9 +15840,8 @@ const SeasonalAnimations = memo(({ isEnabled, forcedSeason }) => {
             clearTimeout(fadeTimer);
             clearTimeout(unmountTimer);
         };
-    }, [isEnabled, forcedSeason]);
+    }, [isEnabled, forcedSeason, isAppReady]); // A dependência isAppReady garante que só inicie após o load
 
-    // O useMemo garante que os valores aleatórios sejam gerados apenas UMA vez por tema.
     const particles = useMemo(() => {
         if (!season) return [];
         
@@ -15853,17 +15855,16 @@ const SeasonalAnimations = memo(({ isEnabled, forcedSeason }) => {
             id: i,
             left: Math.random() * 100,
             top: season === 'blackfriday' ? Math.random() * 100 : -10,
-            // Aceleramos a animação (de 4s a 8s) para que sejam bem visíveis nos primeiros 5 segundos
             animDuration: season === 'blackfriday' ? 1 + Math.random() * 2 : 4 + Math.random() * 4,
             delay: season === 'blackfriday' ? Math.random() * 2 : Math.random() * -5,
             size: season === 'blackfriday' ? 0.1 + Math.random() * 0.3 : 0.8 + Math.random() * 1.5,
         }));
     }, [season]);
 
-    if (!isEnabled || !season || particles.length === 0 || !isMounted) return null;
+    if (!isEnabled || !isAppReady || !isMounted || !season || particles.length === 0) return null;
 
     return (
-        <div className={`fixed inset-0 pointer-events-none z-[45] overflow-hidden transition-opacity duration-1000 ${isActive ? 'opacity-100' : 'opacity-0'}`} aria-hidden="true">
+        <div className={`fixed inset-0 pointer-events-none z-[100] overflow-hidden transition-opacity duration-1000 ${isActive ? 'opacity-100' : 'opacity-0'}`} aria-hidden="true">
             <style>{`
                 @keyframes fall {
                     0% { transform: translateY(-10vh) rotate(0deg); opacity: 0; }
@@ -15933,17 +15934,7 @@ function AppContent({ deferredPrompt }) {
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
-  const [userAnimationsDisabled, setUserAnimationsDisabled] = useState(() => {
-      return localStorage.getItem('lovecestas_user_anim_disabled') === 'true';
-  });
-
-  const toggleUserAnimations = () => {
-      setUserAnimationsDisabled(prev => {
-          const newState = !prev;
-          localStorage.setItem('lovecestas_user_anim_disabled', newState);
-          return newState;
-      });
-  };
+  // LOGICA DO CLIENTE REMOVIDA TOTALMENTE (APENAS O ADMIN CONTROLA)
 
   const defaultThemeFallback = {
       primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af', animationsEnabled: true, activeSeason: null
@@ -16244,7 +16235,9 @@ function AppContent({ deferredPrompt }) {
   const safeShortName = appNameConfig?.short_name || 'Love Cestas';
   const safeLogoText = appNameConfig?.logo_text || (safeName ? String(safeName).replace(/\s/g, '') : 'LoveCestas');
 
-  if (isLoading || isStatusLoading) {
+  const isAppReady = !isLoading && !isStatusLoading;
+
+  if (!isAppReady) {
       return (
         <div className="h-screen flex flex-col items-center justify-center gap-6" style={{ backgroundColor: activeThemeColors.bg }}>
             <motion.div 
@@ -16350,7 +16343,6 @@ function AppContent({ deferredPrompt }) {
   
   const effectiveForcedSeason = previewSeason || appThemeConfig.activeSeason;
   const shouldRunAnimations = appThemeConfig.animationsEnabled !== false && 
-                              !userAnimationsDisabled && 
                               (appThemeConfig.autoSeasonal || effectiveForcedSeason);
   
   return (
@@ -16360,6 +16352,7 @@ function AppContent({ deferredPrompt }) {
           <SeasonalAnimations 
             isEnabled={shouldRunAnimations} 
             forcedSeason={effectiveForcedSeason} 
+            isAppReady={isAppReady}
           />
       )}
       
@@ -16428,28 +16421,8 @@ function AppContent({ deferredPrompt }) {
             </div>
             
             <div className="bg-black py-4 border-t border-gray-800 transition-colors duration-500 pb-20 md:pb-4">
-                <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="container mx-auto px-4 flex items-center justify-center">
                     <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} {safeName}. Todos os direitos reservados.</p>
-                    
-                    {appThemeConfig.animationsEnabled && (appThemeConfig.autoSeasonal || effectiveForcedSeason) && (
-                        <button 
-                            onClick={toggleUserAnimations} 
-                            className="text-xs text-gray-500 hover:text-amber-400 transition-colors flex items-center justify-center gap-1.5 bg-gray-900/50 px-4 py-2 rounded-full border border-gray-800 shadow-sm active:scale-95"
-                            title={userAnimationsDisabled ? "Ativar Efeitos Sazonais" : "Desativar Efeitos Sazonais"}
-                        >
-                            {userAnimationsDisabled ? (
-                                <>
-                                    <SparklesIcon className="h-4 w-4 opacity-50"/>
-                                    Ligar Efeitos da Tela
-                                </>
-                            ) : (
-                                <>
-                                    <SparklesIcon className="h-4 w-4 text-amber-400 animate-pulse"/>
-                                    Desligar Efeitos da Tela
-                                </>
-                            )}
-                        </button>
-                    )}
                 </div>
             </div>
         </footer>
