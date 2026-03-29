@@ -6407,7 +6407,7 @@ const CheckoutPage = ({ onNavigate }) => {
     );
 };
 
-const OrderSuccessPage = ({ orderId, onNavigate }) => {
+const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
     const { clearOrderState } = useShop();
     const notification = useNotification();
     const [pageStatus, setPageStatus] = useState('processing'); // 'processing', 'success', 'timeout', 'pending_action'
@@ -6667,9 +6667,9 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
     };
 
     const { icon, title, subtitle, message, actions, borderColor } = renderContent();
+    const displayName = appName || 'Love Cestas';
 
     return (
-        // Correção de Layout: Removido o 'overflow-hidden' restritivo. 'min-h-[100dvh]' e 'py-16' garantem scroll em celulares.
         <div className="bg-black text-white min-h-[100dvh] flex flex-col justify-start md:justify-center items-center p-4 pt-10 pb-28 md:py-8 relative overflow-x-hidden overflow-y-auto">
             
             {/* Efeitos de Luz de Fundo (Atrás de tudo) */}
@@ -6707,7 +6707,7 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
             {!isStandalone && pageStatus !== 'processing' && (
                 <div className="mt-8 p-4 bg-blue-900/30 border border-blue-800/50 rounded-xl max-w-lg w-full text-center relative z-10 backdrop-blur-md animate-fade-in">
                     <p className="text-xs sm:text-sm text-blue-200">
-                        <strong className="text-blue-400">Dica de Acesso:</strong> Parece que você está no navegador do celular. Se você já instalou o nosso aplicativo, recomendamos fechar esta janela e voltar a abrir o app <strong>Love Cestas</strong> para a melhor experiência!
+                        <strong className="text-blue-400">Dica de Acesso:</strong> Parece que você está no navegador do celular. Se você já instalou o nosso aplicativo, recomendamos fechar esta janela e voltar a abrir o app <strong>{displayName}</strong> para a melhor experiência!
                     </p>
                 </div>
             )}
@@ -8629,7 +8629,7 @@ const AjudaPage = ({ onNavigate }) => {
     );
 };
 
-const AboutPage = () => {
+const AboutPage = ({ appName }) => {
     return (
         <div className="bg-black text-white min-h-screen py-16">
             <div className="container mx-auto px-4 max-w-4xl">
@@ -8641,7 +8641,7 @@ const AboutPage = () => {
                 <div className="bg-gray-900 p-8 rounded-lg border border-gray-800 space-y-8 text-lg text-gray-300 leading-relaxed">
                     <section>
                         <h2 className="text-2xl font-bold text-white mb-4">Nossa História</h2>
-                        <p>A Love Cestas e Perfumes nasceu de uma paixão por aromas marcantes e pela moda que expressa identidade. Fundada em João Pessoa, Paraíba, nossa missão sempre foi oferecer mais do que produtos; oferecemos uma experiência de autoestima e bem-estar. Cada peça de roupa é selecionada com um olhar atento às tendências e à qualidade, e cada perfume é escolhido por sua capacidade de criar memórias inesquecíveis.</p>
+                        <p>A {appName || 'loja'} nasceu de uma paixão por aromas marcantes e pela moda que expressa identidade. Fundada em João Pessoa, Paraíba, nossa missão sempre foi oferecer mais do que produtos; oferecemos uma experiência de autoestima e bem-estar. Cada peça de roupa é selecionada com um olhar atento às tendências e à qualidade, e cada perfume é escolhido por sua capacidade de criar memórias inesquecíveis.</p>
                     </section>
 
                     <section>
@@ -8664,7 +8664,8 @@ const AboutPage = () => {
     );
 };
 
-const PrivacyPolicyPage = () => {
+const PrivacyPolicyPage = ({ appName, appLogoText }) => {
+    const displayLogo = appLogoText || appName || 'nossa loja';
     return (
         <div className="bg-black text-white min-h-screen py-16">
             <div className="container mx-auto px-4 max-w-4xl">
@@ -8673,7 +8674,7 @@ const PrivacyPolicyPage = () => {
                     <p className="text-gray-400">Última atualização: 16 de Outubro de 2025</p>
                 </div>
                 <div className="bg-gray-900 p-8 rounded-lg border border-gray-800 space-y-6 text-gray-300 leading-relaxed">
-                    <p>Sua privacidade é importante para nós. É política da LovecestasePerfumes respeitar a sua privacidade em relação a qualquer informação sua que possamos coletar em nosso site.</p>
+                    <p>Sua privacidade é importante para nós. É política da {displayLogo} respeitar a sua privacidade em relação a qualquer informação sua que possamos coletar em nosso site.</p>
                     
                     <h3 className="text-xl font-bold text-white pt-4">1. Coleta de Dados</h3>
                     <p>Solicitamos informações pessoais apenas quando realmente precisamos delas para lhe fornecer um serviço. Fazemo-lo por meios justos e legais, com o seu conhecimento e consentimento. Também informamos por que estamos coletando e como será usado.</p>
@@ -8698,7 +8699,8 @@ const PrivacyPolicyPage = () => {
     );
 };
 
-const TermsOfServicePage = () => {
+const TermsOfServicePage = ({ appName, appLogoText }) => {
+    const displayLogo = appLogoText || appName || 'nossa loja';
     return (
         <div className="bg-black text-white min-h-screen py-16">
             <div className="container mx-auto px-4 max-w-4xl">
@@ -8708,7 +8710,7 @@ const TermsOfServicePage = () => {
                 </div>
                 <div className="bg-gray-900 p-8 rounded-lg border border-gray-800 space-y-6 text-gray-300 leading-relaxed">
                     <h3 className="text-xl font-bold text-white">1. Aceitação dos Termos</h3>
-                    <p>Ao acessar e usar o site da LovecestasePerfumes, você concorda em cumprir estes Termos de Serviço e todas as leis e regulamentos aplicáveis. Se você não concorda com algum destes termos, está proibido de usar ou acessar este site.</p>
+                    <p>Ao acessar e usar o site da {displayLogo}, você concorda em cumprir estes Termos de Serviço e todas as leis e regulamentos aplicáveis. Se você não concorda com algum destes termos, está proibido de usar ou acessar este site.</p>
 
                     <h3 className="text-xl font-bold text-white pt-4">2. Contas de Usuário</h3>
                     <p>Para acessar certas funcionalidades, você pode ser solicitado a criar uma conta. Você é responsável por manter a confidencialidade de sua senha e por todas as atividades que ocorrem em sua conta. Você concorda em nos notificar imediatamente sobre qualquer uso não autorizado de sua conta.</p>
@@ -8720,14 +8722,14 @@ const TermsOfServicePage = () => {
                     <p>Reservamo-nos o direito de recusar qualquer pedido que você fizer conosco. Podemos, a nosso critério, limitar ou cancelar as quantidades compradas por pessoa, por domicílio ou por pedido. No caso de fazermos uma alteração ou cancelarmos um pedido, podemos tentar notificá-lo entrando em contato com o e-mail e/ou endereço de faturamento/número de telefone fornecido no momento em que o pedido foi feito.</p>
 
                     <h3 className="text-xl font-bold text-white pt-4">5. Limitação de Responsabilidade</h3>
-                    <p>Em nenhuma circunstância a LovecestasePerfumes será responsável por quaisquer danos (incluindo, sem limitação, danos por perda de dados ou lucro, ou devido a interrupção dos negócios) decorrentes do uso ou da incapacidade de usar os materiais no site da LovecestasePerfumes.</p>
+                    <p>Em nenhuma circunstância a {displayLogo} será responsável por quaisquer danos (incluindo, sem limitação, danos por perda de dados ou lucro, ou devido a interrupção dos negócios) decorrentes do uso ou da incapacidade de usar os materiais no site da {displayLogo}.</p>
                 </div>
             </div>
         </div>
     );
 };
 
-const AdminNewsletter = () => {
+const AdminNewsletter = ({ appName }) => {
     const [subscribers, setSubscribers] = useState([]);
     const [products, setProducts] = useState([]); // Lista de produtos para o select
     const [isLoading, setIsLoading] = useState(true);
@@ -8946,6 +8948,9 @@ const AdminNewsletter = () => {
                                 {isSending ? 'Enviando...' : 'Enviar para Todos'}
                             </button>
                         </div>
+                        <p className="text-center text-xs text-gray-500 mt-4">
+                            Você recebeu este e-mail porque se inscreveu no Clube VIP da {appName || 'loja'}.
+                        </p>
                     </form>
                 </div>
             )}
@@ -12298,7 +12303,7 @@ const AdminRefunds = ({ onNavigate }) => {
     );
 };
 
-const AdminOrders = () => {
+const AdminOrders = ({ appName }) => {
     const [orders, setOrders] = useState([]);
     const [filteredOrders, setFilteredOrders] = useState([]);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -12421,7 +12426,7 @@ const AdminOrders = () => {
         );
     };
 
-    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS (RESTAURADA) ---
+    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS ---
     const generateWhatsAppStatusMessage = (status, order, trackingCode) => {
         const customerName = order.user_name;
         const orderId = order.id;
@@ -12469,8 +12474,8 @@ const AdminOrders = () => {
              
              text += `${EMOJI.CHECK} Assim que confirmado, você será notificado automaticamente por aqui e por e-mail.\n`;
              
-             // Encerra a mensagem aqui para focar na ação de pagamento
-             text += `\nAtenciosamente,\n*Equipe Love Cestas e Perfumes*\n${EMOJI.PHONE} (83) 98737-9573`;
+             // Encerra a mensagem aqui para focar na ação de pagamento, usando o NOME DINÂMICO
+             text += `\nAtenciosamente,\n*Equipe ${appName || 'da Loja'}*\n${EMOJI.PHONE} (83) 98737-9573`;
              return text;
         }
 
@@ -12549,7 +12554,7 @@ const AdminOrders = () => {
         }
 
         text += `\n\n${EMOJI.LINK} *Detalhes no site:*\n${orderLink}`;
-        text += `\n\nAtenciosamente,\n*Equipe Love Cestas e Perfumes*\n${EMOJI.PHONE} (83) 98737-9573`;
+        text += `\n\nAtenciosamente,\n*Equipe ${appName || 'da Loja'}*\n${EMOJI.PHONE} (83) 98737-9573`;
         
         return text;
     };
@@ -15832,7 +15837,7 @@ function AppContent({ deferredPrompt }) {
       return appThemeConfig.colors || defaultThemeFallback;
   }, [appThemeConfig, getSeasonalTheme]);
 
-  // --- MÁGICA DOS TEMAS: Injeção Dinâmica de CSS Variables (CORRIGIDA E BLINDADA) ---
+  // --- MÁGICA DOS TEMAS: Injeção Dinâmica de CSS Variables Global (CORRIGIDA) ---
   useEffect(() => {
       const t = activeThemeColors;
       const isAdmin = currentPath.startsWith('admin');
@@ -15851,24 +15856,54 @@ function AppContent({ deferredPrompt }) {
           return;
       }
 
-      // CORREÇÃO CRÍTICA: Apenas a cor Primária (Amber) é substituída.
-      // Os fundos (bg-black, bg-gray-900) permanecem usando o Tailwind nativo,
-      // preservando assim as opacidades (bg-black/80) dos modais e elementos.
+      // CORREÇÃO: As classes hardcoded do Tailwind como bg-black e text-white agora são sobrescritas 
+      // usando as variáveis CSS dinâmicas para aplicar o tema em toda a UI do cliente.
       styleElement.innerHTML = `
           :root {
               --theme-primary: ${t.primary};
               --theme-primary-hover: ${t.primaryHover};
+              --theme-bg: ${t.bg};
+              --theme-surface: ${t.surface};
+              --theme-surface-hover: ${t.surfaceHover};
+              --theme-text: ${t.text};
+              --theme-text-muted: ${t.textMuted};
           }
 
           /* Cor Primária (Botões, Ícones, Textos Destacados) */
-          .bg-amber-400, .bg-amber-500 { background-color: var(--theme-primary) !important; color: #000000 !important; }
-          .hover\\:bg-amber-300:hover, .hover\\:bg-amber-400:hover { background-color: var(--theme-primary-hover) !important; color: #000000 !important; }
-          
+          .bg-amber-400, .bg-amber-500 { background-color: var(--theme-primary) !important; color: var(--theme-bg) !important; }
+          .hover\\:bg-amber-300:hover, .hover\\:bg-amber-400:hover { background-color: var(--theme-primary-hover) !important; color: var(--theme-bg) !important; }
           .text-amber-400, .text-amber-500 { color: var(--theme-primary) !important; }
           .hover\\:text-amber-300:hover, .hover\\:text-amber-400:hover { color: var(--theme-primary-hover) !important; }
-          
           .border-amber-400, .border-amber-500 { border-color: var(--theme-primary) !important; }
           .ring-amber-400 { --tw-ring-color: var(--theme-primary) !important; }
+
+          /* Fundos e Superfícies globais */
+          .bg-black { background-color: var(--theme-bg) !important; }
+          .bg-gray-900 { background-color: var(--theme-surface) !important; }
+          .bg-gray-800 { background-color: var(--theme-surface-hover) !important; }
+          
+          /* Fundos com opacidade (resolvendo cabeçalhos e modais usando color-mix) */
+          .bg-black\\/80 { background-color: color-mix(in srgb, var(--theme-bg) 80%, transparent) !important; }
+          .bg-black\\/70 { background-color: color-mix(in srgb, var(--theme-bg) 70%, transparent) !important; }
+          .bg-black\\/60 { background-color: color-mix(in srgb, var(--theme-bg) 60%, transparent) !important; }
+          .bg-black\\/40 { background-color: color-mix(in srgb, var(--theme-bg) 40%, transparent) !important; }
+          .bg-black\\/30 { background-color: color-mix(in srgb, var(--theme-bg) 30%, transparent) !important; }
+          
+          .bg-gray-900\\/95 { background-color: color-mix(in srgb, var(--theme-surface) 95%, transparent) !important; }
+          .bg-gray-900\\/80 { background-color: color-mix(in srgb, var(--theme-surface) 80%, transparent) !important; }
+          .bg-gray-900\\/50 { background-color: color-mix(in srgb, var(--theme-surface) 50%, transparent) !important; }
+          
+          .bg-gray-800\\/50 { background-color: color-mix(in srgb, var(--theme-surface-hover) 50%, transparent) !important; }
+
+          /* Bordas */
+          .border-gray-800, .border-gray-700 { border-color: var(--theme-surface-hover) !important; }
+          
+          /* Textos globais */
+          .text-white { color: var(--theme-text) !important; }
+          .text-gray-200 { color: color-mix(in srgb, var(--theme-text) 90%, var(--theme-bg)) !important; }
+          .text-gray-300 { color: color-mix(in srgb, var(--theme-text) 80%, var(--theme-bg)) !important; }
+          .text-gray-400 { color: var(--theme-text-muted) !important; }
+          .text-gray-500 { color: color-mix(in srgb, var(--theme-text-muted) 80%, var(--theme-bg)) !important; }
       `;
 
       return () => {
@@ -16089,14 +16124,14 @@ function AppContent({ deferredPrompt }) {
             'dashboard': <AdminDashboard onNavigate={navigate} />, 
             'banners': <AdminBanners />,
             'products': <AdminProducts onNavigate={navigate} />,
-            'orders': <AdminOrders />,
+            'orders': <AdminOrders appName={safeName} />,
             'refunds': <AdminRefunds onNavigate={navigate} />,
             'collections': <AdminCollections />,
             'users': <AdminUsers />,
             'coupons': <AdminCoupons />,
             'reports': <AdminReports />,
             'logs': <AdminLogsPage />,
-            'newsletter': <AdminNewsletter />, 
+            'newsletter': <AdminNewsletter appName={safeName} />, 
             'shipping': <AdminShippingSettings />, 
             'app-icons': <AdminAppIcons />,
             'theme': <AdminThemeSettings />,
@@ -16118,7 +16153,7 @@ function AppContent({ deferredPrompt }) {
     }
 
     if (mainPage === 'order-success' && pageId) {
-        return <OrderSuccessPage orderId={pageId} onNavigate={navigate} />;
+        return <OrderSuccessPage orderId={pageId} onNavigate={navigate} appName={safeName} />;
     }
     
     if (mainPage === 'account') {
@@ -16135,9 +16170,9 @@ function AppContent({ deferredPrompt }) {
         'checkout': <CheckoutPage onNavigate={navigate} />,
         'wishlist': <WishlistPage onNavigate={navigate} />,
         'ajuda': <AjudaPage onNavigate={navigate} />,
-        'about': <AboutPage />,
-        'privacy': <PrivacyPolicyPage />,
-        'terms': <TermsOfServicePage />,
+        'about': <AboutPage appName={safeName} />,
+        'privacy': <PrivacyPolicyPage appName={safeName} appLogoText={safeLogoText} />,
+        'terms': <TermsOfServicePage appName={safeName} appLogoText={safeLogoText} />,
         'forgot-password': <ForgotPasswordPage onNavigate={navigate} />,
     };
     return pages[mainPage] || <HomePage onNavigate={navigate} />;
