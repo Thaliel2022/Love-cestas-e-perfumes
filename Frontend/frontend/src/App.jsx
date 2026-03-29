@@ -31,7 +31,20 @@ const SearchIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" cl
 const CheckCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const ExclamationIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>;
 const CreditCardIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>;
-const SpinnerIcon = ({ className }) => <svg className={className || "h-5 w-5 animate-spin"} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>;
+const SpinnerIcon = ({ className }) => {
+    // Garante que a classe 'animate-spin' sempre seja aplicada, mesmo quando 
+    // a propriedade className for sobrescrita por outros componentes
+    const finalClassName = className && className.includes('animate-spin') 
+        ? className 
+        : `animate-spin ${className || "h-5 w-5"}`;
+        
+    return (
+        <svg className={finalClassName} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+    );
+};
 const ClockIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const PackageIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>;
 const CheckBadgeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>;
@@ -2632,11 +2645,11 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
                                     className="flex-shrink-0 px-2"
                                     style={{ width: `${100 / itemsPerPage}%` }}
                                 >
-                                    <div className="relative rounded-lg overflow-hidden aspect-[4/5] group cursor-pointer" onClick={() => onNavigate(`products?category=${cat.filter}`)}>
-                                        <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
+                                    {/* CORREÇÃO: Adicionado group/card para isolar o hover do card do hover do carrossel inteiro */}
+                                    <div className="relative rounded-lg overflow-hidden aspect-[4/5] group/card cursor-pointer" onClick={() => onNavigate(`products?category=${cat.filter}`)}>
+                                        <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover/card:scale-110 transition-transform duration-500"/>
                                         
-                                        {/* AQUI ESTÁ A CORREÇÃO: Cores blindadas para overlay não ficar branco no tema claro */}
-                                        <div className="absolute inset-0 bg-[#000000]/40 flex items-center justify-center p-2 transition-all group-hover:bg-[#000000]/60">
+                                        <div className="absolute inset-0 bg-[#000000]/40 flex items-center justify-center p-2 transition-all group-hover/card:bg-[#000000]/60">
                                             <h3 className="text-xl font-semibold text-[#ffffff] text-center tracking-wide" style={{ textShadow: '2px 2px 6px rgba(0,0,0,0.9)' }}>{cat.name}</h3>
                                         </div>
                                     </div>
@@ -2644,14 +2657,14 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
                             ))}
                         </motion.div>
                     </div>
-                    {/* Botões de Navegação */}
+                    {/* Botões de Navegação (ocultos por padrão, visíveis no hover do carrossel) */}
                     {canGoPrev && (
-                        <button onClick={goPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-[#ffffff]/50 hover:bg-[#ffffff] text-black p-2 rounded-full shadow-lg z-10 transition-opacity">
+                        <button onClick={goPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-[#ffffff]/50 hover:bg-[#ffffff] text-black p-2 rounded-full shadow-lg z-10 transition-opacity opacity-0 group-hover:opacity-100">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                         </button>
                     )}
                     {canGoNext && (
-                         <button onClick={goNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-[#ffffff]/50 hover:bg-[#ffffff] text-black p-2 rounded-full shadow-lg z-10 transition-opacity">
+                         <button onClick={goNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-[#ffffff]/50 hover:bg-[#ffffff] text-black p-2 rounded-full shadow-lg z-10 transition-opacity opacity-0 group-hover:opacity-100">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                         </button>
                     )}
@@ -15445,6 +15458,9 @@ const AdminThemeSettings = () => {
     const [localConfig, setLocalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true, activeSeason: null });
     const [originalConfig, setOriginalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true, activeSeason: null });
     
+    // NOVO: Estado para carregar o nome dinâmico da loja no simulador
+    const [simulatorName, setSimulatorName] = useState('Love Cestas');
+    
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     
@@ -15452,6 +15468,11 @@ const AdminThemeSettings = () => {
     const confirmation = useConfirmation();
 
     useEffect(() => {
+        // Busca o nome configurado para refletir no simulador
+        apiService('/settings/app-name')
+            .then(data => { if(data && data.short_name) setSimulatorName(data.short_name); })
+            .catch(()=>{});
+
         apiService('/settings/theme')
             .then(data => {
                 const isAuto = data.autoSeasonal === true || data.autoSeasonal === 'true' || data.autoSeasonal === 1;
@@ -15498,7 +15519,6 @@ const AdminThemeSettings = () => {
     };
 
     const applyPreset = (presetColors, seasonId = null) => {
-        // CORREÇÃO: Agora salvamos permanentemente o activeSeason no config local
         const newConfig = { ...localConfig, colors: { ...presetColors }, autoSeasonal: false, activeSeason: seasonId };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig, seasonId);
@@ -15687,6 +15707,14 @@ const AdminThemeSettings = () => {
                         <h2 className="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
                             <ChartIcon className="h-5 w-5 text-indigo-500"/> Personalização Fina
                         </h2>
+                        
+                        {/* NOVO: Aviso visual orientando como resetar as cores ao estado original do Preset */}
+                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-4">
+                            <p className="text-xs text-blue-800">
+                                💡 <strong>Dica:</strong> Se você alterar uma cor manualmente e não gostar, basta <strong>clicar novamente no Estilo (preset) acima</strong> para restaurar as cores originais daquele estilo, ou clicar em "Descartar" no final da página.
+                            </p>
+                        </div>
+
                         <ColorPickerRow label="Cor Primária" field="primary" desc="Botões principais, ícones ativos e selos de desconto." />
                         <ColorPickerRow label="Cor Primária (Hover)" field="primaryHover" desc="Cor do botão primário ao passar o mouse." />
                         <ColorPickerRow label="Fundo Principal" field="bg" desc="Cor de fundo de todo o site." />
@@ -15716,9 +15744,9 @@ const AdminThemeSettings = () => {
                             <div className="px-5 py-4 flex items-center justify-between shadow-sm transition-colors duration-500" style={{ backgroundColor: localConfig.colors.surface }}>
                                 <div className="flex items-center gap-2">
                                     <div className="w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-500" style={{ backgroundColor: localConfig.colors.primary }}>
-                                        <span className="text-[10px] font-bold" style={{ color: localConfig.colors.bg }}>L</span>
+                                        <span className="text-[10px] font-bold" style={{ color: localConfig.colors.bg }}>{simulatorName.charAt(0).toUpperCase()}</span>
                                     </div>
-                                    <span className="font-bold text-sm transition-colors duration-500" style={{ color: localConfig.colors.primary }}>Love Cestas</span>
+                                    <span className="font-bold text-sm transition-colors duration-500" style={{ color: localConfig.colors.primary }}>{simulatorName}</span>
                                 </div>
                                 <div className="flex gap-3">
                                     <SearchIcon className="h-4 w-4 transition-colors duration-500" style={{ color: localConfig.colors.textMuted }} />
