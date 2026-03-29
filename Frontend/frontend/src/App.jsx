@@ -1608,7 +1608,7 @@ const SizeGuideDisplay = ({ dataString }) => {
     );
 };
 const ProductCard = memo(({ product, onNavigate }) => {
-    const { addToCart, shippingLocation, calculateLocalDeliveryPrice } = useShop(); // Pega a função de cálculo do contexto
+    const { addToCart, shippingLocation, calculateLocalDeliveryPrice } = useShop();
     const notification = useNotification();
     const { user } = useAuth();
     const { wishlist, addToWishlist, removeFromWishlist } = useShop(); 
@@ -1683,7 +1683,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
     const isVariationOutOfStock = product.product_type === 'clothing' && productVariations.length > 0 && productVariations.every(v => v.stock <= 0);
     const isOutOfStock = isProductOutOfStock || isVariationOutOfStock;
 
-    // --- Efeito de Frete Atualizado ---
     useEffect(() => {
         const controller = new AbortController();
         const signal = controller.signal;
@@ -1694,31 +1693,27 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 setIsCardShippingLoading(true);
                 setCardShippingInfo(null);
 
-                // --- LÓGICA LOCAL PARA JOÃO PESSOA ---
                 const cepPrefix = parseInt(cleanCep.substring(0, 5));
                 const isJoaoPessoa = cepPrefix >= 58000 && cepPrefix <= 58099;
 
                 if (isJoaoPessoa) {
-                    // Calcula data para 1 dia útil
                     const date = new Date();
                     let addedDays = 0;
-                    while (addedDays < 1) { // 1 dia útil
+                    while (addedDays < 1) { 
                         date.setDate(date.getDate() + 1);
                         if (date.getDay() !== 0 && date.getDay() !== 6) { addedDays++; }
                     }
                     const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
                     
-                    // USANDO O CÁLCULO DINÂMICO COM CORREÇÃO DE EXIBIÇÃO
                     const localPrice = calculateLocalDeliveryPrice ? calculateLocalDeliveryPrice([product]) : 20;
                     
                     const priceDisplay = localPrice === 0 ? "Grátis" : `R$ ${localPrice.toFixed(2).replace('.', ',')}`;
                     
                     setCardShippingInfo(`Frete ${priceDisplay} - Receba até ${formattedDate}.`);
                     setIsCardShippingLoading(false);
-                    return; // Interrompe para não chamar a API
+                    return; 
                 }
 
-                // --- LÓGICA PADRÃO PARA OUTROS CEPs (API) ---
                 const calculateShipping = async () => {
                     try {
                         const productsPayload = [{ id: String(product.id), price: currentPrice, quantity: 1 }];
@@ -1761,7 +1756,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
             clearTimeout(debounceTimer);
             controller.abort();
         };
-    }, [product, shippingLocation.cep, currentPrice, calculateLocalDeliveryPrice]); // Adicionado calculateLocalDeliveryPrice nas dependências
+    }, [product, shippingLocation.cep, currentPrice, calculateLocalDeliveryPrice]); 
 
     const installmentInfo = useMemo(() => {
         if (currentPrice >= 100) {
@@ -1813,7 +1808,8 @@ const ProductCard = memo(({ product, onNavigate }) => {
         return (
             <button
                 onClick={handleWishlistToggle}
-                className={`absolute top-2 right-2 bg-black/40 hover:bg-black/60 backdrop-blur-sm p-1.5 rounded-full text-white transition-colors duration-200 z-10 ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-300'}`}
+                // AQUI ESTÁ A CORREÇÃO: Fundo isolado para não esbranquiçar no tema claro
+                className={`absolute top-2 right-2 bg-[#000000]/40 hover:bg-[#000000]/60 backdrop-blur-sm p-1.5 rounded-full text-[#ffffff] transition-colors duration-200 z-10 ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-300'}`}
                 aria-label="Adicionar à Lista de Desejos"
             >
                 <HeartIcon className="h-5 w-5" filled={isWishlisted} />
@@ -1841,58 +1837,59 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 <img
                     src={imageUrl} 
                     alt={product.name}
-                    loading="lazy" // <--- OTIMIZAÇÃO DE PERFORMANCE ADICIONADA AQUI
+                    loading="lazy" 
                     className="w-full h-full object-contain cursor-pointer transition-transform duration-300 group-hover:scale-105 p-2"
                 />
                 <WishlistButton product={product} /> 
 
                 <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
                     {isOutOfStock ? (
-                        <div className="bg-gray-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow">ESGOTADO</div>
+                        <div className="bg-gray-700 text-[#ffffff] text-[10px] font-bold px-2.5 py-1 rounded-full shadow">ESGOTADO</div>
                     ) : isPromoActive ? (
-                         <div className={`bg-gradient-to-r ${timeLeft && timeLeft !== 'Expirada' ? 'from-red-600 to-orange-500' : 'from-green-600 to-teal-500'} text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5`}> 
+                         <div className={`bg-gradient-to-r ${timeLeft && timeLeft !== 'Expirada' ? 'from-red-600 to-orange-500' : 'from-green-600 to-teal-500'} text-[#ffffff] text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5`}> 
                             <SaleIcon className="h-4 w-4"/>
                             <span>PROMOÇÃO {discountPercent}%</span>
                         </div>
                     ) : isNew ? (
-                        <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
+                        <div className="bg-blue-500 text-[#ffffff] text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
                     ) : null}
                 </div>
 
+                {/* AQUI ESTÁ A CORREÇÃO: Fundos e Textos blindados para não sofrerem interferência do tema claro nas fotos */}
                 {isPromoActive && timeLeft && timeLeft !== 'Expirada' && !isOutOfStock && (
                     <div className="absolute bottom-0 left-0 w-full bg-gradient-to-r from-red-700 to-red-500/90 backdrop-blur-md py-1.5 px-3 flex items-center justify-between z-20 shadow-inner border-t border-red-400">
-                        <div className="flex items-center gap-1.5 text-white font-bold text-[10px] uppercase tracking-wide">
+                        <div className="flex items-center gap-1.5 text-[#ffffff] font-bold text-[10px] uppercase tracking-wide">
                             <SparklesIcon className="h-3 w-3 text-yellow-300 animate-pulse"/>
                             <span>Oferta Relâmpago</span>
                         </div>
-                        <div className="flex items-center gap-1 bg-black/30 rounded px-1.5 py-0.5">
-                            <ClockIcon className="h-3 w-3 text-white"/>
-                            <span className="text-white font-mono font-bold text-xs">{timeLeft}</span>
+                        <div className="flex items-center gap-1 bg-[#000000]/30 rounded px-1.5 py-0.5">
+                            <ClockIcon className="h-3 w-3 text-[#ffffff]"/>
+                            <span className="text-[#ffffff] font-mono font-bold text-xs">{timeLeft}</span>
                         </div>
                     </div>
                 )}
 
                 {isPromoActive && (!timeLeft || timeLeft === 'Expirada') && !isOutOfStock && (
                     <div className="absolute bottom-0 left-0 w-full bg-gradient-to-r from-emerald-600 to-green-500/95 backdrop-blur-md py-1.5 px-3 flex items-center justify-between z-20 shadow-inner border-t border-emerald-400/50">
-                        <div className="flex items-center gap-1.5 text-white font-bold text-[10px] uppercase tracking-wide">
-                            <TagIcon className="h-3 w-3 text-white fill-white"/>
+                        <div className="flex items-center gap-1.5 text-[#ffffff] font-bold text-[10px] uppercase tracking-wide">
+                            <TagIcon className="h-3 w-3 text-[#ffffff] fill-white"/>
                             <span>Preço Especial</span>
                         </div>
-                        <div className="flex items-center gap-1 bg-black/20 rounded px-2 py-0.5">
-                            <span className="text-white font-bold text-[9px]">Aproveite</span>
+                        <div className="flex items-center gap-1 bg-[#000000]/20 rounded px-2 py-0.5">
+                            <span className="text-[#ffffff] font-bold text-[9px]">Aproveite</span>
                         </div>
                     </div>
                 )}
 
                  {product.product_type === 'clothing' && !isPromoActive && !isOutOfStock && (
-                    <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300"> 
+                    <div className="absolute bottom-0 left-0 w-full bg-[#000000]/70 text-center text-xs py-1 text-amber-300"> 
                         Ver Cores e Tamanhos
                     </div>
                  )}
                  {user && user.role === 'admin' && (
                     <div className="absolute top-2 right-10 z-10"> 
                         <button onClick={(e) => { e.stopPropagation(); onNavigate(`admin/products?search=${encodeURIComponent(product.name)}`); }}
-                                className="bg-gray-700/50 hover:bg-gray-600/70 backdrop-blur-sm text-white p-1.5 rounded-full shadow-md transition-colors" 
+                                className="bg-[#000000]/50 hover:bg-[#000000]/70 backdrop-blur-sm text-[#ffffff] p-1.5 rounded-full shadow-md transition-colors" 
                                 title="Editar Produto">
                             <EditIcon className="h-4 w-4" />
                         </button>
@@ -2792,102 +2789,6 @@ const NewsletterSection = () => {
 const PromoBannerSection = ({ customBanners, onNavigate }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     
-    // Dados Padrão (Fallback visual se o banco estiver vazio)
-    const defaultBanner = [{
-        image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop",
-        title: "Semana do Consumidor",
-        subtitle: "Até 50% OFF em itens selecionados.",
-        cta_text: "Ver Ofertas",
-        link_url: "products?promo=true",
-        isFlashOffer: true,
-        id: 'default'
-    }];
-
-    // Usa os banners do banco se existirem, senão usa o padrão
-    const activeBanners = customBanners && customBanners.length > 0 ? customBanners : defaultBanner;
-    
-    // Lógica de Rotação Automática
-    useEffect(() => {
-        if (activeBanners.length > 1) {
-            const timer = setTimeout(() => {
-                setCurrentIndex(prev => (prev === activeBanners.length - 1 ? 0 : prev + 1));
-            }, 5000); // 5 segundos por slide
-            return () => clearTimeout(timer);
-        }
-    }, [currentIndex, activeBanners.length]);
-
-    // Garante que o índice não estoure se a lista mudar
-    const safeIndex = currentIndex >= activeBanners.length ? 0 : currentIndex;
-    const currentBanner = activeBanners[safeIndex];
-    
-    if (!currentBanner) return null;
-
-    const isFlashOffer = currentBanner.isFlashOffer || 
-                            currentBanner.title?.toLowerCase().includes('relâmpago') || 
-                            currentBanner.subtitle?.toLowerCase().includes('relâmpago');
-
-    const renderTitle = () => {
-        if (currentBanner.id === 'default' && currentBanner.title === "Semana do Consumidor") {
-            return (<>Semana do <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600">Consumidor</span></>);
-        }
-        return currentBanner.title;
-    };
-
-    return (
-        <section className="container mx-auto px-4 mb-12 mt-4 md:mt-8">
-            <AnimatePresence mode="wait">
-                <motion.div 
-                    key={currentBanner.id || safeIndex} 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.5 }}
-                    className="rounded-xl md:rounded-2xl overflow-hidden relative h-[350px] md:h-[500px] flex items-center bg-cover bg-center cursor-pointer group shadow-2xl border border-gray-800"
-                    style={{ backgroundImage: `url(${currentBanner.image_url})` }}
-                    onClick={() => onNavigate(currentBanner.link_url.replace(/^#/, ''))}
-                >
-                    <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/95 via-black/40 to-transparent transition-all duration-500"></div>
-                    <div className="relative z-10 w-full px-6 md:px-16 pb-8 md:pb-0 flex flex-col items-center md:items-start justify-end md:justify-center h-full text-center md:text-left">
-                        {isFlashOffer && (
-                            <motion.span initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-red-600 text-white text-xs md:text-sm font-bold px-3 py-1 md:px-4 md:py-1.5 rounded-full uppercase tracking-wider mb-3 md:mb-6 inline-flex items-center gap-2 shadow-lg">
-                                <ClockIcon className="h-3 w-3 md:h-4 md:w-4" /> Oferta Relâmpago
-                            </motion.span>
-                        )}
-                        <motion.h2 initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="text-4xl md:text-7xl font-extrabold mb-3 md:mb-6 text-white drop-shadow-lg leading-tight">
-                            {renderTitle()}
-                        </motion.h2>
-                        {currentBanner.subtitle && (
-                            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="text-base md:text-xl text-gray-200 mb-6 md:mb-10 max-w-xs md:max-w-lg font-light leading-snug">
-                                {currentBanner.subtitle}
-                            </motion.p>
-                        )}
-                        {currentBanner.cta_enabled !== 0 && (
-                            <motion.button whileTap={{ scale: 0.95 }} className="bg-white text-black px-8 py-3 md:px-12 md:py-4 rounded-full font-bold text-sm md:text-lg hover:bg-amber-400 transition-all shadow-xl flex items-center gap-2 md:gap-3">
-                                {currentBanner.cta_text || 'Ver Ofertas'} <ArrowUturnLeftIcon className="h-4 w-4 md:h-5 md:w-5 rotate-180"/>
-                            </motion.button>
-                        )}
-                    </div>
-                </motion.div>
-            </AnimatePresence>
-            
-            {/* Indicadores de Slide (Dots) se houver mais de 1 banner */}
-            {activeBanners.length > 1 && (
-                <div className="flex justify-center mt-4 gap-2">
-                    {activeBanners.map((_, idx) => (
-                        <button 
-                            key={idx}
-                            onClick={(e) => { e.stopPropagation(); setCurrentIndex(idx); }}
-                            className={`w-2 h-2 rounded-full transition-all ${safeIndex === idx ? 'bg-amber-500 w-4' : 'bg-gray-600'}`}
-                            aria-label={`Ir para banner ${idx + 1}`}
-                        />
-                    ))}
-                </div>
-            )}
-        </section>
-    );
-const PromoBannerSection = ({ customBanners, onNavigate }) => {
-    const [currentIndex, setCurrentIndex] = useState(0);
-    
     const defaultBanner = [{
         image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop",
         title: "Semana do Consumidor",
@@ -3012,9 +2913,10 @@ const CategoryCardsSection = ({ customCards, onNavigate }) => {
                     >
                         <img src={card.image_url} alt={card.title} className="w-full h-full object-cover"/>
                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-6 md:p-10">
-                            <h3 className="text-2xl md:text-4xl font-bold text-white mb-1 md:mb-3">{card.title}</h3>
-                            <p className="text-gray-300 text-sm md:text-lg mb-3 md:mb-6 line-clamp-1 md:line-clamp-none">{card.subtitle}</p>
-                            <span className="inline-flex items-center gap-2 text-white text-xs md:text-sm font-bold underline decoration-amber-500 underline-offset-4">
+                            {/* AQUI ESTÁ A CORREÇÃO: Protegendo o texto para não ficar escuro no tema claro e sumir no gradiente */}
+                            <h3 className="text-2xl md:text-4xl font-bold text-[#ffffff] mb-1 md:mb-3">{card.title}</h3>
+                            <p className="text-[#d1d5db] text-sm md:text-lg mb-3 md:mb-6 line-clamp-1 md:line-clamp-none">{card.subtitle}</p>
+                            <span className="inline-flex items-center gap-2 text-[#ffffff] text-xs md:text-sm font-bold underline decoration-amber-500 underline-offset-4">
                                 {card.cta_text || 'Ver Mais'} &rarr;
                             </span>
                         </div>
