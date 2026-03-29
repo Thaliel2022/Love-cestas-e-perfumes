@@ -15898,7 +15898,7 @@ function AppContent({ deferredPrompt }) {
       };
   }, [activeThemeColors, currentPath]);
 
-  // Atualização robusta do Title da aba do navegador
+  // Atualização instantânea do Título da Aba no Navegador
   useEffect(() => {
       if (appNameConfig && appNameConfig.name) {
           document.title = appNameConfig.name;
@@ -15931,7 +15931,6 @@ function AppContent({ deferredPrompt }) {
       apiService(`/settings/theme?v=${new Date().getTime()}`)
           .then(data => { 
               if (data) {
-                  // Correção Crítica do Boolean aqui também
                   const isAuto = data.autoSeasonal === true || data.autoSeasonal === 'true' || data.autoSeasonal === 1;
                   const loadedConfig = data.colors ? { ...data, autoSeasonal: isAuto } : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto };
                   setAppThemeConfig(loadedConfig); 
@@ -16061,7 +16060,7 @@ function AppContent({ deferredPrompt }) {
     window.scrollTo(0, 0);
   }, [currentPath]);
   
-  // Nomes extraídos de forma totalmente à prova de falhas (Fallbacks absolutos)
+  // Garantia do Nome Dinâmico 
   const safeName = appNameConfig?.name || 'Love Cestas e Perfumes';
   const safeShortName = appNameConfig?.short_name || 'Love Cestas';
   const safeLogoText = appNameConfig?.logo_text || (safeName ? String(safeName).replace(/\s/g, '') : 'LoveCestas');
@@ -16173,7 +16172,6 @@ function AppContent({ deferredPrompt }) {
   return (
     <div className="bg-black min-h-screen flex flex-col transition-colors duration-500">
       
-      {/* CORREÇÃO DO MENU: Header posicionado ACIMA do conteúdo principal */}
       {showHeaderFooter && (
           <Header 
               onNavigate={navigate} 
@@ -16183,7 +16181,6 @@ function AppContent({ deferredPrompt }) {
           />
       )}
 
-      {/* Conteúdo Principal agora fica abaixo do Menu na árvore do DOM */}
       <main className="flex-grow">{renderPage()}</main>
       
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
