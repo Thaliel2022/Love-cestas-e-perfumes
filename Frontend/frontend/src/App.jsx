@@ -15493,8 +15493,9 @@ const AdminThemeSettings = () => {
         window.dispatchEvent(new CustomEvent('app-theme-updated', { detail: newConfig }));
     };
 
+    // CORREÇÃO: Qualquer alteração manual desliga a automação sazonal para evitar que ela sobrescreva o preview
     const handleColorChange = (key, value) => {
-        const newConfig = { ...localConfig, colors: { ...localConfig.colors, [key]: value } };
+        const newConfig = { ...localConfig, colors: { ...localConfig.colors, [key]: value }, autoSeasonal: false };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig);
     };
@@ -15506,13 +15507,13 @@ const AdminThemeSettings = () => {
     };
 
     const applyPreset = (presetColors) => {
-        const newConfig = { ...localConfig, colors: presetColors };
+        const newConfig = { colors: presetColors, autoSeasonal: false };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig);
     };
 
     const handleRestoreDefault = () => {
-        const newConfig = { ...localConfig, colors: defaultThemeFallback };
+        const newConfig = { colors: defaultThemeFallback, autoSeasonal: false };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig);
         notification.show("Cores padrão restauradas na pré-visualização.");
@@ -15594,7 +15595,6 @@ const AdminThemeSettings = () => {
                     </div>
                 </div>
                 
-                {/* CORREÇÃO: Temas sazonais agora são botões clicáveis para preview */}
                 <div className="px-6 pb-6 pt-2">
                     <p className="text-xs text-indigo-300 mb-3 uppercase tracking-wider font-bold">Clique para testar os temas do calendário:</p>
                     <div className="flex flex-wrap gap-3">
@@ -15746,7 +15746,7 @@ const AdminThemeSettings = () => {
             </div>
 
             {/* Ações Fixas */}
-            <div className="flex items-center justify-end gap-4 pt-6 border-t border-gray-200 sticky bottom-0 bg-gray-50 p-4 -mx-4 sm:mx-0 sm:bg-transparent sm:p-0 z-10">
+            <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-200 sticky bottom-0 bg-gray-50/90 backdrop-blur p-4 -mx-4 sm:mx-0 sm:bg-transparent sm:p-0 z-10">
                 <button 
                     onClick={handleCancel}
                     disabled={isSaving}
@@ -15757,7 +15757,7 @@ const AdminThemeSettings = () => {
                 <button 
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="px-8 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 shadow-md flex items-center gap-2 transition-all active:scale-95 disabled:opacity-70"
+                    className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-md flex items-center gap-2 transition-all active:scale-95 disabled:opacity-70"
                 >
                     {isSaving ? <SpinnerIcon className="h-5 w-5"/> : <CheckBadgeIcon className="h-5 w-5"/>}
                     Salvar e Publicar
@@ -15772,12 +15772,10 @@ function AppContent({ deferredPrompt }) {
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
-  // Tema Padrão Intocável
   const defaultThemeFallback = {
       primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af'
   };
 
-  // Temas Sazonais Reais
   const seasonalThemes = {
       natal: { primary: '#ef4444', primaryHover: '#dc2626', bg: '#000000', surface: '#052e16', surfaceHover: '#064e3b', text: '#ffffff', textMuted: '#a7f3d0' },
       namorados: { primary: '#ec4899', primaryHover: '#db2777', bg: '#000000', surface: '#4a044e', surfaceHover: '#701a75', text: '#ffffff', textMuted: '#fbcfe8' },
@@ -15786,34 +15784,26 @@ function AppContent({ deferredPrompt }) {
       blackfriday: { primary: '#a855f7', primaryHover: '#9333ea', bg: '#000000', surface: '#18181b', surfaceHover: '#27272a', text: '#ffffff', textMuted: '#a1a1aa' }
   };
 
-  // Lógica do Calendário Sazonal
   const getSeasonalTheme = useCallback(() => {
       const now = new Date();
-      const m = now.getMonth() + 1; // 1-12
+      const m = now.getMonth() + 1; 
       const d = now.getDate();
 
-      // Natal: 1 a 25 de Dezembro
       if (m === 12 && d <= 25) return seasonalThemes.natal;
-      // Dia dos Namorados: 1 a 12 de Junho
       if (m === 6 && d <= 12) return seasonalThemes.namorados;
-      // Mães: 1 a 15 de Maio
       if (m === 5 && d <= 15) return seasonalThemes.maes;
-      // Pais: 1 a 15 de Agosto
       if (m === 8 && d <= 15) return seasonalThemes.pais;
-      // Black Friday: 15 a 30 de Novembro
       if (m === 11 && d >= 15) return seasonalThemes.blackfriday;
 
       return null;
   }, []);
 
-  // Estados Dinâmicos Visuais
   const [appThemeConfig, setAppThemeConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false });
   const [appLogo, setAppLogo] = useState(() => {
       return localStorage.getItem('lovecestas_app_logo') || 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
   });
   const [appNameConfig, setAppNameConfig] = useState({ short_name: 'Love Cestas', name: 'Love Cestas e Perfumes', logo_text: 'LovecestasePerfumes' });
 
-  // Calcula o Tema Ativo Baseado nas Configurações e Calendário
   const activeThemeColors = useMemo(() => {
       if (appThemeConfig.autoSeasonal) {
           const seasonColors = getSeasonalTheme();
@@ -15822,7 +15812,6 @@ function AppContent({ deferredPrompt }) {
       return appThemeConfig.colors || defaultThemeFallback;
   }, [appThemeConfig, getSeasonalTheme]);
 
-  // --- MÁGICA DOS TEMAS: Injeção Dinâmica de CSS Variables ---
   useEffect(() => {
       const t = activeThemeColors;
       const isAdmin = currentPath.startsWith('admin');
@@ -15852,30 +15841,21 @@ function AppContent({ deferredPrompt }) {
               --theme-text-muted: ${t.textMuted};
           }
 
-          /* Overrides de Fundo */
-          body, .bg-black { background-color: var(--theme-bg) !important; }
-          .bg-gray-900 { background-color: var(--theme-surface) !important; }
+          body, .min-h-screen.bg-black { background-color: var(--theme-bg) !important; }
+          .bg-gray-900:not(.fixed) { background-color: var(--theme-surface) !important; }
           .bg-gray-800 { background-color: var(--theme-surface-hover) !important; }
           
-          /* PROTEÇÃO DE TRANSPARÊNCIAS */
-          .bg-black\\/20 { background-color: rgba(0, 0, 0, 0.2) !important; }
-          .bg-black\\/30 { background-color: rgba(0, 0, 0, 0.3) !important; }
-          .bg-black\\/40 { background-color: rgba(0, 0, 0, 0.4) !important; }
-          .bg-black\\/50 { background-color: rgba(0, 0, 0, 0.5) !important; }
-          .bg-black\\/60 { background-color: rgba(0, 0, 0, 0.6) !important; }
-          .bg-black\\/70 { background-color: rgba(0, 0, 0, 0.7) !important; }
-          .bg-black\\/80 { background-color: rgba(0, 0, 0, 0.8) !important; }
-          .bg-black\\/90 { background-color: rgba(0, 0, 0, 0.9) !important; }
+          header.bg-black\\/80 { background-color: rgba(0, 0, 0, 0.8) !important; }
           
-          /* Overrides de Texto */
+          .fixed.inset-0.bg-black.bg-opacity-70 { background-color: rgba(0, 0, 0, 0.7) !important; }
+
           .text-white { color: var(--theme-text) !important; }
           .text-gray-300 { color: var(--theme-text) !important; opacity: 0.9; }
           .text-gray-400 { color: var(--theme-text-muted) !important; }
           .text-gray-500 { color: var(--theme-text-muted) !important; opacity: 0.8; }
           
-          /* Overrides da Cor Primária (Amber) */
           .bg-amber-400, .bg-amber-500 { background-color: var(--theme-primary) !important; color: var(--theme-bg) !important; }
-          .hover\\:bg-amber-300:hover, .hover\\:bg-amber-400:hover { background-color: var(--theme-primary-hover) !important; }
+          .hover\\:bg-amber-300:hover, .hover\\:bg-amber-400:hover { background-color: var(--theme-primary-hover) !important; color: var(--theme-bg) !important; }
           
           .text-amber-400, .text-amber-500 { color: var(--theme-primary) !important; }
           .hover\\:text-amber-300:hover, .hover\\:text-amber-400:hover { color: var(--theme-primary-hover) !important; }
@@ -15883,13 +15863,11 @@ function AppContent({ deferredPrompt }) {
           .border-amber-400, .border-amber-500 { border-color: var(--theme-primary) !important; }
           .ring-amber-400 { --tw-ring-color: var(--theme-primary) !important; }
           
-          /* Bordas de Superfície e Contornos */
           .border-gray-800 { border-color: var(--theme-surface-hover) !important; }
           .border-gray-700 { border-color: var(--theme-text-muted) !important; opacity: 0.3; }
           
-          /* Contraste dos Botões de Tamanho */
-          .border-gray-600 { border-color: var(--theme-text-muted) !important; }
-          .hover\\:border-gray-400:hover { border-color: var(--theme-text) !important; }
+          .border-gray-600 { border-color: var(--theme-text-muted) !important; opacity: 0.6; }
+          .hover\\:border-gray-400:hover { border-color: var(--theme-text) !important; opacity: 1; }
       `;
 
       return () => {
@@ -15918,12 +15896,10 @@ function AppContent({ deferredPrompt }) {
       };
   }, []);
 
-  // Carrega as configurações do Banco de Dados no início
   useEffect(() => {
       apiService(`/settings/theme?v=${new Date().getTime()}`)
           .then(data => { 
               if (data) {
-                  // Mapeia dados antigos ou novos para o estado
                   const loadedConfig = data.colors ? data : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: false };
                   setAppThemeConfig(loadedConfig); 
               }
@@ -16159,8 +16135,8 @@ function AppContent({ deferredPrompt }) {
   
   return (
     <div className="bg-black min-h-screen flex flex-col transition-colors duration-500">
-      {showHeaderFooter && <Header onNavigate={navigate} appName={appNameConfig.name} appShortName={appNameConfig.short_name} appLogoText={appNameConfig.logo_text || appNameConfig.name.replace(/\s/g, '')} />}
       <main className="flex-grow">{renderPage()}</main>
+      {showHeaderFooter && <Header onNavigate={navigate} appName={appNameConfig.name} appShortName={appNameConfig.short_name} appLogoText={appNameConfig.logo_text || appNameConfig.name.replace(/\s/g, '')} />}
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
         <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800 transition-colors duration-500">
             <div className="container mx-auto px-4 py-12">
@@ -16219,7 +16195,8 @@ function AppContent({ deferredPrompt }) {
         </footer>
       )}
       
-      {deferredPrompt && <InstallPWAButton deferredPrompt={deferredPrompt} />}
+      {/* O botão do PWA agora não aparece no painel admin */}
+      {deferredPrompt && !currentPath.startsWith('admin') && <InstallPWAButton deferredPrompt={deferredPrompt} />}
     </div>
   );
 }
