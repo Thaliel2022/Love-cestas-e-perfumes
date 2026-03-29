@@ -15822,12 +15822,7 @@ function AppContent({ deferredPrompt }) {
       return localStorage.getItem('lovecestas_app_logo') || 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
   });
   
-  // Valores iniciais seguros
-  const [appNameConfig, setAppNameConfig] = useState({ 
-      short_name: 'Love Cestas', 
-      name: 'Love Cestas e Perfumes', 
-      logo_text: 'LovecestasePerfumes' 
-  });
+  const [appNameConfig, setAppNameConfig] = useState({ short_name: 'Love Cestas', name: 'Love Cestas e Perfumes', logo_text: 'LovecestasePerfumes' });
 
   const activeThemeColors = useMemo(() => {
       if (appThemeConfig.autoSeasonal) {
@@ -15837,6 +15832,7 @@ function AppContent({ deferredPrompt }) {
       return appThemeConfig.colors || defaultThemeFallback;
   }, [appThemeConfig, getSeasonalTheme]);
 
+  // --- MÁGICA DOS TEMAS: Injeção Dinâmica de CSS Variables (CORRIGIDA E BLINDADA) ---
   useEffect(() => {
       const t = activeThemeColors;
       const isAdmin = currentPath.startsWith('admin');
@@ -15855,44 +15851,44 @@ function AppContent({ deferredPrompt }) {
           return;
       }
 
+      // Injeção Cirúrgica: Altera apenas o necessário e protege as transparências (bg-black/80)
       styleElement.innerHTML = `
-          :root {
-              --theme-primary: ${t.primary};
-              --theme-primary-hover: ${t.primaryHover};
-              --theme-bg: ${t.bg};
-              --theme-surface: ${t.surface};
-              --theme-surface-hover: ${t.surfaceHover};
-              --theme-text: ${t.text};
-              --theme-text-muted: ${t.textMuted};
-          }
+          /* Backgrounds Principais */
+          body, .min-h-screen.bg-black { background-color: ${t.bg || '#000000'} !important; }
+          .bg-gray-900 { background-color: ${t.surface || '#111827'} !important; }
+          .bg-gray-800 { background-color: ${t.surfaceHover || '#1f2937'} !important; }
+          
+          /* PROTEÇÃO DE TRANSPARÊNCIAS (Mantém o overlay dos modais funcionando) */
+          .bg-black\\/20 { background-color: rgba(0, 0, 0, 0.2) !important; }
+          .bg-black\\/30 { background-color: rgba(0, 0, 0, 0.3) !important; }
+          .bg-black\\/40 { background-color: rgba(0, 0, 0, 0.4) !important; }
+          .bg-black\\/50 { background-color: rgba(0, 0, 0, 0.5) !important; }
+          .bg-black\\/60 { background-color: rgba(0, 0, 0, 0.6) !important; }
+          .bg-black\\/70 { background-color: rgba(0, 0, 0, 0.7) !important; }
+          .bg-black\\/80 { background-color: rgba(0, 0, 0, 0.8) !important; }
+          .bg-black\\/90 { background-color: rgba(0, 0, 0, 0.9) !important; }
 
-          body, .min-h-screen.bg-black { background-color: var(--theme-bg) !important; }
-          .bg-gray-900:not(.fixed) { background-color: var(--theme-surface) !important; }
-          .bg-gray-800 { background-color: var(--theme-surface-hover) !important; }
-          
-          header.bg-black\\/80 { background-color: rgba(0, 0, 0, 0.8) !important; }
-          
-          .fixed.inset-0.bg-black.bg-opacity-70 { background-color: rgba(0, 0, 0, 0.7) !important; }
+          /* Textos Básicos */
+          .text-white { color: ${t.text || '#ffffff'} !important; }
+          .text-gray-300 { color: ${t.text || '#ffffff'} !important; opacity: 0.9; }
+          .text-gray-400 { color: ${t.textMuted || '#9ca3af'} !important; }
+          .text-gray-500 { color: ${t.textMuted || '#9ca3af'} !important; opacity: 0.8; }
 
-          .text-white { color: var(--theme-text) !important; }
-          .text-gray-300 { color: var(--theme-text) !important; opacity: 0.9; }
-          .text-gray-400 { color: var(--theme-text-muted) !important; }
-          .text-gray-500 { color: var(--theme-text-muted) !important; opacity: 0.8; }
+          /* Cor Primária (Botões, Ícones, Textos Destacados) */
+          .bg-amber-400, .bg-amber-500 { background-color: ${t.primary || '#fbbf24'} !important; color: ${t.bg || '#000000'} !important; }
+          .hover\\:bg-amber-300:hover, .hover\\:bg-amber-400:hover { background-color: ${t.primaryHover || '#f59e0b'} !important; color: ${t.bg || '#000000'} !important; }
           
-          .bg-amber-400, .bg-amber-500 { background-color: var(--theme-primary) !important; color: var(--theme-bg) !important; }
-          .hover\\:bg-amber-300:hover, .hover\\:bg-amber-400:hover { background-color: var(--theme-primary-hover) !important; color: var(--theme-bg) !important; }
+          .text-amber-400, .text-amber-500 { color: ${t.primary || '#fbbf24'} !important; }
+          .hover\\:text-amber-300:hover, .hover\\:text-amber-400:hover { color: ${t.primaryHover || '#f59e0b'} !important; }
           
-          .text-amber-400, .text-amber-500 { color: var(--theme-primary) !important; }
-          .hover\\:text-amber-300:hover, .hover\\:text-amber-400:hover { color: var(--theme-primary-hover) !important; }
+          .border-amber-400, .border-amber-500 { border-color: ${t.primary || '#fbbf24'} !important; }
+          .ring-amber-400 { --tw-ring-color: ${t.primary || '#fbbf24'} !important; }
           
-          .border-amber-400, .border-amber-500 { border-color: var(--theme-primary) !important; }
-          .ring-amber-400 { --tw-ring-color: var(--theme-primary) !important; }
-          
-          .border-gray-800 { border-color: var(--theme-surface-hover) !important; }
-          .border-gray-700 { border-color: var(--theme-text-muted) !important; opacity: 0.3; }
-          
-          .border-gray-600 { border-color: var(--theme-text-muted) !important; opacity: 0.6; }
-          .hover\\:border-gray-400:hover { border-color: var(--theme-text) !important; opacity: 1; }
+          /* Bordas de Layout (Mantemos as cinzas para não quebrar botões de seleção de tamanho) */
+          .border-gray-800 { border-color: ${t.surfaceHover || '#1f2937'} !important; }
+          .border-gray-700 { border-color: ${t.textMuted || '#9ca3af'} !important; opacity: 0.3; }
+          .border-gray-600 { border-color: ${t.textMuted || '#9ca3af'} !important; opacity: 0.6; }
+          .hover\\:border-gray-400:hover { border-color: ${t.text || '#ffffff'} !important; opacity: 1; }
       `;
 
       return () => {
@@ -16025,7 +16021,7 @@ function AppContent({ deferredPrompt }) {
         
         const hashParts = hash.split('?');
         if (hashParts.length > 1) {
-            const params = new URLSearchParams(hashParts[1]);
+            const params = newSearchParams(hashParts[1]);
             const externalReference = params.get('external_reference');
             
             if (externalReference && !hash.includes('order-success')) {
