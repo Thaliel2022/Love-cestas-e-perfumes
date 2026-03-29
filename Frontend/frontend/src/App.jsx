@@ -7097,7 +7097,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         try {
             const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
             if (paymentResult && paymentResult.init_point) {
-                // --- CORREÇÃO: localStorage ---
                 localStorage.setItem('pendingOrderId', orderId);
                 window.location.href = paymentResult.init_point;
             } else { throw new Error("Não foi possível obter o link de pagamento."); }
@@ -7623,7 +7622,8 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
 
                     <div className="pt-4 mt-4 border-t border-gray-800 space-y-4 sm:space-y-0 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-2">
                         <div className="flex flex-wrap items-center gap-2">
-                            <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-700 text-white text-sm px-4 py-1.5 rounded-md hover:bg-gray-600">Repetir Pedido</button>
+                            {/* CORREÇÃO APLICADA AQUI: bg-gray-700 trocado por bg-gray-800 e hover para bg-gray-900 */}
+                            <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-800 border border-gray-700 text-white text-sm px-4 py-1.5 rounded-md hover:bg-gray-900 transition-colors">Repetir Pedido</button>
                             {isPickupOrder ? (
                                 <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Ver Status da Retirada</button>
                             ) : (
