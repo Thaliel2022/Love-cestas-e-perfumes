@@ -3687,6 +3687,7 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
 });
 const VariationSelector = ({ product, variations, selectedColor, setSelectedColor, selectedSize, setSelectedSize, error }) => {
     
+    // Calcula cores únicas e verifica se há estoque disponível para cada uma
     const uniqueColors = useMemo(() => {
         const colorsMap = new Map();
         if (!variations || !product) return [];
@@ -3694,12 +3695,15 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
         variations.forEach(v => {
             if (v.color) {
                 if (!colorsMap.has(v.color)) {
+                    // Tenta pegar a imagem da variação, senão a principal do produto
                     const primaryImage = (v.images && v.images.length > 0) 
                         ? v.images[0] 
                         : getFirstImage(product.images);
+                    // Inicializa assumindo sem estoque
                     colorsMap.set(v.color, { image: primaryImage, hasStock: false });
                 }
                 
+                // Se encontrar QUALQUER tamanho com estoque > 0 para esta cor, marca como disponível
                 if (v.stock > 0) {
                     const info = colorsMap.get(v.color);
                     info.hasStock = true;
@@ -3722,9 +3726,10 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
     }, [variations, selectedColor]);
 
     const handleColorChange = (color, hasStock) => {
-        if (!hasStock) return; 
+        if (!hasStock) return; // Impede seleção de cores esgotadas
 
         setSelectedColor(color);
+        // Ao mudar de cor, tenta selecionar um tamanho disponível automaticamente se houver apenas um
         const sizesForNewColor = variations
             .filter(v => v.color === color && v.stock > 0)
             .map(v => v.size);
@@ -3732,7 +3737,7 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
         if (sizesForNewColor.length === 1) {
             setSelectedSize(sizesForNewColor[0]);
         } else {
-            setSelectedSize(''); 
+            setSelectedSize(''); // Reseta para forçar o usuário a escolher
         }
     };
 
@@ -3761,6 +3766,7 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
                             >
                                  <img src={colorInfo.image} alt={colorInfo.name} className="w-full h-full object-cover rounded-full bg-gray-800 shadow-sm"/>
                                  
+                                 {/* Indicador visual de Esgotado (X vermelho) */}
                                  {isOutOfStock && (
                                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                                          <div className="w-full h-0.5 bg-red-500/80 rotate-45 absolute"></div>
@@ -3773,7 +3779,7 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
                 </div>
             </div>
 
-            {/* Seção de Tamanhos - CORRIGIDO AS CORES E TRANSPARÊNCIAS */}
+            {/* Seção de Tamanhos - Só aparece se cor estiver selecionada */}
             <AnimatePresence>
                 {selectedColor && (
                      <motion.div 
@@ -3796,21 +3802,17 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
                                         key={size}
                                         onClick={() => setSelectedSize(size)}
                                         disabled={stock === 0}
-                                        style={
-                                            selectedSize === size 
-                                            ? { backgroundColor: 'var(--theme-primary, #fbbf24)', color: 'var(--theme-bg, #000000)', borderColor: 'var(--theme-primary, #fbbf24)' }
-                                            : { borderColor: '#4b5563', color: '#d1d5db' }
-                                        }
                                         className={`min-w-[3.5rem] h-11 px-3 border rounded-md font-bold text-sm transition-all duration-200 flex items-center justify-center relative overflow-hidden
                                             ${selectedSize === size 
-                                                ? 'shadow-lg scale-105' 
-                                                : 'bg-transparent hover:border-gray-400 hover:bg-gray-800'
+                                                ? 'bg-amber-400 text-black border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)] scale-105' 
+                                                : 'bg-transparent border-gray-600 text-gray-300 hover:border-gray-400 hover:bg-gray-800'
                                             }
                                             ${stock === 0 ? 'opacity-40 cursor-not-allowed bg-gray-900 border-gray-800 text-gray-600 decoration-slice line-through' : ''}
                                             ${showError && !selectedSize ? 'border-red-500 text-red-100 bg-red-900/20' : ''}`
                                         }
                                     >
                                         {size}
+                                        {/* Indicador de "Últimas unidades" para estoque baixo */}
                                         {stock > 0 && stock <= 2 && selectedSize !== size && (
                                             <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
                                         )}
@@ -3826,6 +3828,7 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
         </div>
     );
 };
+
 const ProductDetailPage = ({ productId, onNavigate }) => {
     const { user } = useAuth();
     const { addToCart, calculateLocalDeliveryPrice, shippingLocation } = useShop(); 
