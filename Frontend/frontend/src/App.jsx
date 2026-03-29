@@ -15422,21 +15422,19 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 const AdminThemeSettings = () => {
-    // Tema intocável (Original)
     const defaultThemeFallback = {
-        primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af'
+        primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af', animationsEnabled: true
     };
 
-    // Temas Sazonais (Demonstração no painel) - CORES INVERTIDAS ENTRE NAMORADOS E MÃES
+    // Temas Sazonais com IDs para forçar a animação no Preview
     const seasonalThemesPreview = [
-        { name: 'Natal', date: 'Dezembro', colors: { primary: '#ef4444', primaryHover: '#dc2626', bg: '#000000', surface: '#052e16', surfaceHover: '#064e3b', text: '#ffffff', textMuted: '#a7f3d0' } },
-        { name: 'Namorados', date: 'Junho', colors: { primary: '#f43f5e', primaryHover: '#e11d48', bg: '#000000', surface: '#2e1065', surfaceHover: '#4c1d95', text: '#ffffff', textMuted: '#e2e8f0' } }, // Usando cores antigas de Mães
-        { name: 'Pais', date: 'Agosto', colors: { primary: '#3b82f6', primaryHover: '#2563eb', bg: '#000000', surface: '#0f172a', surfaceHover: '#1e293b', text: '#ffffff', textMuted: '#94a3b8' } },
-        { name: 'Mães', date: 'Maio', colors: { primary: '#ec4899', primaryHover: '#db2777', bg: '#000000', surface: '#4a044e', surfaceHover: '#701a75', text: '#ffffff', textMuted: '#fbcfe8' } }, // Usando cores antigas de Namorados
-        { name: 'Black Friday', date: 'Novembro', colors: { primary: '#a855f7', primaryHover: '#9333ea', bg: '#000000', surface: '#18181b', surfaceHover: '#27272a', text: '#ffffff', textMuted: '#a1a1aa' } },
+        { id: 'natal', name: 'Natal', date: 'Dezembro', colors: { primary: '#ef4444', primaryHover: '#dc2626', bg: '#000000', surface: '#052e16', surfaceHover: '#064e3b', text: '#ffffff', textMuted: '#a7f3d0' } },
+        { id: 'namorados', name: 'Namorados', date: 'Junho', colors: { primary: '#f43f5e', primaryHover: '#e11d48', bg: '#000000', surface: '#2e1065', surfaceHover: '#4c1d95', text: '#ffffff', textMuted: '#e2e8f0' } }, 
+        { id: 'pais', name: 'Pais', date: 'Agosto', colors: { primary: '#3b82f6', primaryHover: '#2563eb', bg: '#000000', surface: '#0f172a', surfaceHover: '#1e293b', text: '#ffffff', textMuted: '#94a3b8' } },
+        { id: 'maes', name: 'Mães', date: 'Maio', colors: { primary: '#ec4899', primaryHover: '#db2777', bg: '#000000', surface: '#4a044e', surfaceHover: '#701a75', text: '#ffffff', textMuted: '#fbcfe8' } }, 
+        { id: 'blackfriday', name: 'Black Friday', date: 'Novembro', colors: { primary: '#a855f7', primaryHover: '#9333ea', bg: '#000000', surface: '#18181b', surfaceHover: '#27272a', text: '#ffffff', textMuted: '#a1a1aa' } },
     ];
 
-    // Presets Premium
     const predefinedPresets = [
         { name: 'Ouro Elegante', colors: { primary: '#d4af37', primaryHover: '#b8972e', bg: '#020617', surface: '#0f172a', surfaceHover: '#1e293b', text: '#f8fafc', textMuted: '#94a3b8' } },
         { name: 'Ruby Premium', colors: { primary: '#e11d48', primaryHover: '#be123c', bg: '#000000', surface: '#1c1917', surfaceHover: '#27272a', text: '#ffffff', textMuted: '#a1a1aa' } },
@@ -15444,8 +15442,8 @@ const AdminThemeSettings = () => {
         { name: 'Natureza Suave', colors: { primary: '#10b981', primaryHover: '#059669', bg: '#ecfdf5', surface: '#ffffff', surfaceHover: '#f0fdf4', text: '#064e3b', textMuted: '#34d399' } }
     ];
 
-    const [localConfig, setLocalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false });
-    const [originalConfig, setOriginalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false });
+    const [localConfig, setLocalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true });
+    const [originalConfig, setOriginalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true });
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -15457,7 +15455,8 @@ const AdminThemeSettings = () => {
         apiService('/settings/theme')
             .then(data => {
                 const isAuto = data.autoSeasonal === true || data.autoSeasonal === 'true' || data.autoSeasonal === 1;
-                const loadedConfig = data.colors ? { ...data, autoSeasonal: isAuto } : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto };
+                const animEnabled = data.animationsEnabled !== false; // Default true
+                const loadedConfig = data.colors ? { ...data, autoSeasonal: isAuto, animationsEnabled: animEnabled } : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto, animationsEnabled: animEnabled };
                 
                 setLocalConfig(loadedConfig);
                 setOriginalConfig(loadedConfig);
@@ -15466,8 +15465,8 @@ const AdminThemeSettings = () => {
             .finally(() => setIsLoading(false));
     }, []); 
 
-    const dispatchPreview = (newConfig) => {
-        window.dispatchEvent(new CustomEvent('app-theme-updated', { detail: newConfig }));
+    const dispatchPreview = (newConfig, activeSeason = null) => {
+        window.dispatchEvent(new CustomEvent('app-theme-updated', { detail: { ...newConfig, previewSeason: activeSeason } }));
     };
 
     const handleColorChange = (key, value) => {
@@ -15488,15 +15487,22 @@ const AdminThemeSettings = () => {
         }
     };
 
-    const applyPreset = (presetColors) => {
-        const newConfig = { colors: { ...presetColors }, autoSeasonal: false };
+    const handleToggleAnimations = () => {
+        const newStatus = !localConfig.animationsEnabled;
+        const newConfig = { ...localConfig, animationsEnabled: newStatus };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig);
+    };
+
+    const applyPreset = (presetColors, seasonId = null) => {
+        const newConfig = { ...localConfig, colors: { ...presetColors }, autoSeasonal: false };
+        setLocalConfig(newConfig);
+        dispatchPreview(newConfig, seasonId); // Passa o ID da temporada para forçar a animação
         notification.show("Tema aplicado na pré-visualização. Clique em Salvar para publicar.");
     };
 
     const handleRestoreDefault = () => {
-        const newConfig = { colors: { ...defaultThemeFallback }, autoSeasonal: false };
+        const newConfig = { ...localConfig, colors: { ...defaultThemeFallback }, autoSeasonal: false };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig);
         notification.show("Cores padrão restauradas na pré-visualização. Clique em 'Salvar' para confirmar.");
@@ -15510,13 +15516,13 @@ const AdminThemeSettings = () => {
 
     const handleSave = () => {
         confirmation.show(
-            "Tem certeza que deseja aplicar este tema ao site de forma definitiva?",
+            "Tem certeza que deseja aplicar este tema e configurações ao site de forma definitiva?",
             async () => {
                 setIsSaving(true);
                 try {
                     await apiService('/settings/theme', 'PUT', { themeConfig: localConfig });
                     setOriginalConfig(localConfig); 
-                    notification.show("Novo tema aplicado com sucesso!");
+                    notification.show("Novo tema e configurações aplicados com sucesso!");
                 } catch (error) {
                     notification.show(`Erro ao salvar: ${error.message}`, "error");
                 } finally {
@@ -15527,7 +15533,6 @@ const AdminThemeSettings = () => {
         );
     };
 
-    // Função auxiliar para verificar visualmente se o preset atual está ativo
     const isPresetActive = (colorsObj) => {
         return localConfig.colors.primary === colorsObj.primary &&
                localConfig.colors.bg === colorsObj.bg &&
@@ -15568,10 +15573,10 @@ const AdminThemeSettings = () => {
         <div className="max-w-6xl mx-auto space-y-8 pb-12">
             <div>
                 <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Identidade Visual e Temas</h1>
-                <p className="text-slate-500 text-sm mt-1">Gerencie as cores da sua loja. O preview é em tempo real, mas os clientes só verão as mudanças após você salvar.</p>
+                <p className="text-slate-500 text-sm mt-1">Gerencie as cores e os efeitos da sua loja. O preview é em tempo real.</p>
             </div>
 
-            {/* SEÇÃO 1: Automação Sazonal */}
+            {/* SEÇÃO 1: Automação Sazonal e Animações */}
             <div className="bg-gradient-to-r from-indigo-900 to-slate-900 rounded-2xl shadow-lg p-1">
                 <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 border border-white/10">
                     <div className="text-white flex-1">
@@ -15579,9 +15584,22 @@ const AdminThemeSettings = () => {
                             <SparklesIcon className="h-6 w-6 text-amber-400"/> Temas Sazonais Inteligentes
                         </h2>
                         <p className="text-indigo-200 text-sm leading-relaxed max-w-2xl">
-                            Ative esta opção para que o site mude automaticamente de tema durante datas comemorativas (Natal, Dia dos Namorados, Black Friday, etc). Fora dessas datas, o seu tema personalizado será exibido normalmente.
+                            Ative esta opção para que o site mude automaticamente de tema e exiba efeitos visuais (corações, neve) durante datas comemorativas.
                         </p>
+                        
+                        {/* TOGGLE DE ANIMAÇÕES (Mestre) */}
+                        <div className="flex items-center justify-between p-4 bg-black/30 border border-white/10 rounded-xl mt-4 max-w-md">
+                            <div>
+                                <h3 className="text-white font-bold text-sm">Permitir Efeitos Animados</h3>
+                                <p className="text-indigo-200 text-[10px]">Neve, corações, brilhos caindo na tela.</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" checked={localConfig.animationsEnabled !== false} onChange={handleToggleAnimations} className="sr-only peer" />
+                                <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                            </label>
+                        </div>
                     </div>
+                    
                     <div className="flex-shrink-0 bg-white/5 p-4 rounded-xl border border-white/10 flex flex-col items-center">
                         <label className="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" checked={localConfig.autoSeasonal} onChange={handleToggleSeasonal} className="sr-only peer" />
@@ -15593,26 +15611,25 @@ const AdminThemeSettings = () => {
                     </div>
                 </div>
                 
-                <div className="px-6 pb-6 pt-2">
-                    <p className="text-xs text-indigo-300 mb-3 uppercase tracking-wider font-bold">Clique para testar os temas do calendário:</p>
+                <div className="px-6 pb-6 pt-4">
+                    <p className="text-xs text-indigo-300 mb-3 uppercase tracking-wider font-bold">Clique para testar os temas e animações do calendário:</p>
                     <div className="flex flex-wrap gap-3">
                         {seasonalThemesPreview.map(season => (
                             <button 
                                 key={season.name} 
                                 type="button"
-                                onClick={() => applyPreset(season.colors)}
+                                onClick={() => applyPreset(season.colors, season.id)}
                                 className={`flex items-center gap-2 border rounded-lg px-3 py-1.5 transition-all cursor-pointer shadow-sm active:scale-95 ${
                                     isSeasonalActive(season.colors) 
                                     ? 'bg-white/20 border-amber-400 ring-1 ring-amber-400' 
                                     : 'bg-white/10 hover:bg-white/20 border-white/20 hover:border-amber-300'
                                 }`}
-                                title={`Clique para testar as cores de ${season.name}`}
                             >
                                 <div className="flex -space-x-2">
                                     <div className="w-4 h-4 rounded-full border border-slate-800 shadow-sm" style={{ backgroundColor: season.colors.surface }}></div>
                                     <div className="w-4 h-4 rounded-full border border-slate-800 shadow-sm" style={{ backgroundColor: season.colors.primary }}></div>
                                 </div>
-                                <span className="text-xs text-white font-bold">{season.name} <span className="text-indigo-300 font-normal">({season.date})</span></span>
+                                <span className="text-xs text-white font-bold">{season.name}</span>
                             </button>
                         ))}
                     </div>
@@ -15622,7 +15639,6 @@ const AdminThemeSettings = () => {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 {/* SEÇÃO 2: Controles de Cor */}
                 <div className="lg:col-span-7 space-y-6">
-                    {/* Temas Rápidos */}
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -15662,7 +15678,6 @@ const AdminThemeSettings = () => {
                         </div>
                     </div>
 
-                    {/* Cores Customizadas */}
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-3">
                         <h2 className="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
                             <ChartIcon className="h-5 w-5 text-indigo-500"/> Personalização Fina
@@ -15693,7 +15708,6 @@ const AdminThemeSettings = () => {
                             className="w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden transition-colors duration-500 border border-white/10 flex flex-col"
                             style={{ backgroundColor: localConfig.colors.bg }}
                         >
-                            {/* Header Falso */}
                             <div className="px-5 py-4 flex items-center justify-between shadow-sm transition-colors duration-500" style={{ backgroundColor: localConfig.colors.surface }}>
                                 <div className="flex items-center gap-2">
                                     <div className="w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-500" style={{ backgroundColor: localConfig.colors.primary }}>
@@ -15707,13 +15721,11 @@ const AdminThemeSettings = () => {
                                 </div>
                             </div>
                             
-                            {/* Banner Falso */}
                             <div className="h-24 w-full flex flex-col items-center justify-center transition-colors duration-500" style={{ backgroundColor: localConfig.colors.surfaceHover }}>
                                 <span className="text-[10px] font-bold uppercase tracking-widest transition-colors duration-500" style={{ color: localConfig.colors.primary }}>Nova Coleção</span>
                                 <h3 className="text-lg font-bold transition-colors duration-500" style={{ color: localConfig.colors.text }}>Inverno 2026</h3>
                             </div>
 
-                            {/* Corpo Falso */}
                             <div className="p-5 flex-grow">
                                 <div className="flex gap-4 mb-4">
                                     <div className="w-20 h-24 rounded-lg flex-shrink-0 transition-colors duration-500" style={{ backgroundColor: localConfig.colors.surface }}></div>
@@ -15741,11 +15753,9 @@ const AdminThemeSettings = () => {
                                     style={{ backgroundColor: localConfig.colors.primary, color: localConfig.colors.bg }}
                                     onMouseEnter={(e) => {
                                         e.target.style.backgroundColor = localConfig.colors.primaryHover;
-                                        e.target.style.transform = 'scale(1.02)';
                                     }}
                                     onMouseLeave={(e) => {
                                         e.target.style.backgroundColor = localConfig.colors.primary;
-                                        e.target.style.transform = 'scale(1)';
                                     }}
                                 >
                                     <CartIcon className="h-4 w-4"/> Comprar Agora
@@ -15764,7 +15774,7 @@ const AdminThemeSettings = () => {
                     disabled={isSaving}
                     className="px-6 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 shadow-sm transition-all"
                 >
-                    Descartar Alterações
+                    Descartar
                 </button>
                 <button 
                     type="button"
@@ -15779,8 +15789,8 @@ const AdminThemeSettings = () => {
         </div>
     );
 };
-// Componente de Animações Sazonais (Alta Performance)
-const SeasonalAnimations = memo(({ isEnabled }) => {
+// Componente de Animações Sazonais (Alta Performance via CSS Animation)
+const SeasonalAnimations = memo(({ isEnabled, forcedSeason }) => {
     const [season, setSeason] = useState(null);
 
     useEffect(() => {
@@ -15788,31 +15798,37 @@ const SeasonalAnimations = memo(({ isEnabled }) => {
             setSeason(null);
             return;
         }
+
+        // Se veio forçado pelo Preview do Admin, usa ele, senão calcula a data
+        if (forcedSeason) {
+            setSeason(forcedSeason);
+            return;
+        }
+
         const now = new Date();
         const m = now.getMonth() + 1;
         const d = now.getDate();
 
-        // Lógica de Datas Comemorativas
         if (m === 12 && d <= 25) setSeason('natal');
         else if (m === 6 && d <= 12) setSeason('namorados');
         else if (m === 5 && d <= 15) setSeason('maes');
         else if (m === 8 && d <= 15) setSeason('pais');
         else if (m === 11 && d >= 15) setSeason('blackfriday');
         else setSeason(null);
-    }, [isEnabled]);
+    }, [isEnabled, forcedSeason]);
 
     if (!isEnabled || !season) return null;
 
     const renderParticles = (type, count) => {
         return [...Array(count)].map((_, i) => {
             const left = Math.random() * 100;
-            const animDuration = 5 + Math.random() * 10;
+            const animDuration = 6 + Math.random() * 8;
             const delay = Math.random() * -10;
-            const size = 0.5 + Math.random() * 1.5;
+            const size = 0.8 + Math.random() * 1.5;
 
             let content;
             if (type === 'natal') {
-                content = <div className="rounded-full bg-white/80" style={{ width: `${size * 0.4}rem`, height: `${size * 0.4}rem`, boxShadow: '0 0 8px rgba(255,255,255,0.8)' }} />;
+                content = <div className="rounded-full bg-white" style={{ width: `${size * 0.3}rem`, height: `${size * 0.3}rem`, boxShadow: '0 0 10px rgba(255,255,255,1)' }} />;
             } else if (type === 'namorados') {
                 content = '❤️';
             } else if (type === 'maes') {
@@ -15824,13 +15840,14 @@ const SeasonalAnimations = memo(({ isEnabled }) => {
             return (
                 <div
                     key={i}
-                    className="absolute drop-shadow-md"
+                    className="absolute"
                     style={{
                         left: `${left}vw`,
-                        top: `-5%`,
+                        top: `-10vh`,
                         fontSize: type !== 'natal' ? `${size}rem` : undefined,
                         animation: `fall ${animDuration}s linear ${delay}s infinite`,
-                        opacity: type === 'pais' ? 0.4 : 0.8
+                        opacity: type === 'pais' ? 0.4 : 0.7,
+                        filter: type !== 'natal' ? 'drop-shadow(0px 4px 6px rgba(0,0,0,0.3))' : 'none'
                     }}
                 >
                     {content}
@@ -15843,10 +15860,10 @@ const SeasonalAnimations = memo(({ isEnabled }) => {
         <div className="fixed inset-0 pointer-events-none z-[45] overflow-hidden" aria-hidden="true">
             <style>{`
                 @keyframes fall {
-                    0% { transform: translateY(-5vh) rotate(0deg); opacity: 0; }
+                    0% { transform: translateY(-10vh) rotate(0deg); opacity: 0; }
                     10% { opacity: 1; }
-                    90% { opacity: 1; }
-                    100% { transform: translateY(105vh) rotate(360deg); opacity: 0; }
+                    80% { opacity: 1; }
+                    100% { transform: translateY(110vh) rotate(360deg); opacity: 0; }
                 }
                 @keyframes sparkle {
                     0%, 100% { opacity: 0; transform: scale(0); }
@@ -15859,13 +15876,12 @@ const SeasonalAnimations = memo(({ isEnabled }) => {
             {season === 'maes' && renderParticles('maes', 25)}
             {season === 'pais' && renderParticles('pais', 15)}
             
-            {/* Efeito Especial Black Friday */}
             {season === 'blackfriday' && (
-                [...Array(50)].map((_, i) => {
+                [...Array(40)].map((_, i) => {
                     const left = Math.random() * 100;
                     const top = Math.random() * 100;
-                    const delay = Math.random() * 3;
-                    const duration = 1 + Math.random() * 2;
+                    const delay = Math.random() * 4;
+                    const duration = 1.5 + Math.random() * 2;
                     const size = 0.1 + Math.random() * 0.3;
                     return (
                         <div
@@ -15876,7 +15892,7 @@ const SeasonalAnimations = memo(({ isEnabled }) => {
                                 top: `${top}vh`,
                                 width: `${size}rem`,
                                 height: `${size}rem`,
-                                boxShadow: '0 0 10px 3px rgba(251, 191, 36, 0.7)',
+                                boxShadow: '0 0 12px 4px rgba(251, 191, 36, 0.8)',
                                 animation: `sparkle ${duration}s ease-in-out ${delay}s infinite`,
                             }}
                         />
@@ -15893,8 +15909,21 @@ function AppContent({ deferredPrompt }) {
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
+  // Efeito do usuário (desliga localmente)
+  const [userAnimationsDisabled, setUserAnimationsDisabled] = useState(() => {
+      return localStorage.getItem('lovecestas_user_anim_disabled') === 'true';
+  });
+
+  const toggleUserAnimations = () => {
+      setUserAnimationsDisabled(prev => {
+          const newState = !prev;
+          localStorage.setItem('lovecestas_user_anim_disabled', newState);
+          return newState;
+      });
+  };
+
   const defaultThemeFallback = {
-      primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af'
+      primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af', animationsEnabled: true
   };
 
   const seasonalThemes = {
@@ -15924,8 +15953,11 @@ function AppContent({ deferredPrompt }) {
           const cached = localStorage.getItem('lovecestas_theme_config');
           if (cached) return JSON.parse(cached);
       } catch(e) {}
-      return { colors: defaultThemeFallback, autoSeasonal: false };
+      return { colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true };
   });
+  
+  // Estado para capturar o tema que o Admin clicou no preview (força a animação a rodar)
+  const [previewSeason, setPreviewSeason] = useState(null);
 
   const [appLogo, setAppLogo] = useState(() => {
       return localStorage.getItem('lovecestas_app_logo') || 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
@@ -16032,6 +16064,7 @@ function AppContent({ deferredPrompt }) {
       const handleThemeUpdate = (event) => {
           if (event.detail) {
               setAppThemeConfig(event.detail);
+              setPreviewSeason(event.detail.previewSeason || null); // Capta se o Admin forçou o preview de uma season
               localStorage.setItem('lovecestas_theme_config', JSON.stringify(event.detail));
           }
       };
@@ -16050,7 +16083,8 @@ function AppContent({ deferredPrompt }) {
           .then(data => { 
               if (data) {
                   const isAuto = data.autoSeasonal === true || data.autoSeasonal === 'true' || data.autoSeasonal === 1;
-                  const loadedConfig = data.colors ? { ...data, autoSeasonal: isAuto } : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto };
+                  const animEnabled = data.animationsEnabled !== false;
+                  const loadedConfig = data.colors ? { ...data, autoSeasonal: isAuto, animationsEnabled: animEnabled } : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto, animationsEnabled: animEnabled };
                   setAppThemeConfig(loadedConfig); 
                   localStorage.setItem('lovecestas_theme_config', JSON.stringify(loadedConfig));
               }
@@ -16287,12 +16321,17 @@ function AppContent({ deferredPrompt }) {
 
   const showHeaderFooter = !currentPath.startsWith('admin');
   
+  // Condição: Animações globais habilitadas pelo Admin E usuário não desligou localmente
+  const shouldRunAnimations = appThemeConfig.animationsEnabled && !userAnimationsDisabled;
+  
   return (
     <div className="bg-black min-h-screen flex flex-col transition-colors duration-500 relative">
       
-      {/* Componente de Animações Sazonais Injetado Globalmente (Controlado SOMENTE pelo Painel Admin) */}
       {!currentPath.startsWith('admin') && (
-          <SeasonalAnimations isEnabled={appThemeConfig.autoSeasonal} />
+          <SeasonalAnimations 
+            isEnabled={shouldRunAnimations} 
+            forcedSeason={previewSeason} 
+          />
       )}
       
       {showHeaderFooter && (
@@ -16358,10 +16397,31 @@ function AppContent({ deferredPrompt }) {
                     </div>
                 </div>
             </div>
-            {/* O Botão de controle de animação foi retirado daqui */}
+            
+            {/* BOTÃO DO CLIENTE PARA DESATIVAR ANIMAÇÃO ESTÁ AQUI */}
             <div className="bg-black py-4 border-t border-gray-800 transition-colors duration-500 pb-20 md:pb-4">
-                <div className="container mx-auto px-4 flex items-center justify-center">
+                <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
                     <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} {safeName}. Todos os direitos reservados.</p>
+                    
+                    {appThemeConfig.animationsEnabled && (appThemeConfig.autoSeasonal || previewSeason) && (
+                        <button 
+                            onClick={toggleUserAnimations} 
+                            className="text-xs text-gray-500 hover:text-amber-400 transition-colors flex items-center justify-center gap-1.5 bg-gray-900/50 px-4 py-2 rounded-full border border-gray-800 shadow-sm active:scale-95"
+                            title={userAnimationsDisabled ? "Ativar Efeitos Sazonais" : "Desativar Efeitos Sazonais"}
+                        >
+                            {userAnimationsDisabled ? (
+                                <>
+                                    <SparklesIcon className="h-4 w-4 opacity-50"/>
+                                    Ligar Efeitos da Tela
+                                </>
+                            ) : (
+                                <>
+                                    <SparklesIcon className="h-4 w-4 text-amber-400 animate-pulse"/>
+                                    Desligar Efeitos da Tela
+                                </>
+                            )}
+                        </button>
+                    )}
                 </div>
             </div>
         </footer>
