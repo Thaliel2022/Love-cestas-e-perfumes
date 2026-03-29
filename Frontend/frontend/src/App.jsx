@@ -15648,10 +15648,14 @@ function AppContent({ deferredPrompt }) {
   });
   const [appNameConfig, setAppNameConfig] = useState({ short_name: 'Love Cestas', name: 'Love Cestas e Perfumes', logo_text: 'LovecestasePerfumes' });
 
-  // --- MÁGICA DOS TEMAS: Injeção Dinâmica de CSS Variables ---
-  useEffect(() => {
-      if (!appTheme) return;
+  const defaultThemeFallback = {
+      primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af'
+  };
 
+  // --- MÁGICA DOS TEMAS: Injeção Dinâmica de CSS Variables (CORRIGIDA E BLINDADA) ---
+  useEffect(() => {
+      // Usa o tema salvo ou o padrão se estiver vazio
+      const t = appTheme || defaultThemeFallback;
       const isAdmin = currentPath.startsWith('admin');
       
       const styleId = 'dynamic-theme-override';
@@ -15663,54 +15667,46 @@ function AppContent({ deferredPrompt }) {
           document.head.appendChild(styleElement);
       }
 
+      // Se for o painel admin, limpa o CSS para não alterar a área administrativa
       if (isAdmin) {
           styleElement.innerHTML = '';
           return;
       }
 
-      // CORREÇÃO: CSS refinado. 
-      // 1. Removida a sobreposição de 'bg-black/80' para manter a transparência atrás do modal.
-      // 2. Restaurado o contraste do 'border-gray-600' para os botões de tamanho ficarem bem visíveis.
+      // Injeção Cirúrgica: Altera apenas o necessário e protege as transparências (bg-black/80)
       styleElement.innerHTML = `
-          :root {
-              --theme-primary: ${appTheme.primary};
-              --theme-primary-hover: ${appTheme.primaryHover};
-              --theme-bg: ${appTheme.bg};
-              --theme-surface: ${appTheme.surface};
-              --theme-surface-hover: ${appTheme.surfaceHover};
-              --theme-text: ${appTheme.text};
-              --theme-text-muted: ${appTheme.textMuted};
-          }
+          /* Backgrounds Principais */
+          body, .bg-black { background-color: ${t.bg || '#000000'} !important; }
+          .bg-gray-900 { background-color: ${t.surface || '#111827'} !important; }
+          .bg-gray-800 { background-color: ${t.surfaceHover || '#1f2937'} !important; }
+          
+          /* PROTEÇÃO DE TRANSPARÊNCIAS (Mantém o overlay dos modais funcionando) */
+          .bg-black\\/20 { background-color: rgba(0, 0, 0, 0.2) !important; }
+          .bg-black\\/30 { background-color: rgba(0, 0, 0, 0.3) !important; }
+          .bg-black\\/40 { background-color: rgba(0, 0, 0, 0.4) !important; }
+          .bg-black\\/50 { background-color: rgba(0, 0, 0, 0.5) !important; }
+          .bg-black\\/60 { background-color: rgba(0, 0, 0, 0.6) !important; }
+          .bg-black\\/70 { background-color: rgba(0, 0, 0, 0.7) !important; }
+          .bg-black\\/80 { background-color: rgba(0, 0, 0, 0.8) !important; }
+          .bg-black\\/90 { background-color: rgba(0, 0, 0, 0.9) !important; }
 
-          /* Overrides de Fundo */
-          .bg-black { background-color: var(--theme-bg) !important; }
-          /* Classes com transparência (como bg-black/80) foram removidas daqui para manter o blur original do Tailwind */
+          /* Textos Básicos */
+          .text-white { color: ${t.text || '#ffffff'} !important; }
+          .text-gray-300 { color: ${t.text || '#ffffff'} !important; opacity: 0.9; }
+          .text-gray-400 { color: ${t.textMuted || '#9ca3af'} !important; }
+
+          /* Cor Primária (Botões, Ícones, Textos Destacados) */
+          .bg-amber-400, .bg-amber-500 { background-color: ${t.primary || '#fbbf24'} !important; color: ${t.bg || '#000000'} !important; }
+          .hover\\:bg-amber-300:hover, .hover\\:bg-amber-400:hover { background-color: ${t.primaryHover || '#f59e0b'} !important; }
           
-          .bg-gray-900 { background-color: var(--theme-surface) !important; }
-          .bg-gray-800 { background-color: var(--theme-surface-hover) !important; }
+          .text-amber-400, .text-amber-500 { color: ${t.primary || '#fbbf24'} !important; }
+          .hover\\:text-amber-300:hover, .hover\\:text-amber-400:hover { color: ${t.primaryHover || '#f59e0b'} !important; }
           
-          /* Overrides de Texto */
-          .text-white { color: var(--theme-text) !important; }
-          .text-gray-300 { color: var(--theme-text) !important; opacity: 0.9; }
-          .text-gray-400 { color: var(--theme-text-muted) !important; }
-          .text-gray-500 { color: var(--theme-text-muted) !important; opacity: 0.8; }
+          .border-amber-400, .border-amber-500 { border-color: ${t.primary || '#fbbf24'} !important; }
+          .ring-amber-400 { --tw-ring-color: ${t.primary || '#fbbf24'} !important; }
           
-          /* Overrides da Cor Primária (Amber) */
-          .bg-amber-400, .bg-amber-500 { background-color: var(--theme-primary) !important; }
-          .hover\\:bg-amber-300:hover, .hover\\:bg-amber-400:hover { background-color: var(--theme-primary-hover) !important; }
-          
-          .text-amber-400, .text-amber-500 { color: var(--theme-primary) !important; }
-          .hover\\:text-amber-300:hover, .hover\\:text-amber-400:hover { color: var(--theme-primary-hover) !important; }
-          
-          .border-amber-400, .border-amber-500 { border-color: var(--theme-primary) !important; }
-          
-          /* Bordas de Superfície e Contornos de Botões */
-          .border-gray-800 { border-color: var(--theme-surface-hover) !important; }
-          .border-gray-700 { border-color: var(--theme-text-muted) !important; opacity: 0.3; }
-          
-          /* RESTAURA O CONTRASTE DOS BOTÕES DE TAMANHO */
-          .border-gray-600 { border-color: var(--theme-text-muted) !important; } /* Removida opacidade para ficar forte */
-          .hover\\:border-gray-400:hover { border-color: var(--theme-text) !important; }
+          /* Bordas de Layout (Mantemos as cinzas para não quebrar botões de seleção de tamanho) */
+          .border-gray-800 { border-color: ${t.surfaceHover || '#1f2937'} !important; }
       `;
 
       return () => {
@@ -15718,6 +15714,7 @@ function AppContent({ deferredPrompt }) {
       };
   }, [appTheme, currentPath]);
 
+  // Escuta os eventos do Painel em tempo real para Live Preview
   useEffect(() => {
       const handleNameUpdate = (event) => {
           if (event.detail) {
@@ -15739,10 +15736,17 @@ function AppContent({ deferredPrompt }) {
       };
   }, []);
 
+  // Carrega as configurações do Banco de Dados no início
   useEffect(() => {
       apiService(`/settings/theme?v=${new Date().getTime()}`)
-          .then(data => { if (data) setAppTheme(data); })
-          .catch(err => console.log("Usando tema local estático fallback."));
+          .then(data => { 
+              if (data && data.primary) setAppTheme(data); 
+              else setAppTheme(defaultThemeFallback); 
+          })
+          .catch(err => {
+              console.log("Usando tema local estático fallback.");
+              setAppTheme(defaultThemeFallback);
+          });
 
       apiService(`/settings/app-icons?v=${new Date().getTime()}`)
           .then(data => {
