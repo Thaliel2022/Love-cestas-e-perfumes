@@ -3687,7 +3687,6 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
 });
 const VariationSelector = ({ product, variations, selectedColor, setSelectedColor, selectedSize, setSelectedSize, error }) => {
     
-    // Calcula cores únicas e verifica se há estoque disponível para cada uma
     const uniqueColors = useMemo(() => {
         const colorsMap = new Map();
         if (!variations || !product) return [];
@@ -3695,15 +3694,12 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
         variations.forEach(v => {
             if (v.color) {
                 if (!colorsMap.has(v.color)) {
-                    // Tenta pegar a imagem da variação, senão a principal do produto
                     const primaryImage = (v.images && v.images.length > 0) 
                         ? v.images[0] 
                         : getFirstImage(product.images);
-                    // Inicializa assumindo sem estoque
                     colorsMap.set(v.color, { image: primaryImage, hasStock: false });
                 }
                 
-                // Se encontrar QUALQUER tamanho com estoque > 0 para esta cor, marca como disponível
                 if (v.stock > 0) {
                     const info = colorsMap.get(v.color);
                     info.hasStock = true;
@@ -3726,10 +3722,9 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
     }, [variations, selectedColor]);
 
     const handleColorChange = (color, hasStock) => {
-        if (!hasStock) return; // Impede seleção de cores esgotadas
+        if (!hasStock) return; 
 
         setSelectedColor(color);
-        // Ao mudar de cor, tenta selecionar um tamanho disponível automaticamente se houver apenas um
         const sizesForNewColor = variations
             .filter(v => v.color === color && v.stock > 0)
             .map(v => v.size);
@@ -3737,7 +3732,7 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
         if (sizesForNewColor.length === 1) {
             setSelectedSize(sizesForNewColor[0]);
         } else {
-            setSelectedSize(''); // Reseta para forçar o usuário a escolher
+            setSelectedSize(''); 
         }
     };
 
@@ -3766,7 +3761,6 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
                             >
                                  <img src={colorInfo.image} alt={colorInfo.name} className="w-full h-full object-cover rounded-full bg-gray-800 shadow-sm"/>
                                  
-                                 {/* Indicador visual de Esgotado (X vermelho) */}
                                  {isOutOfStock && (
                                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                                          <div className="w-full h-0.5 bg-red-500/80 rotate-45 absolute"></div>
@@ -3779,7 +3773,7 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
                 </div>
             </div>
 
-            {/* Seção de Tamanhos - Só aparece se cor estiver selecionada */}
+            {/* Seção de Tamanhos - CORRIGIDO AS CORES E TRANSPARÊNCIAS */}
             <AnimatePresence>
                 {selectedColor && (
                      <motion.div 
@@ -3802,17 +3796,21 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
                                         key={size}
                                         onClick={() => setSelectedSize(size)}
                                         disabled={stock === 0}
+                                        style={
+                                            selectedSize === size 
+                                            ? { backgroundColor: 'var(--theme-primary, #fbbf24)', color: 'var(--theme-bg, #000000)', borderColor: 'var(--theme-primary, #fbbf24)' }
+                                            : { borderColor: '#4b5563', color: '#d1d5db' }
+                                        }
                                         className={`min-w-[3.5rem] h-11 px-3 border rounded-md font-bold text-sm transition-all duration-200 flex items-center justify-center relative overflow-hidden
                                             ${selectedSize === size 
-                                                ? 'bg-amber-400 text-black border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)] scale-105' 
-                                                : 'bg-transparent border-gray-600 text-gray-300 hover:border-gray-400 hover:bg-gray-800'
+                                                ? 'shadow-lg scale-105' 
+                                                : 'bg-transparent hover:border-gray-400 hover:bg-gray-800'
                                             }
                                             ${stock === 0 ? 'opacity-40 cursor-not-allowed bg-gray-900 border-gray-800 text-gray-600 decoration-slice line-through' : ''}
                                             ${showError && !selectedSize ? 'border-red-500 text-red-100 bg-red-900/20' : ''}`
                                         }
                                     >
                                         {size}
-                                        {/* Indicador de "Últimas unidades" para estoque baixo */}
                                         {stock > 0 && stock <= 2 && selectedSize !== size && (
                                             <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
                                         )}
@@ -3828,7 +3826,6 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
         </div>
     );
 };
-
 const ProductDetailPage = ({ productId, onNavigate }) => {
     const { user } = useAuth();
     const { addToCart, calculateLocalDeliveryPrice, shippingLocation } = useShop(); 
@@ -4159,7 +4156,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     };
 
     const TabButton = ({ label, tabName, isVisible = true }) => { if (!isVisible) return null; return ( <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-amber-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'}`} > {label} </button> ); };
-    const Lightbox = ({ mainImage, onClose }) => ( <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={onClose}> <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-50 p-2">&times;</button> <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div> </div> );
+    const Lightbox = ({ mainImage, onClose }) => ( <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}> <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">&times;</button> <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div> </div> );
 
     // --- TELA DE CARREGAMENTO PRODUTO PREMIUM ---
     if (isLoading) {
@@ -4212,7 +4209,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
             
-            {/* --- MODAL DO GUIA DE MEDIDAS --- */}
+            {/* --- MODAL DO GUIA DE MEDIDAS (TAMANHO 3XL) --- */}
             <AnimatePresence>
                 {isSizeGuideModalOpen && product.size_guide && (
                     <Modal isOpen={true} onClose={() => setIsSizeGuideModalOpen(false)} title="Guia de Medidas" size="3xl">
@@ -4221,22 +4218,22 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 )}
             </AnimatePresence>
 
-            {/* --- MODAL DE SELEÇÃO (CORRIGIDO AS CAMADAS E BACKGROUNDS) --- */}
+            {/* --- MODAL DE SELEÇÃO --- */}
             <AnimatePresence>
                 {isSelectionModalOpen && (
                     <>
                         <motion.div 
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-black/80 z-40 backdrop-blur-md"
+                            className="fixed inset-0 bg-black/80 z-[60] backdrop-blur-md"
                             onClick={() => setIsSelectionModalOpen(false)}
                         />
-                        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center pointer-events-none p-0 md:p-4">
+                        <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center pointer-events-none p-0 md:p-4">
                             <motion.div
                                 initial={{ y: "100%" }} 
                                 animate={{ y: 0 }} 
                                 exit={{ y: "100%" }}
                                 transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                                className="pointer-events-auto bg-gray-900 border border-gray-700 w-full max-w-lg rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden"
+                                className="pointer-events-auto bg-gray-900 border border-gray-700 w-full max-w-lg rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden ring-1 ring-white/10"
                             >
                                 <div className="p-6 pb-0 flex justify-between items-start">
                                     <div className="pr-4">
@@ -15482,6 +15479,8 @@ const AdminThemeSettings = () => {
     const notification = useNotification();
     const confirmation = useConfirmation();
 
+    // CORREÇÃO CRÍTICA: Removido [notification] das dependências.
+    // Isso impede que o tema "Puxe do Banco" toda vez que um balãozinho verde aparecer na tela.
     useEffect(() => {
         apiService('/settings/theme')
             .then(data => {
@@ -15493,7 +15492,7 @@ const AdminThemeSettings = () => {
             })
             .catch(err => console.log("Usando tema padrão. Banco não respondeu com tema salvo."))
             .finally(() => setIsLoading(false));
-    }, []); // CORREÇÃO: Array de dependências limpo. Evita que o painel resete sozinho.
+    }, []); 
 
     const dispatchPreview = (newConfig) => {
         window.dispatchEvent(new CustomEvent('app-theme-updated', { detail: newConfig }));
