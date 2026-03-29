@@ -15467,6 +15467,9 @@ const AdminThemeSettings = () => {
     const [localConfig, setLocalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true, activeSeason: null });
     const [originalConfig, setOriginalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true, activeSeason: null });
     
+    // NOVO: Estado para carregar o nome dinâmico da loja no simulador
+    const [simulatorName, setSimulatorName] = useState('Love Cestas');
+    
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     
@@ -15474,6 +15477,11 @@ const AdminThemeSettings = () => {
     const confirmation = useConfirmation();
 
     useEffect(() => {
+        // Busca o nome configurado para refletir no simulador
+        apiService('/settings/app-name')
+            .then(data => { if(data && data.short_name) setSimulatorName(data.short_name); })
+            .catch(()=>{});
+
         apiService('/settings/theme')
             .then(data => {
                 const isAuto = data.autoSeasonal === true || data.autoSeasonal === 'true' || data.autoSeasonal === 1;
@@ -15520,7 +15528,6 @@ const AdminThemeSettings = () => {
     };
 
     const applyPreset = (presetColors, seasonId = null) => {
-        // CORREÇÃO: Agora salvamos permanentemente o activeSeason no config local
         const newConfig = { ...localConfig, colors: { ...presetColors }, autoSeasonal: false, activeSeason: seasonId };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig, seasonId);
@@ -15709,6 +15716,14 @@ const AdminThemeSettings = () => {
                         <h2 className="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
                             <ChartIcon className="h-5 w-5 text-indigo-500"/> Personalização Fina
                         </h2>
+                        
+                        {/* NOVO: Aviso visual orientando como resetar as cores ao estado original do Preset */}
+                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-4">
+                            <p className="text-xs text-blue-800">
+                                💡 <strong>Dica:</strong> Se você alterar uma cor manualmente e não gostar, basta <strong>clicar novamente no Estilo (preset) acima</strong> para restaurar as cores originais daquele estilo, ou clicar em "Descartar" no final da página.
+                            </p>
+                        </div>
+
                         <ColorPickerRow label="Cor Primária" field="primary" desc="Botões principais, ícones ativos e selos de desconto." />
                         <ColorPickerRow label="Cor Primária (Hover)" field="primaryHover" desc="Cor do botão primário ao passar o mouse." />
                         <ColorPickerRow label="Fundo Principal" field="bg" desc="Cor de fundo de todo o site." />
@@ -15738,9 +15753,9 @@ const AdminThemeSettings = () => {
                             <div className="px-5 py-4 flex items-center justify-between shadow-sm transition-colors duration-500" style={{ backgroundColor: localConfig.colors.surface }}>
                                 <div className="flex items-center gap-2">
                                     <div className="w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-500" style={{ backgroundColor: localConfig.colors.primary }}>
-                                        <span className="text-[10px] font-bold" style={{ color: localConfig.colors.bg }}>L</span>
+                                        <span className="text-[10px] font-bold" style={{ color: localConfig.colors.bg }}>{simulatorName.charAt(0).toUpperCase()}</span>
                                     </div>
-                                    <span className="font-bold text-sm transition-colors duration-500" style={{ color: localConfig.colors.primary }}>Love Cestas</span>
+                                    <span className="font-bold text-sm transition-colors duration-500" style={{ color: localConfig.colors.primary }}>{simulatorName}</span>
                                 </div>
                                 <div className="flex gap-3">
                                     <SearchIcon className="h-4 w-4 transition-colors duration-500" style={{ color: localConfig.colors.textMuted }} />
