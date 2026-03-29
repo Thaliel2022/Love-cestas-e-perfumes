@@ -960,12 +960,8 @@ const NotificationProvider = ({ children }) => {
         }
     }, [remove]);
 
-    // CORREÇÃO CRÍTICA: Memoização garante que o contexto não mude a cada notificação, 
-    // evitando que outros componentes recarreguem dados do banco acidentalmente.
-    const contextValue = useMemo(() => ({ show }), [show]);
-
     return (
-        <NotificationContext.Provider value={contextValue}>
+        <NotificationContext.Provider value={{ show }}>
             {children}
             <div className="fixed bottom-5 right-5 z-[100] space-y-3">
                 <AnimatePresence>
@@ -2080,9 +2076,9 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
 });
 
 
-const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortName = "Love Cestas", appLogoText = "LovecestasePerfumes" }) => {
+const Header = memo(({ onNavigate }) => {
     const { isAuthenticated, user, logout } = useAuth();
-    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses, orderNotificationCount } = useShop(); 
+    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses, orderNotificationCount } = useShop(); // Garanta que orderNotificationCount está aqui
     const [searchTerm, setSearchTerm] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [searchSuggestions, setSearchSuggestions] = useState([]);
@@ -2092,6 +2088,7 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
     const [dynamicMenuItems, setDynamicMenuItems] = useState([]);
     const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
 
+    // Estado para visibilidade da BottomNavBar
     const [isBottomNavVisible, setIsBottomNavVisible] = useState(true);
     const lastScrollY = useRef(0);
     const isScrollingDown = useRef(false);
@@ -2343,6 +2340,7 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                 <button onClick={() => onNavigate('categories')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'categories' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <div className="relative">
                         <BarsGripIcon className="h-6 w-6 mb-1"/>
+                         {/* --- NOTIFICAÇÃO NO MENU PRINCIPAL MOBILE --- */}
                         {isAuthenticated && orderNotificationCount > 0 && (
                             <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-600 rounded-full border-2 border-black animate-pulse"></span>
                         )}
@@ -2388,6 +2386,7 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
         </AnimatePresence>
 
         <header className="bg-black/80 backdrop-blur-md text-white shadow-lg sticky top-0 z-40">
+            {/* Top Bar - Desktop */}
             <div className="hidden md:block px-4 sm:px-6">
                 <div className="flex justify-between items-center py-3">
                     <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="flex items-center gap-2 text-xl font-bold tracking-wide text-amber-400 group">
@@ -2396,7 +2395,7 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                                 <path d="M9.375 3a1.875 1.875 0 000 3.75h1.875v4.5H3.375A1.875 1.875 0 011.5 9.375v-.75c0-1.036.84-1.875 1.875-1.875h3.193A3.375 3.375 0 0112 2.753a3.375 3.375 0 015.432 3.997h3.943c1.035 0 1.875.84 1.875 1.875v.75c0 1.036-.84 1.875-1.875 1.875H12.75v-4.5h1.875a1.875 1.875 0 10-1.875-1.875V6.75h-1.5V4.875C11.25 3.839 10.41 3 9.375 3zM11.25 12.75H3v6.75a2.25 2.25 0 002.25 2.25h6v-9zM12.75 12.75v9h6a2.25 2.25 0 002.25-2.25v-6.75h-8.25z" />
                             </svg>
                         </div>
-                        <span>{appLogoText}</span>
+                        <span>LovecestasePerfumes</span>
                     </a>
                     <div className="hidden lg:block flex-1 max-w-2xl mx-8">
                          <form onSubmit={handleSearchSubmit} className="relative">
@@ -2405,7 +2404,7 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                                 onChange={e => setSearchTerm(e.target.value)}
                                 onFocus={() => setIsSearchFocused(true)}
                                 onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
-                                placeholder={`O que você procura em ${appShortName}?`}
+                                placeholder="O que você procura?"
                                 className="w-full bg-gray-800 text-white px-5 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500"/>
                            <button type="submit" className="absolute right-0 top-0 h-full px-4 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
                             <AnimatePresence>
@@ -2441,6 +2440,7 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                         {isAuthenticated && ( 
                             <button onClick={() => onNavigate('account/orders')} className="hidden sm:flex items-center gap-1 hover:text-amber-400 transition px-2 py-1 relative"> 
                                 <PackageIcon className="h-6 w-6"/> 
+                                {/* --- NOTIFICAÇÃO NO HEADER DESKTOP --- */}
                                 {orderNotificationCount > 0 && (
                                     <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white border-2 border-black transform translate-x-1/2 -translate-y-1/2 animate-bounce">
                                         {orderNotificationCount}
@@ -2469,11 +2469,11 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 text-amber-500">
                             <path d="M9.375 3a1.875 1.875 0 000 3.75h1.875v4.5H3.375A1.875 1.875 0 011.5 9.375v-.75c0-1.036.84-1.875 1.875-1.875h3.193A3.375 3.375 0 0112 2.753a3.375 3.375 0 015.432 3.997h3.943c1.035 0 1.875.84 1.875 1.875v.75c0 1.036-.84 1.875-1.875 1.875H12.75v-4.5h1.875a1.875 1.875 0 10-1.875-1.875V6.75h-1.5V4.875C11.25 3.839 10.41 3 9.375 3zM11.25 12.75H3v6.75a2.25 2.25 0 002.25 2.25h6v-9zM12.75 12.75v9h6a2.25 2.25 0 002.25-2.25v-6.75h-8.25z" />
                         </svg>
-                        {appLogoText}
+                        LovecestasePerfumes
                     </a>
                 </div>
                 <form onSubmit={handleSearchSubmit} className="relative mb-2">
-                    <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onFocus={() => setIsSearchFocused(true)} onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)} placeholder={`Pesquisar em ${appShortName}`} className="w-full bg-gray-800 text-white px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm" />
+                    <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onFocus={() => setIsSearchFocused(true)} onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)} placeholder="Pesquisar em LovecestasePerfumes" className="w-full bg-gray-800 text-white px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm" />
                     <button type="submit" className="absolute right-0 top-0 h-full px-3 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
                     <AnimatePresence>
                         {isSearchFocused && searchTerm.length > 0 && (
@@ -2526,6 +2526,7 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                                             <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Minha Conta</a> 
                                             <a href="#account/orders" onClick={(e) => { e.preventDefault(); onNavigate('account/orders'); setIsMobileMenuOpen(false); }} className="flex items-center justify-between text-white hover:text-amber-400">
                                                 <span>Devoluções e Pedidos</span>
+                                                {/* --- CORREÇÃO DO BADGE NO DRAWER MOBILE --- */}
                                                 {orderNotificationCount > 0 && <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full ml-2 animate-pulse">{orderNotificationCount}</span>}
                                             </a> 
                                             {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMobileMenuOpen(false);}} className="block text-amber-400 hover:text-amber-300">Painel Admin</a>} 
@@ -3687,6 +3688,7 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
 });
 const VariationSelector = ({ product, variations, selectedColor, setSelectedColor, selectedSize, setSelectedSize, error }) => {
     
+    // Calcula cores únicas e verifica se há estoque disponível para cada uma
     const uniqueColors = useMemo(() => {
         const colorsMap = new Map();
         if (!variations || !product) return [];
@@ -3694,12 +3696,15 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
         variations.forEach(v => {
             if (v.color) {
                 if (!colorsMap.has(v.color)) {
+                    // Tenta pegar a imagem da variação, senão a principal do produto
                     const primaryImage = (v.images && v.images.length > 0) 
                         ? v.images[0] 
                         : getFirstImage(product.images);
+                    // Inicializa assumindo sem estoque
                     colorsMap.set(v.color, { image: primaryImage, hasStock: false });
                 }
                 
+                // Se encontrar QUALQUER tamanho com estoque > 0 para esta cor, marca como disponível
                 if (v.stock > 0) {
                     const info = colorsMap.get(v.color);
                     info.hasStock = true;
@@ -3722,9 +3727,10 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
     }, [variations, selectedColor]);
 
     const handleColorChange = (color, hasStock) => {
-        if (!hasStock) return; 
+        if (!hasStock) return; // Impede seleção de cores esgotadas
 
         setSelectedColor(color);
+        // Ao mudar de cor, tenta selecionar um tamanho disponível automaticamente se houver apenas um
         const sizesForNewColor = variations
             .filter(v => v.color === color && v.stock > 0)
             .map(v => v.size);
@@ -3732,7 +3738,7 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
         if (sizesForNewColor.length === 1) {
             setSelectedSize(sizesForNewColor[0]);
         } else {
-            setSelectedSize(''); 
+            setSelectedSize(''); // Reseta para forçar o usuário a escolher
         }
     };
 
@@ -3761,6 +3767,7 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
                             >
                                  <img src={colorInfo.image} alt={colorInfo.name} className="w-full h-full object-cover rounded-full bg-gray-800 shadow-sm"/>
                                  
+                                 {/* Indicador visual de Esgotado (X vermelho) */}
                                  {isOutOfStock && (
                                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                                          <div className="w-full h-0.5 bg-red-500/80 rotate-45 absolute"></div>
@@ -3773,7 +3780,7 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
                 </div>
             </div>
 
-            {/* Seção de Tamanhos - CORRIGIDO AS CORES E TRANSPARÊNCIAS */}
+            {/* Seção de Tamanhos - Só aparece se cor estiver selecionada */}
             <AnimatePresence>
                 {selectedColor && (
                      <motion.div 
@@ -3796,21 +3803,17 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
                                         key={size}
                                         onClick={() => setSelectedSize(size)}
                                         disabled={stock === 0}
-                                        style={
-                                            selectedSize === size 
-                                            ? { backgroundColor: 'var(--theme-primary, #fbbf24)', color: 'var(--theme-bg, #000000)', borderColor: 'var(--theme-primary, #fbbf24)' }
-                                            : { borderColor: '#4b5563', color: '#d1d5db' }
-                                        }
                                         className={`min-w-[3.5rem] h-11 px-3 border rounded-md font-bold text-sm transition-all duration-200 flex items-center justify-center relative overflow-hidden
                                             ${selectedSize === size 
-                                                ? 'shadow-lg scale-105' 
-                                                : 'bg-transparent hover:border-gray-400 hover:bg-gray-800'
+                                                ? 'bg-amber-400 text-black border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)] scale-105' 
+                                                : 'bg-transparent border-gray-600 text-gray-300 hover:border-gray-400 hover:bg-gray-800'
                                             }
                                             ${stock === 0 ? 'opacity-40 cursor-not-allowed bg-gray-900 border-gray-800 text-gray-600 decoration-slice line-through' : ''}
                                             ${showError && !selectedSize ? 'border-red-500 text-red-100 bg-red-900/20' : ''}`
                                         }
                                     >
                                         {size}
+                                        {/* Indicador de "Últimas unidades" para estoque baixo */}
                                         {stock > 0 && stock <= 2 && selectedSize !== size && (
                                             <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
                                         )}
@@ -3870,18 +3873,21 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
     
+    // Estados para controle de scroll vertical da galeria (Desktop)
     const [canScrollUp, setCanScrollUp] = useState(false);
     const [canScrollDown, setCanScrollDown] = useState(false);
 
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
 
+    // Helper para garantir imagem principal atualizada pelo índice
     useEffect(() => {
         if (galleryImages.length > 0 && galleryImages[currentImageIndex]) {
             setMainImage(galleryImages[currentImageIndex]);
         }
     }, [currentImageIndex, galleryImages]);
 
+    // --- LÓGICA DE AUTO-SELEÇÃO DA PRIMEIRA COR ---
     useEffect(() => {
         if (product && product.product_type === 'clothing' && productVariations.length > 0 && !selectedColor) {
             const firstVar = productVariations.find(v => v.stock > 0) || productVariations[0];
@@ -3891,6 +3897,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         }
     }, [product, productVariations, selectedColor]);
 
+    // --- Sincroniza a variação completa baseada na cor/tamanho selecionados ---
     useEffect(() => {
         if (selectedColor && selectedSize) {
             const found = productVariations.find(v => v.color === selectedColor && v.size === selectedSize);
@@ -3917,6 +3924,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         }
 
     }, [selectedColor, selectedSize, productVariations, productImages]);
+
 
     useEffect(() => {
         if (product) {
@@ -3987,6 +3995,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const stockLimit = isClothing ? selectedVariation?.stock : product?.stock;
     const isQtyAtMax = stockLimit !== undefined ? quantity >= stockLimit : false;
 
+    // --- HELPERS ---
     const getYouTubeEmbedUrl = (url) => { if (!url) return null; try { let videoId = ''; const urlObj = new URL(url); if (urlObj.hostname === 'youtu.be') { videoId = urlObj.pathname.slice(1); } else if (urlObj.hostname.includes('youtube.com')) { if (urlObj.searchParams.has('v')) { videoId = urlObj.searchParams.get('v'); } else if (urlObj.pathname.includes('/embed/')) { videoId = urlObj.pathname.split('/embed/')[1]; } else if (urlObj.pathname.includes('/shorts/')) { videoId = urlObj.pathname.split('/shorts/')[1]; } } if (!videoId) return null; videoId = videoId.split('?')[0].split('&')[0]; return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`; } catch (e) { if (url && url.includes('youtu.be/')) { const simpleId = url.split('youtu.be/')[1]?.split('?')[0]; return simpleId ? `https://www.youtube.com/embed/${simpleId}?autoplay=1&rel=0` : null; } return null; } };
     const parseTextToList = (text) => { if (!text || text.trim() === '') return null; return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>; };
     const getInstallmentSummary = () => { if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; } const noInterest = [...installments].reverse().find(p => p.installment_rate === 0); if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } const lastInstallment = installments[installments.length - 1]; if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } return null; };
@@ -4039,7 +4048,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             }
         });
     };
-
     const handleShare = async () => {
         const shareText = `✨ Olha o que eu encontrei na Love Cestas e Perfumes!\n\n*${product.name}*\n\nConfira mais detalhes no site 👇`;
         const shareData = { title: `Love Cestas e Perfumes - ${product.name}`, text: shareText, url: window.location.href };
@@ -4096,6 +4104,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         } catch (error) { notification.show(error.message, 'error'); }
     };
 
+    // --- NAVEGAÇÃO DE IMAGEM PRINCIPAL ---
     const handleNextImage = (e) => {
         e.stopPropagation();
         if (galleryImages.length <= 1) return;
@@ -4111,11 +4120,14 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     useEffect(() => { fetchProductData(productId); window.scrollTo(0, 0); }, [productId, fetchProductData]);
     useEffect(() => { const fetchInstallments = async (price) => { if (!price || price <= 0) { setInstallments([]); setIsLoadingInstallments(false); return; } setIsLoadingInstallments(true); setInstallments([]); try { const installmentData = await apiService(`/mercadopago/installments?amount=${price}`); setInstallments(installmentData || []); } catch (error) { console.warn("Erro parcelas", error); setInstallments([]); } finally { setIsLoadingInstallments(false); } }; if (product && !product.error && currentPrice > 0) { fetchInstallments(currentPrice); } else if (!product || product.error || !(currentPrice > 0)) { setInstallments([]); setIsLoadingInstallments(false); } }, [product, currentPrice]);
     
+    // --- CONTROLE DE SCROLL DA GALERIA ---
     const checkScrollButtons = useCallback(() => { 
         const gallery = galleryRef.current; 
         if (gallery) { 
+            // Horizontal (Mobile)
             setCanScrollLeft(gallery.scrollLeft > 0); 
             setCanScrollRight(gallery.scrollWidth > gallery.clientWidth + gallery.scrollLeft + 1);
+            // Vertical (Desktop)
             setCanScrollUp(gallery.scrollTop > 0);
             setCanScrollDown(gallery.scrollHeight > gallery.clientHeight + gallery.scrollTop + 1);
         } 
@@ -4150,6 +4162,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const TabButton = ({ label, tabName, isVisible = true }) => { if (!isVisible) return null; return ( <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-amber-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'}`} > {label} </button> ); };
     const Lightbox = ({ mainImage, onClose }) => ( <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}> <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">&times;</button> <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div> </div> );
 
+    // --- TELA DE CARREGAMENTO PRODUTO PREMIUM ---
     if (isLoading) {
         return (
             <div className="bg-black min-h-screen flex flex-col items-center justify-center pt-20 pb-32 px-4 gap-6">
@@ -4172,6 +4185,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
     return (
         <div className="bg-black text-white min-h-screen">
+             {/* --- CSS INJETADO PARA REMOVER SCROLLBAR NA GALERIA E TABELA --- */}
             <style>{`
                 .scrollbar-hide::-webkit-scrollbar {
                     display: none;
@@ -4199,6 +4213,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
             
+            {/* --- MODAL DO GUIA DE MEDIDAS (TAMANHO 3XL) --- */}
             <AnimatePresence>
                 {isSizeGuideModalOpen && product.size_guide && (
                     <Modal isOpen={true} onClose={() => setIsSizeGuideModalOpen(false)} title="Guia de Medidas" size="3xl">
@@ -4207,24 +4222,22 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 )}
             </AnimatePresence>
 
-            {/* --- MODAL DE SELEÇÃO DE ROUPA CORRIGIDO --- */}
+            {/* --- MODAL DE SELEÇÃO --- */}
             <AnimatePresence>
                 {isSelectionModalOpen && (
                     <>
                         <motion.div 
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-black/80 z-[100] backdrop-blur-md"
+                            className="fixed inset-0 bg-black/80 z-[60] backdrop-blur-md"
                             onClick={() => setIsSelectionModalOpen(false)}
                         />
-                        <div className="fixed inset-0 z-[110] flex items-end md:items-center justify-center pointer-events-none p-0 md:p-4">
+                        <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center pointer-events-none p-0 md:p-4">
                             <motion.div
                                 initial={{ y: "100%" }} 
                                 animate={{ y: 0 }} 
                                 exit={{ y: "100%" }}
                                 transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                                /* CORREÇÃO: Forçando cor de fundo sólida via inline style e bordas evidentes */
-                                style={{ backgroundColor: 'var(--theme-surface, #111827)' }}
-                                className="pointer-events-auto border border-gray-600 w-full max-w-lg rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden"
+                                className="pointer-events-auto bg-gray-900 border border-gray-700 w-full max-w-lg rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden ring-1 ring-white/10"
                             >
                                 <div className="p-6 pb-0 flex justify-between items-start">
                                     <div className="pr-4">
@@ -4263,16 +4276,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     </div>
                                     <button 
                                         onClick={handleConfirmSelection}
-                                        /* CORREÇÃO: Forçando cores sólidas no botão de compra do Modal */
-                                        style={
-                                            selectionError && !selectedSize
-                                            ? {}
-                                            : { backgroundColor: 'var(--theme-primary, #fbbf24)', color: 'var(--theme-bg, #000000)' }
-                                        }
                                         className={`w-full font-bold py-4 rounded-xl text-base shadow-lg transition-all transform active:scale-[0.98] uppercase tracking-wide flex items-center justify-center gap-3
                                             ${selectionError && !selectedSize 
                                                 ? 'bg-red-600 text-white animate-pulse' 
-                                                : 'hover:opacity-90'}`
+                                                : 'bg-amber-400 hover:bg-amber-300 text-black'}`
                                         }
                                     >
                                         {selectionError && !selectedSize ? '⚠️ Escolha um Tamanho' : (pendingAction === 'buyNow' ? 'Confirmar Compra' : 'Adicionar à Sacola')}
@@ -4317,7 +4324,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12">
-                    {/* COLUNA GALERIA */}
+                    {/* COLUNA GALERIA (Mantida original "Perfeita") */}
                     <div className="lg:col-span-7 lg:sticky lg:top-24 self-start">
                         <div className="flex flex-col lg:flex-row gap-4 align-stretch h-full">
                             
@@ -4435,7 +4442,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                         </div>
                     </div>
 
-                    {/* COLUNA DETALHES (Direita) */}
+                    {/* COLUNA DETALHES (Direita) - Ocupa 5 colunas no Desktop */}
                     <div className="lg:col-span-5 space-y-6">
                         <div>
                             <p className="text-sm text-amber-400 font-semibold tracking-wider mb-1">{product.brand.toUpperCase()}</p>
@@ -9005,22 +9012,12 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     const { user, logout } = useAuth();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [newOrdersCount, setNewOrdersCount] = useState(0);
-    const [pendingRefundsCount, setPendingRefundsCount] = useState(0); 
-    const [isMaintenance, setIsMaintenance] = useState(false); 
+    const [pendingRefundsCount, setPendingRefundsCount] = useState(0); // NOVO ESTADO
     const mainContentRef = useRef(null);
 
+    // Busca contagem de novos pedidos e reembolsos para os badges de notificação
     useEffect(() => {
-        apiService('/settings/maintenance')
-            .then(data => setIsMaintenance(data.status === 'on'))
-            .catch(() => {});
-
-        const handleMaintenanceUpdate = (e) => setIsMaintenance(e.detail === 'on');
-        window.addEventListener('maintenance-changed', handleMaintenanceUpdate);
-        
-        return () => window.removeEventListener('maintenance-changed', handleMaintenanceUpdate);
-    }, []);
-
-    useEffect(() => {
+        // Busca Pedidos Recentes
         apiService('/orders')
             .then(data => {
                 if (!Array.isArray(data)) {
@@ -9040,6 +9037,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                 setNewOrdersCount(0);
             });
 
+        // NOVO: Busca Reembolsos Pendentes
         apiService('/refunds')
             .then(data => {
                 if (Array.isArray(data)) {
@@ -9065,7 +9063,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
             items: [
                 { key: 'dashboard', label: 'Visão Geral', icon: <ChartIcon className="h-5 w-5"/> },
                 { key: 'orders', label: 'Pedidos', icon: <TruckIcon className="h-5 w-5"/>, badge: newOrdersCount },
-                { key: 'refunds', label: 'Reembolsos', icon: <CurrencyDollarArrowIcon className="h-5 w-5"/>, badge: pendingRefundsCount }, 
+                { key: 'refunds', label: 'Reembolsos', icon: <CurrencyDollarArrowIcon className="h-5 w-5"/>, badge: pendingRefundsCount }, // ATUALIZADO
             ]
         },
         {
@@ -9087,10 +9085,9 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
        {
             title: "Sistema",
             items: [
-                { key: 'theme', label: 'Tema e Cores', icon: <SparklesIcon className="h-5 w-5"/> }, // NOVO ITEM AQUI
-                { key: 'app-icons', label: 'Ícones e Nomes', icon: <CameraIcon className="h-5 w-5"/> }, 
-                { key: 'shipping', label: 'Frete Local', icon: <TruckIcon className="h-5 w-5"/> }, 
                 { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
+                { key: 'shipping', label: 'Frete Local', icon: <TruckIcon className="h-5 w-5"/> }, 
+                { key: 'app-icons', label: 'Ícones e PWA', icon: <CameraIcon className="h-5 w-5"/> }, // NOVO MENU ADICIONADO
                 { key: 'logs', label: 'Logs do Sistema', icon: <ClipboardDocListIcon className="h-5 w-5"/> },
             ]
         }
@@ -9098,9 +9095,12 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
 
     return (
         <div className="h-screen flex overflow-hidden bg-gray-50 text-slate-800 font-sans selection:bg-indigo-100 selection:text-indigo-700">
+            {/* Overlay Mobile */}
             {isSidebarOpen && <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
 
+            {/* Sidebar */}
             <aside className={`bg-white w-72 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 flex flex-col border-r border-gray-200 shadow-xl lg:shadow-none`}>
+                {/* Logo Area */}
                 <div className="h-16 flex items-center px-6 border-b border-gray-100 flex-shrink-0 bg-white">
                     <div className="flex items-center gap-3 text-indigo-600">
                         <div className="p-1.5 bg-indigo-600 rounded-lg">
@@ -9113,6 +9113,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                     </button>
                 </div>
 
+                {/* Navigation */}
                 <nav className="flex-grow p-4 space-y-6 overflow-y-auto custom-scrollbar">
                     {menuGroups.map((group, idx) => (
                         <div key={idx}>
@@ -9150,6 +9151,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                     ))}
                 </nav>
 
+                {/* User Footer */}
                 <div className="p-4 border-t border-gray-100 bg-gray-50/50">
                     <div className="flex items-center gap-3 mb-3">
                         <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold border border-indigo-200">
@@ -9171,7 +9173,9 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                 </div>
             </aside>
 
+            {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden relative">
+                {/* Header Topbar */}
                 <header className="bg-white/80 backdrop-blur-md h-16 flex items-center justify-between px-6 sm:px-8 flex-shrink-0 z-20 border-b border-gray-200 sticky top-0">
                      <div className="flex items-center gap-4">
                          <button onClick={() => setIsSidebarOpen(true)} className="p-2 lg:hidden text-slate-500 hover:bg-gray-100 rounded-md">
@@ -9182,23 +9186,13 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                          </h1>
                      </div>
                      <div className="flex items-center gap-4">
-                        {isMaintenance ? (
-                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full border border-amber-200 shadow-sm">
-                                <span className="relative flex h-2 w-2">
-                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                                </span>
-                                <span className="text-xs font-bold tracking-wide">EM MANUTENÇÃO</span>
-                            </div>
-                        ) : (
-                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-full border border-green-100 shadow-sm">
-                                <span className="relative flex h-2 w-2">
-                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                                </span>
-                                <span className="text-xs font-bold tracking-wide">SISTEMA ONLINE</span>
-                            </div>
-                        )}
+                        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-full border border-green-100 shadow-sm">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                            </span>
+                            <span className="text-xs font-bold tracking-wide">SISTEMA ONLINE</span>
+                        </div>
                      </div>
                 </header>
 
@@ -9212,6 +9206,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
         </div>
     );
 });
+
 const AdminShippingSettings = () => {
     const [config, setConfig] = useState({ base_price: 20, rules: [] });
     const [productsData, setProductsData] = useState({ brands: [], categories: [] });
@@ -9726,11 +9721,7 @@ const AdminDashboard = ({ onNavigate }) => {
                 </div>
                 <div className="flex-grow overflow-y-auto max-h-[320px] p-2 space-y-1 custom-scrollbar">
                     {filtered.length > 0 ? filtered.map(item => (
-                        <div 
-                            key={item.id + item.name} 
-                            onClick={() => { setSelectedStockItem(item); setIsStockModalOpen(true); }}
-                            className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors group border border-transparent hover:border-gray-100 cursor-pointer"
-                        >
+                        <div key={item.id + item.name} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors group border border-transparent hover:border-gray-100">
                             <div className="flex items-center gap-3 overflow-hidden">
                                 <div className="w-8 h-8 rounded bg-gray-100 flex-shrink-0 border border-gray-200 p-0.5">
                                     <img src={getFirstImage(item.images)} alt={item.name} className="w-full h-full object-contain rounded-sm" />
@@ -9742,11 +9733,12 @@ const AdminDashboard = ({ onNavigate }) => {
                             </div>
                             <div className="text-right flex-shrink-0 flex flex-col items-end">
                                 <span className="text-xs font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">{item.stock} un.</span>
-                                <span 
-                                    className="text-[10px] text-indigo-600 font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                <button 
+                                    onClick={() => { setSelectedStockItem(item); setIsStockModalOpen(true); }}
+                                    className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
                                     Repor
-                                </span>
+                                </button>
                             </div>
                         </div>
                     )) : (
@@ -13846,8 +13838,6 @@ const MaintenanceModeToggle = () => {
             await apiService('/settings/maintenance', 'PUT', { status: newStatus ? 'on' : 'off' });
             setIsOn(newStatus);
             notification.show(`Modo de manutenção foi ${newStatus ? 'ATIVADO' : 'DESATIVADO'}.`);
-            // Dispara um evento global para atualizar a barra do topo (AdminLayout) na hora
-            window.dispatchEvent(new CustomEvent('maintenance-changed', { detail: newStatus ? 'on' : 'off' }));
         } catch (error) {
             notification.show(`Erro ao alterar status: ${error.message}`, 'error');
         } finally {
@@ -14928,13 +14918,13 @@ const AdminAppIcons = () => {
         favicon: { current: '', previous: null, default: '' },
         pwa_icon: { current: '', previous: null, default: '' }
     });
-    const [nameConfig, setNameConfig] = useState({ short_name: '', name: '', logo_text: '' });
+    const [nameConfig, setNameConfig] = useState({ short_name: '', name: '' });
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     
     const notification = useNotification();
-    const confirmation = useConfirmation(); 
+    const confirmation = useConfirmation(); // ATUALIZAÇÃO: Hook para exigir Senha/2FA
     
     const fileInputRefFavicon = useRef(null);
     const fileInputRefPWA = useRef(null);
@@ -15043,7 +15033,7 @@ const AdminAppIcons = () => {
         setNameConfig(prev => ({ ...prev, [key]: value }));
     };
 
-    // Salvar com confirmação de Senha/2FA e Tela de Carregamento
+    // ATUALIZAÇÃO: Salvar com confirmação de Senha/2FA e Tela de Carregamento
     const handleSave = () => {
         if (!nameConfig.short_name || !nameConfig.name) {
             notification.show("Preencha Nome e Nome Curto do Aplicativo.", "error");
@@ -15071,10 +15061,6 @@ const AdminAppIcons = () => {
                         localStorage.setItem('lovecestas_app_logo', icons.pwa_icon.current);
                     }
 
-                    // Dispara evento global para o frontend atualizar instantaneamente
-                    const nameEvent = new CustomEvent('app-name-updated', { detail: nameConfig });
-                    window.dispatchEvent(nameEvent);
-
                     notification.show("Identidade visual atualizada com sucesso!");
                 } catch (err) {
                     notification.show(`Erro ao salvar: ${err.message}`, "error");
@@ -15094,6 +15080,7 @@ const AdminAppIcons = () => {
 
     return (
         <div className="max-w-4xl mx-auto space-y-10">
+            {/* OVERLAY DE CARREGAMENTO EM TELA CHEIA (NOVO) */}
             <AnimatePresence>
                 {isSaving && (
                     <motion.div
@@ -15122,12 +15109,13 @@ const AdminAppIcons = () => {
                     <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2.5">
                         <ClipboardDocListIcon className="h-5 w-5 text-indigo-500"/> Identidade do Aplicativo
                     </h2>
-                    <p className="text-sm text-gray-500 mt-1">Esses nomes aparecem na tela de instalação, barra de tarefas e cabeçalho.</p>
+                    <p className="text-sm text-gray-500 mt-1">Esses nomes aparecem na tela de instalação e na barra de tarefas.</p>
                 </div>
                 
-                <div className="grid md:grid-cols-3 gap-6">
+                {/* ATUALIZAÇÃO: Inputs colocados diretamente no HTML para não perder o foco ao digitar */}
+                <div className="grid md:grid-cols-2 gap-6">
                     <div>
-                        <label className="text-sm font-medium text-slate-700 block mb-1.5">Nome Curto (Tela Inicial)</label>
+                        <label className="text-sm font-medium text-slate-700 block mb-1.5">Nome Curto (Exibido na Tela Inicial)</label>
                         <input 
                             type="text" 
                             value={nameConfig.short_name} 
@@ -15138,23 +15126,12 @@ const AdminAppIcons = () => {
                         />
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-slate-700 block mb-1.5">Nome Aba (Navegador)</label>
+                        <label className="text-sm font-medium text-slate-700 block mb-1.5">Nome Completo (Exibido na Instalação)</label>
                         <input 
                             type="text" 
                             value={nameConfig.name} 
                             onChange={(e) => handleNameChange(e, 'name')} 
-                            placeholder="Love Cestas e Perfumes" 
-                            maxLength={40} 
-                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200 transition text-sm"
-                        />
-                    </div>
-                    <div>
-                        <label className="text-sm font-medium text-slate-700 block mb-1.5">Texto Logo (Cabeçalho)</label>
-                        <input 
-                            type="text" 
-                            value={nameConfig.logo_text || ''} 
-                            onChange={(e) => handleNameChange(e, 'logo_text')} 
-                            placeholder="LovecestasePerfumes" 
+                            placeholder="Love Cestas e Perfumes JP" 
                             maxLength={30} 
                             className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200 transition text-sm"
                         />
@@ -15170,6 +15147,7 @@ const AdminAppIcons = () => {
                     <strong className="text-amber-600">Dica:</strong> Para o ícone não ficar pequeno, recorte a imagem removendo as bordas transparentes vazias antes de enviar.
                 </p>
                 
+                {/* ATUALIZAÇÃO: Estrutura colocada diretamente no HTML para não perder o foco */}
                 <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
                     <div className="w-32 h-32 flex-shrink-0 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 p-2 flex items-center justify-center relative overflow-hidden group">
                         {icons.favicon?.current ? (
@@ -15219,6 +15197,7 @@ const AdminAppIcons = () => {
                     Ícone exibido na tela inicial do celular quando o app é instalado (Máx 5MB). O sistema gerará automaticamente as versões em 192px e 512px.
                 </p>
                 
+                {/* ATUALIZAÇÃO: Estrutura colocada diretamente no HTML para não perder o foco */}
                 <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
                     <div className="w-32 h-32 flex-shrink-0 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 p-2 flex items-center justify-center relative overflow-hidden group">
                         {icons.pwa_icon?.current ? (
@@ -15444,500 +15423,28 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
-const AdminThemeSettings = () => {
-    // Tema intocável (Original)
-    const defaultThemeFallback = {
-        primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af'
-    };
-
-    // Temas Sazonais (Demonstração no painel)
-    const seasonalThemesPreview = [
-        { name: 'Natal', date: 'Dezembro', colors: { primary: '#ef4444', primaryHover: '#dc2626', bg: '#000000', surface: '#052e16', surfaceHover: '#064e3b', text: '#ffffff', textMuted: '#a7f3d0' } },
-        { name: 'Namorados', date: 'Junho', colors: { primary: '#ec4899', primaryHover: '#db2777', bg: '#000000', surface: '#4a044e', surfaceHover: '#701a75', text: '#ffffff', textMuted: '#fbcfe8' } },
-        { name: 'Pais', date: 'Agosto', colors: { primary: '#3b82f6', primaryHover: '#2563eb', bg: '#000000', surface: '#0f172a', surfaceHover: '#1e293b', text: '#ffffff', textMuted: '#94a3b8' } },
-        { name: 'Mães', date: 'Maio', colors: { primary: '#f43f5e', primaryHover: '#e11d48', bg: '#000000', surface: '#2e1065', surfaceHover: '#4c1d95', text: '#ffffff', textMuted: '#e2e8f0' } },
-        { name: 'Black Friday', date: 'Novembro', colors: { primary: '#a855f7', primaryHover: '#9333ea', bg: '#000000', surface: '#18181b', surfaceHover: '#27272a', text: '#ffffff', textMuted: '#a1a1aa' } },
-    ];
-
-    // Presets Premium
-    const predefinedPresets = [
-        { name: 'Ouro Elegante', colors: { primary: '#d4af37', primaryHover: '#b8972e', bg: '#020617', surface: '#0f172a', surfaceHover: '#1e293b', text: '#f8fafc', textMuted: '#94a3b8' } },
-        { name: 'Ruby Premium', colors: { primary: '#e11d48', primaryHover: '#be123c', bg: '#000000', surface: '#1c1917', surfaceHover: '#27272a', text: '#ffffff', textMuted: '#a1a1aa' } },
-        { name: 'Minimalista Claro', colors: { primary: '#0ea5e9', primaryHover: '#0284c7', bg: '#f8fafc', surface: '#ffffff', surfaceHover: '#f1f5f9', text: '#0f172a', textMuted: '#64748b' } },
-        { name: 'Natureza Suave', colors: { primary: '#10b981', primaryHover: '#059669', bg: '#ecfdf5', surface: '#ffffff', surfaceHover: '#f0fdf4', text: '#064e3b', textMuted: '#34d399' } }
-    ];
-
-    const [localConfig, setLocalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false });
-    const [originalConfig, setOriginalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false });
-    
-    const [isLoading, setIsLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
-    
-    const notification = useNotification();
-    const confirmation = useConfirmation();
-
-    // CORREÇÃO CRÍTICA: Removido [notification] das dependências.
-    // Isso impede que o tema "Puxe do Banco" toda vez que um balãozinho verde aparecer na tela.
-    useEffect(() => {
-        apiService('/settings/theme')
-            .then(data => {
-                const isAuto = data.autoSeasonal === true || data.autoSeasonal === 'true' || data.autoSeasonal === 1;
-                const loadedConfig = data.colors ? { ...data, autoSeasonal: isAuto } : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto };
-                
-                setLocalConfig(loadedConfig);
-                setOriginalConfig(loadedConfig);
-            })
-            .catch(err => console.log("Usando tema padrão. Banco não respondeu com tema salvo."))
-            .finally(() => setIsLoading(false));
-    }, []); 
-
-    const dispatchPreview = (newConfig) => {
-        window.dispatchEvent(new CustomEvent('app-theme-updated', { detail: newConfig }));
-    };
-
-    const handleColorChange = (key, value) => {
-        const newConfig = { ...localConfig, colors: { ...localConfig.colors, [key]: value }, autoSeasonal: false };
-        setLocalConfig(newConfig);
-        dispatchPreview(newConfig);
-    };
-
-    const handleToggleSeasonal = () => {
-        const newSeasonalStatus = !localConfig.autoSeasonal;
-        const newConfig = { ...localConfig, autoSeasonal: newSeasonalStatus };
-        setLocalConfig(newConfig);
-        dispatchPreview(newConfig);
-        if (newSeasonalStatus) {
-            notification.show("Automação sazonal ATIVADA na pré-visualização.");
-        } else {
-            notification.show("Automação sazonal DESATIVADA.");
-        }
-    };
-
-    const applyPreset = (presetColors) => {
-        const newConfig = { colors: { ...presetColors }, autoSeasonal: false };
-        setLocalConfig(newConfig);
-        dispatchPreview(newConfig);
-        notification.show("Tema aplicado na pré-visualização. Clique em Salvar para publicar.");
-    };
-
-    const handleRestoreDefault = () => {
-        const newConfig = { colors: { ...defaultThemeFallback }, autoSeasonal: false };
-        setLocalConfig(newConfig);
-        dispatchPreview(newConfig);
-        notification.show("Cores padrão restauradas na pré-visualização. Clique em 'Salvar' para confirmar.");
-    };
-
-    const handleCancel = () => {
-        setLocalConfig(originalConfig);
-        dispatchPreview(originalConfig);
-        notification.show("Alterações descartadas.");
-    };
-
-    const handleSave = () => {
-        confirmation.show(
-            "Tem certeza que deseja aplicar este tema ao site de forma definitiva?",
-            async () => {
-                setIsSaving(true);
-                try {
-                    await apiService('/settings/theme', 'PUT', { themeConfig: localConfig });
-                    setOriginalConfig(localConfig); 
-                    notification.show("Novo tema aplicado com sucesso!");
-                } catch (error) {
-                    notification.show(`Erro ao salvar: ${error.message}`, "error");
-                } finally {
-                    setIsSaving(false);
-                }
-            },
-            { requiresAuth: true, confirmText: "Salvar e Publicar", confirmColor: "bg-green-600 hover:bg-green-700" }
-        );
-    };
-
-    if (isLoading) return <div className="flex justify-center py-20"><SpinnerIcon className="h-8 w-8 text-indigo-600"/></div>;
-
-    const ColorPickerRow = ({ label, field, desc }) => (
-        <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-indigo-300 transition-colors">
-            <div className="pr-4">
-                <p className="font-bold text-gray-800 text-sm">{label}</p>
-                <p className="text-[10px] sm:text-xs text-gray-500 leading-tight mt-0.5">{desc}</p>
-            </div>
-            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                <span className="hidden sm:inline text-xs font-mono text-gray-500 uppercase">{localConfig.colors[field]}</span>
-                <div className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden border-2 border-gray-300 shadow-inner cursor-pointer flex-shrink-0">
-                    <input 
-                        type="color" 
-                        value={localConfig.colors[field]} 
-                        onChange={(e) => handleColorChange(field, e.target.value)}
-                        className="absolute -top-2 -left-2 w-16 h-16 cursor-pointer"
-                    />
-                </div>
-            </div>
-        </div>
-    );
-
-    return (
-        <div className="max-w-6xl mx-auto space-y-8 pb-12">
-            <div>
-                <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Identidade Visual e Temas</h1>
-                <p className="text-slate-500 text-sm mt-1">Gerencie as cores da sua loja. O preview é em tempo real, mas os clientes só verão as mudanças após você salvar.</p>
-            </div>
-
-            {/* SEÇÃO 1: Automação Sazonal */}
-            <div className="bg-gradient-to-r from-indigo-900 to-slate-900 rounded-2xl shadow-lg p-1">
-                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 border border-white/10">
-                    <div className="text-white flex-1">
-                        <h2 className="text-xl font-bold flex items-center gap-2 mb-2">
-                            <SparklesIcon className="h-6 w-6 text-amber-400"/> Temas Sazonais Inteligentes
-                        </h2>
-                        <p className="text-indigo-200 text-sm leading-relaxed max-w-2xl">
-                            Ative esta opção para que o site mude automaticamente de tema durante datas comemorativas (Natal, Dia dos Namorados, Black Friday, etc). Fora dessas datas, o seu tema personalizado será exibido normalmente.
-                        </p>
-                    </div>
-                    <div className="flex-shrink-0 bg-white/5 p-4 rounded-xl border border-white/10 flex flex-col items-center">
-                        <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" checked={localConfig.autoSeasonal} onChange={handleToggleSeasonal} className="sr-only peer" />
-                            <div className="w-14 h-7 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-amber-500"></div>
-                        </label>
-                        <span className="text-xs font-bold text-white mt-2 uppercase tracking-widest">
-                            {localConfig.autoSeasonal ? 'Ativado' : 'Desativado'}
-                        </span>
-                    </div>
-                </div>
-                
-                <div className="px-6 pb-6 pt-2">
-                    <p className="text-xs text-indigo-300 mb-3 uppercase tracking-wider font-bold">Clique para testar os temas do calendário:</p>
-                    <div className="flex flex-wrap gap-3">
-                        {seasonalThemesPreview.map(season => (
-                            <button 
-                                key={season.name} 
-                                type="button"
-                                onClick={() => applyPreset(season.colors)}
-                                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-amber-300 rounded-lg px-3 py-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
-                                title={`Clique para testar as cores de ${season.name}`}
-                            >
-                                <div className="flex -space-x-2">
-                                    <div className="w-4 h-4 rounded-full border border-slate-800 shadow-sm" style={{ backgroundColor: season.colors.surface }}></div>
-                                    <div className="w-4 h-4 rounded-full border border-slate-800 shadow-sm" style={{ backgroundColor: season.colors.primary }}></div>
-                                </div>
-                                <span className="text-xs text-white font-bold">{season.name} <span className="text-indigo-300 font-normal">({season.date})</span></span>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* SEÇÃO 2: Controles de Cor */}
-                <div className="lg:col-span-7 space-y-6">
-                    {/* Temas Rápidos */}
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                <PhotoIcon className="h-5 w-5 text-indigo-500"/> Escolha um Estilo
-                            </h2>
-                            <button 
-                                type="button"
-                                onClick={handleRestoreDefault}
-                                className="text-xs font-bold bg-amber-100 text-amber-800 px-3 py-1.5 rounded-lg border border-amber-200 hover:bg-amber-200 transition-colors flex items-center gap-1"
-                            >
-                                <ArrowUturnLeftIcon className="h-3 w-3"/> Restaurar Padrão
-                            </button>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                            {predefinedPresets.map((preset, idx) => (
-                                <button 
-                                    key={idx} 
-                                    type="button"
-                                    onClick={() => applyPreset(preset.colors)}
-                                    className="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl hover:shadow-md hover:border-indigo-400 transition-all group bg-gray-50"
-                                >
-                                    <div className="flex w-full h-10 rounded-lg overflow-hidden mb-2 border border-gray-300 shadow-sm">
-                                        <div className="flex-1" style={{ backgroundColor: preset.colors.bg }}></div>
-                                        <div className="flex-1" style={{ backgroundColor: preset.colors.surface }}></div>
-                                        <div className="flex-1" style={{ backgroundColor: preset.colors.primary }}></div>
-                                    </div>
-                                    <span className="text-[10px] font-bold text-gray-600 group-hover:text-indigo-600 uppercase tracking-wide text-center">{preset.name}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Cores Customizadas */}
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-3">
-                        <h2 className="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
-                            <ChartIcon className="h-5 w-5 text-indigo-500"/> Personalização Fina
-                        </h2>
-                        <ColorPickerRow label="Cor Primária" field="primary" desc="Botões principais, ícones ativos e selos de desconto." />
-                        <ColorPickerRow label="Cor Primária (Hover)" field="primaryHover" desc="Cor do botão primário ao passar o mouse." />
-                        <ColorPickerRow label="Fundo Principal" field="bg" desc="Cor de fundo de todo o site." />
-                        <ColorPickerRow label="Superfície (Cards)" field="surface" desc="Fundo de cartões de produto, menus drop-down e rodapé." />
-                        <ColorPickerRow label="Texto Principal" field="text" desc="Cor dos títulos, nomes de produtos e textos normais." />
-                        <ColorPickerRow label="Texto Secundário" field="textMuted" desc="Textos de apoio, descrições menores e bordas suaves." />
-                    </div>
-                </div>
-
-                {/* SEÇÃO 3: Pré-visualização do Cliente */}
-                <div className="lg:col-span-5">
-                    <div className="bg-gray-100 p-6 rounded-2xl border border-gray-200 flex flex-col justify-start items-center sticky top-24 min-h-[500px]">
-                        <div className="w-full flex justify-between items-center mb-6">
-                            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
-                                <EyeIcon className="h-4 w-4"/> Visão do Cliente
-                            </p>
-                            {localConfig.autoSeasonal && (
-                                <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-full animate-pulse">Sazonal ON</span>
-                            )}
-                        </div>
-                        
-                        {/* Card Simulador de Site */}
-                        <div 
-                            className="w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden transition-colors duration-500 border border-white/10 flex flex-col"
-                            style={{ backgroundColor: localConfig.colors.bg }}
-                        >
-                            {/* Header Falso */}
-                            <div className="px-5 py-4 flex items-center justify-between shadow-sm transition-colors duration-500" style={{ backgroundColor: localConfig.colors.surface }}>
-                                <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-500" style={{ backgroundColor: localConfig.colors.primary }}>
-                                        <span className="text-[10px] font-bold" style={{ color: localConfig.colors.bg }}>L</span>
-                                    </div>
-                                    <span className="font-bold text-sm transition-colors duration-500" style={{ color: localConfig.colors.primary }}>Love Cestas</span>
-                                </div>
-                                <div className="flex gap-3">
-                                    <SearchIcon className="h-4 w-4 transition-colors duration-500" style={{ color: localConfig.colors.textMuted }} />
-                                    <CartIcon className="h-4 w-4 transition-colors duration-500" style={{ color: localConfig.colors.text }} />
-                                </div>
-                            </div>
-                            
-                            {/* Banner Falso */}
-                            <div className="h-24 w-full flex flex-col items-center justify-center transition-colors duration-500" style={{ backgroundColor: localConfig.colors.surfaceHover }}>
-                                <span className="text-[10px] font-bold uppercase tracking-widest transition-colors duration-500" style={{ color: localConfig.colors.primary }}>Nova Coleção</span>
-                                <h3 className="text-lg font-bold transition-colors duration-500" style={{ color: localConfig.colors.text }}>Inverno 2026</h3>
-                            </div>
-
-                            {/* Corpo Falso */}
-                            <div className="p-5 flex-grow">
-                                <div className="flex gap-4 mb-4">
-                                    <div className="w-20 h-24 rounded-lg flex-shrink-0 transition-colors duration-500" style={{ backgroundColor: localConfig.colors.surface }}></div>
-                                    <div className="flex-1">
-                                        <div className="h-3 w-16 rounded mb-2 transition-colors duration-500" style={{ backgroundColor: localConfig.colors.primary }}></div>
-                                        <div className="h-4 w-3/4 rounded mb-2 transition-colors duration-500" style={{ backgroundColor: localConfig.colors.text }}></div>
-                                        <div className="h-3 w-full rounded mb-1 transition-colors duration-500" style={{ backgroundColor: localConfig.colors.textMuted }}></div>
-                                        <div className="h-3 w-2/3 rounded transition-colors duration-500" style={{ backgroundColor: localConfig.colors.textMuted }}></div>
-                                    </div>
-                                </div>
-
-                                <div className="flex justify-between items-end mb-4">
-                                    <div>
-                                        <p className="text-[10px] line-through transition-colors duration-500" style={{ color: localConfig.colors.textMuted }}>R$ 199,90</p>
-                                        <p className="text-xl font-bold transition-colors duration-500" style={{ color: localConfig.colors.text }}>R$ 149,90</p>
-                                    </div>
-                                    <div className="px-2 py-1 rounded text-[10px] font-bold transition-colors duration-500" style={{ backgroundColor: localConfig.colors.primary, color: localConfig.colors.bg }}>
-                                        -25% OFF
-                                    </div>
-                                </div>
-
-                                <button 
-                                    type="button"
-                                    className="w-full py-3 rounded-lg font-bold shadow-md transition-all duration-300 text-sm flex items-center justify-center gap-2"
-                                    style={{ backgroundColor: localConfig.colors.primary, color: localConfig.colors.bg }}
-                                    onMouseEnter={(e) => {
-                                        e.target.style.backgroundColor = localConfig.colors.primaryHover;
-                                        e.target.style.transform = 'scale(1.02)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.target.style.backgroundColor = localConfig.colors.primary;
-                                        e.target.style.transform = 'scale(1)';
-                                    }}
-                                >
-                                    <CartIcon className="h-4 w-4"/> Comprar Agora
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Ações Fixas */}
-            <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-200 sticky bottom-0 bg-gray-50/90 backdrop-blur p-4 -mx-4 sm:mx-0 sm:bg-transparent sm:p-0 z-10">
-                <button 
-                    type="button"
-                    onClick={handleCancel}
-                    disabled={isSaving}
-                    className="px-6 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 shadow-sm transition-all"
-                >
-                    Descartar Alterações
-                </button>
-                <button 
-                    type="button"
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-md flex items-center gap-2 transition-all active:scale-95 disabled:opacity-70"
-                >
-                    {isSaving ? <SpinnerIcon className="h-5 w-5"/> : <CheckBadgeIcon className="h-5 w-5"/>}
-                    Salvar e Publicar
-                </button>
-            </div>
-        </div>
-    );
-};
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
-  const defaultThemeFallback = {
-      primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af'
-  };
-
-  const seasonalThemes = {
-      natal: { primary: '#ef4444', primaryHover: '#dc2626', bg: '#000000', surface: '#052e16', surfaceHover: '#064e3b', text: '#ffffff', textMuted: '#a7f3d0' },
-      namorados: { primary: '#ec4899', primaryHover: '#db2777', bg: '#000000', surface: '#4a044e', surfaceHover: '#701a75', text: '#ffffff', textMuted: '#fbcfe8' },
-      maes: { primary: '#f43f5e', primaryHover: '#e11d48', bg: '#000000', surface: '#2e1065', surfaceHover: '#4c1d95', text: '#ffffff', textMuted: '#e2e8f0' },
-      pais: { primary: '#3b82f6', primaryHover: '#2563eb', bg: '#000000', surface: '#0f172a', surfaceHover: '#1e293b', text: '#ffffff', textMuted: '#94a3b8' },
-      blackfriday: { primary: '#a855f7', primaryHover: '#9333ea', bg: '#000000', surface: '#18181b', surfaceHover: '#27272a', text: '#ffffff', textMuted: '#a1a1aa' }
-  };
-
-  const getSeasonalTheme = useCallback(() => {
-      const now = new Date();
-      const m = now.getMonth() + 1; 
-      const d = now.getDate();
-
-      if (m === 12 && d <= 25) return seasonalThemes.natal;
-      if (m === 6 && d <= 12) return seasonalThemes.namorados;
-      if (m === 5 && d <= 15) return seasonalThemes.maes;
-      if (m === 8 && d <= 15) return seasonalThemes.pais;
-      if (m === 11 && d >= 15) return seasonalThemes.blackfriday;
-
-      return null;
-  }, []);
-
-  const [appThemeConfig, setAppThemeConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false });
   const [appLogo, setAppLogo] = useState(() => {
       return localStorage.getItem('lovecestas_app_logo') || 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
   });
-  
-  const [appNameConfig, setAppNameConfig] = useState({ short_name: 'Love Cestas', name: 'Love Cestas e Perfumes', logo_text: 'LovecestasePerfumes' });
 
-  const activeThemeColors = useMemo(() => {
-      if (appThemeConfig.autoSeasonal) {
-          const seasonColors = getSeasonalTheme();
-          if (seasonColors) return seasonColors;
-      }
-      return appThemeConfig.colors || defaultThemeFallback;
-  }, [appThemeConfig, getSeasonalTheme]);
-
-  // --- MÁGICA DOS TEMAS: Injeção Dinâmica de CSS Variables (CORRIGIDA E BLINDADA) ---
+  // --- EFEITO: Atualiza Favicon e Logo Dinâmica no Carregamento Principal ---
   useEffect(() => {
-      const t = activeThemeColors;
-      const isAdmin = currentPath.startsWith('admin');
-      
-      const styleId = 'dynamic-theme-override';
-      let styleElement = document.getElementById(styleId);
-
-      if (!styleElement) {
-          styleElement = document.createElement('style');
-          styleElement.id = styleId;
-          document.head.appendChild(styleElement);
-      }
-
-      if (isAdmin) {
-          styleElement.innerHTML = '';
-          return;
-      }
-
-      // Injeção Cirúrgica: Altera apenas o necessário e protege as transparências (bg-black/80)
-      styleElement.innerHTML = `
-          /* Backgrounds Principais */
-          body, .min-h-screen.bg-black { background-color: ${t.bg || '#000000'} !important; }
-          .bg-gray-900 { background-color: ${t.surface || '#111827'} !important; }
-          .bg-gray-800 { background-color: ${t.surfaceHover || '#1f2937'} !important; }
-          
-          /* PROTEÇÃO DE TRANSPARÊNCIAS (Mantém o overlay dos modais funcionando) */
-          .bg-black\\/20 { background-color: rgba(0, 0, 0, 0.2) !important; }
-          .bg-black\\/30 { background-color: rgba(0, 0, 0, 0.3) !important; }
-          .bg-black\\/40 { background-color: rgba(0, 0, 0, 0.4) !important; }
-          .bg-black\\/50 { background-color: rgba(0, 0, 0, 0.5) !important; }
-          .bg-black\\/60 { background-color: rgba(0, 0, 0, 0.6) !important; }
-          .bg-black\\/70 { background-color: rgba(0, 0, 0, 0.7) !important; }
-          .bg-black\\/80 { background-color: rgba(0, 0, 0, 0.8) !important; }
-          .bg-black\\/90 { background-color: rgba(0, 0, 0, 0.9) !important; }
-
-          /* Textos Básicos */
-          .text-white { color: ${t.text || '#ffffff'} !important; }
-          .text-gray-300 { color: ${t.text || '#ffffff'} !important; opacity: 0.9; }
-          .text-gray-400 { color: ${t.textMuted || '#9ca3af'} !important; }
-          .text-gray-500 { color: ${t.textMuted || '#9ca3af'} !important; opacity: 0.8; }
-
-          /* Cor Primária (Botões, Ícones, Textos Destacados) */
-          .bg-amber-400, .bg-amber-500 { background-color: ${t.primary || '#fbbf24'} !important; color: ${t.bg || '#000000'} !important; }
-          .hover\\:bg-amber-300:hover, .hover\\:bg-amber-400:hover { background-color: ${t.primaryHover || '#f59e0b'} !important; color: ${t.bg || '#000000'} !important; }
-          
-          .text-amber-400, .text-amber-500 { color: ${t.primary || '#fbbf24'} !important; }
-          .hover\\:text-amber-300:hover, .hover\\:text-amber-400:hover { color: ${t.primaryHover || '#f59e0b'} !important; }
-          
-          .border-amber-400, .border-amber-500 { border-color: ${t.primary || '#fbbf24'} !important; }
-          .ring-amber-400 { --tw-ring-color: ${t.primary || '#fbbf24'} !important; }
-          
-          /* Bordas de Layout (Mantemos as cinzas para não quebrar botões de seleção de tamanho) */
-          .border-gray-800 { border-color: ${t.surfaceHover || '#1f2937'} !important; }
-          .border-gray-700 { border-color: ${t.textMuted || '#9ca3af'} !important; opacity: 0.3; }
-          .border-gray-600 { border-color: ${t.textMuted || '#9ca3af'} !important; opacity: 0.6; }
-          .hover\\:border-gray-400:hover { border-color: ${t.text || '#ffffff'} !important; opacity: 1; }
-      `;
-
-      return () => {
-          if (styleElement) styleElement.innerHTML = '';
-      };
-  }, [activeThemeColors, currentPath]);
-
-  // Atualização instantânea do Título da Aba no Navegador
-  useEffect(() => {
-      if (appNameConfig && appNameConfig.name) {
-          document.title = appNameConfig.name;
-      } else {
-          document.title = "Love Cestas e Perfumes";
-      }
-  }, [appNameConfig]);
-
-  useEffect(() => {
-      const handleNameUpdate = (event) => {
-          if (event.detail) {
-              setAppNameConfig(event.detail);
-          }
-      };
-
-      const handleThemeUpdate = (event) => {
-          if (event.detail) setAppThemeConfig(event.detail);
-      };
-
-      window.addEventListener('app-name-updated', handleNameUpdate);
-      window.addEventListener('app-theme-updated', handleThemeUpdate);
-      
-      return () => {
-          window.removeEventListener('app-name-updated', handleNameUpdate);
-          window.removeEventListener('app-theme-updated', handleThemeUpdate);
-      };
-  }, []);
-
-  useEffect(() => {
-      apiService(`/settings/theme?v=${new Date().getTime()}`)
-          .then(data => { 
-              if (data) {
-                  const isAuto = data.autoSeasonal === true || data.autoSeasonal === 'true' || data.autoSeasonal === 1;
-                  const loadedConfig = data.colors ? { ...data, autoSeasonal: isAuto } : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto };
-                  setAppThemeConfig(loadedConfig); 
-              }
-          })
-          .catch(err => {
-              console.log("Usando tema local estático fallback.");
-              setAppThemeConfig({ colors: defaultThemeFallback, autoSeasonal: false });
-          });
-
+      // ATUALIZAÇÃO CRÍTICA: Adicionado ?v=timestamp na chamada da API
+      // Isso impede que o navegador faça cache da resposta e garante que ele sempre 
+      // pergunte ao banco de dados qual é a imagem mais recente!
       apiService(`/settings/app-icons?v=${new Date().getTime()}`)
           .then(data => {
               if (data && data.favicon && data.favicon.current) {
                   const faviconLink = document.querySelector("link[rel~='icon']");
-                  if (faviconLink) faviconLink.href = data.favicon.current;
+                  if (faviconLink) {
+                      faviconLink.href = data.favicon.current;
+                  }
                   localStorage.setItem('lovecestas_app_favicon', data.favicon.current);
               }
               if (data && data.pwa_icon && data.pwa_icon.current) {
@@ -15946,14 +15453,6 @@ function AppContent({ deferredPrompt }) {
               }
           })
           .catch(err => console.log("Ícones mantidos como original."));
-
-      apiService(`/settings/app-name?v=${new Date().getTime()}`)
-          .then(data => {
-              if (data && data.name) {
-                  setAppNameConfig(data);
-              }
-          })
-          .catch(err => console.log("Nome mantido como original."));
   }, []);
 
   useEffect(() => {
@@ -16015,7 +15514,7 @@ function AppContent({ deferredPrompt }) {
         
         const hashParts = hash.split('?');
         if (hashParts.length > 1) {
-            const params = newSearchParams(hashParts[1]);
+            const params = new URLSearchParams(hashParts[1]);
             const externalReference = params.get('external_reference');
             
             if (externalReference && !hash.includes('order-success')) {
@@ -16052,11 +15551,6 @@ function AppContent({ deferredPrompt }) {
     window.scrollTo(0, 0);
   }, [currentPath]);
   
-  // Garantia do Nome Dinâmico 
-  const safeName = appNameConfig?.name || 'Love Cestas e Perfumes';
-  const safeShortName = appNameConfig?.short_name || 'Love Cestas';
-  const safeLogoText = appNameConfig?.logo_text || (safeName ? String(safeName).replace(/\s/g, '') : 'LoveCestas');
-
   if (isLoading || isStatusLoading) {
       return (
         <div className="h-screen flex flex-col items-center justify-center bg-black gap-6">
@@ -16066,7 +15560,7 @@ function AppContent({ deferredPrompt }) {
                 className="w-28 h-28 relative"
             >
                 <div className="absolute inset-0 bg-amber-500 blur-2xl opacity-20 rounded-full animate-pulse"></div>
-                <img src={appLogo} alt={safeName} className="w-full h-full object-contain relative z-10" />
+                <img src={appLogo} alt="Love Cestas e Perfumes" className="w-full h-full object-contain relative z-10" />
             </motion.div>
             <div className="flex flex-col items-center gap-3">
                 <SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin"/>
@@ -16115,7 +15609,6 @@ function AppContent({ deferredPrompt }) {
             'newsletter': <AdminNewsletter />, 
             'shipping': <AdminShippingSettings />, 
             'app-icons': <AdminAppIcons />,
-            'theme': <AdminThemeSettings />,
         };
 
         return (
@@ -16162,25 +15655,15 @@ function AppContent({ deferredPrompt }) {
   const showHeaderFooter = !currentPath.startsWith('admin');
   
   return (
-    <div className="bg-black min-h-screen flex flex-col transition-colors duration-500">
-      
-      {showHeaderFooter && (
-          <Header 
-              onNavigate={navigate} 
-              appName={safeName} 
-              appShortName={safeShortName} 
-              appLogoText={safeLogoText} 
-          />
-      )}
-
+    <div className="bg-black min-h-screen flex flex-col">
+      {showHeaderFooter && <Header onNavigate={navigate} />}
       <main className="flex-grow">{renderPage()}</main>
-      
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
-        <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800 transition-colors duration-500">
+        <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800">
             <div className="container mx-auto px-4 py-12">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
                     <div className="space-y-4">
-                        <h3 className="text-xl font-bold text-amber-400">{safeName}</h3>
+                        <h3 className="text-xl font-bold text-amber-400">LovecestasePerfumes</h3>
                         <p className="text-sm text-gray-400">
                             Elegância que veste e perfuma. Descubra fragrâncias e peças que definem seu estilo e marcam momentos.
                         </p>
@@ -16227,16 +15710,17 @@ function AppContent({ deferredPrompt }) {
                     </div>
                 </div>
             </div>
-            <div className="bg-black py-4 border-t border-gray-800 transition-colors duration-500">
-                <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} {safeName}. Todos os direitos reservados.</p>
+            <div className="bg-black py-4 border-t border-gray-800">
+                <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} LovecestasePerfumes. Todos os direitos reservados.</p>
             </div>
         </footer>
       )}
       
-      {deferredPrompt && !currentPath.startsWith('admin') && <InstallPWAButton deferredPrompt={deferredPrompt} />}
+      {deferredPrompt && <InstallPWAButton deferredPrompt={deferredPrompt} />}
     </div>
   );
 }
+
 // ATUALIZAÇÃO DO COMPONENTE BASE: Carregando a biblioteca do frontend
 export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
