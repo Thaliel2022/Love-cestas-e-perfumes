@@ -31,7 +31,20 @@ const SearchIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" cl
 const CheckCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const ExclamationIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>;
 const CreditCardIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>;
-const SpinnerIcon = ({ className }) => <svg className={className || "h-5 w-5 animate-spin"} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>;
+const SpinnerIcon = ({ className }) => {
+    // Garante que a classe 'animate-spin' sempre seja aplicada, mesmo quando 
+    // a propriedade className for sobrescrita por outros componentes
+    const finalClassName = className && className.includes('animate-spin') 
+        ? className 
+        : `animate-spin ${className || "h-5 w-5"}`;
+        
+    return (
+        <svg className={finalClassName} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+    );
+};
 const ClockIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const PackageIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>;
 const CheckBadgeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>;
@@ -1608,7 +1621,7 @@ const SizeGuideDisplay = ({ dataString }) => {
     );
 };
 const ProductCard = memo(({ product, onNavigate }) => {
-    const { addToCart, shippingLocation, calculateLocalDeliveryPrice } = useShop(); // Pega a função de cálculo do contexto
+    const { addToCart, shippingLocation, calculateLocalDeliveryPrice } = useShop();
     const notification = useNotification();
     const { user } = useAuth();
     const { wishlist, addToWishlist, removeFromWishlist } = useShop(); 
@@ -1683,7 +1696,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
     const isVariationOutOfStock = product.product_type === 'clothing' && productVariations.length > 0 && productVariations.every(v => v.stock <= 0);
     const isOutOfStock = isProductOutOfStock || isVariationOutOfStock;
 
-    // --- Efeito de Frete Atualizado ---
     useEffect(() => {
         const controller = new AbortController();
         const signal = controller.signal;
@@ -1694,31 +1706,27 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 setIsCardShippingLoading(true);
                 setCardShippingInfo(null);
 
-                // --- LÓGICA LOCAL PARA JOÃO PESSOA ---
                 const cepPrefix = parseInt(cleanCep.substring(0, 5));
                 const isJoaoPessoa = cepPrefix >= 58000 && cepPrefix <= 58099;
 
                 if (isJoaoPessoa) {
-                    // Calcula data para 1 dia útil
                     const date = new Date();
                     let addedDays = 0;
-                    while (addedDays < 1) { // 1 dia útil
+                    while (addedDays < 1) { 
                         date.setDate(date.getDate() + 1);
                         if (date.getDay() !== 0 && date.getDay() !== 6) { addedDays++; }
                     }
                     const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
                     
-                    // USANDO O CÁLCULO DINÂMICO COM CORREÇÃO DE EXIBIÇÃO
                     const localPrice = calculateLocalDeliveryPrice ? calculateLocalDeliveryPrice([product]) : 20;
                     
                     const priceDisplay = localPrice === 0 ? "Grátis" : `R$ ${localPrice.toFixed(2).replace('.', ',')}`;
                     
                     setCardShippingInfo(`Frete ${priceDisplay} - Receba até ${formattedDate}.`);
                     setIsCardShippingLoading(false);
-                    return; // Interrompe para não chamar a API
+                    return; 
                 }
 
-                // --- LÓGICA PADRÃO PARA OUTROS CEPs (API) ---
                 const calculateShipping = async () => {
                     try {
                         const productsPayload = [{ id: String(product.id), price: currentPrice, quantity: 1 }];
@@ -1761,7 +1769,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
             clearTimeout(debounceTimer);
             controller.abort();
         };
-    }, [product, shippingLocation.cep, currentPrice, calculateLocalDeliveryPrice]); // Adicionado calculateLocalDeliveryPrice nas dependências
+    }, [product, shippingLocation.cep, currentPrice, calculateLocalDeliveryPrice]); 
 
     const installmentInfo = useMemo(() => {
         if (currentPrice >= 100) {
@@ -1813,7 +1821,8 @@ const ProductCard = memo(({ product, onNavigate }) => {
         return (
             <button
                 onClick={handleWishlistToggle}
-                className={`absolute top-2 right-2 bg-black/40 hover:bg-black/60 backdrop-blur-sm p-1.5 rounded-full text-white transition-colors duration-200 z-10 ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-300'}`}
+                // AQUI ESTÁ A CORREÇÃO: Fundo isolado para não esbranquiçar no tema claro
+                className={`absolute top-2 right-2 bg-[#000000]/40 hover:bg-[#000000]/60 backdrop-blur-sm p-1.5 rounded-full text-[#ffffff] transition-colors duration-200 z-10 ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-300'}`}
                 aria-label="Adicionar à Lista de Desejos"
             >
                 <HeartIcon className="h-5 w-5" filled={isWishlisted} />
@@ -1841,58 +1850,59 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 <img
                     src={imageUrl} 
                     alt={product.name}
-                    loading="lazy" // <--- OTIMIZAÇÃO DE PERFORMANCE ADICIONADA AQUI
+                    loading="lazy" 
                     className="w-full h-full object-contain cursor-pointer transition-transform duration-300 group-hover:scale-105 p-2"
                 />
                 <WishlistButton product={product} /> 
 
                 <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
                     {isOutOfStock ? (
-                        <div className="bg-gray-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow">ESGOTADO</div>
+                        <div className="bg-gray-700 text-[#ffffff] text-[10px] font-bold px-2.5 py-1 rounded-full shadow">ESGOTADO</div>
                     ) : isPromoActive ? (
-                         <div className={`bg-gradient-to-r ${timeLeft && timeLeft !== 'Expirada' ? 'from-red-600 to-orange-500' : 'from-green-600 to-teal-500'} text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5`}> 
+                         <div className={`bg-gradient-to-r ${timeLeft && timeLeft !== 'Expirada' ? 'from-red-600 to-orange-500' : 'from-green-600 to-teal-500'} text-[#ffffff] text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5`}> 
                             <SaleIcon className="h-4 w-4"/>
                             <span>PROMOÇÃO {discountPercent}%</span>
                         </div>
                     ) : isNew ? (
-                        <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
+                        <div className="bg-blue-500 text-[#ffffff] text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
                     ) : null}
                 </div>
 
+                {/* AQUI ESTÁ A CORREÇÃO: Fundos e Textos blindados para não sofrerem interferência do tema claro nas fotos */}
                 {isPromoActive && timeLeft && timeLeft !== 'Expirada' && !isOutOfStock && (
                     <div className="absolute bottom-0 left-0 w-full bg-gradient-to-r from-red-700 to-red-500/90 backdrop-blur-md py-1.5 px-3 flex items-center justify-between z-20 shadow-inner border-t border-red-400">
-                        <div className="flex items-center gap-1.5 text-white font-bold text-[10px] uppercase tracking-wide">
+                        <div className="flex items-center gap-1.5 text-[#ffffff] font-bold text-[10px] uppercase tracking-wide">
                             <SparklesIcon className="h-3 w-3 text-yellow-300 animate-pulse"/>
                             <span>Oferta Relâmpago</span>
                         </div>
-                        <div className="flex items-center gap-1 bg-black/30 rounded px-1.5 py-0.5">
-                            <ClockIcon className="h-3 w-3 text-white"/>
-                            <span className="text-white font-mono font-bold text-xs">{timeLeft}</span>
+                        <div className="flex items-center gap-1 bg-[#000000]/30 rounded px-1.5 py-0.5">
+                            <ClockIcon className="h-3 w-3 text-[#ffffff]"/>
+                            <span className="text-[#ffffff] font-mono font-bold text-xs">{timeLeft}</span>
                         </div>
                     </div>
                 )}
 
                 {isPromoActive && (!timeLeft || timeLeft === 'Expirada') && !isOutOfStock && (
                     <div className="absolute bottom-0 left-0 w-full bg-gradient-to-r from-emerald-600 to-green-500/95 backdrop-blur-md py-1.5 px-3 flex items-center justify-between z-20 shadow-inner border-t border-emerald-400/50">
-                        <div className="flex items-center gap-1.5 text-white font-bold text-[10px] uppercase tracking-wide">
-                            <TagIcon className="h-3 w-3 text-white fill-white"/>
+                        <div className="flex items-center gap-1.5 text-[#ffffff] font-bold text-[10px] uppercase tracking-wide">
+                            <TagIcon className="h-3 w-3 text-[#ffffff] fill-white"/>
                             <span>Preço Especial</span>
                         </div>
-                        <div className="flex items-center gap-1 bg-black/20 rounded px-2 py-0.5">
-                            <span className="text-white font-bold text-[9px]">Aproveite</span>
+                        <div className="flex items-center gap-1 bg-[#000000]/20 rounded px-2 py-0.5">
+                            <span className="text-[#ffffff] font-bold text-[9px]">Aproveite</span>
                         </div>
                     </div>
                 )}
 
                  {product.product_type === 'clothing' && !isPromoActive && !isOutOfStock && (
-                    <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300"> 
+                    <div className="absolute bottom-0 left-0 w-full bg-[#000000]/70 text-center text-xs py-1 text-amber-300"> 
                         Ver Cores e Tamanhos
                     </div>
                  )}
                  {user && user.role === 'admin' && (
                     <div className="absolute top-2 right-10 z-10"> 
                         <button onClick={(e) => { e.stopPropagation(); onNavigate(`admin/products?search=${encodeURIComponent(product.name)}`); }}
-                                className="bg-gray-700/50 hover:bg-gray-600/70 backdrop-blur-sm text-white p-1.5 rounded-full shadow-md transition-colors" 
+                                className="bg-[#000000]/50 hover:bg-[#000000]/70 backdrop-blur-sm text-[#ffffff] p-1.5 rounded-full shadow-md transition-colors" 
                                 title="Editar Produto">
                             <EditIcon className="h-4 w-4" />
                         </button>
@@ -2557,7 +2567,7 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
     useEffect(() => {
         setIsLoading(true);
         apiService('/collections')
-            .then(data => setCategories(data)) // Apenas define os dados na ordem recebida
+            .then(data => setCategories(data)) 
             .catch(err => console.error("Falha ao buscar coleções:", err))
             .finally(() => setIsLoading(false));
     }, []);
@@ -2635,24 +2645,26 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
                                     className="flex-shrink-0 px-2"
                                     style={{ width: `${100 / itemsPerPage}%` }}
                                 >
-                                    <div className="relative rounded-lg overflow-hidden aspect-[4/5] group cursor-pointer" onClick={() => onNavigate(`products?category=${cat.filter}`)}>
-                                        <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
-                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-2 transition-all group-hover:bg-black/60">
-                                            <h3 className="text-xl font-semibold text-white text-center tracking-wide" style={{ textShadow: '2px 2px 6px rgba(0,0,0,0.9)' }}>{cat.name}</h3>
+                                    {/* CORREÇÃO: Adicionado group/card para isolar o hover do card do hover do carrossel inteiro */}
+                                    <div className="relative rounded-lg overflow-hidden aspect-[4/5] group/card cursor-pointer" onClick={() => onNavigate(`products?category=${cat.filter}`)}>
+                                        <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover/card:scale-110 transition-transform duration-500"/>
+                                        
+                                        <div className="absolute inset-0 bg-[#000000]/40 flex items-center justify-center p-2 transition-all group-hover/card:bg-[#000000]/60">
+                                            <h3 className="text-xl font-semibold text-[#ffffff] text-center tracking-wide" style={{ textShadow: '2px 2px 6px rgba(0,0,0,0.9)' }}>{cat.name}</h3>
                                         </div>
                                     </div>
                                 </div>
                             ))}
                         </motion.div>
                     </div>
-                    {/* Botões de Navegação - Visíveis sempre que houver mais itens para mostrar */}
+                    {/* Botões de Navegação (ocultos por padrão, visíveis no hover do carrossel) */}
                     {canGoPrev && (
-                        <button onClick={goPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg z-10 transition-opacity">
+                        <button onClick={goPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-[#ffffff]/50 hover:bg-[#ffffff] text-black p-2 rounded-full shadow-lg z-10 transition-opacity opacity-0 group-hover:opacity-100">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                         </button>
                     )}
                     {canGoNext && (
-                         <button onClick={goNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg z-10 transition-opacity">
+                         <button onClick={goNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-[#ffffff]/50 hover:bg-[#ffffff] text-black p-2 rounded-full shadow-lg z-10 transition-opacity opacity-0 group-hover:opacity-100">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                         </button>
                     )}
@@ -2790,7 +2802,6 @@ const NewsletterSection = () => {
 const PromoBannerSection = ({ customBanners, onNavigate }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     
-    // Dados Padrão (Fallback visual se o banco estiver vazio)
     const defaultBanner = [{
         image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop",
         title: "Semana do Consumidor",
@@ -2801,20 +2812,17 @@ const PromoBannerSection = ({ customBanners, onNavigate }) => {
         id: 'default'
     }];
 
-    // Usa os banners do banco se existirem, senão usa o padrão
     const activeBanners = customBanners && customBanners.length > 0 ? customBanners : defaultBanner;
     
-    // Lógica de Rotação Automática
     useEffect(() => {
         if (activeBanners.length > 1) {
             const timer = setTimeout(() => {
                 setCurrentIndex(prev => (prev === activeBanners.length - 1 ? 0 : prev + 1));
-            }, 5000); // 5 segundos por slide
+            }, 5000);
             return () => clearTimeout(timer);
         }
     }, [currentIndex, activeBanners.length]);
 
-    // Garante que o índice não estoure se a lista mudar
     const safeIndex = currentIndex >= activeBanners.length ? 0 : currentIndex;
     const currentBanner = activeBanners[safeIndex];
     
@@ -2847,18 +2855,22 @@ const PromoBannerSection = ({ customBanners, onNavigate }) => {
                     <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/95 via-black/40 to-transparent transition-all duration-500"></div>
                     <div className="relative z-10 w-full px-6 md:px-16 pb-8 md:pb-0 flex flex-col items-center md:items-start justify-end md:justify-center h-full text-center md:text-left">
                         {isFlashOffer && (
-                            <motion.span initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-red-600 text-white text-xs md:text-sm font-bold px-3 py-1 md:px-4 md:py-1.5 rounded-full uppercase tracking-wider mb-3 md:mb-6 inline-flex items-center gap-2 shadow-lg">
+                            <motion.span initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-red-600 text-[#ffffff] text-xs md:text-sm font-bold px-3 py-1 md:px-4 md:py-1.5 rounded-full uppercase tracking-wider mb-3 md:mb-6 inline-flex items-center gap-2 shadow-lg">
                                 <ClockIcon className="h-3 w-3 md:h-4 md:w-4" /> Oferta Relâmpago
                             </motion.span>
                         )}
-                        <motion.h2 initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="text-4xl md:text-7xl font-extrabold mb-3 md:mb-6 text-white drop-shadow-lg leading-tight">
+                        
+                        {/* AQUI ESTÁ A CORREÇÃO: Protegendo o texto contra temas que o tornam escuro */}
+                        <motion.h2 initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="text-4xl md:text-7xl font-extrabold mb-3 md:mb-6 text-[#ffffff] drop-shadow-lg leading-tight">
                             {renderTitle()}
                         </motion.h2>
+                        
                         {currentBanner.subtitle && (
-                            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="text-base md:text-xl text-gray-200 mb-6 md:mb-10 max-w-xs md:max-w-lg font-light leading-snug">
+                            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="text-base md:text-xl text-[#e5e7eb] mb-6 md:mb-10 max-w-xs md:max-w-lg font-light leading-snug">
                                 {currentBanner.subtitle}
                             </motion.p>
                         )}
+                        
                         {currentBanner.cta_enabled !== 0 && (
                             <motion.button whileTap={{ scale: 0.95 }} className="bg-white text-black px-8 py-3 md:px-12 md:py-4 rounded-full font-bold text-sm md:text-lg hover:bg-amber-400 transition-all shadow-xl flex items-center gap-2 md:gap-3">
                                 {currentBanner.cta_text || 'Ver Ofertas'} <ArrowUturnLeftIcon className="h-4 w-4 md:h-5 md:w-5 rotate-180"/>
@@ -2868,7 +2880,6 @@ const PromoBannerSection = ({ customBanners, onNavigate }) => {
                 </motion.div>
             </AnimatePresence>
             
-            {/* Indicadores de Slide (Dots) se houver mais de 1 banner */}
             {activeBanners.length > 1 && (
                 <div className="flex justify-center mt-4 gap-2">
                     {activeBanners.map((_, idx) => (
@@ -2915,9 +2926,10 @@ const CategoryCardsSection = ({ customCards, onNavigate }) => {
                     >
                         <img src={card.image_url} alt={card.title} className="w-full h-full object-cover"/>
                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-6 md:p-10">
-                            <h3 className="text-2xl md:text-4xl font-bold text-white mb-1 md:mb-3">{card.title}</h3>
-                            <p className="text-gray-300 text-sm md:text-lg mb-3 md:mb-6 line-clamp-1 md:line-clamp-none">{card.subtitle}</p>
-                            <span className="inline-flex items-center gap-2 text-white text-xs md:text-sm font-bold underline decoration-amber-500 underline-offset-4">
+                            {/* AQUI ESTÁ A CORREÇÃO: Protegendo o texto para não ficar escuro no tema claro e sumir no gradiente */}
+                            <h3 className="text-2xl md:text-4xl font-bold text-[#ffffff] mb-1 md:mb-3">{card.title}</h3>
+                            <p className="text-[#d1d5db] text-sm md:text-lg mb-3 md:mb-6 line-clamp-1 md:line-clamp-none">{card.subtitle}</p>
+                            <span className="inline-flex items-center gap-2 text-[#ffffff] text-xs md:text-sm font-bold underline decoration-amber-500 underline-offset-4">
                                 {card.cta_text || 'Ver Mais'} &rarr;
                             </span>
                         </div>
@@ -2932,8 +2944,8 @@ const CategoriesPage = ({ onNavigate }) => {
     const [categories, setCategories] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedGroup, setSelectedGroup] = useState(null);
-    const { user, isAuthenticated, logout } = useAuth(); // Acesso ao logout
-    const { orderNotificationCount } = useShop(); // NOVO: Acesso às notificações
+    const { user, isAuthenticated, logout } = useAuth(); 
+    const { orderNotificationCount } = useShop(); 
 
     const groupedCategories = useMemo(() => {
         const groups = {};
@@ -2978,16 +2990,17 @@ const CategoriesPage = ({ onNavigate }) => {
         return () => controller.abort();
     }, []);
 
-    // Sub-tela (Nível 2) - Estilo Dark
+    // Sub-tela (Nível 2)
     const SubCategoryView = ({ group, onBack }) => (
         <motion.div 
             initial={{ x: '100%' }} 
             animate={{ x: 0 }} 
             exit={{ x: '100%' }} 
             transition={{ type: 'tween', ease: 'easeInOut', duration: 0.3 }}
-            className="fixed inset-0 bg-black z-50 overflow-y-auto pb-24" // Fundo Preto
+            className="fixed inset-0 bg-black z-50 overflow-y-auto pb-24"
         >
-            <div className="sticky top-0 bg-black/95 backdrop-blur-md border-b border-gray-800 z-10 px-4 py-4 flex items-center shadow-md">
+            {/* CORREÇÃO AQUI: Trocado bg-black/95 por bg-gray-900/95 para respeitar o tema claro (fundo claro com texto escuro) */}
+            <div className="sticky top-0 bg-gray-900/95 backdrop-blur-md border-b border-gray-800 z-10 px-4 py-4 flex items-center shadow-md">
                 <button onClick={onBack} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-colors mr-3">
                     <ArrowUturnLeftIcon className="h-6 w-6" />
                 </button>
@@ -3025,15 +3038,14 @@ const CategoriesPage = ({ onNavigate }) => {
                 
                 <button 
                     onClick={() => onNavigate(`products?search=${group.title}`)}
-                    className="w-full mt-8 py-3.5 bg-gray-800 border border-gray-700 text-white font-bold rounded-lg shadow-md hover:bg-gray-700 hover:border-amber-500/50 transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wide"
+                    className="w-full mt-8 py-3.5 bg-gray-800 border border-gray-700 text-white font-bold rounded-lg shadow-md hover:bg-gray-700 transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wide"
                 >
-                    Ver todos em {group.title} <ArrowUturnLeftIcon className="h-4 w-4 rotate-180 text-amber-500"/>
+                    Ver todos em {group.title} <ArrowUturnLeftIcon className="h-4 w-4 rotate-180"/>
                 </button>
             </div>
         </motion.div>
     );
 
-    // --- TELA DE CARREGAMENTO CATEGORIAS ---
     if (isLoading) {
         return (
             <div className="bg-black min-h-[80vh] flex flex-col items-center justify-center pt-20 pb-32 px-4 gap-6">
@@ -3049,13 +3061,11 @@ const CategoriesPage = ({ onNavigate }) => {
         );
     }
 
-    // Atalhos Rápidos (Estilo Amazon)
     const QuickShortcuts = () => (
         <div className="bg-gray-900 p-4 rounded-xl mb-6 shadow-lg border border-gray-800 grid grid-cols-2 gap-4">
             {isAuthenticated ? (
                 <>
-                    {/* --- CORREÇÃO DO BOTÃO "MEUS PEDIDOS" NA TELA DE MENU --- */}
-                    <button onClick={() => onNavigate('account/orders')} className="bg-black border border-gray-700 p-4 rounded-lg flex flex-col items-center justify-center text-center hover:bg-gray-800 active:scale-95 transition-all relative">
+                    <button onClick={() => onNavigate('account/orders')} className="bg-gray-800 border border-gray-700 p-4 rounded-lg flex flex-col items-center justify-center text-center hover:bg-gray-700 active:scale-95 transition-all relative">
                         <div className="relative">
                             <PackageIcon className="h-6 w-6 text-amber-400 mb-2"/>
                             {orderNotificationCount > 0 && (
@@ -3064,36 +3074,36 @@ const CategoriesPage = ({ onNavigate }) => {
                                 </span>
                             )}
                         </div>
-                        <span className="text-sm font-bold text-gray-200">Meus Pedidos</span>
+                        <span className="text-sm font-bold text-white">Meus Pedidos</span>
                     </button>
 
-                    <button onClick={() => onNavigate('account')} className="bg-black border border-gray-700 p-4 rounded-lg flex flex-col items-center justify-center text-center hover:bg-gray-800 active:scale-95 transition-all">
+                    <button onClick={() => onNavigate('account')} className="bg-gray-800 border border-gray-700 p-4 rounded-lg flex flex-col items-center justify-center text-center hover:bg-gray-700 active:scale-95 transition-all">
                         <UserIcon className="h-6 w-6 text-amber-400 mb-2"/>
-                        <span className="text-sm font-bold text-gray-200">Minha Conta</span>
+                        <span className="text-sm font-bold text-white">Minha Conta</span>
                     </button>
+                    
                     {user?.role === 'admin' && (
-                        <button onClick={() => onNavigate('admin/dashboard')} className="col-span-2 bg-gradient-to-r from-gray-800 to-gray-700 border border-gray-600 p-3 rounded-lg flex items-center justify-center gap-3 hover:from-gray-700 hover:to-gray-600 active:scale-95 transition-all shadow-md">
+                        <button onClick={() => onNavigate('admin/dashboard')} className="col-span-2 bg-gray-800 border border-gray-700 p-3 rounded-lg flex items-center justify-center gap-3 hover:bg-gray-700 active:scale-95 transition-all shadow-md">
                             <AdminIcon className="h-5 w-5 text-amber-400"/>
                             <span className="text-sm font-bold text-white uppercase tracking-wide">Acessar Painel Admin</span>
                         </button>
                     )}
                 </>
             ) : (
-                <div className="col-span-2 bg-black border border-gray-700 p-4 rounded-lg flex flex-col items-center text-center">
+                <div className="col-span-2 bg-gray-800 border border-gray-700 p-4 rounded-lg flex flex-col items-center text-center">
                     <p className="text-sm text-gray-400 mb-3">Faça login para ver seus pedidos e conta.</p>
                     <button onClick={() => onNavigate('login')} className="w-full bg-amber-500 text-black font-bold py-2 rounded hover:bg-amber-400 transition-colors">
                         Fazer Login / Criar Conta
                     </button>
                 </div>
             )}
-             <button onClick={() => onNavigate('ajuda')} className="col-span-2 bg-black border border-gray-700 p-3 rounded-lg flex items-center justify-between px-4 hover:bg-gray-800 active:scale-95 transition-all">
-                <span className="text-sm font-bold text-gray-200 flex items-center gap-2"><SparklesIcon className="h-4 w-4 text-amber-400"/> Central de Ajuda e Atendimento</span>
+             <button onClick={() => onNavigate('ajuda')} className="col-span-2 bg-gray-800 border border-gray-700 p-3 rounded-lg flex items-center justify-between px-4 hover:bg-gray-700 active:scale-95 transition-all">
+                <span className="text-sm font-bold text-white flex items-center gap-2"><SparklesIcon className="h-4 w-4 text-amber-400"/> Central de Ajuda e Atendimento</span>
                 <ArrowUturnLeftIcon className="h-4 w-4 text-gray-500 rotate-180"/>
             </button>
             
-            {/* Botão de Logout adicionado */}
             {isAuthenticated && (
-                <button onClick={() => { logout(); onNavigate('home'); }} className="col-span-2 bg-red-900/20 border border-red-900/50 p-3 rounded-lg flex items-center justify-center gap-2 hover:bg-red-900/30 active:scale-95 transition-all text-red-400 font-bold text-sm">
+                <button onClick={() => { logout(); onNavigate('home'); }} className="col-span-2 bg-red-900/20 border border-red-900/50 p-3 rounded-lg flex items-center justify-center gap-2 hover:bg-red-900/30 active:scale-95 transition-all text-red-500 font-bold text-sm">
                     Sair da Conta
                 </button>
             )}
@@ -3101,7 +3111,7 @@ const CategoriesPage = ({ onNavigate }) => {
     );
 
     return (
-        <div className="bg-black min-h-screen pt-2 pb-24 text-white"> {/* Fundo Preto Global */}
+        <div className="bg-black min-h-screen pt-2 pb-24 text-white">
             <AnimatePresence>
                 {selectedGroup && (
                     <SubCategoryView 
@@ -3112,21 +3122,18 @@ const CategoriesPage = ({ onNavigate }) => {
             </AnimatePresence>
 
             <div className="container mx-auto px-4">
-                {/* Atalhos Rápidos no Topo */}
                 <h1 className="text-xl font-bold text-white mb-3 px-1 mt-4">Acesso Rápido</h1>
                 <QuickShortcuts />
 
                 <h1 className="text-xl font-bold text-white mb-4 px-1 mt-2 border-l-4 border-amber-500 pl-3">Departamentos</h1>
                 
-                {/* Grade Principal (Nível 1) - Dark Mode */}
                 <div className="grid grid-cols-2 gap-3"> 
-                    {/* Card Especial: Promoções (Antigo Ofertas do Dia) */}
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0 }}
                         onClick={() => onNavigate('products?promo=true')}
-                        className="col-span-2 bg-gradient-to-r from-red-900 via-red-800 to-black rounded-lg shadow-lg border border-red-900/50 overflow-hidden cursor-pointer active:scale-95 transition-transform flex flex-row items-center justify-between p-4 relative group mb-2"
+                        className="col-span-2 bg-gray-900 rounded-lg shadow-lg border border-gray-800 overflow-hidden cursor-pointer active:scale-95 transition-transform flex flex-row items-center justify-between p-4 relative group mb-2"
                     >
                         <div className="flex items-center gap-4 relative z-10">
                             <div className="w-12 h-12 bg-red-600/20 rounded-full flex items-center justify-center border border-red-500/30 group-hover:bg-red-600/40 transition-colors">
@@ -3134,11 +3141,10 @@ const CategoriesPage = ({ onNavigate }) => {
                             </div>
                             <div className="text-left">
                                 <h3 className="text-white font-bold text-lg uppercase tracking-wide">Promoções</h3>
-                                <p className="text-red-300 text-xs font-medium">Ver todos os produtos em oferta</p>
+                                <p className="text-red-400 text-xs font-medium">Ver todos os produtos em oferta</p>
                             </div>
                         </div>
                         <ArrowUturnLeftIcon className="h-5 w-5 text-red-500 rotate-180 relative z-10"/>
-                         {/* Padrão de fundo sutil */}
                         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
                     </motion.div>
 
@@ -3158,11 +3164,10 @@ const CategoriesPage = ({ onNavigate }) => {
                                     className="w-full h-full object-contain mix-blend-multiply transition-transform duration-500 group-hover:scale-105"
                                     loading="lazy"
                                 />
-                                {/* Gradiente sutil para profundidade */}
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none"></div>
                             </div>
                             <div className="p-3 border-t border-gray-800 bg-gray-900">
-                                <h3 className="text-gray-100 font-bold text-sm leading-tight mb-0.5 group-hover:text-amber-400 transition-colors">
+                                <h3 className="text-white font-bold text-sm leading-tight mb-0.5 group-hover:text-amber-400 transition-colors">
                                     {group.title}
                                 </h3>
                                 <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">
@@ -6407,7 +6412,7 @@ const CheckoutPage = ({ onNavigate }) => {
     );
 };
 
-const OrderSuccessPage = ({ orderId, onNavigate }) => {
+const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
     const { clearOrderState } = useShop();
     const notification = useNotification();
     const [pageStatus, setPageStatus] = useState('processing'); // 'processing', 'success', 'timeout', 'pending_action'
@@ -6667,9 +6672,9 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
     };
 
     const { icon, title, subtitle, message, actions, borderColor } = renderContent();
+    const displayName = appName || 'Love Cestas';
 
     return (
-        // Correção de Layout: Removido o 'overflow-hidden' restritivo. 'min-h-[100dvh]' e 'py-16' garantem scroll em celulares.
         <div className="bg-black text-white min-h-[100dvh] flex flex-col justify-start md:justify-center items-center p-4 pt-10 pb-28 md:py-8 relative overflow-x-hidden overflow-y-auto">
             
             {/* Efeitos de Luz de Fundo (Atrás de tudo) */}
@@ -6707,7 +6712,7 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
             {!isStandalone && pageStatus !== 'processing' && (
                 <div className="mt-8 p-4 bg-blue-900/30 border border-blue-800/50 rounded-xl max-w-lg w-full text-center relative z-10 backdrop-blur-md animate-fade-in">
                     <p className="text-xs sm:text-sm text-blue-200">
-                        <strong className="text-blue-400">Dica de Acesso:</strong> Parece que você está no navegador do celular. Se você já instalou o nosso aplicativo, recomendamos fechar esta janela e voltar a abrir o app <strong>Love Cestas</strong> para a melhor experiência!
+                        <strong className="text-blue-400">Dica de Acesso:</strong> Parece que você está no navegador do celular. Se você já instalou o nosso aplicativo, recomendamos fechar esta janela e voltar a abrir o app <strong>{displayName}</strong> para a melhor experiência!
                     </p>
                 </div>
             )}
@@ -7105,7 +7110,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         try {
             const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
             if (paymentResult && paymentResult.init_point) {
-                // --- CORREÇÃO: localStorage ---
                 localStorage.setItem('pendingOrderId', orderId);
                 window.location.href = paymentResult.init_point;
             } else { throw new Error("Não foi possível obter o link de pagamento."); }
@@ -7631,14 +7635,15 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
 
                     <div className="pt-4 mt-4 border-t border-gray-800 space-y-4 sm:space-y-0 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-2">
                         <div className="flex flex-wrap items-center gap-2">
-                            <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-700 text-white text-sm px-4 py-1.5 rounded-md hover:bg-gray-600">Repetir Pedido</button>
+                            {/* CORREÇÃO APLICADA AQUI: Botão alterado para usar as cores temáticas e dar destaque */}
+                            <button onClick={() => handleRepeatOrder(order.items)} className="bg-amber-500 text-black text-sm font-bold px-4 py-1.5 rounded-md hover:bg-amber-400 shadow-sm transition-colors">Repetir Pedido</button>
                             {isPickupOrder ? (
-                                <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Ver Status da Retirada</button>
+                                <button onClick={() => setIsTrackingModalOpen(true)} className="bg-gray-800 text-white text-sm font-bold px-4 py-1.5 rounded-md hover:bg-gray-700 transition-colors">Ver Status da Retirada</button>
                             ) : (
-                                order.tracking_code && !isLocalDelivery && !isOrderInactive && <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Rastrear Pedido</button>
+                                order.tracking_code && !isLocalDelivery && !isOrderInactive && <button onClick={() => setIsTrackingModalOpen(true)} className="bg-gray-800 text-white text-sm font-bold px-4 py-1.5 rounded-md hover:bg-gray-700 transition-colors">Rastrear Pedido</button>
                             )}
                              {canRequest && (
-                                <button onClick={() => setIsRefundModalOpen(true)} className="bg-amber-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-amber-700 font-bold shadow-lg shadow-amber-900/30 transform hover:-translate-y-0.5 transition-transform">
+                                <button onClick={() => setIsRefundModalOpen(true)} className="bg-red-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-red-700 font-bold shadow-lg transform hover:-translate-y-0.5 transition-transform">
                                     {isRefundDenied ? 'Nova Solicitação' : `Solicitar ${actionText}`}
                                 </button>
                             )}
@@ -7667,9 +7672,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
     const [orderToReview, setOrderToReview] = useState(null);
     const [itemToReview, setItemToReview] = useState(null);
 
-    // Função para buscar pedidos
     const fetchOrders = useCallback(() => {
-        // A API agora retorna o campo 'has_unseen_update'
         return apiService('/orders/my-orders')
             .then(data => setOrders(data.sort((a, b) => new Date(b.date) - new Date(a.date))))
             .catch(err => {
@@ -7761,8 +7764,6 @@ const MyOrdersListPage = ({ onNavigate }) => {
                         const firstItem = order.items && order.items.length > 0 ? order.items[0] : null;
                         const canReviewOrder = order.status === 'Entregue' && order.items?.some(item => !item.is_reviewed);
                         
-                        // --- LÓGICA DE NOTIFICAÇÃO ---
-                        // Verifica se o pedido tem atualização não vista
                         const hasNotification = !!order.has_unseen_update;
 
                         return (
@@ -7773,7 +7774,6 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                 transition={{ delay: 0.1 * idx }}
                                 className={`bg-gray-800 p-4 rounded-lg border relative transition-all ${hasNotification ? 'border-amber-500 shadow-lg shadow-amber-900/20' : 'border-gray-700'}`}
                             >
-                                {/* --- BOLINHA DE NOTIFICAÇÃO NO CARD --- */}
                                 {hasNotification && (
                                     <div className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-full border-2 border-black z-10 flex items-center gap-1 animate-bounce">
                                         <span className="h-2 w-2 bg-white rounded-full inline-block"></span>
@@ -7802,14 +7802,15 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                         <div><p className="text-xs text-gray-400">Total</p><p className="font-bold text-amber-400">R$ {Number(order.total).toFixed(2)}</p></div>
                                     </div>
                                     <div className="flex-shrink-0 w-full sm:w-auto flex flex-col items-stretch gap-2">
+                                        {/* CORREÇÃO AQUI: O botão 'Ver Detalhes' usa a cor primária dinâmica com bg-amber-500 */}
                                         <button 
                                             onClick={() => onNavigate(`account/orders/${order.id}`)} 
-                                            className={`w-full font-bold px-4 py-2 rounded-md transition ${hasNotification ? 'bg-amber-500 text-black hover:bg-amber-400' : 'bg-gray-700 text-white hover:bg-gray-600'}`}
+                                            className="w-full font-bold px-4 py-2 rounded-md transition shadow-md active:scale-95 bg-amber-500 text-black hover:bg-amber-400"
                                         >
                                             {hasNotification ? 'Ver Atualização' : 'Ver Detalhes'}
                                         </button>
                                         {canReviewOrder && (
-                                             <button onClick={() => setOrderToReview(order)} className="w-full bg-amber-600 text-white font-bold px-4 py-2 rounded-md hover:bg-amber-700 transition">Avaliar Pedido</button>
+                                             <button onClick={() => setOrderToReview(order)} className="w-full bg-gray-800 text-white font-bold px-4 py-2 rounded-md hover:bg-gray-700 transition">Avaliar Pedido</button>
                                         )}
                                     </div>
                                 </div>
@@ -8629,7 +8630,7 @@ const AjudaPage = ({ onNavigate }) => {
     );
 };
 
-const AboutPage = () => {
+const AboutPage = ({ appName }) => {
     return (
         <div className="bg-black text-white min-h-screen py-16">
             <div className="container mx-auto px-4 max-w-4xl">
@@ -8641,7 +8642,7 @@ const AboutPage = () => {
                 <div className="bg-gray-900 p-8 rounded-lg border border-gray-800 space-y-8 text-lg text-gray-300 leading-relaxed">
                     <section>
                         <h2 className="text-2xl font-bold text-white mb-4">Nossa História</h2>
-                        <p>A Love Cestas e Perfumes nasceu de uma paixão por aromas marcantes e pela moda que expressa identidade. Fundada em João Pessoa, Paraíba, nossa missão sempre foi oferecer mais do que produtos; oferecemos uma experiência de autoestima e bem-estar. Cada peça de roupa é selecionada com um olhar atento às tendências e à qualidade, e cada perfume é escolhido por sua capacidade de criar memórias inesquecíveis.</p>
+                        <p>A {appName || 'loja'} nasceu de uma paixão por aromas marcantes e pela moda que expressa identidade. Fundada em João Pessoa, Paraíba, nossa missão sempre foi oferecer mais do que produtos; oferecemos uma experiência de autoestima e bem-estar. Cada peça de roupa é selecionada com um olhar atento às tendências e à qualidade, e cada perfume é escolhido por sua capacidade de criar memórias inesquecíveis.</p>
                     </section>
 
                     <section>
@@ -8664,7 +8665,8 @@ const AboutPage = () => {
     );
 };
 
-const PrivacyPolicyPage = () => {
+const PrivacyPolicyPage = ({ appName, appLogoText }) => {
+    const displayLogo = appLogoText || appName || 'nossa loja';
     return (
         <div className="bg-black text-white min-h-screen py-16">
             <div className="container mx-auto px-4 max-w-4xl">
@@ -8673,7 +8675,7 @@ const PrivacyPolicyPage = () => {
                     <p className="text-gray-400">Última atualização: 16 de Outubro de 2025</p>
                 </div>
                 <div className="bg-gray-900 p-8 rounded-lg border border-gray-800 space-y-6 text-gray-300 leading-relaxed">
-                    <p>Sua privacidade é importante para nós. É política da LovecestasePerfumes respeitar a sua privacidade em relação a qualquer informação sua que possamos coletar em nosso site.</p>
+                    <p>Sua privacidade é importante para nós. É política da {displayLogo} respeitar a sua privacidade em relação a qualquer informação sua que possamos coletar em nosso site.</p>
                     
                     <h3 className="text-xl font-bold text-white pt-4">1. Coleta de Dados</h3>
                     <p>Solicitamos informações pessoais apenas quando realmente precisamos delas para lhe fornecer um serviço. Fazemo-lo por meios justos e legais, com o seu conhecimento e consentimento. Também informamos por que estamos coletando e como será usado.</p>
@@ -8698,7 +8700,8 @@ const PrivacyPolicyPage = () => {
     );
 };
 
-const TermsOfServicePage = () => {
+const TermsOfServicePage = ({ appName, appLogoText }) => {
+    const displayLogo = appLogoText || appName || 'nossa loja';
     return (
         <div className="bg-black text-white min-h-screen py-16">
             <div className="container mx-auto px-4 max-w-4xl">
@@ -8708,7 +8711,7 @@ const TermsOfServicePage = () => {
                 </div>
                 <div className="bg-gray-900 p-8 rounded-lg border border-gray-800 space-y-6 text-gray-300 leading-relaxed">
                     <h3 className="text-xl font-bold text-white">1. Aceitação dos Termos</h3>
-                    <p>Ao acessar e usar o site da LovecestasePerfumes, você concorda em cumprir estes Termos de Serviço e todas as leis e regulamentos aplicáveis. Se você não concorda com algum destes termos, está proibido de usar ou acessar este site.</p>
+                    <p>Ao acessar e usar o site da {displayLogo}, você concorda em cumprir estes Termos de Serviço e todas as leis e regulamentos aplicáveis. Se você não concorda com algum destes termos, está proibido de usar ou acessar este site.</p>
 
                     <h3 className="text-xl font-bold text-white pt-4">2. Contas de Usuário</h3>
                     <p>Para acessar certas funcionalidades, você pode ser solicitado a criar uma conta. Você é responsável por manter a confidencialidade de sua senha e por todas as atividades que ocorrem em sua conta. Você concorda em nos notificar imediatamente sobre qualquer uso não autorizado de sua conta.</p>
@@ -8720,14 +8723,14 @@ const TermsOfServicePage = () => {
                     <p>Reservamo-nos o direito de recusar qualquer pedido que você fizer conosco. Podemos, a nosso critério, limitar ou cancelar as quantidades compradas por pessoa, por domicílio ou por pedido. No caso de fazermos uma alteração ou cancelarmos um pedido, podemos tentar notificá-lo entrando em contato com o e-mail e/ou endereço de faturamento/número de telefone fornecido no momento em que o pedido foi feito.</p>
 
                     <h3 className="text-xl font-bold text-white pt-4">5. Limitação de Responsabilidade</h3>
-                    <p>Em nenhuma circunstância a LovecestasePerfumes será responsável por quaisquer danos (incluindo, sem limitação, danos por perda de dados ou lucro, ou devido a interrupção dos negócios) decorrentes do uso ou da incapacidade de usar os materiais no site da LovecestasePerfumes.</p>
+                    <p>Em nenhuma circunstância a {displayLogo} será responsável por quaisquer danos (incluindo, sem limitação, danos por perda de dados ou lucro, ou devido a interrupção dos negócios) decorrentes do uso ou da incapacidade de usar os materiais no site da {displayLogo}.</p>
                 </div>
             </div>
         </div>
     );
 };
 
-const AdminNewsletter = () => {
+const AdminNewsletter = ({ appName }) => {
     const [subscribers, setSubscribers] = useState([]);
     const [products, setProducts] = useState([]); // Lista de produtos para o select
     const [isLoading, setIsLoading] = useState(true);
@@ -8946,6 +8949,9 @@ const AdminNewsletter = () => {
                                 {isSending ? 'Enviando...' : 'Enviar para Todos'}
                             </button>
                         </div>
+                        <p className="text-center text-xs text-gray-500 mt-4">
+                            Você recebeu este e-mail porque se inscreveu no Clube VIP da {appName || 'loja'}.
+                        </p>
                     </form>
                 </div>
             )}
@@ -12298,7 +12304,7 @@ const AdminRefunds = ({ onNavigate }) => {
     );
 };
 
-const AdminOrders = () => {
+const AdminOrders = ({ appName }) => {
     const [orders, setOrders] = useState([]);
     const [filteredOrders, setFilteredOrders] = useState([]);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -12421,7 +12427,7 @@ const AdminOrders = () => {
         );
     };
 
-    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS (RESTAURADA) ---
+    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS ---
     const generateWhatsAppStatusMessage = (status, order, trackingCode) => {
         const customerName = order.user_name;
         const orderId = order.id;
@@ -12469,8 +12475,8 @@ const AdminOrders = () => {
              
              text += `${EMOJI.CHECK} Assim que confirmado, você será notificado automaticamente por aqui e por e-mail.\n`;
              
-             // Encerra a mensagem aqui para focar na ação de pagamento
-             text += `\nAtenciosamente,\n*Equipe Love Cestas e Perfumes*\n${EMOJI.PHONE} (83) 98737-9573`;
+             // Encerra a mensagem aqui para focar na ação de pagamento, usando o NOME DINÂMICO
+             text += `\nAtenciosamente,\n*Equipe ${appName || 'da Loja'}*\n${EMOJI.PHONE} (83) 98737-9573`;
              return text;
         }
 
@@ -12549,7 +12555,7 @@ const AdminOrders = () => {
         }
 
         text += `\n\n${EMOJI.LINK} *Detalhes no site:*\n${orderLink}`;
-        text += `\n\nAtenciosamente,\n*Equipe Love Cestas e Perfumes*\n${EMOJI.PHONE} (83) 98737-9573`;
+        text += `\n\nAtenciosamente,\n*Equipe ${appName || 'da Loja'}*\n${EMOJI.PHONE} (83) 98737-9573`;
         
         return text;
     };
@@ -15356,11 +15362,13 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
                     onClick={() => onNavigate(currentBanner.link_url.replace(/^#/, ''))}
                 >
                     <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${imageUrl})` }} />
-                    <div className="absolute inset-0 bg-black/40" />
+                    
+                    {/* AQUI ESTÁ A CORREÇÃO: Utilizando a cor sólida HEX para não sofrer interferência das variáveis do tema claro */}
+                    <div className="absolute inset-0 bg-[#000000]/40" />
                     
                     {(currentBanner.title || currentBanner.subtitle || currentBanner.cta_enabled) && (
                          <motion.div 
-                            className="relative z-10 h-full flex flex-col items-center justify-center text-center text-white p-4"
+                            className="relative z-10 h-full flex flex-col items-center justify-center text-center text-[#ffffff] p-4"
                             variants={bannerVariants}
                             initial="hidden"
                             animate="visible"
@@ -15378,14 +15386,13 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
                             {currentBanner.subtitle && (
                                 <motion.p 
                                     variants={itemVariants}
-                                    className="text-base md:text-xl mt-2 md:mt-4 max-w-2xl text-gray-200"
+                                    className="text-base md:text-xl mt-2 md:mt-4 max-w-2xl text-[#e5e7eb]"
                                 >
                                     {currentBanner.subtitle}
                                 </motion.p>
                             )}
                              {currentBanner.cta_enabled === 1 && currentBanner.cta_text && (
                                 <motion.div variants={itemVariants}>
-                                    {/* ATUALIZAÇÃO: Botões aumentados no mobile (px-8 py-3 e text-base) para melhor destaque e usabilidade */}
                                     <button className="mt-6 md:mt-8 bg-amber-400 text-black px-8 py-3 md:px-12 md:py-4 rounded-md text-base md:text-lg font-bold hover:bg-amber-300 transition-colors shadow-xl active:scale-95">
                                         {currentBanner.cta_text}
                                     </button>
@@ -15398,15 +15405,15 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
 
             {banners.length > 1 && (
                 <>
-                    <button onClick={(e) => { e.stopPropagation(); goPrev(); }} className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/30 rounded-full text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                    <button onClick={(e) => { e.stopPropagation(); goPrev(); }} className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-[#000000]/30 rounded-full text-[#ffffff] md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); goNext(); }} className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/30 rounded-full text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                    <button onClick={(e) => { e.stopPropagation(); goNext(); }} className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-[#000000]/30 rounded-full text-[#ffffff] md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                     </button>
                     <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex space-x-2">
                         {banners.map((_, index) => (
-                            <button key={index} onClick={(e) => { e.stopPropagation(); setCurrentIndex(index); }} className={`w-3 h-3 rounded-full transition-colors ${currentIndex === index ? 'bg-amber-400' : 'bg-white/50'}`} />
+                            <button key={index} onClick={(e) => { e.stopPropagation(); setCurrentIndex(index); }} className={`w-3 h-3 rounded-full transition-colors ${currentIndex === index ? 'bg-amber-400' : 'bg-[#ffffff]/50'}`} />
                         ))}
                     </div>
                 </>
@@ -15428,21 +15435,19 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 const AdminThemeSettings = () => {
-    // Tema intocável (Original)
     const defaultThemeFallback = {
-        primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af'
+        primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af', animationsEnabled: true, activeSeason: null
     };
 
-    // Temas Sazonais (Demonstração no painel)
+    // Temas Sazonais com IDs para forçar a animação
     const seasonalThemesPreview = [
-        { name: 'Natal', date: 'Dezembro', colors: { primary: '#ef4444', primaryHover: '#dc2626', bg: '#000000', surface: '#052e16', surfaceHover: '#064e3b', text: '#ffffff', textMuted: '#a7f3d0' } },
-        { name: 'Namorados', date: 'Junho', colors: { primary: '#ec4899', primaryHover: '#db2777', bg: '#000000', surface: '#4a044e', surfaceHover: '#701a75', text: '#ffffff', textMuted: '#fbcfe8' } },
-        { name: 'Pais', date: 'Agosto', colors: { primary: '#3b82f6', primaryHover: '#2563eb', bg: '#000000', surface: '#0f172a', surfaceHover: '#1e293b', text: '#ffffff', textMuted: '#94a3b8' } },
-        { name: 'Mães', date: 'Maio', colors: { primary: '#f43f5e', primaryHover: '#e11d48', bg: '#000000', surface: '#2e1065', surfaceHover: '#4c1d95', text: '#ffffff', textMuted: '#e2e8f0' } },
-        { name: 'Black Friday', date: 'Novembro', colors: { primary: '#a855f7', primaryHover: '#9333ea', bg: '#000000', surface: '#18181b', surfaceHover: '#27272a', text: '#ffffff', textMuted: '#a1a1aa' } },
+        { id: 'natal', name: 'Natal', date: 'Dezembro', colors: { primary: '#ef4444', primaryHover: '#dc2626', bg: '#000000', surface: '#052e16', surfaceHover: '#064e3b', text: '#ffffff', textMuted: '#a7f3d0' } },
+        { id: 'namorados', name: 'Namorados', date: 'Junho', colors: { primary: '#f43f5e', primaryHover: '#e11d48', bg: '#000000', surface: '#2e1065', surfaceHover: '#4c1d95', text: '#ffffff', textMuted: '#e2e8f0' } }, 
+        { id: 'pais', name: 'Pais', date: 'Agosto', colors: { primary: '#3b82f6', primaryHover: '#2563eb', bg: '#000000', surface: '#0f172a', surfaceHover: '#1e293b', text: '#ffffff', textMuted: '#94a3b8' } },
+        { id: 'maes', name: 'Mães', date: 'Maio', colors: { primary: '#ec4899', primaryHover: '#db2777', bg: '#000000', surface: '#4a044e', surfaceHover: '#701a75', text: '#ffffff', textMuted: '#fbcfe8' } }, 
+        { id: 'blackfriday', name: 'Black Friday', date: 'Novembro', colors: { primary: '#a855f7', primaryHover: '#9333ea', bg: '#000000', surface: '#18181b', surfaceHover: '#27272a', text: '#ffffff', textMuted: '#a1a1aa' } },
     ];
 
-    // Presets Premium
     const predefinedPresets = [
         { name: 'Ouro Elegante', colors: { primary: '#d4af37', primaryHover: '#b8972e', bg: '#020617', surface: '#0f172a', surfaceHover: '#1e293b', text: '#f8fafc', textMuted: '#94a3b8' } },
         { name: 'Ruby Premium', colors: { primary: '#e11d48', primaryHover: '#be123c', bg: '#000000', surface: '#1c1917', surfaceHover: '#27272a', text: '#ffffff', textMuted: '#a1a1aa' } },
@@ -15450,8 +15455,8 @@ const AdminThemeSettings = () => {
         { name: 'Natureza Suave', colors: { primary: '#10b981', primaryHover: '#059669', bg: '#ecfdf5', surface: '#ffffff', surfaceHover: '#f0fdf4', text: '#064e3b', textMuted: '#34d399' } }
     ];
 
-    const [localConfig, setLocalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false });
-    const [originalConfig, setOriginalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false });
+    const [localConfig, setLocalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true, activeSeason: null });
+    const [originalConfig, setOriginalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true, activeSeason: null });
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -15463,7 +15468,11 @@ const AdminThemeSettings = () => {
         apiService('/settings/theme')
             .then(data => {
                 const isAuto = data.autoSeasonal === true || data.autoSeasonal === 'true' || data.autoSeasonal === 1;
-                const loadedConfig = data.colors ? { ...data, autoSeasonal: isAuto } : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto };
+                const animEnabled = data.animationsEnabled !== false;
+                const activeSeason = data.activeSeason || null;
+                const loadedConfig = data.colors 
+                    ? { ...data, autoSeasonal: isAuto, animationsEnabled: animEnabled, activeSeason } 
+                    : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto, animationsEnabled: animEnabled, activeSeason };
                 
                 setLocalConfig(loadedConfig);
                 setOriginalConfig(loadedConfig);
@@ -15472,19 +15481,19 @@ const AdminThemeSettings = () => {
             .finally(() => setIsLoading(false));
     }, []); 
 
-    const dispatchPreview = (newConfig) => {
-        window.dispatchEvent(new CustomEvent('app-theme-updated', { detail: newConfig }));
+    const dispatchPreview = (newConfig, activeSeason = null) => {
+        window.dispatchEvent(new CustomEvent('app-theme-updated', { detail: { ...newConfig, previewSeason: activeSeason } }));
     };
 
     const handleColorChange = (key, value) => {
-        const newConfig = { ...localConfig, colors: { ...localConfig.colors, [key]: value }, autoSeasonal: false };
+        const newConfig = { ...localConfig, colors: { ...localConfig.colors, [key]: value }, autoSeasonal: false, activeSeason: null };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig);
     };
 
     const handleToggleSeasonal = () => {
         const newSeasonalStatus = !localConfig.autoSeasonal;
-        const newConfig = { ...localConfig, autoSeasonal: newSeasonalStatus };
+        const newConfig = { ...localConfig, autoSeasonal: newSeasonalStatus, activeSeason: null };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig);
         if (newSeasonalStatus) {
@@ -15494,15 +15503,23 @@ const AdminThemeSettings = () => {
         }
     };
 
-    const applyPreset = (presetColors) => {
-        const newConfig = { colors: { ...presetColors }, autoSeasonal: false };
+    const handleToggleAnimations = () => {
+        const newStatus = !localConfig.animationsEnabled;
+        const newConfig = { ...localConfig, animationsEnabled: newStatus };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig);
+    };
+
+    const applyPreset = (presetColors, seasonId = null) => {
+        // CORREÇÃO: Agora salvamos permanentemente o activeSeason no config local
+        const newConfig = { ...localConfig, colors: { ...presetColors }, autoSeasonal: false, activeSeason: seasonId };
+        setLocalConfig(newConfig);
+        dispatchPreview(newConfig, seasonId);
         notification.show("Tema aplicado na pré-visualização. Clique em Salvar para publicar.");
     };
 
     const handleRestoreDefault = () => {
-        const newConfig = { colors: { ...defaultThemeFallback }, autoSeasonal: false };
+        const newConfig = { ...localConfig, colors: { ...defaultThemeFallback }, autoSeasonal: false, activeSeason: null };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig);
         notification.show("Cores padrão restauradas na pré-visualização. Clique em 'Salvar' para confirmar.");
@@ -15510,19 +15527,19 @@ const AdminThemeSettings = () => {
 
     const handleCancel = () => {
         setLocalConfig(originalConfig);
-        dispatchPreview(originalConfig);
+        dispatchPreview(originalConfig, originalConfig.activeSeason);
         notification.show("Alterações descartadas.");
     };
 
     const handleSave = () => {
         confirmation.show(
-            "Tem certeza que deseja aplicar este tema ao site de forma definitiva?",
+            "Tem certeza que deseja aplicar este tema e configurações ao site de forma definitiva?",
             async () => {
                 setIsSaving(true);
                 try {
                     await apiService('/settings/theme', 'PUT', { themeConfig: localConfig });
                     setOriginalConfig(localConfig); 
-                    notification.show("Novo tema aplicado com sucesso!");
+                    notification.show("Novo tema e configurações aplicados com sucesso!");
                 } catch (error) {
                     notification.show(`Erro ao salvar: ${error.message}`, "error");
                 } finally {
@@ -15533,19 +15550,20 @@ const AdminThemeSettings = () => {
         );
     };
 
-    // Função auxiliar para verificar visualmente se o preset atual está ativo
     const isPresetActive = (colorsObj) => {
         return localConfig.colors.primary === colorsObj.primary &&
                localConfig.colors.bg === colorsObj.bg &&
                localConfig.colors.surface === colorsObj.surface &&
-               !localConfig.autoSeasonal;
+               !localConfig.autoSeasonal && 
+               !localConfig.activeSeason;
     };
 
-    const isSeasonalActive = (seasonColors) => {
+    const isSeasonalActive = (seasonColors, seasonId) => {
         return localConfig.colors.primary === seasonColors.primary &&
                localConfig.colors.bg === seasonColors.bg &&
                localConfig.colors.surface === seasonColors.surface &&
-               !localConfig.autoSeasonal;
+               !localConfig.autoSeasonal &&
+               localConfig.activeSeason === seasonId;
     };
 
     if (isLoading) return <div className="flex justify-center py-20"><SpinnerIcon className="h-8 w-8 text-indigo-600"/></div>;
@@ -15574,10 +15592,10 @@ const AdminThemeSettings = () => {
         <div className="max-w-6xl mx-auto space-y-8 pb-12">
             <div>
                 <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Identidade Visual e Temas</h1>
-                <p className="text-slate-500 text-sm mt-1">Gerencie as cores da sua loja. O preview é em tempo real, mas os clientes só verão as mudanças após você salvar.</p>
+                <p className="text-slate-500 text-sm mt-1">Gerencie as cores e os efeitos da sua loja. O preview é em tempo real.</p>
             </div>
 
-            {/* SEÇÃO 1: Automação Sazonal */}
+            {/* SEÇÃO 1: Automação Sazonal e Animações */}
             <div className="bg-gradient-to-r from-indigo-900 to-slate-900 rounded-2xl shadow-lg p-1">
                 <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 border border-white/10">
                     <div className="text-white flex-1">
@@ -15585,9 +15603,21 @@ const AdminThemeSettings = () => {
                             <SparklesIcon className="h-6 w-6 text-amber-400"/> Temas Sazonais Inteligentes
                         </h2>
                         <p className="text-indigo-200 text-sm leading-relaxed max-w-2xl">
-                            Ative esta opção para que o site mude automaticamente de tema durante datas comemorativas (Natal, Dia dos Namorados, Black Friday, etc). Fora dessas datas, o seu tema personalizado será exibido normalmente.
+                            Ative esta opção para que o site mude automaticamente de tema e exiba efeitos visuais (corações, neve) durante datas comemorativas.
                         </p>
+                        
+                        <div className="flex items-center justify-between p-4 bg-black/30 border border-white/10 rounded-xl mt-4 max-w-md">
+                            <div>
+                                <h3 className="text-white font-bold text-sm">Permitir Efeitos Animados</h3>
+                                <p className="text-indigo-200 text-[10px]">Neve, corações, brilhos caindo na tela.</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" checked={localConfig.animationsEnabled !== false} onChange={handleToggleAnimations} className="sr-only peer" />
+                                <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                            </label>
+                        </div>
                     </div>
+                    
                     <div className="flex-shrink-0 bg-white/5 p-4 rounded-xl border border-white/10 flex flex-col items-center">
                         <label className="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" checked={localConfig.autoSeasonal} onChange={handleToggleSeasonal} className="sr-only peer" />
@@ -15599,26 +15629,25 @@ const AdminThemeSettings = () => {
                     </div>
                 </div>
                 
-                <div className="px-6 pb-6 pt-2">
-                    <p className="text-xs text-indigo-300 mb-3 uppercase tracking-wider font-bold">Clique para testar os temas do calendário:</p>
+                <div className="px-6 pb-6 pt-4">
+                    <p className="text-xs text-indigo-300 mb-3 uppercase tracking-wider font-bold">Clique para testar os temas e animações do calendário:</p>
                     <div className="flex flex-wrap gap-3">
                         {seasonalThemesPreview.map(season => (
                             <button 
                                 key={season.name} 
                                 type="button"
-                                onClick={() => applyPreset(season.colors)}
+                                onClick={() => applyPreset(season.colors, season.id)}
                                 className={`flex items-center gap-2 border rounded-lg px-3 py-1.5 transition-all cursor-pointer shadow-sm active:scale-95 ${
-                                    isSeasonalActive(season.colors) 
+                                    isSeasonalActive(season.colors, season.id) 
                                     ? 'bg-white/20 border-amber-400 ring-1 ring-amber-400' 
                                     : 'bg-white/10 hover:bg-white/20 border-white/20 hover:border-amber-300'
                                 }`}
-                                title={`Clique para testar as cores de ${season.name}`}
                             >
                                 <div className="flex -space-x-2">
                                     <div className="w-4 h-4 rounded-full border border-slate-800 shadow-sm" style={{ backgroundColor: season.colors.surface }}></div>
                                     <div className="w-4 h-4 rounded-full border border-slate-800 shadow-sm" style={{ backgroundColor: season.colors.primary }}></div>
                                 </div>
-                                <span className="text-xs text-white font-bold">{season.name} <span className="text-indigo-300 font-normal">({season.date})</span></span>
+                                <span className="text-xs text-white font-bold">{season.name}</span>
                             </button>
                         ))}
                     </div>
@@ -15628,7 +15657,6 @@ const AdminThemeSettings = () => {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 {/* SEÇÃO 2: Controles de Cor */}
                 <div className="lg:col-span-7 space-y-6">
-                    {/* Temas Rápidos */}
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -15668,7 +15696,6 @@ const AdminThemeSettings = () => {
                         </div>
                     </div>
 
-                    {/* Cores Customizadas */}
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-3">
                         <h2 className="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
                             <ChartIcon className="h-5 w-5 text-indigo-500"/> Personalização Fina
@@ -15699,7 +15726,6 @@ const AdminThemeSettings = () => {
                             className="w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden transition-colors duration-500 border border-white/10 flex flex-col"
                             style={{ backgroundColor: localConfig.colors.bg }}
                         >
-                            {/* Header Falso */}
                             <div className="px-5 py-4 flex items-center justify-between shadow-sm transition-colors duration-500" style={{ backgroundColor: localConfig.colors.surface }}>
                                 <div className="flex items-center gap-2">
                                     <div className="w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-500" style={{ backgroundColor: localConfig.colors.primary }}>
@@ -15713,13 +15739,11 @@ const AdminThemeSettings = () => {
                                 </div>
                             </div>
                             
-                            {/* Banner Falso */}
                             <div className="h-24 w-full flex flex-col items-center justify-center transition-colors duration-500" style={{ backgroundColor: localConfig.colors.surfaceHover }}>
                                 <span className="text-[10px] font-bold uppercase tracking-widest transition-colors duration-500" style={{ color: localConfig.colors.primary }}>Nova Coleção</span>
                                 <h3 className="text-lg font-bold transition-colors duration-500" style={{ color: localConfig.colors.text }}>Inverno 2026</h3>
                             </div>
 
-                            {/* Corpo Falso */}
                             <div className="p-5 flex-grow">
                                 <div className="flex gap-4 mb-4">
                                     <div className="w-20 h-24 rounded-lg flex-shrink-0 transition-colors duration-500" style={{ backgroundColor: localConfig.colors.surface }}></div>
@@ -15747,11 +15771,9 @@ const AdminThemeSettings = () => {
                                     style={{ backgroundColor: localConfig.colors.primary, color: localConfig.colors.bg }}
                                     onMouseEnter={(e) => {
                                         e.target.style.backgroundColor = localConfig.colors.primaryHover;
-                                        e.target.style.transform = 'scale(1.02)';
                                     }}
                                     onMouseLeave={(e) => {
                                         e.target.style.backgroundColor = localConfig.colors.primary;
-                                        e.target.style.transform = 'scale(1)';
                                     }}
                                 >
                                     <CartIcon className="h-4 w-4"/> Comprar Agora
@@ -15762,7 +15784,6 @@ const AdminThemeSettings = () => {
                 </div>
             </div>
 
-            {/* Ações Fixas */}
             <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-200 sticky bottom-0 bg-gray-50/90 backdrop-blur p-4 -mx-4 sm:mx-0 sm:bg-transparent sm:p-0 z-10">
                 <button 
                     type="button"
@@ -15770,7 +15791,7 @@ const AdminThemeSettings = () => {
                     disabled={isSaving}
                     className="px-6 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 shadow-sm transition-all"
                 >
-                    Descartar Alterações
+                    Descartar
                 </button>
                 <button 
                     type="button"
@@ -15785,20 +15806,157 @@ const AdminThemeSettings = () => {
         </div>
     );
 };
+// Componente de Animações Sazonais (Alta Performance via CSS Animation e Memoização)
+const SeasonalAnimations = memo(({ isEnabled, forcedSeason, isAppReady }) => {
+    const [season, setSeason] = useState(null);
+    const [isActive, setIsActive] = useState(false); 
+    const [isMounted, setIsMounted] = useState(false); 
+
+    useEffect(() => {
+        // Se a animação estiver desativada pelo Admin ou se o app ainda estiver na tela de carregamento, não faz nada.
+        if (!isEnabled || !isAppReady) {
+            return;
+        }
+
+        // Se veio forçado pelo config (Admin salvou o tema sazonal)
+        if (forcedSeason) {
+            setSeason(forcedSeason);
+        } else {
+            const now = new Date();
+            const m = now.getMonth() + 1;
+            const d = now.getDate();
+
+            if (m === 12 && d <= 25) setSeason('natal');
+            else if (m === 6 && d <= 12) setSeason('namorados');
+            else if (m === 5 && d <= 15) setSeason('maes');
+            else if (m === 8 && d <= 15) setSeason('pais');
+            else if (m === 11 && d >= 15) setSeason('blackfriday');
+            else {
+                setSeason(null);
+                return;
+            }
+        }
+
+        // Inicia a animação apenas quando o app estiver pronto
+        setIsActive(true);
+        setIsMounted(true);
+        
+        const fadeTimer = setTimeout(() => {
+            setIsActive(false); // Inicia o fade out suave aos 5 segundos
+        }, 5000);
+        
+        const unmountTimer = setTimeout(() => {
+            setIsMounted(false); // Remove totalmente da memória aos 6 segundos
+        }, 6000);
+
+        return () => {
+            clearTimeout(fadeTimer);
+            clearTimeout(unmountTimer);
+        };
+    }, [isEnabled, forcedSeason, isAppReady]); // A dependência isAppReady garante que só inicie após o load
+
+    const particles = useMemo(() => {
+        if (!season) return [];
+        
+        let count = 0;
+        if (season === 'natal') count = 40;
+        else if (season === 'namorados' || season === 'maes') count = 25;
+        else if (season === 'pais') count = 15;
+        else if (season === 'blackfriday') count = 40;
+
+        return [...Array(count)].map((_, i) => ({
+            id: i,
+            left: Math.random() * 100,
+            top: season === 'blackfriday' ? Math.random() * 100 : -10,
+            animDuration: season === 'blackfriday' ? 1 + Math.random() * 2 : 4 + Math.random() * 4,
+            delay: season === 'blackfriday' ? Math.random() * 2 : Math.random() * -5,
+            size: season === 'blackfriday' ? 0.1 + Math.random() * 0.3 : 0.8 + Math.random() * 1.5,
+        }));
+    }, [season]);
+
+    if (!isEnabled || !isAppReady || !isMounted || !season || particles.length === 0) return null;
+
+    return (
+        <div className={`fixed inset-0 pointer-events-none z-[100] overflow-hidden transition-opacity duration-1000 ${isActive ? 'opacity-100' : 'opacity-0'}`} aria-hidden="true">
+            <style>{`
+                @keyframes fall {
+                    0% { transform: translateY(-10vh) rotate(0deg); opacity: 0; }
+                    10% { opacity: 1; }
+                    80% { opacity: 1; }
+                    100% { transform: translateY(110vh) rotate(360deg); opacity: 0; }
+                }
+                @keyframes sparkle {
+                    0%, 100% { opacity: 0; transform: scale(0); }
+                    50% { opacity: 1; transform: scale(1); }
+                }
+            `}</style>
+
+            {particles.map((p) => {
+                if (season === 'blackfriday') {
+                    return (
+                        <div
+                            key={p.id}
+                            className="absolute bg-amber-400 rounded-full"
+                            style={{
+                                left: `${p.left}vw`,
+                                top: `${p.top}vh`,
+                                width: `${p.size}rem`,
+                                height: `${p.size}rem`,
+                                boxShadow: '0 0 12px 4px rgba(251, 191, 36, 0.8)',
+                                animation: `sparkle ${p.animDuration}s ease-in-out ${p.delay}s infinite`,
+                            }}
+                        />
+                    );
+                }
+
+                let content;
+                if (season === 'natal') {
+                    content = <div className="rounded-full bg-white" style={{ width: `${p.size * 0.3}rem`, height: `${p.size * 0.3}rem`, boxShadow: '0 0 10px rgba(255,255,255,1)' }} />;
+                } else if (season === 'namorados') {
+                    content = '❤️';
+                } else if (season === 'maes') {
+                    content = '🌸';
+                } else if (season === 'pais') {
+                    content = '👔';
+                }
+
+                return (
+                    <div
+                        key={p.id}
+                        className="absolute"
+                        style={{
+                            left: `${p.left}vw`,
+                            top: `${p.top}vh`,
+                            fontSize: season !== 'natal' ? `${p.size}rem` : undefined,
+                            animation: `fall ${p.animDuration}s linear ${p.delay}s infinite`,
+                            opacity: season === 'pais' ? 0.4 : 0.7,
+                            filter: season !== 'natal' ? 'drop-shadow(0px 4px 6px rgba(0,0,0,0.3))' : 'none'
+                        }}
+                    >
+                        {content}
+                    </div>
+                );
+            })}
+        </div>
+    );
+});
+
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
+  // LOGICA DO CLIENTE REMOVIDA TOTALMENTE (APENAS O ADMIN CONTROLA)
+
   const defaultThemeFallback = {
-      primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af'
+      primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af', animationsEnabled: true, activeSeason: null
   };
 
   const seasonalThemes = {
       natal: { primary: '#ef4444', primaryHover: '#dc2626', bg: '#000000', surface: '#052e16', surfaceHover: '#064e3b', text: '#ffffff', textMuted: '#a7f3d0' },
-      namorados: { primary: '#ec4899', primaryHover: '#db2777', bg: '#000000', surface: '#4a044e', surfaceHover: '#701a75', text: '#ffffff', textMuted: '#fbcfe8' },
-      maes: { primary: '#f43f5e', primaryHover: '#e11d48', bg: '#000000', surface: '#2e1065', surfaceHover: '#4c1d95', text: '#ffffff', textMuted: '#e2e8f0' },
+      namorados: { primary: '#f43f5e', primaryHover: '#e11d48', bg: '#000000', surface: '#2e1065', surfaceHover: '#4c1d95', text: '#ffffff', textMuted: '#e2e8f0' }, 
+      maes: { primary: '#ec4899', primaryHover: '#db2777', bg: '#000000', surface: '#4a044e', surfaceHover: '#701a75', text: '#ffffff', textMuted: '#fbcfe8' }, 
       pais: { primary: '#3b82f6', primaryHover: '#2563eb', bg: '#000000', surface: '#0f172a', surfaceHover: '#1e293b', text: '#ffffff', textMuted: '#94a3b8' },
       blackfriday: { primary: '#a855f7', primaryHover: '#9333ea', bg: '#000000', surface: '#18181b', surfaceHover: '#27272a', text: '#ffffff', textMuted: '#a1a1aa' }
   };
@@ -15817,12 +15975,32 @@ function AppContent({ deferredPrompt }) {
       return null;
   }, []);
 
-  const [appThemeConfig, setAppThemeConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false });
+  const [appThemeConfig, setAppThemeConfig] = useState(() => {
+      try {
+          const cached = localStorage.getItem('lovecestas_theme_config');
+          if (cached) {
+              const parsed = JSON.parse(cached);
+              if (parsed.animationsEnabled === undefined) parsed.animationsEnabled = true;
+              if (parsed.autoSeasonal === undefined) parsed.autoSeasonal = false;
+              return parsed;
+          }
+      } catch(e) {}
+      return { colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true, activeSeason: null };
+  });
+  
+  const [previewSeason, setPreviewSeason] = useState(null);
+
   const [appLogo, setAppLogo] = useState(() => {
       return localStorage.getItem('lovecestas_app_logo') || 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
   });
   
-  const [appNameConfig, setAppNameConfig] = useState({ short_name: 'Love Cestas', name: 'Love Cestas e Perfumes', logo_text: 'LovecestasePerfumes' });
+  const [appNameConfig, setAppNameConfig] = useState(() => {
+      try {
+          const cached = localStorage.getItem('lovecestas_app_name');
+          if (cached) return JSON.parse(cached);
+      } catch(e) {}
+      return { short_name: 'Love Cestas', name: 'Love Cestas e Perfumes', logo_text: 'LovecestasePerfumes' };
+  });
 
   const activeThemeColors = useMemo(() => {
       if (appThemeConfig.autoSeasonal) {
@@ -15832,8 +16010,7 @@ function AppContent({ deferredPrompt }) {
       return appThemeConfig.colors || defaultThemeFallback;
   }, [appThemeConfig, getSeasonalTheme]);
 
-  // --- MÁGICA DOS TEMAS: Injeção Dinâmica de CSS Variables (CORRIGIDA E BLINDADA) ---
-  useEffect(() => {
+  React.useLayoutEffect(() => {
       const t = activeThemeColors;
       const isAdmin = currentPath.startsWith('admin');
       
@@ -15851,24 +16028,47 @@ function AppContent({ deferredPrompt }) {
           return;
       }
 
-      // CORREÇÃO CRÍTICA: Apenas a cor Primária (Amber) é substituída.
-      // Os fundos (bg-black, bg-gray-900) permanecem usando o Tailwind nativo,
-      // preservando assim as opacidades (bg-black/80) dos modais e elementos.
       styleElement.innerHTML = `
           :root {
               --theme-primary: ${t.primary};
               --theme-primary-hover: ${t.primaryHover};
+              --theme-bg: ${t.bg};
+              --theme-surface: ${t.surface};
+              --theme-surface-hover: ${t.surfaceHover};
+              --theme-text: ${t.text};
+              --theme-text-muted: ${t.textMuted};
           }
 
-          /* Cor Primária (Botões, Ícones, Textos Destacados) */
-          .bg-amber-400, .bg-amber-500 { background-color: var(--theme-primary) !important; color: #000000 !important; }
-          .hover\\:bg-amber-300:hover, .hover\\:bg-amber-400:hover { background-color: var(--theme-primary-hover) !important; color: #000000 !important; }
-          
+          .bg-amber-400, .bg-amber-500 { background-color: var(--theme-primary) !important; color: var(--theme-bg) !important; }
+          .hover\\:bg-amber-300:hover, .hover\\:bg-amber-400:hover { background-color: var(--theme-primary-hover) !important; color: var(--theme-bg) !important; }
           .text-amber-400, .text-amber-500 { color: var(--theme-primary) !important; }
           .hover\\:text-amber-300:hover, .hover\\:text-amber-400:hover { color: var(--theme-primary-hover) !important; }
-          
           .border-amber-400, .border-amber-500 { border-color: var(--theme-primary) !important; }
           .ring-amber-400 { --tw-ring-color: var(--theme-primary) !important; }
+
+          .bg-black { background-color: var(--theme-bg) !important; }
+          .bg-gray-900 { background-color: var(--theme-surface) !important; }
+          .bg-gray-800 { background-color: var(--theme-surface-hover) !important; }
+          
+          .bg-black\\/80 { background-color: color-mix(in srgb, var(--theme-bg) 80%, transparent) !important; }
+          .bg-black\\/70 { background-color: color-mix(in srgb, var(--theme-bg) 70%, transparent) !important; }
+          .bg-black\\/60 { background-color: color-mix(in srgb, var(--theme-bg) 60%, transparent) !important; }
+          .bg-black\\/40 { background-color: color-mix(in srgb, var(--theme-bg) 40%, transparent) !important; }
+          .bg-black\\/30 { background-color: color-mix(in srgb, var(--theme-bg) 30%, transparent) !important; }
+          
+          .bg-gray-900\\/95 { background-color: color-mix(in srgb, var(--theme-surface) 95%, transparent) !important; }
+          .bg-gray-900\\/80 { background-color: color-mix(in srgb, var(--theme-surface) 80%, transparent) !important; }
+          .bg-gray-900\\/50 { background-color: color-mix(in srgb, var(--theme-surface) 50%, transparent) !important; }
+          
+          .bg-gray-800\\/50 { background-color: color-mix(in srgb, var(--theme-surface-hover) 50%, transparent) !important; }
+
+          .border-gray-800, .border-gray-700 { border-color: var(--theme-surface-hover) !important; }
+          
+          .text-white { color: var(--theme-text) !important; }
+          .text-gray-200 { color: color-mix(in srgb, var(--theme-text) 90%, var(--theme-bg)) !important; }
+          .text-gray-300 { color: color-mix(in srgb, var(--theme-text) 80%, var(--theme-bg)) !important; }
+          .text-gray-400 { color: var(--theme-text-muted) !important; }
+          .text-gray-500 { color: color-mix(in srgb, var(--theme-text-muted) 80%, var(--theme-bg)) !important; }
       `;
 
       return () => {
@@ -15888,11 +16088,16 @@ function AppContent({ deferredPrompt }) {
       const handleNameUpdate = (event) => {
           if (event.detail) {
               setAppNameConfig(event.detail);
+              localStorage.setItem('lovecestas_app_name', JSON.stringify(event.detail));
           }
       };
 
       const handleThemeUpdate = (event) => {
-          if (event.detail) setAppThemeConfig(event.detail);
+          if (event.detail) {
+              setAppThemeConfig(event.detail);
+              setPreviewSeason(event.detail.previewSeason || event.detail.activeSeason || null); 
+              localStorage.setItem('lovecestas_theme_config', JSON.stringify(event.detail));
+          }
       };
 
       window.addEventListener('app-name-updated', handleNameUpdate);
@@ -15909,13 +16114,14 @@ function AppContent({ deferredPrompt }) {
           .then(data => { 
               if (data) {
                   const isAuto = data.autoSeasonal === true || data.autoSeasonal === 'true' || data.autoSeasonal === 1;
-                  const loadedConfig = data.colors ? { ...data, autoSeasonal: isAuto } : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto };
+                  const animEnabled = data.animationsEnabled !== false;
+                  const loadedConfig = data.colors ? { ...data, autoSeasonal: isAuto, animationsEnabled: animEnabled, activeSeason: data.activeSeason } : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto, animationsEnabled: animEnabled, activeSeason: null };
                   setAppThemeConfig(loadedConfig); 
+                  localStorage.setItem('lovecestas_theme_config', JSON.stringify(loadedConfig));
               }
           })
           .catch(err => {
               console.log("Usando tema local estático fallback.");
-              setAppThemeConfig({ colors: defaultThemeFallback, autoSeasonal: false });
           });
 
       apiService(`/settings/app-icons?v=${new Date().getTime()}`)
@@ -15936,6 +16142,7 @@ function AppContent({ deferredPrompt }) {
           .then(data => {
               if (data && data.name) {
                   setAppNameConfig(data);
+                  localStorage.setItem('lovecestas_app_name', JSON.stringify(data));
               }
           })
           .catch(err => console.log("Nome mantido como original."));
@@ -16041,20 +16248,22 @@ function AppContent({ deferredPrompt }) {
   const safeShortName = appNameConfig?.short_name || 'Love Cestas';
   const safeLogoText = appNameConfig?.logo_text || (safeName ? String(safeName).replace(/\s/g, '') : 'LoveCestas');
 
-  if (isLoading || isStatusLoading) {
+  const isAppReady = !isLoading && !isStatusLoading;
+
+  if (!isAppReady) {
       return (
-        <div className="h-screen flex flex-col items-center justify-center bg-black gap-6">
+        <div className="h-screen flex flex-col items-center justify-center gap-6" style={{ backgroundColor: activeThemeColors.bg }}>
             <motion.div 
                 animate={{ scale: [1, 1.05, 1], opacity: [0.8, 1, 0.8] }} 
                 transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                 className="w-28 h-28 relative"
             >
-                <div className="absolute inset-0 bg-amber-500 blur-2xl opacity-20 rounded-full animate-pulse"></div>
+                <div className="absolute inset-0 blur-2xl opacity-20 rounded-full animate-pulse" style={{ backgroundColor: activeThemeColors.primary }}></div>
                 <img src={appLogo} alt={safeName} className="w-full h-full object-contain relative z-10" />
             </motion.div>
-            <div className="flex flex-col items-center gap-3">
-                <SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin"/>
-                <p className="text-amber-400/80 font-bold tracking-[0.2em] text-xs uppercase animate-pulse">Preparando a loja...</p>
+            <div className="flex flex-col items-center gap-3" style={{ color: activeThemeColors.primary }}>
+                <SpinnerIcon className="h-8 w-8 animate-spin" />
+                <p className="opacity-80 font-bold tracking-[0.2em] text-xs uppercase animate-pulse">Preparando a loja...</p>
             </div>
         </div>
       );
@@ -16089,14 +16298,14 @@ function AppContent({ deferredPrompt }) {
             'dashboard': <AdminDashboard onNavigate={navigate} />, 
             'banners': <AdminBanners />,
             'products': <AdminProducts onNavigate={navigate} />,
-            'orders': <AdminOrders />,
+            'orders': <AdminOrders appName={safeName} />,
             'refunds': <AdminRefunds onNavigate={navigate} />,
             'collections': <AdminCollections />,
             'users': <AdminUsers />,
             'coupons': <AdminCoupons />,
             'reports': <AdminReports />,
             'logs': <AdminLogsPage />,
-            'newsletter': <AdminNewsletter />, 
+            'newsletter': <AdminNewsletter appName={safeName} />, 
             'shipping': <AdminShippingSettings />, 
             'app-icons': <AdminAppIcons />,
             'theme': <AdminThemeSettings />,
@@ -16118,7 +16327,7 @@ function AppContent({ deferredPrompt }) {
     }
 
     if (mainPage === 'order-success' && pageId) {
-        return <OrderSuccessPage orderId={pageId} onNavigate={navigate} />;
+        return <OrderSuccessPage orderId={pageId} onNavigate={navigate} appName={safeName} />;
     }
     
     if (mainPage === 'account') {
@@ -16135,9 +16344,9 @@ function AppContent({ deferredPrompt }) {
         'checkout': <CheckoutPage onNavigate={navigate} />,
         'wishlist': <WishlistPage onNavigate={navigate} />,
         'ajuda': <AjudaPage onNavigate={navigate} />,
-        'about': <AboutPage />,
-        'privacy': <PrivacyPolicyPage />,
-        'terms': <TermsOfServicePage />,
+        'about': <AboutPage appName={safeName} />,
+        'privacy': <PrivacyPolicyPage appName={safeName} appLogoText={safeLogoText} />,
+        'terms': <TermsOfServicePage appName={safeName} appLogoText={safeLogoText} />,
         'forgot-password': <ForgotPasswordPage onNavigate={navigate} />,
     };
     return pages[mainPage] || <HomePage onNavigate={navigate} />;
@@ -16145,8 +16354,20 @@ function AppContent({ deferredPrompt }) {
 
   const showHeaderFooter = !currentPath.startsWith('admin');
   
+  const effectiveForcedSeason = previewSeason || appThemeConfig.activeSeason;
+  const shouldRunAnimations = appThemeConfig.animationsEnabled !== false && 
+                              (appThemeConfig.autoSeasonal || effectiveForcedSeason);
+  
   return (
-    <div className="bg-black min-h-screen flex flex-col transition-colors duration-500">
+    <div className="bg-black min-h-screen flex flex-col transition-colors duration-500 relative">
+      
+      {!currentPath.startsWith('admin') && (
+          <SeasonalAnimations 
+            isEnabled={shouldRunAnimations} 
+            forcedSeason={effectiveForcedSeason} 
+            isAppReady={isAppReady}
+          />
+      )}
       
       {showHeaderFooter && (
           <Header 
@@ -16157,10 +16378,10 @@ function AppContent({ deferredPrompt }) {
           />
       )}
 
-      <main className="flex-grow">{renderPage()}</main>
+      <main className="flex-grow z-10">{renderPage()}</main>
       
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
-        <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800 transition-colors duration-500">
+        <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800 transition-colors duration-500 z-10 relative">
             <div className="container mx-auto px-4 py-12">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
                     <div className="space-y-4">
@@ -16211,8 +16432,11 @@ function AppContent({ deferredPrompt }) {
                     </div>
                 </div>
             </div>
-            <div className="bg-black py-4 border-t border-gray-800 transition-colors duration-500">
-                <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} {safeName}. Todos os direitos reservados.</p>
+            
+            <div className="bg-black py-4 border-t border-gray-800 transition-colors duration-500 pb-20 md:pb-4">
+                <div className="container mx-auto px-4 flex items-center justify-center">
+                    <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} {safeName}. Todos os direitos reservados.</p>
+                </div>
             </div>
         </footer>
       )}
