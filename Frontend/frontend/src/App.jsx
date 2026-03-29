@@ -1608,7 +1608,7 @@ const SizeGuideDisplay = ({ dataString }) => {
     );
 };
 const ProductCard = memo(({ product, onNavigate }) => {
-    const { addToCart, shippingLocation, calculateLocalDeliveryPrice } = useShop();
+    const { addToCart, shippingLocation, calculateLocalDeliveryPrice } = useShop(); // Pega a função de cálculo do contexto
     const notification = useNotification();
     const { user } = useAuth();
     const { wishlist, addToWishlist, removeFromWishlist } = useShop(); 
@@ -1683,6 +1683,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
     const isVariationOutOfStock = product.product_type === 'clothing' && productVariations.length > 0 && productVariations.every(v => v.stock <= 0);
     const isOutOfStock = isProductOutOfStock || isVariationOutOfStock;
 
+    // --- Efeito de Frete Atualizado ---
     useEffect(() => {
         const controller = new AbortController();
         const signal = controller.signal;
@@ -1693,27 +1694,31 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 setIsCardShippingLoading(true);
                 setCardShippingInfo(null);
 
+                // --- LÓGICA LOCAL PARA JOÃO PESSOA ---
                 const cepPrefix = parseInt(cleanCep.substring(0, 5));
                 const isJoaoPessoa = cepPrefix >= 58000 && cepPrefix <= 58099;
 
                 if (isJoaoPessoa) {
+                    // Calcula data para 1 dia útil
                     const date = new Date();
                     let addedDays = 0;
-                    while (addedDays < 1) { 
+                    while (addedDays < 1) { // 1 dia útil
                         date.setDate(date.getDate() + 1);
                         if (date.getDay() !== 0 && date.getDay() !== 6) { addedDays++; }
                     }
                     const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
                     
+                    // USANDO O CÁLCULO DINÂMICO COM CORREÇÃO DE EXIBIÇÃO
                     const localPrice = calculateLocalDeliveryPrice ? calculateLocalDeliveryPrice([product]) : 20;
                     
                     const priceDisplay = localPrice === 0 ? "Grátis" : `R$ ${localPrice.toFixed(2).replace('.', ',')}`;
                     
                     setCardShippingInfo(`Frete ${priceDisplay} - Receba até ${formattedDate}.`);
                     setIsCardShippingLoading(false);
-                    return; 
+                    return; // Interrompe para não chamar a API
                 }
 
+                // --- LÓGICA PADRÃO PARA OUTROS CEPs (API) ---
                 const calculateShipping = async () => {
                     try {
                         const productsPayload = [{ id: String(product.id), price: currentPrice, quantity: 1 }];
@@ -1756,7 +1761,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
             clearTimeout(debounceTimer);
             controller.abort();
         };
-    }, [product, shippingLocation.cep, currentPrice, calculateLocalDeliveryPrice]); 
+    }, [product, shippingLocation.cep, currentPrice, calculateLocalDeliveryPrice]); // Adicionado calculateLocalDeliveryPrice nas dependências
 
     const installmentInfo = useMemo(() => {
         if (currentPrice >= 100) {
@@ -1808,8 +1813,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
         return (
             <button
                 onClick={handleWishlistToggle}
-                // AQUI ESTÁ A CORREÇÃO: Fundo isolado para não esbranquiçar no tema claro
-                className={`absolute top-2 right-2 bg-[#000000]/40 hover:bg-[#000000]/60 backdrop-blur-sm p-1.5 rounded-full text-[#ffffff] transition-colors duration-200 z-10 ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-300'}`}
+                className={`absolute top-2 right-2 bg-black/40 hover:bg-black/60 backdrop-blur-sm p-1.5 rounded-full text-white transition-colors duration-200 z-10 ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-300'}`}
                 aria-label="Adicionar à Lista de Desejos"
             >
                 <HeartIcon className="h-5 w-5" filled={isWishlisted} />
@@ -1837,59 +1841,58 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 <img
                     src={imageUrl} 
                     alt={product.name}
-                    loading="lazy" 
+                    loading="lazy" // <--- OTIMIZAÇÃO DE PERFORMANCE ADICIONADA AQUI
                     className="w-full h-full object-contain cursor-pointer transition-transform duration-300 group-hover:scale-105 p-2"
                 />
                 <WishlistButton product={product} /> 
 
                 <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
                     {isOutOfStock ? (
-                        <div className="bg-gray-700 text-[#ffffff] text-[10px] font-bold px-2.5 py-1 rounded-full shadow">ESGOTADO</div>
+                        <div className="bg-gray-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow">ESGOTADO</div>
                     ) : isPromoActive ? (
-                         <div className={`bg-gradient-to-r ${timeLeft && timeLeft !== 'Expirada' ? 'from-red-600 to-orange-500' : 'from-green-600 to-teal-500'} text-[#ffffff] text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5`}> 
+                         <div className={`bg-gradient-to-r ${timeLeft && timeLeft !== 'Expirada' ? 'from-red-600 to-orange-500' : 'from-green-600 to-teal-500'} text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5`}> 
                             <SaleIcon className="h-4 w-4"/>
                             <span>PROMOÇÃO {discountPercent}%</span>
                         </div>
                     ) : isNew ? (
-                        <div className="bg-blue-500 text-[#ffffff] text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
+                        <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
                     ) : null}
                 </div>
 
-                {/* AQUI ESTÁ A CORREÇÃO: Fundos e Textos blindados para não sofrerem interferência do tema claro nas fotos */}
                 {isPromoActive && timeLeft && timeLeft !== 'Expirada' && !isOutOfStock && (
                     <div className="absolute bottom-0 left-0 w-full bg-gradient-to-r from-red-700 to-red-500/90 backdrop-blur-md py-1.5 px-3 flex items-center justify-between z-20 shadow-inner border-t border-red-400">
-                        <div className="flex items-center gap-1.5 text-[#ffffff] font-bold text-[10px] uppercase tracking-wide">
+                        <div className="flex items-center gap-1.5 text-white font-bold text-[10px] uppercase tracking-wide">
                             <SparklesIcon className="h-3 w-3 text-yellow-300 animate-pulse"/>
                             <span>Oferta Relâmpago</span>
                         </div>
-                        <div className="flex items-center gap-1 bg-[#000000]/30 rounded px-1.5 py-0.5">
-                            <ClockIcon className="h-3 w-3 text-[#ffffff]"/>
-                            <span className="text-[#ffffff] font-mono font-bold text-xs">{timeLeft}</span>
+                        <div className="flex items-center gap-1 bg-black/30 rounded px-1.5 py-0.5">
+                            <ClockIcon className="h-3 w-3 text-white"/>
+                            <span className="text-white font-mono font-bold text-xs">{timeLeft}</span>
                         </div>
                     </div>
                 )}
 
                 {isPromoActive && (!timeLeft || timeLeft === 'Expirada') && !isOutOfStock && (
                     <div className="absolute bottom-0 left-0 w-full bg-gradient-to-r from-emerald-600 to-green-500/95 backdrop-blur-md py-1.5 px-3 flex items-center justify-between z-20 shadow-inner border-t border-emerald-400/50">
-                        <div className="flex items-center gap-1.5 text-[#ffffff] font-bold text-[10px] uppercase tracking-wide">
-                            <TagIcon className="h-3 w-3 text-[#ffffff] fill-white"/>
+                        <div className="flex items-center gap-1.5 text-white font-bold text-[10px] uppercase tracking-wide">
+                            <TagIcon className="h-3 w-3 text-white fill-white"/>
                             <span>Preço Especial</span>
                         </div>
-                        <div className="flex items-center gap-1 bg-[#000000]/20 rounded px-2 py-0.5">
-                            <span className="text-[#ffffff] font-bold text-[9px]">Aproveite</span>
+                        <div className="flex items-center gap-1 bg-black/20 rounded px-2 py-0.5">
+                            <span className="text-white font-bold text-[9px]">Aproveite</span>
                         </div>
                     </div>
                 )}
 
                  {product.product_type === 'clothing' && !isPromoActive && !isOutOfStock && (
-                    <div className="absolute bottom-0 left-0 w-full bg-[#000000]/70 text-center text-xs py-1 text-amber-300"> 
+                    <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300"> 
                         Ver Cores e Tamanhos
                     </div>
                  )}
                  {user && user.role === 'admin' && (
                     <div className="absolute top-2 right-10 z-10"> 
                         <button onClick={(e) => { e.stopPropagation(); onNavigate(`admin/products?search=${encodeURIComponent(product.name)}`); }}
-                                className="bg-[#000000]/50 hover:bg-[#000000]/70 backdrop-blur-sm text-[#ffffff] p-1.5 rounded-full shadow-md transition-colors" 
+                                className="bg-gray-700/50 hover:bg-gray-600/70 backdrop-blur-sm text-white p-1.5 rounded-full shadow-md transition-colors" 
                                 title="Editar Produto">
                             <EditIcon className="h-4 w-4" />
                         </button>
@@ -2554,7 +2557,7 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
     useEffect(() => {
         setIsLoading(true);
         apiService('/collections')
-            .then(data => setCategories(data)) 
+            .then(data => setCategories(data)) // Apenas define os dados na ordem recebida
             .catch(err => console.error("Falha ao buscar coleções:", err))
             .finally(() => setIsLoading(false));
     }, []);
@@ -2634,24 +2637,22 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
                                 >
                                     <div className="relative rounded-lg overflow-hidden aspect-[4/5] group cursor-pointer" onClick={() => onNavigate(`products?category=${cat.filter}`)}>
                                         <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
-                                        
-                                        {/* AQUI ESTÁ A CORREÇÃO: Cores blindadas para overlay não ficar branco no tema claro */}
-                                        <div className="absolute inset-0 bg-[#000000]/40 flex items-center justify-center p-2 transition-all group-hover:bg-[#000000]/60">
-                                            <h3 className="text-xl font-semibold text-[#ffffff] text-center tracking-wide" style={{ textShadow: '2px 2px 6px rgba(0,0,0,0.9)' }}>{cat.name}</h3>
+                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-2 transition-all group-hover:bg-black/60">
+                                            <h3 className="text-xl font-semibold text-white text-center tracking-wide" style={{ textShadow: '2px 2px 6px rgba(0,0,0,0.9)' }}>{cat.name}</h3>
                                         </div>
                                     </div>
                                 </div>
                             ))}
                         </motion.div>
                     </div>
-                    {/* Botões de Navegação */}
+                    {/* Botões de Navegação - Visíveis sempre que houver mais itens para mostrar */}
                     {canGoPrev && (
-                        <button onClick={goPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-[#ffffff]/50 hover:bg-[#ffffff] text-black p-2 rounded-full shadow-lg z-10 transition-opacity">
+                        <button onClick={goPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg z-10 transition-opacity">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                         </button>
                     )}
                     {canGoNext && (
-                         <button onClick={goNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-[#ffffff]/50 hover:bg-[#ffffff] text-black p-2 rounded-full shadow-lg z-10 transition-opacity">
+                         <button onClick={goNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg z-10 transition-opacity">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                         </button>
                     )}
@@ -2789,6 +2790,7 @@ const NewsletterSection = () => {
 const PromoBannerSection = ({ customBanners, onNavigate }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     
+    // Dados Padrão (Fallback visual se o banco estiver vazio)
     const defaultBanner = [{
         image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop",
         title: "Semana do Consumidor",
@@ -2799,17 +2801,20 @@ const PromoBannerSection = ({ customBanners, onNavigate }) => {
         id: 'default'
     }];
 
+    // Usa os banners do banco se existirem, senão usa o padrão
     const activeBanners = customBanners && customBanners.length > 0 ? customBanners : defaultBanner;
     
+    // Lógica de Rotação Automática
     useEffect(() => {
         if (activeBanners.length > 1) {
             const timer = setTimeout(() => {
                 setCurrentIndex(prev => (prev === activeBanners.length - 1 ? 0 : prev + 1));
-            }, 5000);
+            }, 5000); // 5 segundos por slide
             return () => clearTimeout(timer);
         }
     }, [currentIndex, activeBanners.length]);
 
+    // Garante que o índice não estoure se a lista mudar
     const safeIndex = currentIndex >= activeBanners.length ? 0 : currentIndex;
     const currentBanner = activeBanners[safeIndex];
     
@@ -2842,22 +2847,18 @@ const PromoBannerSection = ({ customBanners, onNavigate }) => {
                     <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/95 via-black/40 to-transparent transition-all duration-500"></div>
                     <div className="relative z-10 w-full px-6 md:px-16 pb-8 md:pb-0 flex flex-col items-center md:items-start justify-end md:justify-center h-full text-center md:text-left">
                         {isFlashOffer && (
-                            <motion.span initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-red-600 text-[#ffffff] text-xs md:text-sm font-bold px-3 py-1 md:px-4 md:py-1.5 rounded-full uppercase tracking-wider mb-3 md:mb-6 inline-flex items-center gap-2 shadow-lg">
+                            <motion.span initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-red-600 text-white text-xs md:text-sm font-bold px-3 py-1 md:px-4 md:py-1.5 rounded-full uppercase tracking-wider mb-3 md:mb-6 inline-flex items-center gap-2 shadow-lg">
                                 <ClockIcon className="h-3 w-3 md:h-4 md:w-4" /> Oferta Relâmpago
                             </motion.span>
                         )}
-                        
-                        {/* AQUI ESTÁ A CORREÇÃO: Protegendo o texto contra temas que o tornam escuro */}
-                        <motion.h2 initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="text-4xl md:text-7xl font-extrabold mb-3 md:mb-6 text-[#ffffff] drop-shadow-lg leading-tight">
+                        <motion.h2 initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="text-4xl md:text-7xl font-extrabold mb-3 md:mb-6 text-white drop-shadow-lg leading-tight">
                             {renderTitle()}
                         </motion.h2>
-                        
                         {currentBanner.subtitle && (
-                            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="text-base md:text-xl text-[#e5e7eb] mb-6 md:mb-10 max-w-xs md:max-w-lg font-light leading-snug">
+                            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="text-base md:text-xl text-gray-200 mb-6 md:mb-10 max-w-xs md:max-w-lg font-light leading-snug">
                                 {currentBanner.subtitle}
                             </motion.p>
                         )}
-                        
                         {currentBanner.cta_enabled !== 0 && (
                             <motion.button whileTap={{ scale: 0.95 }} className="bg-white text-black px-8 py-3 md:px-12 md:py-4 rounded-full font-bold text-sm md:text-lg hover:bg-amber-400 transition-all shadow-xl flex items-center gap-2 md:gap-3">
                                 {currentBanner.cta_text || 'Ver Ofertas'} <ArrowUturnLeftIcon className="h-4 w-4 md:h-5 md:w-5 rotate-180"/>
@@ -2867,6 +2868,7 @@ const PromoBannerSection = ({ customBanners, onNavigate }) => {
                 </motion.div>
             </AnimatePresence>
             
+            {/* Indicadores de Slide (Dots) se houver mais de 1 banner */}
             {activeBanners.length > 1 && (
                 <div className="flex justify-center mt-4 gap-2">
                     {activeBanners.map((_, idx) => (
@@ -2913,10 +2915,9 @@ const CategoryCardsSection = ({ customCards, onNavigate }) => {
                     >
                         <img src={card.image_url} alt={card.title} className="w-full h-full object-cover"/>
                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-6 md:p-10">
-                            {/* AQUI ESTÁ A CORREÇÃO: Protegendo o texto para não ficar escuro no tema claro e sumir no gradiente */}
-                            <h3 className="text-2xl md:text-4xl font-bold text-[#ffffff] mb-1 md:mb-3">{card.title}</h3>
-                            <p className="text-[#d1d5db] text-sm md:text-lg mb-3 md:mb-6 line-clamp-1 md:line-clamp-none">{card.subtitle}</p>
-                            <span className="inline-flex items-center gap-2 text-[#ffffff] text-xs md:text-sm font-bold underline decoration-amber-500 underline-offset-4">
+                            <h3 className="text-2xl md:text-4xl font-bold text-white mb-1 md:mb-3">{card.title}</h3>
+                            <p className="text-gray-300 text-sm md:text-lg mb-3 md:mb-6 line-clamp-1 md:line-clamp-none">{card.subtitle}</p>
+                            <span className="inline-flex items-center gap-2 text-white text-xs md:text-sm font-bold underline decoration-amber-500 underline-offset-4">
                                 {card.cta_text || 'Ver Mais'} &rarr;
                             </span>
                         </div>
@@ -2931,8 +2932,8 @@ const CategoriesPage = ({ onNavigate }) => {
     const [categories, setCategories] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedGroup, setSelectedGroup] = useState(null);
-    const { user, isAuthenticated, logout } = useAuth(); 
-    const { orderNotificationCount } = useShop(); 
+    const { user, isAuthenticated, logout } = useAuth(); // Acesso ao logout
+    const { orderNotificationCount } = useShop(); // NOVO: Acesso às notificações
 
     const groupedCategories = useMemo(() => {
         const groups = {};
@@ -2977,17 +2978,16 @@ const CategoriesPage = ({ onNavigate }) => {
         return () => controller.abort();
     }, []);
 
-    // Sub-tela (Nível 2)
+    // Sub-tela (Nível 2) - Estilo Dark
     const SubCategoryView = ({ group, onBack }) => (
         <motion.div 
             initial={{ x: '100%' }} 
             animate={{ x: 0 }} 
             exit={{ x: '100%' }} 
             transition={{ type: 'tween', ease: 'easeInOut', duration: 0.3 }}
-            className="fixed inset-0 bg-black z-50 overflow-y-auto pb-24"
+            className="fixed inset-0 bg-black z-50 overflow-y-auto pb-24" // Fundo Preto
         >
-            {/* CORREÇÃO AQUI: Trocado bg-black/95 por bg-gray-900/95 para respeitar o tema claro (fundo claro com texto escuro) */}
-            <div className="sticky top-0 bg-gray-900/95 backdrop-blur-md border-b border-gray-800 z-10 px-4 py-4 flex items-center shadow-md">
+            <div className="sticky top-0 bg-black/95 backdrop-blur-md border-b border-gray-800 z-10 px-4 py-4 flex items-center shadow-md">
                 <button onClick={onBack} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-colors mr-3">
                     <ArrowUturnLeftIcon className="h-6 w-6" />
                 </button>
@@ -3025,14 +3025,15 @@ const CategoriesPage = ({ onNavigate }) => {
                 
                 <button 
                     onClick={() => onNavigate(`products?search=${group.title}`)}
-                    className="w-full mt-8 py-3.5 bg-gray-800 border border-gray-700 text-white font-bold rounded-lg shadow-md hover:bg-gray-700 transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wide"
+                    className="w-full mt-8 py-3.5 bg-gray-800 border border-gray-700 text-white font-bold rounded-lg shadow-md hover:bg-gray-700 hover:border-amber-500/50 transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wide"
                 >
-                    Ver todos em {group.title} <ArrowUturnLeftIcon className="h-4 w-4 rotate-180"/>
+                    Ver todos em {group.title} <ArrowUturnLeftIcon className="h-4 w-4 rotate-180 text-amber-500"/>
                 </button>
             </div>
         </motion.div>
     );
 
+    // --- TELA DE CARREGAMENTO CATEGORIAS ---
     if (isLoading) {
         return (
             <div className="bg-black min-h-[80vh] flex flex-col items-center justify-center pt-20 pb-32 px-4 gap-6">
@@ -3048,11 +3049,13 @@ const CategoriesPage = ({ onNavigate }) => {
         );
     }
 
+    // Atalhos Rápidos (Estilo Amazon)
     const QuickShortcuts = () => (
         <div className="bg-gray-900 p-4 rounded-xl mb-6 shadow-lg border border-gray-800 grid grid-cols-2 gap-4">
             {isAuthenticated ? (
                 <>
-                    <button onClick={() => onNavigate('account/orders')} className="bg-gray-800 border border-gray-700 p-4 rounded-lg flex flex-col items-center justify-center text-center hover:bg-gray-700 active:scale-95 transition-all relative">
+                    {/* --- CORREÇÃO DO BOTÃO "MEUS PEDIDOS" NA TELA DE MENU --- */}
+                    <button onClick={() => onNavigate('account/orders')} className="bg-black border border-gray-700 p-4 rounded-lg flex flex-col items-center justify-center text-center hover:bg-gray-800 active:scale-95 transition-all relative">
                         <div className="relative">
                             <PackageIcon className="h-6 w-6 text-amber-400 mb-2"/>
                             {orderNotificationCount > 0 && (
@@ -3061,36 +3064,36 @@ const CategoriesPage = ({ onNavigate }) => {
                                 </span>
                             )}
                         </div>
-                        <span className="text-sm font-bold text-white">Meus Pedidos</span>
+                        <span className="text-sm font-bold text-gray-200">Meus Pedidos</span>
                     </button>
 
-                    <button onClick={() => onNavigate('account')} className="bg-gray-800 border border-gray-700 p-4 rounded-lg flex flex-col items-center justify-center text-center hover:bg-gray-700 active:scale-95 transition-all">
+                    <button onClick={() => onNavigate('account')} className="bg-black border border-gray-700 p-4 rounded-lg flex flex-col items-center justify-center text-center hover:bg-gray-800 active:scale-95 transition-all">
                         <UserIcon className="h-6 w-6 text-amber-400 mb-2"/>
-                        <span className="text-sm font-bold text-white">Minha Conta</span>
+                        <span className="text-sm font-bold text-gray-200">Minha Conta</span>
                     </button>
-                    
                     {user?.role === 'admin' && (
-                        <button onClick={() => onNavigate('admin/dashboard')} className="col-span-2 bg-gray-800 border border-gray-700 p-3 rounded-lg flex items-center justify-center gap-3 hover:bg-gray-700 active:scale-95 transition-all shadow-md">
+                        <button onClick={() => onNavigate('admin/dashboard')} className="col-span-2 bg-gradient-to-r from-gray-800 to-gray-700 border border-gray-600 p-3 rounded-lg flex items-center justify-center gap-3 hover:from-gray-700 hover:to-gray-600 active:scale-95 transition-all shadow-md">
                             <AdminIcon className="h-5 w-5 text-amber-400"/>
                             <span className="text-sm font-bold text-white uppercase tracking-wide">Acessar Painel Admin</span>
                         </button>
                     )}
                 </>
             ) : (
-                <div className="col-span-2 bg-gray-800 border border-gray-700 p-4 rounded-lg flex flex-col items-center text-center">
+                <div className="col-span-2 bg-black border border-gray-700 p-4 rounded-lg flex flex-col items-center text-center">
                     <p className="text-sm text-gray-400 mb-3">Faça login para ver seus pedidos e conta.</p>
                     <button onClick={() => onNavigate('login')} className="w-full bg-amber-500 text-black font-bold py-2 rounded hover:bg-amber-400 transition-colors">
                         Fazer Login / Criar Conta
                     </button>
                 </div>
             )}
-             <button onClick={() => onNavigate('ajuda')} className="col-span-2 bg-gray-800 border border-gray-700 p-3 rounded-lg flex items-center justify-between px-4 hover:bg-gray-700 active:scale-95 transition-all">
-                <span className="text-sm font-bold text-white flex items-center gap-2"><SparklesIcon className="h-4 w-4 text-amber-400"/> Central de Ajuda e Atendimento</span>
+             <button onClick={() => onNavigate('ajuda')} className="col-span-2 bg-black border border-gray-700 p-3 rounded-lg flex items-center justify-between px-4 hover:bg-gray-800 active:scale-95 transition-all">
+                <span className="text-sm font-bold text-gray-200 flex items-center gap-2"><SparklesIcon className="h-4 w-4 text-amber-400"/> Central de Ajuda e Atendimento</span>
                 <ArrowUturnLeftIcon className="h-4 w-4 text-gray-500 rotate-180"/>
             </button>
             
+            {/* Botão de Logout adicionado */}
             {isAuthenticated && (
-                <button onClick={() => { logout(); onNavigate('home'); }} className="col-span-2 bg-red-900/20 border border-red-900/50 p-3 rounded-lg flex items-center justify-center gap-2 hover:bg-red-900/30 active:scale-95 transition-all text-red-500 font-bold text-sm">
+                <button onClick={() => { logout(); onNavigate('home'); }} className="col-span-2 bg-red-900/20 border border-red-900/50 p-3 rounded-lg flex items-center justify-center gap-2 hover:bg-red-900/30 active:scale-95 transition-all text-red-400 font-bold text-sm">
                     Sair da Conta
                 </button>
             )}
@@ -3098,7 +3101,7 @@ const CategoriesPage = ({ onNavigate }) => {
     );
 
     return (
-        <div className="bg-black min-h-screen pt-2 pb-24 text-white">
+        <div className="bg-black min-h-screen pt-2 pb-24 text-white"> {/* Fundo Preto Global */}
             <AnimatePresence>
                 {selectedGroup && (
                     <SubCategoryView 
@@ -3109,18 +3112,21 @@ const CategoriesPage = ({ onNavigate }) => {
             </AnimatePresence>
 
             <div className="container mx-auto px-4">
+                {/* Atalhos Rápidos no Topo */}
                 <h1 className="text-xl font-bold text-white mb-3 px-1 mt-4">Acesso Rápido</h1>
                 <QuickShortcuts />
 
                 <h1 className="text-xl font-bold text-white mb-4 px-1 mt-2 border-l-4 border-amber-500 pl-3">Departamentos</h1>
                 
+                {/* Grade Principal (Nível 1) - Dark Mode */}
                 <div className="grid grid-cols-2 gap-3"> 
+                    {/* Card Especial: Promoções (Antigo Ofertas do Dia) */}
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0 }}
                         onClick={() => onNavigate('products?promo=true')}
-                        className="col-span-2 bg-gray-900 rounded-lg shadow-lg border border-gray-800 overflow-hidden cursor-pointer active:scale-95 transition-transform flex flex-row items-center justify-between p-4 relative group mb-2"
+                        className="col-span-2 bg-gradient-to-r from-red-900 via-red-800 to-black rounded-lg shadow-lg border border-red-900/50 overflow-hidden cursor-pointer active:scale-95 transition-transform flex flex-row items-center justify-between p-4 relative group mb-2"
                     >
                         <div className="flex items-center gap-4 relative z-10">
                             <div className="w-12 h-12 bg-red-600/20 rounded-full flex items-center justify-center border border-red-500/30 group-hover:bg-red-600/40 transition-colors">
@@ -3128,10 +3134,11 @@ const CategoriesPage = ({ onNavigate }) => {
                             </div>
                             <div className="text-left">
                                 <h3 className="text-white font-bold text-lg uppercase tracking-wide">Promoções</h3>
-                                <p className="text-red-400 text-xs font-medium">Ver todos os produtos em oferta</p>
+                                <p className="text-red-300 text-xs font-medium">Ver todos os produtos em oferta</p>
                             </div>
                         </div>
                         <ArrowUturnLeftIcon className="h-5 w-5 text-red-500 rotate-180 relative z-10"/>
+                         {/* Padrão de fundo sutil */}
                         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
                     </motion.div>
 
@@ -3151,10 +3158,11 @@ const CategoriesPage = ({ onNavigate }) => {
                                     className="w-full h-full object-contain mix-blend-multiply transition-transform duration-500 group-hover:scale-105"
                                     loading="lazy"
                                 />
+                                {/* Gradiente sutil para profundidade */}
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none"></div>
                             </div>
                             <div className="p-3 border-t border-gray-800 bg-gray-900">
-                                <h3 className="text-white font-bold text-sm leading-tight mb-0.5 group-hover:text-amber-400 transition-colors">
+                                <h3 className="text-gray-100 font-bold text-sm leading-tight mb-0.5 group-hover:text-amber-400 transition-colors">
                                     {group.title}
                                 </h3>
                                 <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">
@@ -6399,7 +6407,7 @@ const CheckoutPage = ({ onNavigate }) => {
     );
 };
 
-const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
+const OrderSuccessPage = ({ orderId, onNavigate }) => {
     const { clearOrderState } = useShop();
     const notification = useNotification();
     const [pageStatus, setPageStatus] = useState('processing'); // 'processing', 'success', 'timeout', 'pending_action'
@@ -6659,9 +6667,9 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
     };
 
     const { icon, title, subtitle, message, actions, borderColor } = renderContent();
-    const displayName = appName || 'Love Cestas';
 
     return (
+        // Correção de Layout: Removido o 'overflow-hidden' restritivo. 'min-h-[100dvh]' e 'py-16' garantem scroll em celulares.
         <div className="bg-black text-white min-h-[100dvh] flex flex-col justify-start md:justify-center items-center p-4 pt-10 pb-28 md:py-8 relative overflow-x-hidden overflow-y-auto">
             
             {/* Efeitos de Luz de Fundo (Atrás de tudo) */}
@@ -6699,7 +6707,7 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
             {!isStandalone && pageStatus !== 'processing' && (
                 <div className="mt-8 p-4 bg-blue-900/30 border border-blue-800/50 rounded-xl max-w-lg w-full text-center relative z-10 backdrop-blur-md animate-fade-in">
                     <p className="text-xs sm:text-sm text-blue-200">
-                        <strong className="text-blue-400">Dica de Acesso:</strong> Parece que você está no navegador do celular. Se você já instalou o nosso aplicativo, recomendamos fechar esta janela e voltar a abrir o app <strong>{displayName}</strong> para a melhor experiência!
+                        <strong className="text-blue-400">Dica de Acesso:</strong> Parece que você está no navegador do celular. Se você já instalou o nosso aplicativo, recomendamos fechar esta janela e voltar a abrir o app <strong>Love Cestas</strong> para a melhor experiência!
                     </p>
                 </div>
             )}
@@ -7097,6 +7105,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         try {
             const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
             if (paymentResult && paymentResult.init_point) {
+                // --- CORREÇÃO: localStorage ---
                 localStorage.setItem('pendingOrderId', orderId);
                 window.location.href = paymentResult.init_point;
             } else { throw new Error("Não foi possível obter o link de pagamento."); }
@@ -7622,15 +7631,14 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
 
                     <div className="pt-4 mt-4 border-t border-gray-800 space-y-4 sm:space-y-0 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-2">
                         <div className="flex flex-wrap items-center gap-2">
-                            {/* CORREÇÃO APLICADA AQUI: Botão alterado para usar as cores temáticas e dar destaque */}
-                            <button onClick={() => handleRepeatOrder(order.items)} className="bg-amber-500 text-black text-sm font-bold px-4 py-1.5 rounded-md hover:bg-amber-400 shadow-sm transition-colors">Repetir Pedido</button>
+                            <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-700 text-white text-sm px-4 py-1.5 rounded-md hover:bg-gray-600">Repetir Pedido</button>
                             {isPickupOrder ? (
-                                <button onClick={() => setIsTrackingModalOpen(true)} className="bg-gray-800 text-white text-sm font-bold px-4 py-1.5 rounded-md hover:bg-gray-700 transition-colors">Ver Status da Retirada</button>
+                                <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Ver Status da Retirada</button>
                             ) : (
-                                order.tracking_code && !isLocalDelivery && !isOrderInactive && <button onClick={() => setIsTrackingModalOpen(true)} className="bg-gray-800 text-white text-sm font-bold px-4 py-1.5 rounded-md hover:bg-gray-700 transition-colors">Rastrear Pedido</button>
+                                order.tracking_code && !isLocalDelivery && !isOrderInactive && <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Rastrear Pedido</button>
                             )}
                              {canRequest && (
-                                <button onClick={() => setIsRefundModalOpen(true)} className="bg-red-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-red-700 font-bold shadow-lg transform hover:-translate-y-0.5 transition-transform">
+                                <button onClick={() => setIsRefundModalOpen(true)} className="bg-amber-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-amber-700 font-bold shadow-lg shadow-amber-900/30 transform hover:-translate-y-0.5 transition-transform">
                                     {isRefundDenied ? 'Nova Solicitação' : `Solicitar ${actionText}`}
                                 </button>
                             )}
@@ -7659,7 +7667,9 @@ const MyOrdersListPage = ({ onNavigate }) => {
     const [orderToReview, setOrderToReview] = useState(null);
     const [itemToReview, setItemToReview] = useState(null);
 
+    // Função para buscar pedidos
     const fetchOrders = useCallback(() => {
+        // A API agora retorna o campo 'has_unseen_update'
         return apiService('/orders/my-orders')
             .then(data => setOrders(data.sort((a, b) => new Date(b.date) - new Date(a.date))))
             .catch(err => {
@@ -7751,6 +7761,8 @@ const MyOrdersListPage = ({ onNavigate }) => {
                         const firstItem = order.items && order.items.length > 0 ? order.items[0] : null;
                         const canReviewOrder = order.status === 'Entregue' && order.items?.some(item => !item.is_reviewed);
                         
+                        // --- LÓGICA DE NOTIFICAÇÃO ---
+                        // Verifica se o pedido tem atualização não vista
                         const hasNotification = !!order.has_unseen_update;
 
                         return (
@@ -7761,6 +7773,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                 transition={{ delay: 0.1 * idx }}
                                 className={`bg-gray-800 p-4 rounded-lg border relative transition-all ${hasNotification ? 'border-amber-500 shadow-lg shadow-amber-900/20' : 'border-gray-700'}`}
                             >
+                                {/* --- BOLINHA DE NOTIFICAÇÃO NO CARD --- */}
                                 {hasNotification && (
                                     <div className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-full border-2 border-black z-10 flex items-center gap-1 animate-bounce">
                                         <span className="h-2 w-2 bg-white rounded-full inline-block"></span>
@@ -7789,15 +7802,14 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                         <div><p className="text-xs text-gray-400">Total</p><p className="font-bold text-amber-400">R$ {Number(order.total).toFixed(2)}</p></div>
                                     </div>
                                     <div className="flex-shrink-0 w-full sm:w-auto flex flex-col items-stretch gap-2">
-                                        {/* CORREÇÃO AQUI: O botão 'Ver Detalhes' usa a cor primária dinâmica com bg-amber-500 */}
                                         <button 
                                             onClick={() => onNavigate(`account/orders/${order.id}`)} 
-                                            className="w-full font-bold px-4 py-2 rounded-md transition shadow-md active:scale-95 bg-amber-500 text-black hover:bg-amber-400"
+                                            className={`w-full font-bold px-4 py-2 rounded-md transition ${hasNotification ? 'bg-amber-500 text-black hover:bg-amber-400' : 'bg-gray-700 text-white hover:bg-gray-600'}`}
                                         >
                                             {hasNotification ? 'Ver Atualização' : 'Ver Detalhes'}
                                         </button>
                                         {canReviewOrder && (
-                                             <button onClick={() => setOrderToReview(order)} className="w-full bg-gray-800 text-white font-bold px-4 py-2 rounded-md hover:bg-gray-700 transition">Avaliar Pedido</button>
+                                             <button onClick={() => setOrderToReview(order)} className="w-full bg-amber-600 text-white font-bold px-4 py-2 rounded-md hover:bg-amber-700 transition">Avaliar Pedido</button>
                                         )}
                                     </div>
                                 </div>
@@ -8617,7 +8629,7 @@ const AjudaPage = ({ onNavigate }) => {
     );
 };
 
-const AboutPage = ({ appName }) => {
+const AboutPage = () => {
     return (
         <div className="bg-black text-white min-h-screen py-16">
             <div className="container mx-auto px-4 max-w-4xl">
@@ -8629,7 +8641,7 @@ const AboutPage = ({ appName }) => {
                 <div className="bg-gray-900 p-8 rounded-lg border border-gray-800 space-y-8 text-lg text-gray-300 leading-relaxed">
                     <section>
                         <h2 className="text-2xl font-bold text-white mb-4">Nossa História</h2>
-                        <p>A {appName || 'loja'} nasceu de uma paixão por aromas marcantes e pela moda que expressa identidade. Fundada em João Pessoa, Paraíba, nossa missão sempre foi oferecer mais do que produtos; oferecemos uma experiência de autoestima e bem-estar. Cada peça de roupa é selecionada com um olhar atento às tendências e à qualidade, e cada perfume é escolhido por sua capacidade de criar memórias inesquecíveis.</p>
+                        <p>A Love Cestas e Perfumes nasceu de uma paixão por aromas marcantes e pela moda que expressa identidade. Fundada em João Pessoa, Paraíba, nossa missão sempre foi oferecer mais do que produtos; oferecemos uma experiência de autoestima e bem-estar. Cada peça de roupa é selecionada com um olhar atento às tendências e à qualidade, e cada perfume é escolhido por sua capacidade de criar memórias inesquecíveis.</p>
                     </section>
 
                     <section>
@@ -8652,8 +8664,7 @@ const AboutPage = ({ appName }) => {
     );
 };
 
-const PrivacyPolicyPage = ({ appName, appLogoText }) => {
-    const displayLogo = appLogoText || appName || 'nossa loja';
+const PrivacyPolicyPage = () => {
     return (
         <div className="bg-black text-white min-h-screen py-16">
             <div className="container mx-auto px-4 max-w-4xl">
@@ -8662,7 +8673,7 @@ const PrivacyPolicyPage = ({ appName, appLogoText }) => {
                     <p className="text-gray-400">Última atualização: 16 de Outubro de 2025</p>
                 </div>
                 <div className="bg-gray-900 p-8 rounded-lg border border-gray-800 space-y-6 text-gray-300 leading-relaxed">
-                    <p>Sua privacidade é importante para nós. É política da {displayLogo} respeitar a sua privacidade em relação a qualquer informação sua que possamos coletar em nosso site.</p>
+                    <p>Sua privacidade é importante para nós. É política da LovecestasePerfumes respeitar a sua privacidade em relação a qualquer informação sua que possamos coletar em nosso site.</p>
                     
                     <h3 className="text-xl font-bold text-white pt-4">1. Coleta de Dados</h3>
                     <p>Solicitamos informações pessoais apenas quando realmente precisamos delas para lhe fornecer um serviço. Fazemo-lo por meios justos e legais, com o seu conhecimento e consentimento. Também informamos por que estamos coletando e como será usado.</p>
@@ -8687,8 +8698,7 @@ const PrivacyPolicyPage = ({ appName, appLogoText }) => {
     );
 };
 
-const TermsOfServicePage = ({ appName, appLogoText }) => {
-    const displayLogo = appLogoText || appName || 'nossa loja';
+const TermsOfServicePage = () => {
     return (
         <div className="bg-black text-white min-h-screen py-16">
             <div className="container mx-auto px-4 max-w-4xl">
@@ -8698,7 +8708,7 @@ const TermsOfServicePage = ({ appName, appLogoText }) => {
                 </div>
                 <div className="bg-gray-900 p-8 rounded-lg border border-gray-800 space-y-6 text-gray-300 leading-relaxed">
                     <h3 className="text-xl font-bold text-white">1. Aceitação dos Termos</h3>
-                    <p>Ao acessar e usar o site da {displayLogo}, você concorda em cumprir estes Termos de Serviço e todas as leis e regulamentos aplicáveis. Se você não concorda com algum destes termos, está proibido de usar ou acessar este site.</p>
+                    <p>Ao acessar e usar o site da LovecestasePerfumes, você concorda em cumprir estes Termos de Serviço e todas as leis e regulamentos aplicáveis. Se você não concorda com algum destes termos, está proibido de usar ou acessar este site.</p>
 
                     <h3 className="text-xl font-bold text-white pt-4">2. Contas de Usuário</h3>
                     <p>Para acessar certas funcionalidades, você pode ser solicitado a criar uma conta. Você é responsável por manter a confidencialidade de sua senha e por todas as atividades que ocorrem em sua conta. Você concorda em nos notificar imediatamente sobre qualquer uso não autorizado de sua conta.</p>
@@ -8710,14 +8720,14 @@ const TermsOfServicePage = ({ appName, appLogoText }) => {
                     <p>Reservamo-nos o direito de recusar qualquer pedido que você fizer conosco. Podemos, a nosso critério, limitar ou cancelar as quantidades compradas por pessoa, por domicílio ou por pedido. No caso de fazermos uma alteração ou cancelarmos um pedido, podemos tentar notificá-lo entrando em contato com o e-mail e/ou endereço de faturamento/número de telefone fornecido no momento em que o pedido foi feito.</p>
 
                     <h3 className="text-xl font-bold text-white pt-4">5. Limitação de Responsabilidade</h3>
-                    <p>Em nenhuma circunstância a {displayLogo} será responsável por quaisquer danos (incluindo, sem limitação, danos por perda de dados ou lucro, ou devido a interrupção dos negócios) decorrentes do uso ou da incapacidade de usar os materiais no site da {displayLogo}.</p>
+                    <p>Em nenhuma circunstância a LovecestasePerfumes será responsável por quaisquer danos (incluindo, sem limitação, danos por perda de dados ou lucro, ou devido a interrupção dos negócios) decorrentes do uso ou da incapacidade de usar os materiais no site da LovecestasePerfumes.</p>
                 </div>
             </div>
         </div>
     );
 };
 
-const AdminNewsletter = ({ appName }) => {
+const AdminNewsletter = () => {
     const [subscribers, setSubscribers] = useState([]);
     const [products, setProducts] = useState([]); // Lista de produtos para o select
     const [isLoading, setIsLoading] = useState(true);
@@ -8936,9 +8946,6 @@ const AdminNewsletter = ({ appName }) => {
                                 {isSending ? 'Enviando...' : 'Enviar para Todos'}
                             </button>
                         </div>
-                        <p className="text-center text-xs text-gray-500 mt-4">
-                            Você recebeu este e-mail porque se inscreveu no Clube VIP da {appName || 'loja'}.
-                        </p>
                     </form>
                 </div>
             )}
@@ -12291,7 +12298,7 @@ const AdminRefunds = ({ onNavigate }) => {
     );
 };
 
-const AdminOrders = ({ appName }) => {
+const AdminOrders = () => {
     const [orders, setOrders] = useState([]);
     const [filteredOrders, setFilteredOrders] = useState([]);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -12414,7 +12421,7 @@ const AdminOrders = ({ appName }) => {
         );
     };
 
-    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS ---
+    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS (RESTAURADA) ---
     const generateWhatsAppStatusMessage = (status, order, trackingCode) => {
         const customerName = order.user_name;
         const orderId = order.id;
@@ -12462,8 +12469,8 @@ const AdminOrders = ({ appName }) => {
              
              text += `${EMOJI.CHECK} Assim que confirmado, você será notificado automaticamente por aqui e por e-mail.\n`;
              
-             // Encerra a mensagem aqui para focar na ação de pagamento, usando o NOME DINÂMICO
-             text += `\nAtenciosamente,\n*Equipe ${appName || 'da Loja'}*\n${EMOJI.PHONE} (83) 98737-9573`;
+             // Encerra a mensagem aqui para focar na ação de pagamento
+             text += `\nAtenciosamente,\n*Equipe Love Cestas e Perfumes*\n${EMOJI.PHONE} (83) 98737-9573`;
              return text;
         }
 
@@ -12542,7 +12549,7 @@ const AdminOrders = ({ appName }) => {
         }
 
         text += `\n\n${EMOJI.LINK} *Detalhes no site:*\n${orderLink}`;
-        text += `\n\nAtenciosamente,\n*Equipe ${appName || 'da Loja'}*\n${EMOJI.PHONE} (83) 98737-9573`;
+        text += `\n\nAtenciosamente,\n*Equipe Love Cestas e Perfumes*\n${EMOJI.PHONE} (83) 98737-9573`;
         
         return text;
     };
@@ -15349,13 +15356,11 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
                     onClick={() => onNavigate(currentBanner.link_url.replace(/^#/, ''))}
                 >
                     <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${imageUrl})` }} />
-                    
-                    {/* AQUI ESTÁ A CORREÇÃO: Utilizando a cor sólida HEX para não sofrer interferência das variáveis do tema claro */}
-                    <div className="absolute inset-0 bg-[#000000]/40" />
+                    <div className="absolute inset-0 bg-black/40" />
                     
                     {(currentBanner.title || currentBanner.subtitle || currentBanner.cta_enabled) && (
                          <motion.div 
-                            className="relative z-10 h-full flex flex-col items-center justify-center text-center text-[#ffffff] p-4"
+                            className="relative z-10 h-full flex flex-col items-center justify-center text-center text-white p-4"
                             variants={bannerVariants}
                             initial="hidden"
                             animate="visible"
@@ -15373,13 +15378,14 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
                             {currentBanner.subtitle && (
                                 <motion.p 
                                     variants={itemVariants}
-                                    className="text-base md:text-xl mt-2 md:mt-4 max-w-2xl text-[#e5e7eb]"
+                                    className="text-base md:text-xl mt-2 md:mt-4 max-w-2xl text-gray-200"
                                 >
                                     {currentBanner.subtitle}
                                 </motion.p>
                             )}
                              {currentBanner.cta_enabled === 1 && currentBanner.cta_text && (
                                 <motion.div variants={itemVariants}>
+                                    {/* ATUALIZAÇÃO: Botões aumentados no mobile (px-8 py-3 e text-base) para melhor destaque e usabilidade */}
                                     <button className="mt-6 md:mt-8 bg-amber-400 text-black px-8 py-3 md:px-12 md:py-4 rounded-md text-base md:text-lg font-bold hover:bg-amber-300 transition-colors shadow-xl active:scale-95">
                                         {currentBanner.cta_text}
                                     </button>
@@ -15392,15 +15398,15 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
 
             {banners.length > 1 && (
                 <>
-                    <button onClick={(e) => { e.stopPropagation(); goPrev(); }} className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-[#000000]/30 rounded-full text-[#ffffff] md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                    <button onClick={(e) => { e.stopPropagation(); goPrev(); }} className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/30 rounded-full text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); goNext(); }} className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-[#000000]/30 rounded-full text-[#ffffff] md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                    <button onClick={(e) => { e.stopPropagation(); goNext(); }} className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/30 rounded-full text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                     </button>
                     <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex space-x-2">
                         {banners.map((_, index) => (
-                            <button key={index} onClick={(e) => { e.stopPropagation(); setCurrentIndex(index); }} className={`w-3 h-3 rounded-full transition-colors ${currentIndex === index ? 'bg-amber-400' : 'bg-[#ffffff]/50'}`} />
+                            <button key={index} onClick={(e) => { e.stopPropagation(); setCurrentIndex(index); }} className={`w-3 h-3 rounded-full transition-colors ${currentIndex === index ? 'bg-amber-400' : 'bg-white/50'}`} />
                         ))}
                     </div>
                 </>
@@ -15427,12 +15433,12 @@ const AdminThemeSettings = () => {
         primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af'
     };
 
-    // Temas Sazonais (Demonstração no painel) - CORES INVERTIDAS ENTRE NAMORADOS E MÃES
+    // Temas Sazonais (Demonstração no painel)
     const seasonalThemesPreview = [
         { name: 'Natal', date: 'Dezembro', colors: { primary: '#ef4444', primaryHover: '#dc2626', bg: '#000000', surface: '#052e16', surfaceHover: '#064e3b', text: '#ffffff', textMuted: '#a7f3d0' } },
-        { name: 'Namorados', date: 'Junho', colors: { primary: '#f43f5e', primaryHover: '#e11d48', bg: '#000000', surface: '#2e1065', surfaceHover: '#4c1d95', text: '#ffffff', textMuted: '#e2e8f0' } }, // Usando cores antigas de Mães
+        { name: 'Namorados', date: 'Junho', colors: { primary: '#ec4899', primaryHover: '#db2777', bg: '#000000', surface: '#4a044e', surfaceHover: '#701a75', text: '#ffffff', textMuted: '#fbcfe8' } },
         { name: 'Pais', date: 'Agosto', colors: { primary: '#3b82f6', primaryHover: '#2563eb', bg: '#000000', surface: '#0f172a', surfaceHover: '#1e293b', text: '#ffffff', textMuted: '#94a3b8' } },
-        { name: 'Mães', date: 'Maio', colors: { primary: '#ec4899', primaryHover: '#db2777', bg: '#000000', surface: '#4a044e', surfaceHover: '#701a75', text: '#ffffff', textMuted: '#fbcfe8' } }, // Usando cores antigas de Namorados
+        { name: 'Mães', date: 'Maio', colors: { primary: '#f43f5e', primaryHover: '#e11d48', bg: '#000000', surface: '#2e1065', surfaceHover: '#4c1d95', text: '#ffffff', textMuted: '#e2e8f0' } },
         { name: 'Black Friday', date: 'Novembro', colors: { primary: '#a855f7', primaryHover: '#9333ea', bg: '#000000', surface: '#18181b', surfaceHover: '#27272a', text: '#ffffff', textMuted: '#a1a1aa' } },
     ];
 
@@ -15789,11 +15795,10 @@ function AppContent({ deferredPrompt }) {
       primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af'
   };
 
-  // Temas Sazonais (Aplicados na loja para os clientes) - CORES INVERTIDAS ENTRE NAMORADOS E MÃES
   const seasonalThemes = {
       natal: { primary: '#ef4444', primaryHover: '#dc2626', bg: '#000000', surface: '#052e16', surfaceHover: '#064e3b', text: '#ffffff', textMuted: '#a7f3d0' },
-      namorados: { primary: '#f43f5e', primaryHover: '#e11d48', bg: '#000000', surface: '#2e1065', surfaceHover: '#4c1d95', text: '#ffffff', textMuted: '#e2e8f0' }, // Cores antigas de Mães
-      maes: { primary: '#ec4899', primaryHover: '#db2777', bg: '#000000', surface: '#4a044e', surfaceHover: '#701a75', text: '#ffffff', textMuted: '#fbcfe8' }, // Cores antigas de Namorados
+      namorados: { primary: '#ec4899', primaryHover: '#db2777', bg: '#000000', surface: '#4a044e', surfaceHover: '#701a75', text: '#ffffff', textMuted: '#fbcfe8' },
+      maes: { primary: '#f43f5e', primaryHover: '#e11d48', bg: '#000000', surface: '#2e1065', surfaceHover: '#4c1d95', text: '#ffffff', textMuted: '#e2e8f0' },
       pais: { primary: '#3b82f6', primaryHover: '#2563eb', bg: '#000000', surface: '#0f172a', surfaceHover: '#1e293b', text: '#ffffff', textMuted: '#94a3b8' },
       blackfriday: { primary: '#a855f7', primaryHover: '#9333ea', bg: '#000000', surface: '#18181b', surfaceHover: '#27272a', text: '#ffffff', textMuted: '#a1a1aa' }
   };
@@ -15812,25 +15817,12 @@ function AppContent({ deferredPrompt }) {
       return null;
   }, []);
 
-  const [appThemeConfig, setAppThemeConfig] = useState(() => {
-      try {
-          const cached = localStorage.getItem('lovecestas_theme_config');
-          if (cached) return JSON.parse(cached);
-      } catch(e) {}
-      return { colors: defaultThemeFallback, autoSeasonal: false };
-  });
-
+  const [appThemeConfig, setAppThemeConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false });
   const [appLogo, setAppLogo] = useState(() => {
       return localStorage.getItem('lovecestas_app_logo') || 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
   });
   
-  const [appNameConfig, setAppNameConfig] = useState(() => {
-      try {
-          const cached = localStorage.getItem('lovecestas_app_name');
-          if (cached) return JSON.parse(cached);
-      } catch(e) {}
-      return { short_name: 'Love Cestas', name: 'Love Cestas e Perfumes', logo_text: 'LovecestasePerfumes' };
-  });
+  const [appNameConfig, setAppNameConfig] = useState({ short_name: 'Love Cestas', name: 'Love Cestas e Perfumes', logo_text: 'LovecestasePerfumes' });
 
   const activeThemeColors = useMemo(() => {
       if (appThemeConfig.autoSeasonal) {
@@ -15840,7 +15832,8 @@ function AppContent({ deferredPrompt }) {
       return appThemeConfig.colors || defaultThemeFallback;
   }, [appThemeConfig, getSeasonalTheme]);
 
-  React.useLayoutEffect(() => {
+  // --- MÁGICA DOS TEMAS: Injeção Dinâmica de CSS Variables (CORRIGIDA E BLINDADA) ---
+  useEffect(() => {
       const t = activeThemeColors;
       const isAdmin = currentPath.startsWith('admin');
       
@@ -15858,47 +15851,24 @@ function AppContent({ deferredPrompt }) {
           return;
       }
 
+      // CORREÇÃO CRÍTICA: Apenas a cor Primária (Amber) é substituída.
+      // Os fundos (bg-black, bg-gray-900) permanecem usando o Tailwind nativo,
+      // preservando assim as opacidades (bg-black/80) dos modais e elementos.
       styleElement.innerHTML = `
           :root {
               --theme-primary: ${t.primary};
               --theme-primary-hover: ${t.primaryHover};
-              --theme-bg: ${t.bg};
-              --theme-surface: ${t.surface};
-              --theme-surface-hover: ${t.surfaceHover};
-              --theme-text: ${t.text};
-              --theme-text-muted: ${t.textMuted};
           }
 
-          .bg-amber-400, .bg-amber-500 { background-color: var(--theme-primary) !important; color: var(--theme-bg) !important; }
-          .hover\\:bg-amber-300:hover, .hover\\:bg-amber-400:hover { background-color: var(--theme-primary-hover) !important; color: var(--theme-bg) !important; }
+          /* Cor Primária (Botões, Ícones, Textos Destacados) */
+          .bg-amber-400, .bg-amber-500 { background-color: var(--theme-primary) !important; color: #000000 !important; }
+          .hover\\:bg-amber-300:hover, .hover\\:bg-amber-400:hover { background-color: var(--theme-primary-hover) !important; color: #000000 !important; }
+          
           .text-amber-400, .text-amber-500 { color: var(--theme-primary) !important; }
           .hover\\:text-amber-300:hover, .hover\\:text-amber-400:hover { color: var(--theme-primary-hover) !important; }
+          
           .border-amber-400, .border-amber-500 { border-color: var(--theme-primary) !important; }
           .ring-amber-400 { --tw-ring-color: var(--theme-primary) !important; }
-
-          .bg-black { background-color: var(--theme-bg) !important; }
-          .bg-gray-900 { background-color: var(--theme-surface) !important; }
-          .bg-gray-800 { background-color: var(--theme-surface-hover) !important; }
-          
-          .bg-black\\/80 { background-color: color-mix(in srgb, var(--theme-bg) 80%, transparent) !important; }
-          .bg-black\\/70 { background-color: color-mix(in srgb, var(--theme-bg) 70%, transparent) !important; }
-          .bg-black\\/60 { background-color: color-mix(in srgb, var(--theme-bg) 60%, transparent) !important; }
-          .bg-black\\/40 { background-color: color-mix(in srgb, var(--theme-bg) 40%, transparent) !important; }
-          .bg-black\\/30 { background-color: color-mix(in srgb, var(--theme-bg) 30%, transparent) !important; }
-          
-          .bg-gray-900\\/95 { background-color: color-mix(in srgb, var(--theme-surface) 95%, transparent) !important; }
-          .bg-gray-900\\/80 { background-color: color-mix(in srgb, var(--theme-surface) 80%, transparent) !important; }
-          .bg-gray-900\\/50 { background-color: color-mix(in srgb, var(--theme-surface) 50%, transparent) !important; }
-          
-          .bg-gray-800\\/50 { background-color: color-mix(in srgb, var(--theme-surface-hover) 50%, transparent) !important; }
-
-          .border-gray-800, .border-gray-700 { border-color: var(--theme-surface-hover) !important; }
-          
-          .text-white { color: var(--theme-text) !important; }
-          .text-gray-200 { color: color-mix(in srgb, var(--theme-text) 90%, var(--theme-bg)) !important; }
-          .text-gray-300 { color: color-mix(in srgb, var(--theme-text) 80%, var(--theme-bg)) !important; }
-          .text-gray-400 { color: var(--theme-text-muted) !important; }
-          .text-gray-500 { color: color-mix(in srgb, var(--theme-text-muted) 80%, var(--theme-bg)) !important; }
       `;
 
       return () => {
@@ -15918,15 +15888,11 @@ function AppContent({ deferredPrompt }) {
       const handleNameUpdate = (event) => {
           if (event.detail) {
               setAppNameConfig(event.detail);
-              localStorage.setItem('lovecestas_app_name', JSON.stringify(event.detail));
           }
       };
 
       const handleThemeUpdate = (event) => {
-          if (event.detail) {
-              setAppThemeConfig(event.detail);
-              localStorage.setItem('lovecestas_theme_config', JSON.stringify(event.detail));
-          }
+          if (event.detail) setAppThemeConfig(event.detail);
       };
 
       window.addEventListener('app-name-updated', handleNameUpdate);
@@ -15945,11 +15911,11 @@ function AppContent({ deferredPrompt }) {
                   const isAuto = data.autoSeasonal === true || data.autoSeasonal === 'true' || data.autoSeasonal === 1;
                   const loadedConfig = data.colors ? { ...data, autoSeasonal: isAuto } : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto };
                   setAppThemeConfig(loadedConfig); 
-                  localStorage.setItem('lovecestas_theme_config', JSON.stringify(loadedConfig));
               }
           })
           .catch(err => {
               console.log("Usando tema local estático fallback.");
+              setAppThemeConfig({ colors: defaultThemeFallback, autoSeasonal: false });
           });
 
       apiService(`/settings/app-icons?v=${new Date().getTime()}`)
@@ -15970,7 +15936,6 @@ function AppContent({ deferredPrompt }) {
           .then(data => {
               if (data && data.name) {
                   setAppNameConfig(data);
-                  localStorage.setItem('lovecestas_app_name', JSON.stringify(data));
               }
           })
           .catch(err => console.log("Nome mantido como original."));
@@ -16078,18 +16043,18 @@ function AppContent({ deferredPrompt }) {
 
   if (isLoading || isStatusLoading) {
       return (
-        <div className="h-screen flex flex-col items-center justify-center gap-6" style={{ backgroundColor: activeThemeColors.bg }}>
+        <div className="h-screen flex flex-col items-center justify-center bg-black gap-6">
             <motion.div 
                 animate={{ scale: [1, 1.05, 1], opacity: [0.8, 1, 0.8] }} 
                 transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                 className="w-28 h-28 relative"
             >
-                <div className="absolute inset-0 blur-2xl opacity-20 rounded-full animate-pulse" style={{ backgroundColor: activeThemeColors.primary }}></div>
+                <div className="absolute inset-0 bg-amber-500 blur-2xl opacity-20 rounded-full animate-pulse"></div>
                 <img src={appLogo} alt={safeName} className="w-full h-full object-contain relative z-10" />
             </motion.div>
             <div className="flex flex-col items-center gap-3">
-                <SpinnerIcon className="h-8 w-8 animate-spin" style={{ color: activeThemeColors.primary }}/>
-                <p className="opacity-80 font-bold tracking-[0.2em] text-xs uppercase animate-pulse" style={{ color: activeThemeColors.primary }}>Preparando a loja...</p>
+                <SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin"/>
+                <p className="text-amber-400/80 font-bold tracking-[0.2em] text-xs uppercase animate-pulse">Preparando a loja...</p>
             </div>
         </div>
       );
@@ -16124,14 +16089,14 @@ function AppContent({ deferredPrompt }) {
             'dashboard': <AdminDashboard onNavigate={navigate} />, 
             'banners': <AdminBanners />,
             'products': <AdminProducts onNavigate={navigate} />,
-            'orders': <AdminOrders appName={safeName} />,
+            'orders': <AdminOrders />,
             'refunds': <AdminRefunds onNavigate={navigate} />,
             'collections': <AdminCollections />,
             'users': <AdminUsers />,
             'coupons': <AdminCoupons />,
             'reports': <AdminReports />,
             'logs': <AdminLogsPage />,
-            'newsletter': <AdminNewsletter appName={safeName} />, 
+            'newsletter': <AdminNewsletter />, 
             'shipping': <AdminShippingSettings />, 
             'app-icons': <AdminAppIcons />,
             'theme': <AdminThemeSettings />,
@@ -16153,7 +16118,7 @@ function AppContent({ deferredPrompt }) {
     }
 
     if (mainPage === 'order-success' && pageId) {
-        return <OrderSuccessPage orderId={pageId} onNavigate={navigate} appName={safeName} />;
+        return <OrderSuccessPage orderId={pageId} onNavigate={navigate} />;
     }
     
     if (mainPage === 'account') {
@@ -16170,9 +16135,9 @@ function AppContent({ deferredPrompt }) {
         'checkout': <CheckoutPage onNavigate={navigate} />,
         'wishlist': <WishlistPage onNavigate={navigate} />,
         'ajuda': <AjudaPage onNavigate={navigate} />,
-        'about': <AboutPage appName={safeName} />,
-        'privacy': <PrivacyPolicyPage appName={safeName} appLogoText={safeLogoText} />,
-        'terms': <TermsOfServicePage appName={safeName} appLogoText={safeLogoText} />,
+        'about': <AboutPage />,
+        'privacy': <PrivacyPolicyPage />,
+        'terms': <TermsOfServicePage />,
         'forgot-password': <ForgotPasswordPage onNavigate={navigate} />,
     };
     return pages[mainPage] || <HomePage onNavigate={navigate} />;
