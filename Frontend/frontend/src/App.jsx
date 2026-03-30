@@ -3,7 +3,6 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-
 // --- Constante da API ---
 const API_URL = process.env.REACT_APP_API_URL || 'https://love-cestas-e-perfumes.onrender.com/api';
 
@@ -66,7 +65,6 @@ const PaperAirplaneIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/
 const CurrencyDollarArrowIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-11.25a.75.75 0 0 0-1.5 0v2.5h-2.5a.75.75 0 0 0 0 1.5h2.5v2.5a.75.75 0 0 0 1.5 0v-2.5h2.5a.75.75 0 0 0 0-1.5h-2.5v-2.5Z" clipRule="evenodd" /><path d="M8.293 6.293a1 1 0 0 1 1.414 0l2.5 2.5a1 1 0 0 1 0 1.414l-2.5 2.5a1 1 0 0 1-1.414-1.414L9.586 10 8.293 8.707a1 1 0 0 1 0-1.414Z" /></svg>;
 const ArrowUturnLeftIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M15 10a.75.75 0 0 1-.75.75H7.707l2.293 2.293a.75.75 0 1 1-1.06 1.06l-3.5-3.5a.75.75 0 0 1 0-1.06l3.5-3.5a.75.75 0 0 1 1.06 1.06L7.707 9.25H14.25A.75.75 0 0 1 15 10Z" clipRule="evenodd" /></svg>;
 const ShieldCheckIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M10 1a.75.75 0 0 1 .75.75v1.252a1.75 1.75 0 0 1 2.476 1.222l.17.682a.75.75 0 0 1-1.42.354l-.17-.682a.25.25 0 0 0-.353-.175.75.75 0 0 1-.586 0 .25.25 0 0 0-.353.175l-.17.682a.75.75 0 0 1-1.42-.354l.17-.682A1.75 1.75 0 0 1 9.25 3.002V1.75A.75.75 0 0 1 10 1ZM5.113 4.634a.75.75 0 0 1 1.06 0l1.592 1.591a.75.75 0 0 1-1.06 1.06l-1.592-1.59a.75.75 0 0 1 0-1.061Zm8.714 0a.75.75 0 0 1 0 1.06l-1.591 1.591a.75.75 0 1 1-1.06-1.06l1.59-1.591a.75.75 0 0 1 1.061 0ZM10 4.25a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5a.75.75 0 0 1 .75-.75ZM10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm-2.207-6.207a1 1 0 0 1 1.414 0L10 12.586l.793-.793a1 1 0 1 1 1.414 1.414l-1.5 1.5a1 1 0 0 1-1.414 0l-2.5-2.5a1 1 0 0 1 0-1.414Z" clipRule="evenodd" /></svg>;
-const FingerprintIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className || "w-6 h-6"}><path strokeLinecap="round" strokeLinejoin="round" d="M7.864 4.243A7.5 7.5 0 0119.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 004.5 10.5a7.464 7.464 0 01-1.15 3.993m1.989 3.559A11.209 11.209 0 008.25 10.5a3.75 3.75 0 117.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 01-3.6 9.75m6.633-4.596a18.666 18.666 0 01-2.485 5.33" /></svg>;
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
@@ -94,19 +92,6 @@ const maskCPF = (value) => {
         .substring(0, 14);
 };
 
-const maskPhone = (value) => {
-    return value
-        .replace(/\D/g, '')
-        .replace(/^(\d{2})(\d)/g, '($1) $2')
-        .replace(/(\d)(\d{4})$/, '$1-$2')
-        .substring(0, 15);
-};
-
-const validatePhone = (phone) => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    return cleanPhone.length >= 10 && cleanPhone.length <= 11;
-};
-
 const maskCEP = (value) => {
     return value
         .replace(/\D/g, '')
@@ -114,6 +99,7 @@ const maskCEP = (value) => {
         .substring(0, 9);
 };
 
+// --- SERVIÇO DE API (COM ABORTCONTROLLER) ---
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -129,18 +115,10 @@ const processQueue = (error, token = null) => {
 };
 
 async function apiService(endpoint, method = 'GET', body = null, options = {}) {
-    // Pega o token do localStorage para enviar no header (corrige bloqueios de cookies no mobile)
-    const token = localStorage.getItem('accessToken');
-    const headers = { 'Content-Type': 'application/json' };
-    
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-    }
-
     const config = {
         method,
-        headers,
-        credentials: 'include', // Essencial para enviar cookies caso o navegador permita
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Essencial para enviar cookies httpOnly
         signal: options.signal,
     };
 
@@ -171,26 +149,14 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
 
                 isRefreshing = true;
                 return new Promise((resolve, reject) => {
-                    const currentRefreshToken = localStorage.getItem('refreshToken');
-                    // Envia o refreshToken no body como fallback para navegadores restritos
-                    apiService('/refresh-token', 'POST', { refreshToken: currentRefreshToken })
-                        .then((refreshData) => {
-                            // Salva os novos tokens
-                            if (refreshData && refreshData.accessToken) {
-                                localStorage.setItem('accessToken', refreshData.accessToken);
-                                if (refreshData.refreshToken) {
-                                    localStorage.setItem('refreshToken', refreshData.refreshToken);
-                                }
-                            }
+                    apiService('/refresh-token', 'POST')
+                        .then(() => {
                             processQueue(null);
                             resolve(apiService(endpoint, method, body, options));
                         })
                         .catch(err => {
                             processQueue(err);
-                            // Apenas dispara evento se não estiver suprimido
-                            if (!options.suppressAuthError) {
-                                window.dispatchEvent(new Event('auth-error'));
-                            }
+                            window.dispatchEvent(new Event('auth-error')); // Falha na renovação, desloga o usuário
                             reject(err);
                         })
                         .finally(() => {
@@ -198,11 +164,8 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
                         });
                 });
             }
-             
              if (response.status === 401 || response.status === 403) {
-                 if (!options.suppressAuthError) {
-                    window.dispatchEvent(new Event('auth-error'));
-                 }
+                 window.dispatchEvent(new Event('auth-error'));
              }
 
             const errorMessage = (typeof data === 'object' && data.message) ? data.message : (data || `Erro ${response.status}`);
@@ -289,21 +252,9 @@ const parseJsonString = (jsonString, fallbackValue) => {
     }
 };
 
-// --- OTIMIZAÇÃO AUTOMÁTICA CLOUDINARY ---
-// Transforma URLs do Cloudinary para entregar WebP e qualidade automática
-const optimizeCloudinaryUrl = (url, width = 'auto') => {
-    if (!url || typeof url !== 'string') return url;
-    if (url.includes('res.cloudinary.com')) {
-        // Insere parâmetros de otimização após '/upload/'
-        return url.replace('/upload/', `/upload/f_auto,q_auto,w_${width}/`);
-    }
-    return url;
-};
-
 const getFirstImage = (imagesJsonString, placeholder = 'https://placehold.co/600x400/222/fff?text=Produto') => {
     const images = parseJsonString(imagesJsonString, []);
-    const rawUrl = (Array.isArray(images) && images.length > 0) ? images[0] : placeholder;
-    return optimizeCloudinaryUrl(rawUrl);
+    return (Array.isArray(images) && images.length > 0) ? images[0] : placeholder;
 };
 
 // --- CONTEXTOS GLOBAIS ---
@@ -325,59 +276,52 @@ const AuthProvider = ({ children }) => {
         try {
             await apiService('/logout', 'POST');
         } catch (error) {
-            console.error("Erro na API de logout.", error);
+            console.error("Erro na API de logout, limpando localmente de qualquer maneira.", error);
         } finally {
+            localStorage.removeItem('user');
             setUser(null);
-            // Limpa os tokens do localStorage no logout
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-            
-            // CORREÇÃO: Limpa o cache de localização para não vazar o endereço/alias do usuário que acabou de deslogar
-            localStorage.removeItem('lovecestas_cached_location');
-            
-            if (window.location.hash !== '#home' && window.location.hash !== '') {
-                 window.location.hash = '#login';
-            }
-        }
-    }, []);
-
-    const fetchUserProfile = useCallback(async () => {
-        try {
-            const userData = await apiService('/users/me', 'GET', null, { suppressAuthError: true });
-            setUser(userData);
-        } catch (error) {
-            setUser(null);
-        } finally {
-            setIsLoading(false);
+            // Redireciona para o login após garantir que tudo foi limpo
+            window.location.hash = '#login';
         }
     }, []);
 
     useEffect(() => {
-        fetchUserProfile();
-    }, [fetchUserProfile]);
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+            try {
+                setUser(JSON.parse(storedUser));
+            } catch (e) {
+                localStorage.removeItem('user');
+            }
+        }
+        setIsLoading(false);
+    }, []);
 
     useEffect(() => {
         const handleAuthError = () => {
-            console.log("Sessão expirada. Logout.");
+            console.log("Erro de autenticação detectado. Deslogando usuário.");
             logout();
         };
+
         window.addEventListener('auth-error', handleAuthError);
-        return () => window.removeEventListener('auth-error', handleAuthError);
+
+        return () => {
+            window.removeEventListener('auth-error', handleAuthError);
+        };
     }, [logout]);
 
     const login = async (email, password) => {
+        // A resposta agora não contém mais o token diretamente
         const response = await apiService('/login', 'POST', { email, password });
         if (response && response.user) {
+            localStorage.setItem('user', JSON.stringify(response.user));
             setUser(response.user);
-            // Salva os tokens no localStorage para navegadores mobile restritos
-            if (response.accessToken) localStorage.setItem('accessToken', response.accessToken);
-            if (response.refreshToken) localStorage.setItem('refreshToken', response.refreshToken);
         }
-        return response;
+        return response; // Retorna a resposta completa para a página de login
     };
     
-    const register = async (name, email, password, cpf, phone) => {
-        return await apiService('/register', 'POST', { name, email, password, cpf, phone });
+    const register = async (name, email, password, cpf) => {
+        return await apiService('/register', 'POST', { name, email, password, cpf });
     };
 
     return <AuthContext.Provider value={{ user, login, register, logout, isAuthenticated: !!user, isLoading, setUser }}>{children}</AuthContext.Provider>;
@@ -387,8 +331,10 @@ const ShopProvider = ({ children }) => {
     const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
     const [cart, setCart] = useState([]);
     const [wishlist, setWishlist] = useState([]);
+    
     const [addresses, setAddresses] = useState([]);
     const [shippingLocation, setShippingLocation] = useState({ cep: '', city: '', state: '', alias: '' });
+    
     const [autoCalculatedShipping, setAutoCalculatedShipping] = useState(null);
     const [shippingOptions, setShippingOptions] = useState([]);
     const [isLoadingShipping, setIsLoadingShipping] = useState(false);
@@ -396,182 +342,18 @@ const ShopProvider = ({ children }) => {
     const [previewShippingItem, setPreviewShippingItem] = useState(null);
     const [selectedShippingName, setSelectedShippingName] = useState(null);
     const [isGeolocating, setIsGeolocating] = useState(false);
+
     const [couponCode, setCouponCode] = useState("");
     const [couponMessage, setCouponMessage] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState(null);
-
-    // Novo estado para configuração de frete local
-    const [localShippingConfig, setLocalShippingConfig] = useState({ base_price: 20, rules: [] });
-
-    // --- NOVO: Estado para Notificações de Pedidos ---
-    const [orderNotificationCount, setOrderNotificationCount] = useState(0);
-
-    // Helpers internos
-    const normalize = (str) => str ? String(str).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
-    const safeParse = (val) => {
-        if (!val) return [];
-        if (Array.isArray(val)) return val;
-        try { return JSON.parse(val) || []; } catch { return []; }
-    };
-
-    // --- Busca notificações de pedidos (Polling) ---
-    const checkNotifications = useCallback(async () => {
-        if (!isAuthenticated) {
-            setOrderNotificationCount(0);
-            return;
-        }
-        try {
-            const data = await apiService('/notifications/orders/count', 'GET', null, { suppressAuthError: true });
-            if (data && typeof data.count === 'number') {
-                setOrderNotificationCount(data.count);
-            }
-        } catch (error) {
-            // Silencia erros de polling
-        }
-    }, [isAuthenticated]);
-
-    // --- Marca pedido como visto ---
-    const markOrderAsSeen = useCallback(async (orderId) => {
-        if (!isAuthenticated) return;
-        try {
-            await apiService(`/orders/${orderId}/mark-seen`, 'PUT');
-            checkNotifications(); 
-        } catch (error) {
-            console.error("Erro ao marcar pedido como visto:", error);
-        }
-    }, [isAuthenticated, checkNotifications]);
-
-    useEffect(() => {
-        checkNotifications();
-        const interval = setInterval(checkNotifications, 5000);
-        return () => clearInterval(interval);
-    }, [checkNotifications]);
-
-    // --- LÓGICA DE CÁLCULO DE DATA (FERIADOS) ---
-    const calculateDeliveryDate = useCallback((daysToAdd) => {
-        const date = new Date();
-        let added = 0;
-        
-        const holidays = [
-            "01/01", "21/04", "01/05", "24/06", "07/09", "12/10", "02/11", "15/11", "25/12"
-        ];
-
-        while (added < daysToAdd) {
-            date.setDate(date.getDate() + 1);
-            
-            const dayOfWeek = date.getDay();
-            const day = String(date.getDate()).padStart(2, '0');
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const dateString = `${day}/${month}`;
-            
-            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; 
-            const isHoliday = holidays.includes(dateString);
-
-            if (!isWeekend && !isHoliday) {
-                added++;
-            }
-        }
-        return date;
-    }, []);
-    
-    const fetchShippingConfig = useCallback(() => {
-        apiService('/settings/shipping-local')
-            .then(data => {
-                setLocalShippingConfig(prev => {
-                    if (JSON.stringify(prev) !== JSON.stringify(data)) {
-                        return data;
-                    }
-                    return prev;
-                });
-            })
-            .catch(err => console.error("Falha ao buscar config de frete local:", err));
-    }, []);
-
-    useEffect(() => {
-        fetchShippingConfig(); 
-        const intervalId = setInterval(fetchShippingConfig, 5000);
-        return () => clearInterval(intervalId);
-    }, [fetchShippingConfig]);
-
-    const calculateLocalDeliveryPrice = useCallback((items) => {
-        const defaultBasePrice = parseFloat(localShippingConfig.base_price) || 20;
-        if (!items || items.length === 0) return defaultBasePrice;
-
-        let highestBasePriceFound = 0;
-        let totalSurcharges = 0;
-        let totalDiscounts = 0;
-
-        for (const item of items) {
-            const itemCategory = normalize(item.category || "");
-            const itemBrand = normalize(item.brand || "");
-            let itemEffectiveBasePrice = defaultBasePrice; 
-            
-            if (localShippingConfig.rules && localShippingConfig.rules.length > 0) {
-                for (const rule of localShippingConfig.rules) {
-                    const ruleValue = normalize(rule.value);
-                    const ruleAmount = parseFloat(rule.amount) || 0;
-                    if (!ruleValue) continue;
-
-                    let match = false;
-                    if (rule.type === 'category' && (itemCategory === ruleValue || itemCategory.includes(ruleValue))) match = true;
-                    if (rule.type === 'brand' && (itemBrand === ruleValue || itemBrand.includes(ruleValue))) match = true;
-
-                    if (match) {
-                        switch (rule.action) {
-                            case 'free_shipping': itemEffectiveBasePrice = 0; break;
-                            case 'surcharge': totalSurcharges += ruleAmount; break;
-                            case 'discount': totalDiscounts += ruleAmount; break;
-                            default: break;
-                        }
-                    }
-                }
-            }
-            if (itemEffectiveBasePrice > highestBasePriceFound) {
-                highestBasePriceFound = itemEffectiveBasePrice;
-            }
-        }
-        let finalPrice = highestBasePriceFound + totalSurcharges - totalDiscounts;
-        return Math.max(0, finalPrice); 
-    }, [localShippingConfig]);
 
     const fetchPersistentCart = useCallback(async () => {
         if (!isAuthenticated) return;
         try {
             const dbCart = await apiService('/cart');
-            const localCartStr = localStorage.getItem('lovecestas_cart');
-            let localCart = [];
-            try { localCart = JSON.parse(localCartStr) || []; } catch(e){}
-            const mergedCart = (dbCart || []).map(dbItem => {
-                if (dbItem.variation && dbItem.variation.color && dbItem.variation.size) {
-                    return { ...dbItem, cartItemId: `${dbItem.id}-${dbItem.variation.color}-${dbItem.variation.size}` };
-                }
-                if (dbItem.product_type === 'clothing') {
-                    const localItem = localCart.find(li => li.id === dbItem.id && li.variation);
-                    if (localItem && localItem.variation) {
-                        return { ...dbItem, variation: localItem.variation, cartItemId: `${dbItem.id}-${localItem.variation.color}-${localItem.variation.size}` };
-                    }
-                }
-                return { ...dbItem, cartItemId: dbItem.cartItemId || String(dbItem.id) };
-            });
-            setCart(mergedCart);
-            localStorage.setItem('lovecestas_cart', JSON.stringify(mergedCart));
-        } catch (err) { console.error("Falha ao buscar carrinho:", err); }
+            setCart(dbCart || []);
+        } catch (err) { console.error("Falha ao buscar carrinho persistente:", err); setCart([]); }
     }, [isAuthenticated]);
-
-    const syncGuestCartToDB = useCallback(async () => {
-        const localCartStr = localStorage.getItem('lovecestas_cart');
-        if (!localCartStr) return;
-        try {
-            const localItems = JSON.parse(localCartStr);
-            if (Array.isArray(localItems) && localItems.length > 0) {
-                const promises = localItems.map(item => {
-                    const payload = { productId: item.id, quantity: item.qty, variationId: item.variation?.id, variation: item.variation, variation_details: item.variation ? JSON.stringify(item.variation) : null };
-                    return apiService('/cart', 'POST', payload).catch(err => console.warn("Item duplicado/erro sync:", err));
-                });
-                await Promise.all(promises);
-            }
-        } catch (e) { console.error("Erro sync carrinho:", e); }
-    }, []);
 
     const fetchAddresses = useCallback(async () => {
         if (!isAuthenticated) return [];
@@ -579,7 +361,7 @@ const ShopProvider = ({ children }) => {
             const userAddresses = await apiService('/addresses');
             setAddresses(userAddresses || []);
             return userAddresses || [];
-        } catch (error) { setAddresses([]); return []; }
+        } catch (error) { console.error("Falha ao buscar endereços:", error); setAddresses([]); return []; }
     }, [isAuthenticated]);
 
     const updateDefaultShippingLocation = useCallback((addrs) => {
@@ -591,176 +373,54 @@ const ShopProvider = ({ children }) => {
         return false;
     }, []);
 
-    // --- LÓGICA DE GEOLOCALIZAÇÃO COM CACHE (BLINDADA) ---
     const determineShippingLocation = useCallback(async () => {
         let locationDetermined = false;
-        
-        // 1. Prioriza o endereço do cliente logado
         if (isAuthenticated) {
             const userAddresses = await fetchAddresses();
             if (userAddresses && userAddresses.length > 0) {
                 locationDetermined = updateDefaultShippingLocation(userAddresses);
             }
         }
-        
-        // 2. Se não estiver logado, procura no Cache Local (Salva de F5 e problemas no Computador)
-        if (!locationDetermined) {
-            try {
-                const cachedLocStr = localStorage.getItem('lovecestas_cached_location');
-                if (cachedLocStr) {
-                    const cachedLoc = JSON.parse(cachedLocStr);
-                    if (cachedLoc && cachedLoc.cep && cachedLoc.cep.replace(/\D/g, '').length === 8) {
-                        // CORREÇÃO: Limpa apelidos/nomes próprios se o usuário não estiver logado.
-                        // Evita mostrar "Casa do Thaliel" se você tiver acabado de deslogar.
-                        if (!isAuthenticated && cachedLoc.alias && cachedLoc.alias !== 'Localização Atual' && !cachedLoc.alias.startsWith('CEP')) {
-                            cachedLoc.alias = `CEP ${cachedLoc.cep}`;
-                        }
-                        setShippingLocation(cachedLoc);
-                        locationDetermined = true;
-                    }
-                }
-            } catch (e) {
-                console.warn("Erro ao ler cache de localização", e);
-            }
-        }
-        
-        // 3. Se não tem cache, busca no GPS/IP
-        if (!locationDetermined) {
+        if (!locationDetermined && navigator.geolocation) {
             setIsGeolocating(true);
-            
-            const saveAndSetLocation = (cep, city, state) => {
-                let finalCep = cep ? String(cep).replace(/\D/g, '') : '';
-                
-                // Fallback Inteligente: Se achou cidade mas a API falhou no CEP
-                if (finalCep.length !== 8) {
-                    const cityLower = (city || '').toLowerCase();
-                    if (cityLower.includes('joão pessoa') || cityLower.includes('joao pessoa')) finalCep = '58030000';
-                    else if (cityLower.includes('cabedelo')) finalCep = '58100000';
-                }
-                
-                if (finalCep.length === 8) {
-                    const newLocation = { cep: finalCep, city: city || '', state: state || '', alias: 'Localização Atual' };
-                    setShippingLocation(newLocation);
-                    return true;
-                }
-                return false;
-            };
-
-            const fetchGeoIP = async () => {
-                try {
-                    const ipRes = await fetch('https://ipapi.co/json/');
-                    if (!ipRes.ok) throw new Error('API Rate Limited'); 
-                    const ipData = await ipRes.json();
-                    
-                    if (ipData && ipData.postal) {
-                        saveAndSetLocation(ipData.postal, ipData.city, ipData.region_code);
-                    }
-                } catch (e) {
-                    console.warn("Erro no fallback de IP:", e);
-                } finally {
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    const { latitude, longitude } = position.coords;
+                    try {
+                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                        const data = await response.json();
+                        if (data.address && data.address.postcode) {
+                            const cep = data.address.postcode.replace(/\D/g, '');
+                            setShippingLocation({ cep, city: data.address.city || data.address.town || '', state: data.address.state || '', alias: 'Localização Atual' });
+                        }
+                    } catch (error) { console.warn("Não foi possível obter CEP da geolocalização.", error); } 
+                    finally { setIsGeolocating(false); }
+                }, 
+                (error) => { 
+                    console.warn("Geolocalização negada ou indisponível.", error.message);
                     setIsGeolocating(false);
-                }
-            };
-
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    async (position) => {
-                        try {
-                            const lat = position.coords.latitude;
-                            const lon = position.coords.longitude;
-                            
-                            // Tenta a API Rápida (BigDataCloud)
-                            const bdcResponse = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=pt`);
-                            const bdcData = await bdcResponse.json();
-                            
-                            let cepFound = bdcData.postcode || '';
-                            let cityFound = bdcData.city || bdcData.locality || '';
-                            let stateFound = bdcData.principalSubdivision || '';
-
-                            // Se a API rápida não achou CEP, tenta a API secundária (OpenStreetMap)
-                            if (!cepFound || String(cepFound).replace(/\D/g, '').length !== 8) {
-                                const osmResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&email=loja@lovecestaseperfumes.com.br`);
-                                const osmData = await osmResponse.json();
-                                if (osmData && osmData.address) {
-                                    cepFound = osmData.address.postcode || cepFound;
-                                    cityFound = osmData.address.city || osmData.address.town || cityFound;
-                                    stateFound = osmData.address.state || stateFound;
-                                }
-                            }
-
-                            const success = saveAndSetLocation(cepFound, cityFound, stateFound);
-                            
-                            // Se as duas de GPS falharem no CEP, usa a de IP
-                            if (!success) fetchGeoIP();
-                            else setIsGeolocating(false);
-
-                        } catch (error) { 
-                            console.warn("Erro no GPS:", error); 
-                            fetchGeoIP(); // Aciona fallback se GPS der erro
-                        } 
-                    }, 
-                    (error) => {
-                        console.warn("GPS negado/indisponível:", error.message);
-                        fetchGeoIP(); // Aciona fallback se cliente não der permissão de GPS
-                    }, 
-                    { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
-                );
-            } else {
-                fetchGeoIP(); 
-            }
+                },
+                { timeout: 10000 }
+            );
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
 
-    // --- NOVO: Salva qualquer alteração de CEP no cache de forma blindada ---
-    useEffect(() => {
-        if (shippingLocation && shippingLocation.cep && shippingLocation.cep.replace(/\D/g, '').length === 8) {
-            const locationToCache = { ...shippingLocation };
-            // CORREÇÃO: Nunca salva nome/apelido no cache se o usuário estiver deslogado
-            if (!isAuthenticated && locationToCache.alias && locationToCache.alias !== 'Localização Atual' && !locationToCache.alias.startsWith('CEP')) {
-                locationToCache.alias = `CEP ${locationToCache.cep}`;
-            }
-            localStorage.setItem('lovecestas_cached_location', JSON.stringify(locationToCache));
-        }
-    }, [shippingLocation, isAuthenticated]);
-
-    useEffect(() => {
-        if (!isAuthLoading) {
-            if (cart.length > 0) localStorage.setItem('lovecestas_cart', JSON.stringify(cart));
-            else if (cart.length === 0 && !isAuthenticated) localStorage.setItem('lovecestas_cart', JSON.stringify([]));
-        }
-    }, [cart, isAuthLoading, isAuthenticated]);
-
     useEffect(() => {
         if (isAuthLoading) return;
-        const initializeShop = async () => {
-            if (isAuthenticated) {
-                await syncGuestCartToDB();
-                await fetchPersistentCart();
-                determineShippingLocation();
-                apiService('/wishlist').then(setWishlist).catch(console.error);
-                checkNotifications(); 
-            } else {
-                const localCart = localStorage.getItem('lovecestas_cart');
-                if (localCart) { try { const parsed = JSON.parse(localCart); if (Array.isArray(parsed)) setCart(parsed); } catch (e) { setCart([]); } }
-                
-                // Se o usuário entrou no site deslogado, zera tudo, e confia no determineShippingLocation para puxar o cache limpo
-                setWishlist([]); setAddresses([]); setShippingLocation({ cep: '', city: '', state: '', alias: '' }); setAutoCalculatedShipping(null); setCouponCode(''); setAppliedCoupon(null); setCouponMessage(''); 
-                determineShippingLocation(); 
-                setOrderNotificationCount(0);
-            }
-        };
-        initializeShop();
-    }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation, syncGuestCartToDB, checkNotifications]);
+        if (isAuthenticated) {
+            fetchPersistentCart();
+            determineShippingLocation();
+            apiService('/wishlist').then(setWishlist).catch(console.error);
+        } else {
+            setCart([]); setWishlist([]); setAddresses([]); setShippingLocation({ cep: '', city: '', state: '', alias: '' });
+            setAutoCalculatedShipping(null); setCouponCode(''); setAppliedCoupon(null); setCouponMessage('');
+            determineShippingLocation();
+        }
+    }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
     
     useEffect(() => {
-        if (cart.length > 0 && isAuthenticated) {
-            const missingData = cart.some(item => !item.hasOwnProperty('category') || !item.hasOwnProperty('brand'));
-            if (missingData) fetchPersistentCart();
-        }
-    }, [cart.length, isAuthenticated, fetchPersistentCart]);
+        const itemsToCalculate = cart.length > 0 ? cart : previewShippingItem;
 
-    useEffect(() => {
-        const itemsToCalculate = previewShippingItem && previewShippingItem.length > 0 ? previewShippingItem : cart;
         const debounceTimer = setTimeout(() => {
             if (itemsToCalculate && itemsToCalculate.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
                 setIsLoadingShipping(true);
@@ -768,68 +428,83 @@ const ShopProvider = ({ children }) => {
                 
                 const calculateShipping = async () => {
                     try {
-                        const cleanCep = shippingLocation.cep.replace(/\D/g, '');
-                        const cepPrefix = parseInt(cleanCep.substring(0, 5));
-                        const isJoaoPessoa = cepPrefix >= 58000 && cepPrefix <= 58099;
+                        const productsPayload = itemsToCalculate.map(item => ({
+                            id: String(item.id),
+                            price: item.is_on_sale && item.sale_price ? item.sale_price : item.price,
+                            quantity: item.qty || 1,
+                        }));
+                        
+                        const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload });
+                        
+                        const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
+                        const sedexOption = apiOptions.find(opt => opt.name.toLowerCase().includes('sedex'));
 
-                        const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada', isPickup: true };
-                        let finalOptions = [];
-
-                        if (isJoaoPessoa) {
-                            const localPrice = calculateLocalDeliveryPrice(itemsToCalculate);
-                            const date = calculateDeliveryDate(1);
-                            const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
-                            const deliveryString = `Receba até ${formattedDate}`;
-
-                            const localDeliveryOption = { name: "Entrega local (Motoboy / Uber)", price: localPrice, delivery_time: deliveryString, isLocal: true };
-                            finalOptions = [localDeliveryOption, pickupOption];
-                        } else {
-                            const productsPayload = itemsToCalculate.map(item => ({ id: String(item.id), price: item.is_on_sale && item.sale_price ? item.sale_price : item.price, quantity: item.qty || 1 }));
-                            const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload });
-                            const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
-                            if (pacOptionRaw) finalOptions.push({ ...pacOptionRaw, name: 'PAC' });
-                            finalOptions.push(pickupOption);
+                        const shippingApiOptions = [];
+                        if (pacOptionRaw) {
+                            shippingApiOptions.push({ ...pacOptionRaw, name: 'PAC' });
+                        } else if (sedexOption) {
+                            shippingApiOptions.push(sedexOption);
                         }
 
+                        const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
+                        
+                        const finalOptions = [...shippingApiOptions, pickupOption];
                         setShippingOptions(finalOptions);
+                        
                         const desiredOption = finalOptions.find(opt => opt.name === selectedShippingName);
-                        setAutoCalculatedShipping(desiredOption || finalOptions[0] || null);
+                        const primaryShippingOption = shippingApiOptions[0];
+                        
+                        setAutoCalculatedShipping(desiredOption || primaryShippingOption || pickupOption || null);
 
                     } catch (error) {
                         setShippingError(error.message || 'Não foi possível calcular o frete.');
-                        const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada', isPickup: true };
+                        const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
                         setShippingOptions([pickupOption]);
-                        setAutoCalculatedShipping(pickupOption);
-                    } finally { setIsLoadingShipping(false); }
+                        const desiredOption = pickupOption.name === selectedShippingName ? pickupOption : null;
+                        setAutoCalculatedShipping(desiredOption || pickupOption);
+                    } finally {
+                        setIsLoadingShipping(false);
+                    }
                 };
                 calculateShipping();
             } else {
-                setShippingOptions([]); setAutoCalculatedShipping(null);
+                setShippingOptions([]);
+                setAutoCalculatedShipping(null);
             }
         }, 500);
         return () => clearTimeout(debounceTimer);
-    }, [cart, shippingLocation, previewShippingItem, selectedShippingName, calculateLocalDeliveryPrice, calculateDeliveryDate]);
+    }, [cart, shippingLocation, previewShippingItem, selectedShippingName]);
 
+    
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
         setPreviewShippingItem(null);
         const cartItemId = productToAdd.product_type === 'clothing' && variation ? `${productToAdd.id}-${variation.color}-${variation.size}` : productToAdd.id;
         const existing = cart.find(item => item.cartItemId === cartItemId);
         const availableStock = variation ? variation.stock : productToAdd.stock;
         const currentQtyInCart = existing ? existing.qty : 0;
-        if (currentQtyInCart + qty > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unid.`);
-        setCart(currentCart => {
-            if (existing) return currentCart.map(item => item.cartItemId === cartItemId ? { ...item, qty: item.qty + qty } : item);
-            return [...currentCart, { ...productToAdd, qty, variation, cartItemId }];
-        });
-        if (isAuthenticated) {
-            apiService('/cart', 'POST', { productId: productToAdd.id, quantity: existing ? existing.qty + qty : qty, variationId: variation?.id, variation: variation, variation_details: variation ? JSON.stringify(variation) : null }).catch(console.error);
-        }
-    }, [cart, isAuthenticated]);
+        
+        if (currentQtyInCart + qty > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
 
+        setCart(currentCart => {
+            let updatedCart;
+            if (existing) {
+                updatedCart = currentCart.map(item => item.cartItemId === cartItemId ? { ...item, qty: item.qty + qty } : item);
+            } else {
+                updatedCart = [...currentCart, { ...productToAdd, qty, variation, cartItemId }];
+            }
+
+            if (isAuthenticated) {
+                apiService('/cart', 'POST', { productId: productToAdd.id, quantity: existing ? existing.qty + qty : qty, variationId: variation?.id }).catch(console.error);
+            }
+            return updatedCart;
+        });
+    }, [cart, isAuthenticated]);
+    
     const removeFromCart = useCallback(async (cartItemId) => {
         const itemToRemove = cart.find(item => item.cartItemId === cartItemId);
         if (!itemToRemove) return;
-        setCart(current => current.filter(item => item.cartItemId !== cartItemId));
+        const updatedCart = cart.filter(item => item.cartItemId !== cartItemId);
+        setCart(updatedCart);
         if (isAuthenticated) await apiService(`/cart/${itemToRemove.id}`, 'DELETE', { variation: itemToRemove.variation });
     }, [cart, isAuthenticated]);
 
@@ -838,89 +513,124 @@ const ShopProvider = ({ children }) => {
         const itemToUpdate = cart.find(item => item.cartItemId === cartItemId);
         if (!itemToUpdate) return;
         const availableStock = itemToUpdate.variation ? itemToUpdate.variation.stock : itemToUpdate.stock;
-        if (newQuantity > availableStock) throw new Error(`Estoque insuficiente.`);
-        setCart(current => current.map(item => item.cartItemId === cartItemId ? {...item, qty: newQuantity } : item));
-        if (isAuthenticated) apiService('/cart', 'POST', { productId: itemToUpdate.id, quantity: newQuantity, variationId: itemToUpdate.variation?.id, variation: itemToUpdate.variation });
-    }, [cart, isAuthenticated, removeFromCart]);
+        if (newQuantity > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
 
-    const clearCart = useCallback(async () => { setCart([]); localStorage.removeItem('lovecestas_cart'); if (isAuthenticated) await apiService('/cart', 'DELETE'); }, [isAuthenticated]);
-    const addToWishlist = useCallback(async (productToAdd) => { if (!isAuthenticated) return; if (wishlist.some(p => p.id === productToAdd.id)) return; try { const addedProduct = await apiService('/wishlist', 'POST', { productId: productToAdd.id }); setWishlist(current => [...current, addedProduct]); return { success: true, message: `${productToAdd.name} adicionado à lista!` }; } catch (error) { return { success: false, message: `Erro: ${error.message}` }; } }, [isAuthenticated, wishlist]);
-    const removeFromWishlist = useCallback(async (productId) => { if (!isAuthenticated) return; try { await apiService(`/wishlist/${productId}`, 'DELETE'); setWishlist(current => current.filter(p => p.id !== productId)); } catch (error) { console.error(error); } }, [isAuthenticated]);
-    const removeCoupon = useCallback(() => { setAppliedCoupon(null); setCouponCode(''); setCouponMessage(''); }, []);
+        const updatedCart = cart.map(item => item.cartItemId === cartItemId ? {...item, qty: newQuantity } : item);
+        setCart(updatedCart);
+        if (isAuthenticated) await apiService('/cart', 'POST', { productId: itemToUpdate.id, quantity: newQuantity, variation: itemToUpdate.variation });
+    }, [cart, isAuthenticated, removeFromCart]);
     
+    const clearCart = useCallback(async () => { setCart([]); if (isAuthenticated) await apiService('/cart', 'DELETE'); }, [isAuthenticated]);
+
+    const addToWishlist = useCallback(async (productToAdd) => {
+        if (!isAuthenticated) return; 
+        if (wishlist.some(p => p.id === productToAdd.id)) return;
+        try {
+            const addedProduct = await apiService('/wishlist', 'POST', { productId: productToAdd.id });
+            setWishlist(current => [...current, addedProduct]);
+            return { success: true, message: `${productToAdd.name} adicionado à lista de desejos!` };
+        } catch (error) { console.error(error); return { success: false, message: `Não foi possível adicionar o item: ${error.message}` }; }
+    }, [isAuthenticated, wishlist]);
+
+    const removeFromWishlist = useCallback(async (productId) => {
+        if (!isAuthenticated) return;
+        try {
+            await apiService(`/wishlist/${productId}`, 'DELETE');
+            setWishlist(current => current.filter(p => p.id !== productId));
+        } catch (error) { console.error(error); }
+    }, [isAuthenticated]);
+    
+    const removeCoupon = useCallback(() => { setAppliedCoupon(null); setCouponCode(''); setCouponMessage(''); }, []);
+
     const applyCoupon = useCallback(async (code) => {
-        setCouponCode(code); setCouponMessage(""); 
+        setCouponCode(code);
         try {
             const response = await apiService('/coupons/validate', 'POST', { code });
-            const coupon = response.coupon;
-            if (coupon.type !== 'free_shipping') {
-                const rawAllowedCats = safeParse(coupon.allowed_categories);
-                const rawAllowedBrands = safeParse(coupon.allowed_brands);
-                const safeAllowedCats = rawAllowedCats.map(normalize).filter(s => s.length > 0);
-                const safeAllowedBrands = rawAllowedBrands.map(normalize).filter(s => s.length > 0);
-                const hasRestrictions = safeAllowedCats.length > 0 || safeAllowedBrands.length > 0;
-                const isGlobal = !hasRestrictions;
-                let eligibleCount = 0;
-                if (isGlobal) eligibleCount = cart.length;
-                else {
-                    cart.forEach(item => {
-                        const itemCat = normalize(item.category || "");
-                        const itemBrand = normalize(item.brand || "");
-                        const catMatch = safeAllowedCats.some(allowed => itemCat === allowed || itemCat.includes(allowed));
-                        const brandMatch = safeAllowedBrands.some(allowed => itemBrand === allowed || itemBrand.includes(allowed));
-                        if (catMatch || brandMatch) eligibleCount++;
-                    });
-                }
-                if (eligibleCount === 0) { setAppliedCoupon(null); setCouponMessage("Nenhum produto elegível."); return; }
-            }
-            setAppliedCoupon(coupon);
-        } catch (error) { setAppliedCoupon(null); setCouponMessage(error.message || "Erro no cupom."); }
-    }, [cart]);
-
+            setAppliedCoupon(response.coupon);
+            // Mensagem de sucesso será setada pelo useEffect abaixo após cálculo
+        } catch (error) { removeCoupon(); setCouponMessage(error.message || "Não foi possível aplicar o cupom."); }
+    }, [removeCoupon]);
+    
+    // --- Lógica de Desconto Atualizada (Suporte a Regras Globais/Restritas) ---
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
-        if (appliedCoupon.type === 'free_shipping') return autoCalculatedShipping ? autoCalculatedShipping.price : 0;
+        
+        // Se for frete grátis, o desconto no subtotal é 0 (será aplicado no shippingCost visualmente ou no total final)
+        if (appliedCoupon.type === 'free_shipping') return 0;
+
         let eligibleTotal = 0;
-        const rawAllowedCats = safeParse(appliedCoupon.allowed_categories);
-        const rawAllowedBrands = safeParse(appliedCoupon.allowed_brands);
-        const safeAllowedCats = rawAllowedCats.map(normalize).filter(s => s.length > 0);
-        const safeAllowedBrands = rawAllowedBrands.map(normalize).filter(s => s.length > 0);
-        const hasRestrictions = safeAllowedCats.length > 0 || safeAllowedBrands.length > 0;
-        const isGlobal = !hasRestrictions;
+        
+        // Parsing seguro das regras
+        const isGlobal = appliedCoupon.is_global === 1 || appliedCoupon.is_global === true;
+        const allowedCats = typeof appliedCoupon.allowed_categories === 'string' ? JSON.parse(appliedCoupon.allowed_categories) : (appliedCoupon.allowed_categories || []);
+        const allowedBrands = typeof appliedCoupon.allowed_brands === 'string' ? JSON.parse(appliedCoupon.allowed_brands) : (appliedCoupon.allowed_brands || []);
 
         cart.forEach(item => {
             let isEligible = false;
-            if (isGlobal) isEligible = true;
-            else {
-                const itemCat = normalize(item.category || "");
-                const itemBrand = normalize(item.brand || "");
-                const catMatch = safeAllowedCats.some(allowed => itemCat === allowed || itemCat.includes(allowed));
-                const brandMatch = safeAllowedBrands.some(allowed => itemBrand === allowed || itemBrand.includes(allowed));
+            
+            if (isGlobal) {
+                isEligible = true;
+            } else {
+                // Lógica de "OU": Se bater categoria OU marca, é elegível
+                const itemCategory = item.category || "";
+                const itemBrand = item.brand || "";
+                
+                const catMatch = allowedCats.includes(itemCategory);
+                const brandMatch = allowedBrands.includes(itemBrand);
+                
                 if (catMatch || brandMatch) isEligible = true;
             }
+
             if (isEligible) {
                 const price = (item.is_on_sale && item.sale_price) ? parseFloat(item.sale_price) : parseFloat(item.price);
                 eligibleTotal += price * item.qty;
             }
         });
+
         if (eligibleTotal === 0) return 0;
-        let finalDiscount = 0;
-        if (appliedCoupon.type === 'percentage') finalDiscount = eligibleTotal * (parseFloat(appliedCoupon.value) / 100);
-        else if (appliedCoupon.type === 'fixed') finalDiscount = Math.min(parseFloat(appliedCoupon.value), eligibleTotal);
-        return Math.min(finalDiscount, eligibleTotal);
-    }, [appliedCoupon, cart, autoCalculatedShipping]);
+
+        let discountValue = 0;
+        if (appliedCoupon.type === 'percentage') {
+            discountValue = eligibleTotal * (parseFloat(appliedCoupon.value) / 100);
+        } else if (appliedCoupon.type === 'fixed') {
+            // Valor fixo não pode exceder o total dos itens elegíveis
+            discountValue = Math.min(parseFloat(appliedCoupon.value), eligibleTotal);
+        }
+
+        return discountValue;
+    }, [appliedCoupon, cart]);
+
+    // Mensagem de Feedback Atualizada
+    useEffect(() => {
+        if (appliedCoupon) {
+            if (discount === 0 && appliedCoupon.type !== 'free_shipping') {
+                setCouponMessage("Este cupom não se aplica aos itens do seu carrinho.");
+            } else {
+                setCouponMessage(`Cupom "${appliedCoupon.code}" aplicado!`);
+            }
+        }
+    }, [discount, appliedCoupon]);
 
     const clearOrderState = useCallback(() => { clearCart(); removeCoupon(); determineShippingLocation(); }, [clearCart, removeCoupon, determineShippingLocation]);
 
     return (
         <ShopContext.Provider value={{
-            cart, setCart, clearOrderState, wishlist, addToCart, addToWishlist, removeFromWishlist, updateQuantity, removeFromCart, 
-            userName: user?.name, addresses, fetchAddresses, shippingLocation, setShippingLocation, 
-            autoCalculatedShipping, setAutoCalculatedShipping, shippingOptions, isLoadingShipping, shippingError, 
-            updateDefaultShippingLocation, determineShippingLocation, setPreviewShippingItem, setSelectedShippingName, isGeolocating, 
-            couponCode, setCouponCode, couponMessage, applyCoupon, appliedCoupon, removeCoupon, discount,
-            calculateLocalDeliveryPrice, calculateDeliveryDate,
-            orderNotificationCount, markOrderAsSeen, checkNotifications
+            cart, setCart, clearOrderState,
+            wishlist, addToCart, 
+            addToWishlist, removeFromWishlist,
+            updateQuantity, removeFromCart,
+            userName: user?.name,
+            addresses, fetchAddresses,
+            shippingLocation, setShippingLocation,
+            autoCalculatedShipping, setAutoCalculatedShipping,
+            shippingOptions, isLoadingShipping, shippingError,
+            updateDefaultShippingLocation, determineShippingLocation,
+            setPreviewShippingItem, 
+            setSelectedShippingName,
+            isGeolocating,
+            couponCode, setCouponCode,
+            couponMessage, applyCoupon, appliedCoupon, removeCoupon,
+            discount // Disponibiliza o valor calculado do desconto
         }}>
             {children}
         </ShopContext.Provider>
@@ -1322,291 +1032,33 @@ const BackToTopButton = ({ scrollableRef }) => {
     );
 };
 
-// --- ILUSTRAÇÃO COM FOTO 3D ---
-const MeasurementIllustration = ({ highlightedPart }) => {
-    const normalize = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
-    const part = normalize(highlightedPart);
-
-    // Mapeamento de imagens para cada parte do corpo
-    const images = {
-        default: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1768960483/nqnr0xsv9efkbdf6cnox.jpg",
-        busto: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1769136284/pa8anzq4wjiiqhrzabwv.png",
-        cintura: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1769136317/n2eqa8eapljs2hiwcncq.png",
-        quadril: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1769136334/igo6ctd9lyu9kppyvavg.png"
-    };
-
-    // Seleciona a imagem ativa baseada na parte destacada ou usa a padrão
-    const activeImage = images[part] || images.default;
-    
-    // Só exibe os desenhos SVG de overlay se estivermos usando a imagem padrão.
-    // Para as novas imagens de busto/cintura/quadril, a própria imagem já serve de guia.
-    const showOverlay = activeImage === images.default;
-
-    return (
-        <div className="relative w-full max-w-[200px] mx-auto transition-all duration-300 select-none rounded-lg overflow-hidden shadow-md bg-white aspect-[2/3]">
-            {/* FOTO DO BONECO (Dinâmica) */}
-            <img 
-                key={activeImage} // Key força re-render suave ao trocar imagem
-                src={activeImage} 
-                alt={`Guia de Medidas - ${highlightedPart || 'Geral'}`}
-                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
-            />
-
-            {/* CAMADA DE DESTAQUE (SVG Overlay) */}
-            <svg 
-                viewBox="0 0 500 750" 
-                className="absolute inset-0 w-full h-full pointer-events-none"
-                preserveAspectRatio="none"
-            >
-                <defs>
-                    <marker id="arrow" markerWidth="4" markerHeight="4" refX="2" refY="2" orient="auto">
-                        <path d="M0,0 L0,4 L4,2 z" fill="#ef4444" />
-                    </marker>
-                </defs>
-
-                {/* Só desenha as linhas de Busto/Cintura/Quadril se estiver na imagem padrão */}
-                {showOverlay && (
-                    <>
-                        {/* BUSTO (Altura ajustada) */}
-                        <g className={`transition-opacity duration-300 ease-in-out ${part === 'busto' ? 'opacity-100' : 'opacity-0'}`}>
-                            <ellipse cx="250" cy="210" rx="100" ry="25" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
-                            <line x1="100" y1="210" x2="400" y2="210" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
-                            <text x="250" y="200" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>BUSTO</text>
-                        </g>
-
-                        {/* CINTURA (Parte mais fina) */}
-                        <g className={`transition-opacity duration-300 ease-in-out ${part === 'cintura' ? 'opacity-100' : 'opacity-0'}`}>
-                            <ellipse cx="250" cy="315" rx="85" ry="20" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
-                            <line x1="120" y1="315" x2="380" y2="315" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
-                            <text x="250" y="305" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>CINTURA</text>
-                        </g>
-
-                        {/* QUADRIL (Parte mais larga) */}
-                        <g className={`transition-opacity duration-300 ease-in-out ${part === 'quadril' ? 'opacity-100' : 'opacity-0'}`}>
-                            <ellipse cx="250" cy="410" rx="110" ry="28" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
-                            <line x1="100" y1="410" x2="400" y2="410" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
-                            <text x="250" y="400" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>QUADRIL</text>
-                        </g>
-                    </>
-                )}
-
-                {/* COMPRIMENTO (Lateral Vertical) - Mantém visível sempre que solicitado */}
-                <g className={`transition-opacity duration-300 ease-in-out ${part && part.includes('comp') ? 'opacity-100' : 'opacity-0'}`}>
-                    {/* Linha vertical com marcadores */}
-                    <line x1="60" y1="150" x2="60" y2="600" stroke="#ef4444" strokeWidth="5" markerEnd="url(#arrow)" markerStart="url(#arrow)" />
-                    {/* Tracinhos horizontais nas pontas */}
-                    <line x1="40" y1="150" x2="80" y2="150" stroke="#ef4444" strokeWidth="3" />
-                    <line x1="40" y1="600" x2="80" y2="600" stroke="#ef4444" strokeWidth="3" />
-                    {/* Texto vertical */}
-                    <text x="85" y="375" fill="#ef4444" fontSize="22" fontWeight="bold" style={{writingMode: "vertical-rl", textOrientation: "upright", textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>COMPRIMENTO</text>
-                </g>
-            </svg>
-            
-            {/* LEGENDA FLUTUANTE */}
-            <div className={`absolute bottom-3 left-0 right-0 text-center transition-all duration-300 ${part ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>
-                <span className="bg-black/90 backdrop-blur text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg border border-gray-600 uppercase tracking-widest">
-                    {highlightedPart}
-                </span>
-            </div>
-        </div>
-    );
-};
-
-const SizeGuideAdminInput = ({ value, onChange }) => {
-    const safeValue = useMemo(() => {
-        try {
-            const parsed = typeof value === 'string' ? JSON.parse(value) : value;
-            if (parsed && Array.isArray(parsed.rows)) return parsed;
-        } catch(e) {}
-        return {
-            columns: ["Tam.", "Busto", "Cintura", "Quadril", "Comp."],
-            rows: [
-                { size: "P", values: ["", "", "", ""] },
-                { size: "M", values: ["", "", "", ""] },
-                { size: "G", values: ["", "", "", ""] },
-                { size: "GG", values: ["", "", "", ""] },
-            ]
-        };
-    }, [value]);
-
-    const [data, setData] = useState(safeValue);
-
-    useEffect(() => {
-        onChange(JSON.stringify(data));
-    }, [data, onChange]);
-
-    const handleValueChange = (rowIndex, colIndex, val) => {
-        const newRows = [...data.rows];
-        newRows[rowIndex].values[colIndex] = val;
-        setData({ ...data, rows: newRows });
-    };
-
-    return (
-        <div className="border border-gray-200 rounded-lg bg-white shadow-sm w-full max-w-full overflow-hidden">
-            <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
-                <p className="text-sm font-bold text-gray-700">Preencher Medidas (cm)</p>
-            </div>
-            
-            <div className="md:hidden p-3 space-y-3 bg-gray-50/30">
-                {data.rows.map((row, rIndex) => (
-                    <div key={rIndex} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
-                        <div className="flex items-center gap-2 mb-3 border-b border-gray-100 pb-2">
-                            <span className="flex items-center justify-center w-8 h-8 font-black text-gray-800 bg-gray-100 rounded-full border border-gray-200 text-sm">
-                                {row.size}
-                            </span>
-                        </div>
-                        <div className="grid grid-cols-4 gap-2">
-                            {row.values.map((val, cIndex) => (
-                                <div key={cIndex} className="flex flex-col gap-1">
-                                    <label className="text-[9px] font-bold text-gray-500 uppercase text-center truncate w-full">
-                                        {data.columns[cIndex + 1]}
-                                    </label>
-                                    <input 
-                                        type="tel" 
-                                        value={val} 
-                                        onChange={(e) => handleValueChange(rIndex, cIndex, e.target.value)}
-                                        className="w-full h-9 border border-gray-300 rounded focus:ring-1 focus:ring-amber-500 focus:border-amber-500 text-center text-sm font-bold bg-white"
-                                        placeholder="0"
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            <div className="hidden md:block w-full overflow-x-auto">
-                <table className="w-full text-xs text-left">
-                    <thead className="bg-gray-100 text-gray-600 font-bold uppercase">
-                        <tr>
-                            {data.columns.map((col, i) => (
-                                <th key={i} className="px-3 py-2 border-b text-center">{col}</th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                        {data.rows.map((row, rIndex) => (
-                            <tr key={rIndex} className="hover:bg-gray-50">
-                                <td className="px-3 py-2 font-black text-gray-800 bg-gray-50/50 text-center border-r border-gray-100 w-16">
-                                    {row.size}
-                                </td>
-                                {row.values.map((val, cIndex) => (
-                                    <td key={cIndex} className="px-2 py-1">
-                                        <input 
-                                            type="text" 
-                                            value={val} 
-                                            onChange={(e) => handleValueChange(rIndex, cIndex, e.target.value)}
-                                            className="w-full h-8 border border-gray-300 rounded focus:ring-1 focus:ring-amber-500 text-center text-xs font-medium"
-                                            placeholder="-"
-                                        />
-                                    </td>
-                                ))}
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
-};
-
-const SizeGuideDisplay = ({ dataString }) => {
-    const [highlightedPart, setHighlightedPart] = useState(null);
-
-    const data = useMemo(() => {
-        try {
-            return JSON.parse(dataString);
-        } catch (e) {
-            return null;
-        }
-    }, [dataString]);
-
-    if (!data || !data.rows) return null;
-
-    return (
-        <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden w-full">
-            {/* Gap reduzido de md:gap-12 para md:gap-6 para dar mais espaço à tabela */}
-            <div className="p-4 md:p-6 flex flex-col md:flex-row gap-6 items-center md:items-start">
-                <div className="flex-1 w-full min-w-0">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                            <RulerIcon className="h-5 w-5 text-amber-400" />
-                            <h4 className="text-amber-400 font-bold uppercase tracking-wider text-sm">Guia de Tamanhos (cm)</h4>
-                        </div>
-                        <span className="text-[10px] text-gray-400 bg-gray-800 px-2 py-1 rounded hidden md:inline-block border border-gray-700">
-                            Passe o mouse na tabela
-                        </span>
-                    </div>
-                    
-                    <div className="md:hidden space-y-3">
-                        <p className="text-[10px] text-center text-gray-400 mb-2">Toque nas medidas para ver no manequim</p>
-                        {data.rows.map((row, i) => (
-                            <div key={i} className="bg-gray-800/50 rounded p-3 flex items-center justify-between border border-gray-700">
-                                <span className="font-black text-white bg-gray-700 w-8 h-8 flex items-center justify-center rounded-full text-sm border border-gray-600">{row.size}</span>
-                                <div className="flex gap-4 text-xs text-gray-300">
-                                    {row.values.map((val, j) => (
-                                        <div key={j} className="text-center" onClick={() => setHighlightedPart(data.columns[j+1])}>
-                                            <span className={`block text-[9px] uppercase font-bold mb-0.5 ${highlightedPart === data.columns[j+1] ? 'text-amber-400' : 'text-gray-500'}`}>{data.columns[j+1]}</span>
-                                            <span className={`font-bold ${highlightedPart === data.columns[j+1] ? 'text-amber-400' : 'text-white'}`}>{val || '-'}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* overflow-x-auto e min-w-max garantem que a tabela não será cortada */}
-                    <div className="hidden md:block w-full overflow-x-auto rounded-lg border border-gray-700 shadow-inner bg-gray-800/50">
-                        <table className="w-full text-sm text-gray-300 min-w-max">
-                            <thead>
-                                <tr className="bg-gray-800 border-b border-gray-700">
-                                    {data.columns.map((col, i) => (
-                                        <th key={i} className={`px-4 py-3 font-bold text-amber-500 ${i === 0 ? 'text-left pl-6' : 'text-center cursor-help hover:bg-gray-700 transition-colors'}`} onMouseEnter={() => i > 0 && setHighlightedPart(col)} onMouseLeave={() => setHighlightedPart(null)}>{col}</th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-700/50">
-                                {data.rows.map((row, i) => (
-                                    <tr key={i} className="hover:bg-white/5 transition-colors">
-                                        <td className="px-4 py-3 pl-6 font-bold text-white bg-gray-800/30 border-r border-gray-700/50">{row.size}</td>
-                                        {row.values.map((val, j) => (
-                                            <td key={j} className={`px-4 py-3 text-center font-medium transition-colors ${highlightedPart === data.columns[j+1] ? 'bg-amber-400/20 text-amber-300' : ''}`} onMouseEnter={() => setHighlightedPart(data.columns[j+1])} onMouseLeave={() => setHighlightedPart(null)}>{val || '-'}</td>
-                                        ))}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                
-                <div className="w-full md:w-auto flex flex-col items-center justify-center bg-white p-4 rounded-xl border-4 border-gray-800 shadow-xl relative min-w-[200px]">
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 text-amber-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-gray-700 shadow-md whitespace-nowrap">Como Medir</div>
-                    <MeasurementIllustration highlightedPart={highlightedPart} />
-                </div>
-            </div>
-        </div>
-    );
-};
 const ProductCard = memo(({ product, onNavigate }) => {
-    const { addToCart, shippingLocation, calculateLocalDeliveryPrice } = useShop(); // Pega a função de cálculo do contexto
+    const { addToCart, shippingLocation } = useShop(); 
     const notification = useNotification();
     const { user } = useAuth();
     const { wishlist, addToWishlist, removeFromWishlist } = useShop(); 
     const { isAuthenticated } = useAuth();
 
     const [isAddingToCart, setIsAddingToCart] = useState(false);
+    // isBuyingNow não é mais necessário aqui, mas mantive para evitar quebras se usado em outro lugar
+    const [isBuyingNow, setIsBuyingNow] = useState(false); 
     const [cardShippingInfo, setCardShippingInfo] = useState(null); 
     const [isCardShippingLoading, setIsCardShippingLoading] = useState(false); 
     
+    // Novo estado para o tempo restante da promoção
     const [timeLeft, setTimeLeft] = useState('');
+    
+    // NOVO: Estado para controle local da promoção
     const [isPromoActive, setIsPromoActive] = useState(false);
 
     const imageUrl = useMemo(() => getFirstImage(product.images), [product.images]);
 
+    // Atualiza estado local quando product muda
     useEffect(() => {
         setIsPromoActive(!!product.is_on_sale && product.sale_price > 0);
     }, [product]);
 
+    // Lógica baseada no estado local
     const currentPrice = isPromoActive ? product.sale_price : product.price;
 
     const discountPercent = useMemo(() => {
@@ -1616,12 +1068,14 @@ const ProductCard = memo(({ product, onNavigate }) => {
         return 0;
     }, [isPromoActive, product]);
 
+    // --- LÓGICA DO CONTADOR REGRESSIVO COM EXPIRAÇÃO AUTOMÁTICA ---
     useEffect(() => {
         if (!product?.sale_end_date) {
             setTimeLeft('');
             return;
         }
 
+        // Se a promoção já foi desativada localmente, não roda o timer
         if (!isPromoActive) return;
 
         const calculateTimeLeft = () => {
@@ -1638,13 +1092,14 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 timeString += `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
                 setTimeLeft(timeString);
             } else {
+                // TEMPO ACABOU: Desativa promoção localmente
                 setTimeLeft('Expirada');
                 setIsPromoActive(false);
             }
         };
 
-        calculateTimeLeft();
-        const timer = setInterval(calculateTimeLeft, 1000);
+        calculateTimeLeft(); // Executa imediatamente
+        const timer = setInterval(calculateTimeLeft, 1000); // Atualiza a cada segundo
 
         return () => clearInterval(timer);
     }, [isPromoActive, product.sale_end_date]);
@@ -1663,42 +1118,15 @@ const ProductCard = memo(({ product, onNavigate }) => {
     const isVariationOutOfStock = product.product_type === 'clothing' && productVariations.length > 0 && productVariations.every(v => v.stock <= 0);
     const isOutOfStock = isProductOutOfStock || isVariationOutOfStock;
 
-    // --- Efeito de Frete Atualizado ---
+    // --- Efeito de Frete ---
     useEffect(() => {
         const controller = new AbortController();
         const signal = controller.signal;
          const debounceTimer = setTimeout(() => {
-            const cleanCep = shippingLocation.cep.replace(/\D/g, '');
-            
-            if (product && cleanCep.length === 8) {
+            if (product && shippingLocation.cep.replace(/\D/g, '').length === 8) {
                 setIsCardShippingLoading(true);
                 setCardShippingInfo(null);
 
-                // --- LÓGICA LOCAL PARA JOÃO PESSOA ---
-                const cepPrefix = parseInt(cleanCep.substring(0, 5));
-                const isJoaoPessoa = cepPrefix >= 58000 && cepPrefix <= 58099;
-
-                if (isJoaoPessoa) {
-                    // Calcula data para 1 dia útil
-                    const date = new Date();
-                    let addedDays = 0;
-                    while (addedDays < 1) { // 1 dia útil
-                        date.setDate(date.getDate() + 1);
-                        if (date.getDay() !== 0 && date.getDay() !== 6) { addedDays++; }
-                    }
-                    const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
-                    
-                    // USANDO O CÁLCULO DINÂMICO COM CORREÇÃO DE EXIBIÇÃO
-                    const localPrice = calculateLocalDeliveryPrice ? calculateLocalDeliveryPrice([product]) : 20;
-                    
-                    const priceDisplay = localPrice === 0 ? "Grátis" : `R$ ${localPrice.toFixed(2).replace('.', ',')}`;
-                    
-                    setCardShippingInfo(`Frete ${priceDisplay} - Receba até ${formattedDate}.`);
-                    setIsCardShippingLoading(false);
-                    return; // Interrompe para não chamar a API
-                }
-
-                // --- LÓGICA PADRÃO PARA OUTROS CEPs (API) ---
                 const calculateShipping = async () => {
                     try {
                         const productsPayload = [{ id: String(product.id), price: currentPrice, quantity: 1 }];
@@ -1741,7 +1169,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
             clearTimeout(debounceTimer);
             controller.abort();
         };
-    }, [product, shippingLocation.cep, currentPrice, calculateLocalDeliveryPrice]); // Adicionado calculateLocalDeliveryPrice nas dependências
+    }, [product, shippingLocation.cep, currentPrice]); 
 
     const installmentInfo = useMemo(() => {
         if (currentPrice >= 100) {
@@ -1751,11 +1179,13 @@ const ProductCard = memo(({ product, onNavigate }) => {
         return null;
     }, [currentPrice]);
 
+    // Função para ver detalhes (substitui o Comprar direto)
     const handleViewDetails = (e) => {
         e.stopPropagation();
         onNavigate(`product/${product.id}`);
     };
 
+    // Função de Adicionar ao Carrinho (MANTIDA)
     const handleAddToCartInternal = async (e) => { 
         e.stopPropagation();
         if (product.product_type === 'clothing') {
@@ -1817,15 +1247,16 @@ const ProductCard = memo(({ product, onNavigate }) => {
             className={`bg-black border ${isPromoActive ? (timeLeft && timeLeft !== 'Expirada' ? 'border-red-600 shadow-lg shadow-red-900/30' : 'border-green-600 shadow-lg shadow-green-900/30') : 'border-gray-800'} rounded-lg overflow-hidden flex flex-col text-white h-full transition-shadow duration-300 ${isOutOfStock ? 'opacity-60 grayscale-[50%]' : ''}`} 
             onClick={() => onNavigate(`product/${product.id}`)} 
         >
+            {/* --- Seção da Imagem --- */}
             <div className="relative h-64 bg-white overflow-hidden group">
                 <img
                     src={imageUrl} 
                     alt={product.name}
-                    loading="lazy" // <--- OTIMIZAÇÃO DE PERFORMANCE ADICIONADA AQUI
                     className="w-full h-full object-contain cursor-pointer transition-transform duration-300 group-hover:scale-105 p-2"
                 />
                 <WishlistButton product={product} /> 
 
+                {/* --- Badges/Selos --- */}
                 <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
                     {isOutOfStock ? (
                         <div className="bg-gray-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow">ESGOTADO</div>
@@ -1839,6 +1270,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     ) : null}
                 </div>
 
+                {/* --- CONTADOR REGRESSIVO (OFERTA RELÂMPAGO) --- */}
                 {isPromoActive && timeLeft && timeLeft !== 'Expirada' && !isOutOfStock && (
                     <div className="absolute bottom-0 left-0 w-full bg-gradient-to-r from-red-700 to-red-500/90 backdrop-blur-md py-1.5 px-3 flex items-center justify-between z-20 shadow-inner border-t border-red-400">
                         <div className="flex items-center gap-1.5 text-white font-bold text-[10px] uppercase tracking-wide">
@@ -1852,6 +1284,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     </div>
                 )}
 
+                {/* --- BARRA DE DESTAQUE (PROMOÇÃO PADRÃO) --- */}
                 {isPromoActive && (!timeLeft || timeLeft === 'Expirada') && !isOutOfStock && (
                     <div className="absolute bottom-0 left-0 w-full bg-gradient-to-r from-emerald-600 to-green-500/95 backdrop-blur-md py-1.5 px-3 flex items-center justify-between z-20 shadow-inner border-t border-emerald-400/50">
                         <div className="flex items-center gap-1.5 text-white font-bold text-[10px] uppercase tracking-wide">
@@ -1880,6 +1313,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 )}
             </div>
 
+            {/* --- Seção de Informações --- */}
             <div className="p-4 flex flex-col flex-grow">
                 <div>
                     <p className="text-xs font-semibold text-amber-400 mb-1">{product.brand.toUpperCase()}</p>
@@ -1895,6 +1329,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     </div>
                 </div>
 
+                {/* --- Preço e Parcelas --- */}
                 <div className="mt-auto pt-3">
                     {isPromoActive ? (
                          <div className="flex flex-col">
@@ -1908,12 +1343,14 @@ const ProductCard = memo(({ product, onNavigate }) => {
 
                     {installmentInfo && ( <p className="text-[11px] text-gray-400 mt-0.5">{installmentInfo}</p> )}
 
+                    {/* --- Botões de Ação --- */}
                     {isOutOfStock ? (
                         <div className="mt-3">
                             <div className="w-full bg-gray-700 text-gray-400 py-2 px-3 rounded-md font-bold text-center text-sm">Esgotado</div>
                         </div>
                     ) : (
                         <div className="mt-3 flex items-stretch space-x-2">
+                            {/* Botão Ver Detalhes (Substitui o Comprar Direto) */}
                             <button
                                 onClick={handleViewDetails}
                                 className="flex-grow bg-amber-400 text-black py-2 px-3 rounded-md hover:bg-amber-300 transition font-bold text-sm text-center flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
@@ -1921,6 +1358,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                                 <EyeIcon className="h-4 w-4"/>
                                 Ver Detalhes
                             </button>
+                            {/* Botão Adicionar ao Carrinho (Mantido) */}
                             <button
                                 onClick={handleAddToCartInternal}
                                 disabled={isAddingToCart}
@@ -1934,6 +1372,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 </div>
             </div>
 
+            {/* --- Informação de Frete --- */}
             {(isCardShippingLoading || cardShippingInfo) && (
                 <div className="p-2 text-[10px] text-center border-t border-gray-800 bg-gray-900/50 flex items-center justify-center gap-1.5">
                     {isCardShippingLoading ? (
@@ -2062,7 +1501,7 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
 
 const Header = memo(({ onNavigate }) => {
     const { isAuthenticated, user, logout } = useAuth();
-    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses, orderNotificationCount } = useShop(); // Garanta que orderNotificationCount está aqui
+    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses } = useShop();
     const [searchTerm, setSearchTerm] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [searchSuggestions, setSearchSuggestions] = useState([]);
@@ -2086,7 +1525,10 @@ const Header = memo(({ onNavigate }) => {
         return () => window.removeEventListener('hashchange', handleHashChange);
      }, []);
 
+    // Efeito para controlar a visibilidade da BottomNavBar no scroll (APENAS IPHONE)
     useEffect(() => {
+        // --- INÍCIO DA MODIFICAÇÃO ---
+        // Função para verificar se é iPhone
         const isIOS = () => {
             return [
                 'iPad Simulator',
@@ -2096,17 +1538,20 @@ const Header = memo(({ onNavigate }) => {
                 'iPhone',
                 'iPod'
             ].includes(navigator.platform)
+            // iPad on iOS 13 detection
             || (navigator.userAgent.includes("Mac") && "ontouchend" in document)
         }
 
         const controlNavbar = () => {
+            // Se NÃO for iOS, mantém a barra visível e sai da função
             if (!isIOS()) {
                  setIsBottomNavVisible(true);
-                 isScrollingDown.current = false;
-                 lastScrollY.current = window.scrollY;
+                 isScrollingDown.current = false; // Garante que a lógica de scroll não interfira
+                 lastScrollY.current = window.scrollY; // Atualiza a posição para evitar saltos se mudar de OS
                  return;
             }
 
+            // Lógica original, agora executada APENAS se for iOS
             const currentScrollY = window.scrollY;
             const threshold = 5;
 
@@ -2125,12 +1570,13 @@ const Header = memo(({ onNavigate }) => {
 
             lastScrollY.current = currentScrollY;
         };
+        // --- FIM DA MODIFICAÇÃO ---
 
         window.addEventListener('scroll', controlNavbar);
         return () => {
             window.removeEventListener('scroll', controlNavbar);
         };
-    }, []);
+    }, []); // Dependência vazia, executa apenas uma vez
 
     const fetchAndBuildMenu = useCallback(() => {
         apiService('/collections')
@@ -2165,6 +1611,7 @@ const Header = memo(({ onNavigate }) => {
 
     useEffect(() => {
         if (isMobileMenuOpen && dynamicMenuItems.length === 0) {
+            console.log("Menu móvel aberto, mas sem itens. Tentando buscar categorias novamente...");
             fetchAndBuildMenu();
         }
     }, [isMobileMenuOpen, dynamicMenuItems, fetchAndBuildMenu]);
@@ -2281,7 +1728,7 @@ const Header = memo(({ onNavigate }) => {
             }
         }
     }
-
+// Componente da Barra de Navegação Inferior (Mobile Only)
     const BottomNavBar = () => {
         const wishlistCount = wishlist.length;
 
@@ -2292,22 +1739,25 @@ const Header = memo(({ onNavigate }) => {
 
         return (
             <motion.div
-                className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-50 md:hidden pb-safe"
+                className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-50 md:hidden pb-safe" // Adicionado pb-safe para iOS
                 initial={false}
                 animate={isBottomNavVisible ? "visible" : "hidden"}
                 variants={navVariants}
             >
+                {/* 1. Início */}
                 <button onClick={() => onNavigate('home')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'home' || currentPath === '' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <HomeIcon className="h-6 w-6 mb-1"/>
                     <span className="text-[10px]">Início</span>
                 </button>
                 
+                {/* 2. Lista de Desejos */}
                 <button onClick={() => onNavigate('wishlist')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'wishlist' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <HeartIcon className="h-6 w-6 mb-1"/>
                     <span className="text-[10px]">Lista</span>
                     {wishlistCount > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlistCount}</span>}
                 </button>
 
+                {/* 3. Carrinho */}
                 <button onClick={() => onNavigate('cart')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <motion.div animate={cartAnimationControls}>
                         <CartIcon className="h-6 w-6 mb-1"/>
@@ -2316,19 +1766,15 @@ const Header = memo(({ onNavigate }) => {
                     {totalCartItems > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
                 </button>
                 
+                {/* 4. Conta */}
                 <button onClick={() => isAuthenticated ? onNavigate('account') : onNavigate('login')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath.startsWith('account') || currentPath === 'login' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <UserIcon className="h-6 w-6 mb-1"/>
                     <span className="text-[10px]">Conta</span>
                 </button>
 
-                <button onClick={() => onNavigate('categories')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'categories' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
-                    <div className="relative">
-                        <BarsGripIcon className="h-6 w-6 mb-1"/>
-                         {/* --- NOTIFICAÇÃO NO MENU PRINCIPAL MOBILE --- */}
-                        {isAuthenticated && orderNotificationCount > 0 && (
-                            <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-600 rounded-full border-2 border-black animate-pulse"></span>
-                        )}
-                    </div>
+                {/* 5. Menu (Categorias) - Agora na posição final */}
+                <button onClick={() => onNavigate('categories')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'categories' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                    <BarsGripIcon className="h-6 w-6 mb-1"/>
                     <span className="text-[10px]">Menu</span>
                 </button>
             </motion.div>
@@ -2373,14 +1819,7 @@ const Header = memo(({ onNavigate }) => {
             {/* Top Bar - Desktop */}
             <div className="hidden md:block px-4 sm:px-6">
                 <div className="flex justify-between items-center py-3">
-                    <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="flex items-center gap-2 text-xl font-bold tracking-wide text-amber-400 group">
-                        <div className="relative">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-7 w-7 text-amber-500 group-hover:scale-110 transition-transform">
-                                <path d="M9.375 3a1.875 1.875 0 000 3.75h1.875v4.5H3.375A1.875 1.875 0 011.5 9.375v-.75c0-1.036.84-1.875 1.875-1.875h3.193A3.375 3.375 0 0112 2.753a3.375 3.375 0 015.432 3.997h3.943c1.035 0 1.875.84 1.875 1.875v.75c0 1.036-.84 1.875-1.875 1.875H12.75v-4.5h1.875a1.875 1.875 0 10-1.875-1.875V6.75h-1.5V4.875C11.25 3.839 10.41 3 9.375 3zM11.25 12.75H3v6.75a2.25 2.25 0 002.25 2.25h6v-9zM12.75 12.75v9h6a2.25 2.25 0 002.25-2.25v-6.75h-8.25z" />
-                            </svg>
-                        </div>
-                        <span>LovecestasePerfumes</span>
-                    </a>
+                    <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
                     <div className="hidden lg:block flex-1 max-w-2xl mx-8">
                          <form onSubmit={handleSearchSubmit} className="relative">
                            <input
@@ -2421,18 +1860,7 @@ const Header = memo(({ onNavigate }) => {
                         </form>
                     </div>
                     <div className="flex items-center space-x-2 sm:space-x-4">
-                        {isAuthenticated && ( 
-                            <button onClick={() => onNavigate('account/orders')} className="hidden sm:flex items-center gap-1 hover:text-amber-400 transition px-2 py-1 relative"> 
-                                <PackageIcon className="h-6 w-6"/> 
-                                {/* --- NOTIFICAÇÃO NO HEADER DESKTOP --- */}
-                                {orderNotificationCount > 0 && (
-                                    <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white border-2 border-black transform translate-x-1/2 -translate-y-1/2 animate-bounce">
-                                        {orderNotificationCount}
-                                    </span>
-                                )}
-                                <div className="flex flex-col items-start text-xs leading-tight"> <span>Devoluções</span> <span className="font-bold">& Pedidos</span> </div> 
-                            </button> 
-                        )}
+                        {isAuthenticated && ( <button onClick={() => onNavigate('account/orders')} className="hidden sm:flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <PackageIcon className="h-6 w-6"/> <div className="flex flex-col items-start text-xs leading-tight"> <span>Devoluções</span> <span className="font-bold">& Pedidos</span> </div> </button> )}
                         <button onClick={() => onNavigate('wishlist')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <HeartIcon className="h-6 w-6"/> <span className="hidden sm:inline text-sm font-medium">Lista</span> {wishlist.length > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlist.length}</span>} </button>
                         <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <CartIcon className="h-6 w-6"/> <span className="hidden sm:inline text-sm font-medium">Carrinho</span> {totalCartItems > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>} </motion.button>
                         <div className="hidden sm:block">
@@ -2448,14 +1876,7 @@ const Header = memo(({ onNavigate }) => {
             </div>
 
              <div className="block md:hidden px-4 pt-3">
-                <div className="flex justify-center items-center mb-3">
-                    <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="flex items-center gap-2 text-xl font-bold tracking-wide text-amber-400">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 text-amber-500">
-                            <path d="M9.375 3a1.875 1.875 0 000 3.75h1.875v4.5H3.375A1.875 1.875 0 011.5 9.375v-.75c0-1.036.84-1.875 1.875-1.875h3.193A3.375 3.375 0 0112 2.753a3.375 3.375 0 015.432 3.997h3.943c1.035 0 1.875.84 1.875 1.875v.75c0 1.036-.84 1.875-1.875 1.875H12.75v-4.5h1.875a1.875 1.875 0 10-1.875-1.875V6.75h-1.5V4.875C11.25 3.839 10.41 3 9.375 3zM11.25 12.75H3v6.75a2.25 2.25 0 002.25 2.25h6v-9zM12.75 12.75v9h6a2.25 2.25 0 002.25-2.25v-6.75h-8.25z" />
-                        </svg>
-                        LovecestasePerfumes
-                    </a>
-                </div>
+                <div className="text-center mb-2"> <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a> </div>
                 <form onSubmit={handleSearchSubmit} className="relative mb-2">
                     <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onFocus={() => setIsSearchFocused(true)} onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)} placeholder="Pesquisar em LovecestasePerfumes" className="w-full bg-gray-800 text-white px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm" />
                     <button type="submit" className="absolute right-0 top-0 h-full px-3 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
@@ -2505,18 +1926,7 @@ const Header = memo(({ onNavigate }) => {
                                 <div className="border-b border-gray-800"> <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ver Tudo</a> </div>
                                 <div className="border-b border-gray-800"> <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ajuda</a> </div>
                                 <div className="pt-4 space-y-3">
-                                    {isAuthenticated ? ( 
-                                        <> 
-                                            <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Minha Conta</a> 
-                                            <a href="#account/orders" onClick={(e) => { e.preventDefault(); onNavigate('account/orders'); setIsMobileMenuOpen(false); }} className="flex items-center justify-between text-white hover:text-amber-400">
-                                                <span>Devoluções e Pedidos</span>
-                                                {/* --- CORREÇÃO DO BADGE NO DRAWER MOBILE --- */}
-                                                {orderNotificationCount > 0 && <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full ml-2 animate-pulse">{orderNotificationCount}</span>}
-                                            </a> 
-                                            {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMobileMenuOpen(false);}} className="block text-amber-400 hover:text-amber-300">Painel Admin</a>} 
-                                            <button onClick={() => { logout(); onNavigate('home'); setIsMobileMenuOpen(false); }} className="w-full text-left text-white hover:text-amber-400">Sair</button> 
-                                        </> 
-                                    ) : ( <button onClick={() => { onNavigate('login'); setIsMobileMenuOpen(false); }} className="w-full text-left bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button> )}
+                                    {isAuthenticated ? ( <> <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Minha Conta</a> <a href="#account/orders" onClick={(e) => { e.preventDefault(); onNavigate('account/orders'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Devoluções e Pedidos</a> {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMobileMenuOpen(false);}} className="block text-amber-400 hover:text-amber-300">Painel Admin</a>} <button onClick={() => { logout(); onNavigate('home'); setIsMobileMenuOpen(false); }} className="w-full text-left text-white hover:text-amber-400">Sair</button> </> ) : ( <button onClick={() => { onNavigate('login'); setIsMobileMenuOpen(false); }} className="w-full text-left bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button> )}
                                 </div>
                             </div>
                         </motion.div>
@@ -2525,6 +1935,7 @@ const Header = memo(({ onNavigate }) => {
             </AnimatePresence>
         </header>
 
+        {/* Renderiza a BottomNavBar */}
         <BottomNavBar />
         </>
     );
@@ -2602,7 +2013,7 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
         <section className="bg-black text-white py-12 md:py-16">
             <div className="container mx-auto px-4">
                 {title && <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">{title}</h2>}
-                <div className="relative group">
+                <div className="relative">
                     <div 
                         className="overflow-hidden"
                         onTouchStart={handleTouchStart}
@@ -2630,14 +2041,13 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
                             ))}
                         </motion.div>
                     </div>
-                    {/* Botões de Navegação - Visíveis sempre que houver mais itens para mostrar */}
                     {canGoPrev && (
-                        <button onClick={goPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg z-10 transition-opacity">
+                        <button onClick={goPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg z-10 hidden md:flex">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                         </button>
                     )}
                     {canGoNext && (
-                         <button onClick={goNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg z-10 transition-opacity">
+                         <button onClick={goNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg z-10 hidden md:flex">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                         </button>
                     )}
@@ -2918,7 +2328,6 @@ const CategoriesPage = ({ onNavigate }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [selectedGroup, setSelectedGroup] = useState(null);
     const { user, isAuthenticated, logout } = useAuth(); // Acesso ao logout
-    const { orderNotificationCount } = useShop(); // NOVO: Acesso às notificações
 
     const groupedCategories = useMemo(() => {
         const groups = {};
@@ -3018,18 +2427,10 @@ const CategoriesPage = ({ onNavigate }) => {
         </motion.div>
     );
 
-    // --- TELA DE CARREGAMENTO CATEGORIAS ---
     if (isLoading) {
         return (
-            <div className="bg-black min-h-[80vh] flex flex-col items-center justify-center pt-20 pb-32 px-4 gap-6">
-                <div className="relative">
-                    <div className="absolute inset-0 bg-amber-500 blur-xl opacity-20 rounded-full animate-pulse"></div>
-                    <SpinnerIcon className="h-12 w-12 text-amber-400 relative z-10" />
-                </div>
-                <div className="text-center space-y-2">
-                    <h2 className="text-xl font-bold text-white tracking-wide">Organizando os Departamentos</h2>
-                    <p className="text-sm text-gray-500">Preparando nossas coleções exclusivas para você...</p>
-                </div>
+            <div className="min-h-screen bg-black pt-20 flex justify-center">
+                <SpinnerIcon className="h-8 w-8 text-amber-400" />
             </div>
         );
     }
@@ -3039,19 +2440,10 @@ const CategoriesPage = ({ onNavigate }) => {
         <div className="bg-gray-900 p-4 rounded-xl mb-6 shadow-lg border border-gray-800 grid grid-cols-2 gap-4">
             {isAuthenticated ? (
                 <>
-                    {/* --- CORREÇÃO DO BOTÃO "MEUS PEDIDOS" NA TELA DE MENU --- */}
-                    <button onClick={() => onNavigate('account/orders')} className="bg-black border border-gray-700 p-4 rounded-lg flex flex-col items-center justify-center text-center hover:bg-gray-800 active:scale-95 transition-all relative">
-                        <div className="relative">
-                            <PackageIcon className="h-6 w-6 text-amber-400 mb-2"/>
-                            {orderNotificationCount > 0 && (
-                                <span className="absolute -top-1 -right-2 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-black animate-pulse">
-                                    {orderNotificationCount}
-                                </span>
-                            )}
-                        </div>
+                    <button onClick={() => onNavigate('account/orders')} className="bg-black border border-gray-700 p-4 rounded-lg flex flex-col items-center justify-center text-center hover:bg-gray-800 active:scale-95 transition-all">
+                        <PackageIcon className="h-6 w-6 text-amber-400 mb-2"/>
                         <span className="text-sm font-bold text-gray-200">Meus Pedidos</span>
                     </button>
-
                     <button onClick={() => onNavigate('account')} className="bg-black border border-gray-700 p-4 rounded-lg flex flex-col items-center justify-center text-center hover:bg-gray-800 active:scale-95 transition-all">
                         <UserIcon className="h-6 w-6 text-amber-400 mb-2"/>
                         <span className="text-sm font-bold text-gray-200">Minha Conta</span>
@@ -3231,8 +2623,7 @@ const HomePage = ({ onNavigate }) => {
       <div className="bg-black min-h-screen pb-0 overflow-x-hidden">
         {/* Banner Principal Rotativo */}
         {isLoadingBanners ? (
-            // ATUALIZAÇÃO: Altura do loading ajustada para h-[55vh] no mobile para coincidir com o banner real
-            <div className="relative h-[55vh] sm:h-[70vh] bg-gray-900 flex items-center justify-center">
+            <div className="relative h-[90vh] sm:h-[70vh] bg-gray-900 flex items-center justify-center">
                 <SpinnerIcon className="h-10 w-10 text-amber-400" />
             </div>
         ) : (
@@ -3288,14 +2679,9 @@ const HomePage = ({ onNavigate }) => {
         {/* Vitrine Roupas */}
         <section className="bg-black text-white py-8 md:py-10 border-t border-gray-800">
           <div className="container mx-auto px-4">
-              <div className="flex items-end justify-between mb-6 md:mb-8">
-                  <div className="flex items-center gap-3 md:gap-4">
-                      <div className="bg-gray-800 p-2 md:p-3 rounded-full"><ShirtIcon className="h-5 w-5 md:h-6 md:w-6 text-amber-400"/></div>
-                      <h2 className="text-xl md:text-3xl font-bold">Roupas em Destaque</h2>
-                  </div>
-                  <button onClick={() => onNavigate('products?category=Roupas')} className="text-amber-400 hover:text-white transition-colors text-xs md:text-sm font-bold flex items-center gap-1 md:gap-2 group px-2 py-1 md:px-4 md:py-2 rounded-lg hover:bg-gray-900">
-                      Ver tudo <ArrowUturnLeftIcon className="h-3 w-3 md:h-4 md:w-4 rotate-180 group-hover:translate-x-1 transition-transform"/>
-                  </button>
+              <div className="flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
+                  <div className="bg-gray-800 p-2 md:p-3 rounded-full"><ShirtIcon className="h-5 w-5 md:h-6 md:w-6 text-amber-400"/></div>
+                  <h2 className="text-xl md:text-3xl font-bold">Roupas em Destaque</h2>
               </div>
               <ProductCarousel products={products.clothing} onNavigate={onNavigate} />
           </div>
@@ -3304,14 +2690,9 @@ const HomePage = ({ onNavigate }) => {
         {products.perfumes.length > 0 && (
             <section className="bg-black text-white py-8 md:py-12 border-t border-gray-800">
                 <div className="container mx-auto px-4">
-                    <div className="flex items-end justify-between mb-6 md:mb-8">
-                        <div className="flex items-center gap-3 md:gap-4">
-                            <div className="bg-gray-800 p-2 md:p-3 rounded-full"><SparklesIcon className="h-5 w-5 md:h-6 md:w-6 text-amber-400"/></div>
-                            <h2 className="text-xl md:text-3xl font-bold">Perfumaria Selecionada</h2>
-                        </div>
-                        <button onClick={() => onNavigate('products?category=Perfumes')} className="text-amber-400 hover:text-white transition-colors text-xs md:text-sm font-bold flex items-center gap-1 md:gap-2 group px-2 py-1 md:px-4 md:py-2 rounded-lg hover:bg-gray-900">
-                            Ver tudo <ArrowUturnLeftIcon className="h-3 w-3 md:h-4 md:w-4 rotate-180 group-hover:translate-x-1 transition-transform"/>
-                        </button>
+                    <div className="flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
+                        <div className="bg-gray-800 p-2 md:p-3 rounded-full"><SparklesIcon className="h-5 w-5 md:h-6 md:w-6 text-amber-400"/></div>
+                        <h2 className="text-xl md:text-3xl font-bold">Perfumaria Selecionada</h2>
                     </div>
                     <ProductCarousel products={products.perfumes} onNavigate={onNavigate} />
                 </div>
@@ -3375,15 +2756,7 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
             result = result.filter(p => p.brand === filters.brand);
         }
         if (filters.category) {
-            // CORREÇÃO: Lógica para mapear categorias genéricas dos banners para tipos de produto
-            if (filters.category === 'Roupas') {
-                result = result.filter(p => p.product_type === 'clothing');
-            } else if (filters.category === 'Perfumes') {
-                result = result.filter(p => p.product_type === 'perfume');
-            } else {
-                // Filtro padrão exato para categorias específicas (ex: "Blusas")
-                result = result.filter(p => p.category === filters.category);
-            }
+            result = result.filter(p => p.category === filters.category);
         }
         setFilteredProducts(result);
         setCurrentPage(1);
@@ -3436,8 +2809,6 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
                             </select>
                             <select value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})} className="w-full p-2 bg-gray-800 border border-gray-700 rounded">
                                 <option value="">Todas as Categorias</option>
-                                <option value="Roupas">Roupas (Geral)</option>
-                                <option value="Perfumes">Perfumes (Geral)</option>
                                 {uniqueCategories.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                         </div>
@@ -3510,7 +2881,7 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
         setAutoCalculatedShipping,
         setPreviewShippingItem,
         setSelectedShippingName,
-        isGeolocating 
+        isGeolocating // <-- NOVO ESTADO
     } = useShop();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -3518,16 +2889,16 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
     const [apiError, setApiError] = useState('');
 
     useEffect(() => {
-        if (itemsFromProp && itemsFromProp.length > 0) {
+        const isProductPage = cart.length === 0 && itemsFromProp && itemsFromProp.length > 0;
+        if (isProductPage) {
             setPreviewShippingItem(itemsFromProp);
         }
-        
         return () => {
-            if (itemsFromProp && itemsFromProp.length > 0) {
+            if (isProductPage) {
                 setPreviewShippingItem(null);
             }
         };
-    }, [itemsFromProp, setPreviewShippingItem]);
+    }, [itemsFromProp, cart.length, setPreviewShippingItem]);
     
     const handleSelectShipping = (option) => {
         setAutoCalculatedShipping(option);
@@ -3561,13 +2932,7 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
     };
 
     const getDeliveryDate = (deliveryTime) => {
-        // Correção: Se já for uma string formatada pelo ShopProvider para Motoboy
-        if (typeof deliveryTime === 'string' && deliveryTime.includes('Receba até')) {
-             return `${deliveryTime} (1 dia útil)`;
-        }
-
         if (!deliveryTime || isNaN(deliveryTime)) return 'Prazo indisponível';
-        
         const date = new Date();
         let addedDays = 0;
         while (addedDays < deliveryTime) {
@@ -3576,11 +2941,6 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
         }
         return `Previsão de entrega para ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
     };
-
-    // Correção: Mostra o nome do endereço salvo (Alias) se ele existir e for válido
-    const locationTitle = shippingLocation.alias && shippingLocation.alias !== 'Localização Atual' && !shippingLocation.alias.startsWith('CEP') 
-        ? `Opções para ${shippingLocation.alias} (${shippingLocation.cep})` 
-        : `Opções para ${shippingLocation.cep}`;
 
     return (
         <>
@@ -3612,8 +2972,7 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
                             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-4">
                                 <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-gray-300">
                                     <MapPinIcon className="h-5 w-5 flex-shrink-0 text-amber-400" />
-                                    {/* Aplicando a formatação corrigida aqui */}
-                                    <span className="truncate">{locationTitle}</span>
+                                    <span className="truncate">Opções para {shippingLocation.cep}</span>
                                 </div>
                                 <button onClick={() => setIsModalOpen(true)} className="text-amber-400 hover:underline flex-shrink-0 text-sm font-semibold">
                                     Alterar
@@ -3670,32 +3029,23 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
         </>
     );
 });
-const VariationSelector = ({ product, variations, selectedColor, setSelectedColor, selectedSize, setSelectedSize, error }) => {
-    
-    // Calcula cores únicas e verifica se há estoque disponível para cada uma
+const VariationSelector = ({ product, variations, onSelectionChange }) => {
+    const [selectedColor, setSelectedColor] = useState('');
+    const [selectedSize, setSelectedSize] = useState('');
+
     const uniqueColors = useMemo(() => {
-        const colorsMap = new Map();
+        const colors = new Map();
         if (!variations || !product) return [];
 
         variations.forEach(v => {
-            if (v.color) {
-                if (!colorsMap.has(v.color)) {
-                    // Tenta pegar a imagem da variação, senão a principal do produto
-                    const primaryImage = (v.images && v.images.length > 0) 
-                        ? v.images[0] 
-                        : getFirstImage(product.images);
-                    // Inicializa assumindo sem estoque
-                    colorsMap.set(v.color, { image: primaryImage, hasStock: false });
-                }
-                
-                // Se encontrar QUALQUER tamanho com estoque > 0 para esta cor, marca como disponível
-                if (v.stock > 0) {
-                    const info = colorsMap.get(v.color);
-                    info.hasStock = true;
-                }
+            if (v.color && !colors.has(v.color)) {
+                const primaryImage = (v.images && v.images.length > 0) 
+                    ? v.images[0] 
+                    : getFirstImage(product.images);
+                colors.set(v.color, primaryImage);
             }
         });
-        return Array.from(colorsMap, ([name, info]) => ({ name, image: info.image, hasStock: info.hasStock }));
+        return Array.from(colors, ([name, image]) => ({ name, image }));
     }, [variations, product]);
 
     const allSizesForColor = useMemo(() => {
@@ -3710,11 +3060,15 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
         return Array.from(sizeMap.values());
     }, [variations, selectedColor]);
 
-    const handleColorChange = (color, hasStock) => {
-        if (!hasStock) return; // Impede seleção de cores esgotadas
+    useEffect(() => {
+        const fullSelection = (selectedColor && selectedSize)
+            ? variations.find(v => v.color === selectedColor && v.size === selectedSize)
+            : null;
+        onSelectionChange(fullSelection, selectedColor);
+    }, [selectedColor, selectedSize, variations, onSelectionChange]);
 
+    const handleColorChange = (color) => {
         setSelectedColor(color);
-        // Ao mudar de cor, tenta selecionar um tamanho disponível automaticamente se houver apenas um
         const sizesForNewColor = variations
             .filter(v => v.color === color && v.stock > 0)
             .map(v => v.size);
@@ -3722,101 +3076,64 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
         if (sizesForNewColor.length === 1) {
             setSelectedSize(sizesForNewColor[0]);
         } else {
-            setSelectedSize(''); // Reseta para forçar o usuário a escolher
+            setSelectedSize('');
         }
     };
-
-    const showError = error && !selectedSize;
     
     return (
         <div className="space-y-6">
-            {/* Seção de Cores */}
             <div>
-                 <h3 className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider flex items-center gap-2">
-                    Cor: <span className="text-white font-normal capitalize">{selectedColor || 'Selecione'}</span>
-                 </h3>
-                <div className="flex flex-wrap gap-4">
-                    {uniqueColors.map(colorInfo => {
-                         const isOutOfStock = !colorInfo.hasStock;
-                         return (
-                             <div key={colorInfo.name}
-                                onClick={() => handleColorChange(colorInfo.name, colorInfo.hasStock)}
-                                className={`group relative w-16 h-16 rounded-full transition-all duration-300 p-0.5 
-                                    ${selectedColor === colorInfo.name 
-                                        ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-gray-900 scale-110 cursor-default' 
-                                        : isOutOfStock 
-                                            ? 'opacity-40 cursor-not-allowed grayscale filter' 
-                                            : 'cursor-pointer hover:ring-2 hover:ring-gray-600 hover:ring-offset-1 hover:ring-offset-gray-900 opacity-90 hover:opacity-100 hover:scale-105'}`}
-                                title={colorInfo.name + (isOutOfStock ? " (Esgotado)" : "")}
-                            >
-                                 <img src={colorInfo.image} alt={colorInfo.name} className="w-full h-full object-cover rounded-full bg-gray-800 shadow-sm"/>
-                                 
-                                 {/* Indicador visual de Esgotado (X vermelho) */}
-                                 {isOutOfStock && (
-                                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                         <div className="w-full h-0.5 bg-red-500/80 rotate-45 absolute"></div>
-                                         <div className="w-full h-0.5 bg-red-500/80 -rotate-45 absolute"></div>
-                                     </div>
-                                 )}
-                             </div>
-                         );
-                    })}
+                 <h3 className="text-lg font-semibold text-gray-300 mb-3">Cor: <span className="font-normal">{selectedColor || 'Selecione uma cor'}</span></h3>
+                <div className="flex flex-wrap gap-2">
+                    {uniqueColors.map(colorInfo => (
+                         <div key={colorInfo.name}
+                            onClick={() => handleColorChange(colorInfo.name)}
+                            className={`p-1 border-2 bg-white rounded-md cursor-pointer transition-all ${selectedColor === colorInfo.name ? 'border-amber-400 scale-105 shadow-lg' : 'border-transparent hover:border-gray-400'}`}
+                            title={colorInfo.name}
+                        >
+                             <img src={colorInfo.image} alt={colorInfo.name} className="w-16 h-16 object-contain"/>
+                         </div>
+                    ))}
                 </div>
             </div>
-
-            {/* Seção de Tamanhos - Só aparece se cor estiver selecionada */}
-            <AnimatePresence>
-                {selectedColor && (
-                     <motion.div 
-                        initial={{ opacity: 0, height: 0 }} 
-                        animate={{ opacity: 1, height: 'auto' }}
-                        className={`transition-colors duration-300 ${showError ? 'p-3 -m-3 bg-red-900/10 border border-red-500/30 rounded-lg' : ''}`}
-                     >
-                        <h3 className={`text-xs font-bold mb-3 uppercase tracking-wider flex items-center gap-2 ${showError ? 'text-red-400' : 'text-gray-400'}`}>
-                            Tamanho: 
-                            <span className={showError ? 'text-red-400 font-bold animate-pulse' : 'text-white font-normal'}>
-                                {selectedSize || (showError ? 'SELECIONE UM TAMANHO' : 'Selecione')}
-                            </span>
-                            {showError && <ExclamationCircleIcon className="h-4 w-4 text-red-500 inline ml-1" />}
-                        </h3>
-                        
-                        <div className="flex flex-wrap gap-2.5">
-                            {allSizesForColor.length > 0 ? (
-                                allSizesForColor.map(({ size, stock }) => (
+            {selectedColor && (
+                 <div>
+                    <h3 className="text-lg font-semibold text-gray-300 mb-3">Tamanho:</h3>
+                    <div className="flex flex-wrap gap-3">
+                        {allSizesForColor.length > 0 ? (
+                            allSizesForColor.map(({ size, stock }) => (
+                                <div key={size} className="relative">
                                     <button
                                         key={size}
                                         onClick={() => setSelectedSize(size)}
                                         disabled={stock === 0}
-                                        className={`min-w-[3.5rem] h-11 px-3 border rounded-md font-bold text-sm transition-all duration-200 flex items-center justify-center relative overflow-hidden
-                                            ${selectedSize === size 
-                                                ? 'bg-amber-400 text-black border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)] scale-105' 
-                                                : 'bg-transparent border-gray-600 text-gray-300 hover:border-gray-400 hover:bg-gray-800'
-                                            }
-                                            ${stock === 0 ? 'opacity-40 cursor-not-allowed bg-gray-900 border-gray-800 text-gray-600 decoration-slice line-through' : ''}
-                                            ${showError && !selectedSize ? 'border-red-500 text-red-100 bg-red-900/20' : ''}`
+                                        className={`px-5 py-2 border-2 rounded-md font-bold transition-colors duration-200 
+                                            ${selectedSize === size ? 'bg-amber-400 text-black border-amber-400' : 'border-gray-600 hover:bg-gray-800 hover:border-gray-500'}
+                                            ${stock === 0 ? 'opacity-40 bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed' : ''}`
                                         }
                                     >
                                         {size}
-                                        {/* Indicador de "Últimas unidades" para estoque baixo */}
-                                        {stock > 0 && stock <= 2 && selectedSize !== size && (
-                                            <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
-                                        )}
                                     </button>
-                                ))
-                            ) : (
-                                 <p className="text-gray-500 text-sm italic py-2">Indisponível nesta cor.</p>
-                            )}
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                                    {stock === 0 && (
+                                        <div className="absolute -top-2 -right-2 bg-gray-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold border-2 border-black">
+                                            X
+                                        </div>
+                                    )}
+                                </div>
+                            ))
+                        ) : (
+                             <p className="text-gray-500">Nenhum tamanho disponível para esta cor.</p>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
 
 const ProductDetailPage = ({ productId, onNavigate }) => {
     const { user } = useAuth();
-    const { addToCart, calculateLocalDeliveryPrice, shippingLocation } = useShop(); 
+    const { addToCart } = useShop();
     const notification = useNotification();
     const confirmation = useConfirmation();
     const [isLoading, setIsLoading] = useState(true);
@@ -3832,97 +3149,40 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [installments, setInstallments] = useState([]);
     const [isLoadingInstallments, setIsLoadingInstallments] = useState(true);
     const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
-    
-    // --- ESTADOS DE SELEÇÃO E MODAL ---
-    const [selectedColor, setSelectedColor] = useState('');
-    const [selectedSize, setSelectedSize] = useState('');
-    const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
-    
-    // --- ESTADO DO MODAL DE MEDIDAS ---
-    const [isSizeGuideModalOpen, setIsSizeGuideModalOpen] = useState(false);
-    
-    const [pendingAction, setPendingAction] = useState(null); 
-    const [selectionError, setSelectionError] = useState(false); 
-
-    const [selectedVariation, setSelectedVariation] = useState(null); 
+    const [selectedVariation, setSelectedVariation] = useState(null);
     const [galleryImages, setGalleryImages] = useState([]);
     
     const [timeLeft, setTimeLeft] = useState('');
+    
+    // Estado para controlar se a promoção está ativa visualmente
     const [isPromoActive, setIsPromoActive] = useState(false);
-
-    // --- ESTADO DE IMAGEM (Índice) ---
-    const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
     const galleryRef = useRef(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
-    
-    // Estados para controle de scroll vertical da galeria (Desktop)
-    const [canScrollUp, setCanScrollUp] = useState(false);
-    const [canScrollDown, setCanScrollDown] = useState(false);
 
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
 
-    // Helper para garantir imagem principal atualizada pelo índice
-    useEffect(() => {
-        if (galleryImages.length > 0 && galleryImages[currentImageIndex]) {
-            setMainImage(galleryImages[currentImageIndex]);
-        }
-    }, [currentImageIndex, galleryImages]);
-
-    // --- LÓGICA DE AUTO-SELEÇÃO DA PRIMEIRA COR ---
-    useEffect(() => {
-        if (product && product.product_type === 'clothing' && productVariations.length > 0 && !selectedColor) {
-            const firstVar = productVariations.find(v => v.stock > 0) || productVariations[0];
-            if (firstVar && firstVar.color) {
-                setSelectedColor(firstVar.color);
-            }
-        }
-    }, [product, productVariations, selectedColor]);
-
-    // --- Sincroniza a variação completa baseada na cor/tamanho selecionados ---
-    useEffect(() => {
-        if (selectedColor && selectedSize) {
-            const found = productVariations.find(v => v.color === selectedColor && v.size === selectedSize);
-            setSelectedVariation(found || null);
-            setSelectionError(false); 
-        } else {
-            setSelectedVariation(null);
-        }
-        
-        if (selectedColor) {
-             const allImagesForColor = productVariations
-                .filter(v => v.color === selectedColor && v.images && v.images.length > 0)
-                .flatMap(v => v.images)
-                .filter((value, index, self) => self.indexOf(value) === index);
-
-            if (allImagesForColor.length > 0) {
-                setGalleryImages(allImagesForColor);
-                setCurrentImageIndex(0);
-            } else {
-                setGalleryImages(productImages);
-            }
-        } else {
-             setGalleryImages(productImages);
-        }
-
-    }, [selectedColor, selectedSize, productVariations, productImages]);
-
-
+    // LÓGICA ATUALIZADA: Verifica se a promoção está ativa considerando a variação selecionada
     useEffect(() => {
         if (product) {
             let active = !!product.is_on_sale && product.sale_price > 0;
+
+            // Se for roupa e tiver uma variação selecionada, verifica a regra específica da variação
             if (product.product_type === 'clothing' && selectedVariation) {
+                // Se is_promo for explicitamente false, a promoção não se aplica a esta cor
                 if (selectedVariation.is_promo === false) {
                     active = false;
                 }
             }
+
             setIsPromoActive(active);
         }
     }, [product, selectedVariation]);
 
-    const currentPrice = isPromoActive ? product?.sale_price : product?.price;
+    // Usa o estado local isPromoActive para definir preço e desconto
+    const currentPrice = isPromoActive ? product.sale_price : product?.price;
 
     const discountPercent = useMemo(() => {
         if (isPromoActive && product) {
@@ -3931,10 +3191,18 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return 0;
     }, [isPromoActive, product]);
 
+    // --- Lógica do Contador Regressivo e Expiração Automática ---
     useEffect(() => {
-        if (!product?.sale_end_date || !isPromoActive) {
+        // Se não houver data fim, mas estiver em promoção, mantém como promoção normal (limpa o timer)
+        if (!product?.sale_end_date) {
             setTimeLeft(null);
             return;
+        }
+        
+        // Se a promoção já foi desativada localmente (por ex: cor sem desconto), não roda o timer
+        if (!isPromoActive) {
+             setTimeLeft(null);
+             return;
         }
 
         const calculateTimeLeft = () => {
@@ -3947,13 +3215,18 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                 const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
                 const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
                 setTimeLeft({ days, hours, minutes, seconds });
             } else {
+                // TEMPO ACABOU: Desativa a promoção localmente na hora!
                 setTimeLeft('Expirada');
+                setIsPromoActive(false); 
             }
         };
+
         calculateTimeLeft();
         const timer = setInterval(calculateTimeLeft, 1000);
+
         return () => clearInterval(timer);
     }, [isPromoActive, product?.sale_end_date]);
 
@@ -3962,6 +3235,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         return new Date(product.created_at) > thirtyDaysAgo;
     }, [product]);
+
 
     const avgRating = useMemo(() => {
         return reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
@@ -3974,15 +3248,41 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
     const isClothing = product?.product_type === 'clothing';
     const isPerfume = product?.product_type === 'perfume';
-    const currentStockStatus = isClothing ? selectedVariation?.stock : product?.stock;
-    const productOrVariationOutOfStock = currentStockStatus <= 0;
+    const isProductOutOfStock = product?.stock <= 0;
     const stockLimit = isClothing ? selectedVariation?.stock : product?.stock;
     const isQtyAtMax = stockLimit !== undefined ? quantity >= stockLimit : false;
 
-    // --- HELPERS ---
-    const getYouTubeEmbedUrl = (url) => { if (!url) return null; try { let videoId = ''; const urlObj = new URL(url); if (urlObj.hostname === 'youtu.be') { videoId = urlObj.pathname.slice(1); } else if (urlObj.hostname.includes('youtube.com')) { if (urlObj.searchParams.has('v')) { videoId = urlObj.searchParams.get('v'); } else if (urlObj.pathname.includes('/embed/')) { videoId = urlObj.pathname.split('/embed/')[1]; } else if (urlObj.pathname.includes('/shorts/')) { videoId = urlObj.pathname.split('/shorts/')[1]; } } if (!videoId) return null; videoId = videoId.split('?')[0].split('&')[0]; return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`; } catch (e) { if (url && url.includes('youtu.be/')) { const simpleId = url.split('youtu.be/')[1]?.split('?')[0]; return simpleId ? `https://www.youtube.com/embed/${simpleId}?autoplay=1&rel=0` : null; } return null; } };
-    const parseTextToList = (text) => { if (!text || text.trim() === '') return null; return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>; };
-    const getInstallmentSummary = () => { if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; } const noInterest = [...installments].reverse().find(p => p.installment_rate === 0); if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } const lastInstallment = installments[installments.length - 1]; if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } return null; };
+    const getYouTubeEmbedUrl = (url) => {
+        if (!url) return null;
+        let videoId;
+        try {
+            const urlObj = new URL(url);
+            if (urlObj.hostname === 'youtu.be') {
+                videoId = urlObj.pathname.slice(1);
+            } else if (urlObj.hostname.includes('youtube.com') && urlObj.searchParams.has('v')) {
+                videoId = urlObj.searchParams.get('v');
+            } else { return null; }
+            return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+        } catch (e) {
+            console.error("URL do YouTube inválida:", e);
+            return null;
+        }
+    };
+
+    const parseTextToList = (text) => {
+        if (!text || text.trim() === '') return null;
+        return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>;
+    };
+
+    const getInstallmentSummary = () => {
+        if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; }
+        if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; }
+        const noInterest = [...installments].reverse().find(p => p.installment_rate === 0);
+        if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; }
+        const lastInstallment = installments[installments.length - 1];
+        if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; }
+        return null;
+    };
 
     const fetchProductData = useCallback(async (id) => {
         const controller = new AbortController();
@@ -3999,9 +3299,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             if (signal.aborted) return;
 
             const images = parseJsonString(productData.images, ['https://placehold.co/600x400/222/fff?text=Produto']);
-            setGalleryImages(images);
-            setCurrentImageIndex(0);
             setMainImage(images[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
+            setGalleryImages(images);
             setProduct(productData);
             setReviews(Array.isArray(reviewsData) ? reviewsData : []);
             setCrossSellProducts(Array.isArray(crossSellData) ? crossSellData : []);
@@ -4012,6 +3311,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             }
         } catch (err) {
             if (err.name !== 'AbortError') {
+                 console.error("Falha ao buscar dados do produto:", err);
                  setProduct({ error: true, message: "Produto não encontrado ou ocorreu um erro." });
                  notification.show(err.message || "Produto não encontrado", 'error');
             }
@@ -4032,6 +3332,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             }
         });
     };
+
     const handleShare = async () => {
         const shareText = `✨ Olha o que eu encontrei na Love Cestas e Perfumes!\n\n*${product.name}*\n\nConfira mais detalhes no site 👇`;
         const shareData = { title: `Love Cestas e Perfumes - ${product.name}`, text: shareText, url: window.location.href };
@@ -4055,32 +3356,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         });
     };
 
-    const handleAction = (action) => {
+
+    const handleAction = async (action) => {
         if (!product) return;
-        if (isClothing) {
-            setPendingAction(action);
-            setIsSelectionModalOpen(true);
-            setSelectionError(false);
-        } else {
-            processAddToCart(action);
-        }
-    };
-
-    const handleConfirmSelection = () => {
-        if (isClothing && (!selectedColor || !selectedSize)) {
-            setSelectionError(true);
-            if (navigator.vibrate) navigator.vibrate(200);
-            return;
-        }
-        if (isClothing && !selectedVariation) {
-             notification.show("Esta combinação não está disponível.", "error");
-             return;
-        }
-        processAddToCart(pendingAction);
-        setIsSelectionModalOpen(false);
-    };
-
-    const processAddToCart = async (action) => {
+        if (isClothing && !selectedVariation) { notification.show("Por favor, selecione uma cor e um tamanho.", "error"); return; }
         try {
             await addToCart(product, quantity, selectedVariation);
             notification.show(`${quantity}x ${product.name} adicionado(s) ao carrinho!`);
@@ -4088,215 +3367,123 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         } catch (error) { notification.show(error.message, 'error'); }
     };
 
-    // --- NAVEGAÇÃO DE IMAGEM PRINCIPAL ---
-    const handleNextImage = (e) => {
-        e.stopPropagation();
-        if (galleryImages.length <= 1) return;
-        setCurrentImageIndex(prev => (prev + 1) % galleryImages.length);
-    };
+    const handleVariationSelection = useCallback((variation, color) => {
+        setQuantity(1);
+        setSelectedVariation(variation);
+        if (color && productVariations.length > 0) {
+            const allImagesForColor = productVariations
+                .filter(v => v.color === color && v.images && v.images.length > 0)
+                .flatMap(v => v.images)
+                .filter((value, index, self) => self.indexOf(value) === index);
 
-    const handlePrevImage = (e) => {
-        e.stopPropagation();
-        if (galleryImages.length <= 1) return;
-        setCurrentImageIndex(prev => (prev === 0 ? galleryImages.length - 1 : prev - 1));
-    };
+            if (allImagesForColor.length > 0) {
+                setGalleryImages(allImagesForColor);
+                setMainImage(allImagesForColor[0]);
+                return;
+            }
+        }
+        setGalleryImages(productImages);
+        setMainImage(productImages[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
 
-    useEffect(() => { fetchProductData(productId); window.scrollTo(0, 0); }, [productId, fetchProductData]);
-    useEffect(() => { const fetchInstallments = async (price) => { if (!price || price <= 0) { setInstallments([]); setIsLoadingInstallments(false); return; } setIsLoadingInstallments(true); setInstallments([]); try { const installmentData = await apiService(`/mercadopago/installments?amount=${price}`); setInstallments(installmentData || []); } catch (error) { console.warn("Erro parcelas", error); setInstallments([]); } finally { setIsLoadingInstallments(false); } }; if (product && !product.error && currentPrice > 0) { fetchInstallments(currentPrice); } else if (!product || product.error || !(currentPrice > 0)) { setInstallments([]); setIsLoadingInstallments(false); } }, [product, currentPrice]);
-    
-    // --- CONTROLE DE SCROLL DA GALERIA ---
-    const checkScrollButtons = useCallback(() => { 
-        const gallery = galleryRef.current; 
-        if (gallery) { 
-            // Horizontal (Mobile)
-            setCanScrollLeft(gallery.scrollLeft > 0); 
+    }, [productVariations, productImages]);
+
+    useEffect(() => {
+        fetchProductData(productId);
+        window.scrollTo(0, 0);
+    }, [productId, fetchProductData]);
+
+    useEffect(() => {
+        const fetchInstallments = async (price) => {
+            if (!price || price <= 0) {
+                setInstallments([]);
+                setIsLoadingInstallments(false);
+                return;
+            }
+            setIsLoadingInstallments(true);
+            setInstallments([]);
+            try {
+                const installmentData = await apiService(`/mercadopago/installments?amount=${price}`);
+                setInstallments(installmentData || []);
+            } catch (error) {
+                console.warn("Não foi possível carregar as opções de parcelamento.", error);
+                setInstallments([]);
+            } finally {
+                setIsLoadingInstallments(false);
+            }
+        };
+        if (product && !product.error && currentPrice > 0) {
+            fetchInstallments(currentPrice);
+        } else if (!product || product.error || !(currentPrice > 0)) {
+             setInstallments([]);
+             setIsLoadingInstallments(false);
+        }
+    }, [product, currentPrice]);
+
+    // Efeito e Funções para Galeria
+    const checkScrollButtons = useCallback(() => {
+        const gallery = galleryRef.current;
+        if (gallery) {
+            setCanScrollLeft(gallery.scrollLeft > 0);
             setCanScrollRight(gallery.scrollWidth > gallery.clientWidth + gallery.scrollLeft + 1);
-            // Vertical (Desktop)
-            setCanScrollUp(gallery.scrollTop > 0);
-            setCanScrollDown(gallery.scrollHeight > gallery.clientHeight + gallery.scrollTop + 1);
-        } 
+        }
     }, []);
 
-    useEffect(() => { 
-        checkScrollButtons(); 
-        const gallery = galleryRef.current; 
-        if (gallery) { 
-            gallery.addEventListener('scroll', checkScrollButtons); 
-            window.addEventListener('resize', checkScrollButtons); 
-            return () => { 
-                gallery.removeEventListener('scroll', checkScrollButtons); 
-                window.removeEventListener('resize', checkScrollButtons); 
-            }; 
-        } 
+    useEffect(() => {
+        checkScrollButtons();
+        const gallery = galleryRef.current;
+        if (gallery) {
+            gallery.addEventListener('scroll', checkScrollButtons);
+            window.addEventListener('resize', checkScrollButtons);
+            return () => {
+                gallery.removeEventListener('scroll', checkScrollButtons);
+                window.removeEventListener('resize', checkScrollButtons);
+            };
+        }
     }, [galleryImages, checkScrollButtons]);
 
-    const scrollGallery = (direction) => { 
-        const gallery = galleryRef.current; 
-        if (gallery) { 
-            if (direction === 'left' || direction === 'right') {
-                const scrollAmount = gallery.clientWidth * 0.7; 
-                gallery.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' }); 
-            } else {
-                const scrollAmount = gallery.clientHeight * 0.7;
-                gallery.scrollBy({ top: direction === 'up' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
-            }
-        } 
+    const scrollGallery = (direction) => {
+        const gallery = galleryRef.current;
+        if (gallery) {
+            const scrollAmount = gallery.clientWidth * 0.7;
+            gallery.scrollBy({
+                left: direction === 'left' ? -scrollAmount : scrollAmount,
+                behavior: 'smooth'
+            });
+        }
     };
 
-    const TabButton = ({ label, tabName, isVisible = true }) => { if (!isVisible) return null; return ( <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-amber-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'}`} > {label} </button> ); };
-    const Lightbox = ({ mainImage, onClose }) => ( <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}> <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">&times;</button> <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div> </div> );
-
-    // --- TELA DE CARREGAMENTO PRODUTO PREMIUM ---
-    if (isLoading) {
+    const TabButton = ({ label, tabName, isVisible = true }) => {
+        if (!isVisible) return null;
         return (
-            <div className="bg-black min-h-screen flex flex-col items-center justify-center pt-20 pb-32 px-4 gap-6">
-                <div className="relative">
-                    <div className="absolute inset-0 bg-amber-500 blur-xl opacity-20 rounded-full animate-pulse"></div>
-                    <SpinnerIcon className="h-12 w-12 text-amber-400 relative z-10" />
-                </div>
-                <div className="text-center space-y-2">
-                    <h2 className="text-xl font-bold text-white tracking-wide">Carregando Detalhes</h2>
-                    <p className="text-sm text-gray-500">Buscando as melhores imagens e informações para você...</p>
-                </div>
-            </div>
+            <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-amber-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'}`} > {label} </button>
         );
-    }
-    
+    };
+
+    const Lightbox = ({ mainImage, onClose }) => (
+        <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}>
+            <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">&times;</button>
+            <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div>
+        </div>
+    );
+
+    if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
     if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
     if (!product) return <div className="bg-black min-h-screen"></div>;
 
-    const showGalleryArrows = galleryImages.length > 1;
+    const currentStockStatus = isClothing ? selectedVariation?.stock : product?.stock;
+    const productOrVariationOutOfStock = currentStockStatus <= 0;
+
+    const showGalleryArrows = galleryImages.length + (product.video_url ? 1 : 0) > 4;
 
     return (
         <div className="bg-black text-white min-h-screen">
-             {/* --- CSS INJETADO PARA REMOVER SCROLLBAR NA GALERIA E TABELA --- */}
-            <style>{`
-                .scrollbar-hide::-webkit-scrollbar {
-                    display: none;
-                }
-                .scrollbar-hide {
-                    -ms-overflow-style: none;
-                    scrollbar-width: none;
-                }
-                .custom-scrollbar::-webkit-scrollbar {
-                    height: 6px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-track {
-                    background: rgba(31, 41, 55, 0.5); 
-                    border-radius: 4px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background: rgba(251, 191, 36, 0.5); 
-                    border-radius: 4px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                    background: rgba(251, 191, 36, 0.8); 
-                }
-            `}</style>
-            
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
-            
-            {/* --- MODAL DO GUIA DE MEDIDAS (TAMANHO 3XL) --- */}
-            <AnimatePresence>
-                {isSizeGuideModalOpen && product.size_guide && (
-                    <Modal isOpen={true} onClose={() => setIsSizeGuideModalOpen(false)} title="Guia de Medidas" size="3xl">
-                        <SizeGuideDisplay dataString={product.size_guide} />
-                    </Modal>
-                )}
-            </AnimatePresence>
-
-            {/* --- MODAL DE SELEÇÃO --- */}
-            <AnimatePresence>
-                {isSelectionModalOpen && (
-                    <>
-                        <motion.div 
-                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-black/80 z-[60] backdrop-blur-md"
-                            onClick={() => setIsSelectionModalOpen(false)}
-                        />
-                        <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center pointer-events-none p-0 md:p-4">
-                            <motion.div
-                                initial={{ y: "100%" }} 
-                                animate={{ y: 0 }} 
-                                exit={{ y: "100%" }}
-                                transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                                className="pointer-events-auto bg-gray-900 border border-gray-700 w-full max-w-lg rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden ring-1 ring-white/10"
-                            >
-                                <div className="p-6 pb-0 flex justify-between items-start">
-                                    <div className="pr-4">
-                                        <h3 className="font-bold text-lg text-white leading-snug">{product.name}</h3>
-                                        <div className="flex items-center gap-2 mt-1.5">
-                                            <p className="text-amber-400 font-bold text-2xl">R$ {Number(currentPrice).toFixed(2).replace('.', ',')}</p>
-                                            {isPromoActive && <span className="bg-red-600/20 text-red-400 text-xs font-bold px-2 py-0.5 rounded-md">-{discountPercent}%</span>}
-                                        </div>
-                                    </div>
-                                    <button 
-                                        onClick={() => setIsSelectionModalOpen(false)} 
-                                        className="bg-gray-800 p-2 rounded-full text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
-                                    >
-                                        <XMarkIcon className="h-6 w-6"/>
-                                    </button>
-                                </div>
-                                <div className="p-6">
-                                    <div className="py-4 border-t border-gray-800 border-b border-gray-800 mb-6">
-                                        <div className="flex items-center mb-5">
-                                            <div className="flex items-center gap-2">
-                                                <div className="bg-blue-500/20 text-blue-400 p-2 rounded-lg">
-                                                    <ShirtIcon className="h-5 w-5" />
-                                                </div>
-                                                <p className="text-sm text-gray-200 font-medium">Personalize sua escolha</p>
-                                            </div>
-                                        </div>
-                                        <VariationSelector 
-                                            product={product} 
-                                            variations={productVariations} 
-                                            selectedColor={selectedColor} 
-                                            setSelectedColor={setSelectedColor} 
-                                            selectedSize={selectedSize} 
-                                            setSelectedSize={setSelectedSize} 
-                                            error={selectionError} 
-                                        />
-                                    </div>
-                                    <button 
-                                        onClick={handleConfirmSelection}
-                                        className={`w-full font-bold py-4 rounded-xl text-base shadow-lg transition-all transform active:scale-[0.98] uppercase tracking-wide flex items-center justify-center gap-3
-                                            ${selectionError && !selectedSize 
-                                                ? 'bg-red-600 text-white animate-pulse' 
-                                                : 'bg-amber-400 hover:bg-amber-300 text-black'}`
-                                        }
-                                    >
-                                        {selectionError && !selectedSize ? '⚠️ Escolha um Tamanho' : (pendingAction === 'buyNow' ? 'Confirmar Compra' : 'Adicionar à Sacola')}
-                                        {!selectionError && <CheckIcon className="h-5 w-5" />}
-                                    </button>
-                                    <p className="text-center text-[10px] text-gray-500 mt-4 flex items-center justify-center gap-1.5 opacity-80">
-                                        <ShieldCheckIcon className="h-3.5 w-3.5" /> Compra 100% Segura e Garantida
-                                    </p>
-                                </div>
-                            </motion.div>
-                        </div>
-                    </>
-                )}
-            </AnimatePresence>
-            
             <AnimatePresence>
                 {isVideoModalOpen && product.video_url && (
                      <Modal isOpen={true} onClose={() => setIsVideoModalOpen(false)} title="Vídeo do Produto" size="2xl">
                         <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, backgroundColor: 'black' }}>
-                            {getYouTubeEmbedUrl(product.video_url) ? (
-                                <iframe 
-                                    src={getYouTubeEmbedUrl(product.video_url)} 
-                                    title={product.name} 
-                                    frameBorder="0" 
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                                    allowFullScreen 
-                                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
-                                ></iframe>
-                            ) : (
-                                <div className="absolute inset-0 flex items-center justify-center text-gray-500 text-sm">
-                                    <p>Vídeo indisponível.</p>
-                                </div>
-                            )}
+                            <iframe src={getYouTubeEmbedUrl(product.video_url)} title={product.name} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}></iframe>
                         </div>
                     </Modal>
                 )}
@@ -4307,189 +3494,123 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     <button onClick={() => onNavigate('products')} className="text-sm text-amber-400 hover:underline flex items-center w-fit transition-colors"> <ArrowUturnLeftIcon className="h-4 w-4 mr-1.5"/> Voltar para todos os produtos </button>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12">
-                    {/* COLUNA GALERIA (Mantida original "Perfeita") */}
-                    <div className="lg:col-span-7 lg:sticky lg:top-24 self-start">
-                        <div className="flex flex-col lg:flex-row gap-4 align-stretch h-full">
-                            
-                            {/* Lista de Miniaturas */}
-                            <div className="relative flex-shrink-0 order-2 lg:order-1 flex flex-col justify-center">
-                                {/* Botão Scroll Cima (Desktop) */}
-                                {canScrollUp && (
-                                    <button 
-                                        onClick={() => scrollGallery('up')} 
-                                        className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 bg-black/50 text-white rounded-full p-1 hidden lg:block hover:bg-amber-500 transition-colors shadow-lg border border-gray-700"
-                                    >
-                                        <ChevronDownIcon className="h-4 w-4 rotate-180" />
-                                    </button>
-                                )}
-                                
-                                {/* Container Scrollável */}
-                                <div 
-                                    ref={galleryRef}
-                                    className="flex flex-row lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:w-24 max-h-[80vh] scrollbar-hide py-2 lg:py-4"
-                                    style={{ maxHeight: '80vh' }}
-                                >
-                                    {product.video_url && (
-                                        <div 
-                                            onClick={() => setIsVideoModalOpen(true)} 
-                                            className="relative w-16 h-16 lg:w-24 lg:h-24 flex-shrink-0 bg-black rounded-lg cursor-pointer border-2 border-gray-800 hover:border-gray-500 overflow-hidden group/video transition-all shadow-md"
-                                        >
-                                            <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo" className="w-full h-full object-contain filter blur-[2px] opacity-60 group-hover/video:opacity-80 transition-opacity"/>
-                                            <div className="absolute inset-0 flex items-center justify-center">
-                                                <div className="bg-red-600 rounded-full p-1.5 shadow-md group-hover/video:scale-110 transition-transform">
-                                                    <svg className="w-4 h-4 text-white fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {galleryImages.map((img, index) => (
-                                        <div 
-                                            key={index} 
-                                            onClick={() => setCurrentImageIndex(index)} 
-                                            onMouseEnter={() => setCurrentImageIndex(index)} 
-                                            className={`relative w-16 h-16 lg:w-24 lg:h-32 flex-shrink-0 bg-white rounded-lg cursor-pointer border-2 overflow-hidden transition-all duration-200 shadow-sm
-                                                ${currentImageIndex === index 
-                                                    ? 'border-amber-400 opacity-100 ring-2 ring-amber-400/50' 
-                                                    : 'border-transparent hover:border-gray-400 opacity-70 hover:opacity-100'}`}
-                                        >
-                                            <img src={img} alt={`Thumb ${index}`} className="w-full h-full object-contain p-1" />
-                                        </div>
-                                    ))}
-                                </div>
-                                
-                                {/* Botão Scroll Baixo (Desktop) */}
-                                {canScrollDown && (
-                                    <button 
-                                        onClick={() => scrollGallery('down')} 
-                                        className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-10 bg-black/50 text-white rounded-full p-1 hidden lg:block hover:bg-amber-500 transition-colors shadow-lg border border-gray-700"
-                                    >
-                                        <ChevronDownIcon className="h-4 w-4" />
-                                    </button>
-                                )}
-                            </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
+                    <div className="lg:sticky lg:top-24 self-start">
+                        <div onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} className={`aspect-square bg-white rounded-lg flex items-center justify-center relative mb-4 shadow-lg overflow-hidden group ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}>
+                             {!productOrVariationOutOfStock && ( <div className="absolute top-3 left-3 flex flex-col gap-2 z-10"> {isPromoActive ? ( <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> <SaleIcon className="h-4 w-4"/> <span>PROMOÇÃO {discountPercent}%</span> </div> ) : isNew ? ( <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> ) : null} </div> )}
+                             {productOrVariationOutOfStock && ( <div className="absolute top-3 left-3 bg-gray-700 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10">ESGOTADO</div> )}
+                            <img src={mainImage} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105" />
+                        </div>
 
-                            {/* Imagem Principal */}
-                            <div className="w-full relative bg-white rounded-xl overflow-hidden shadow-xl border border-gray-800 order-1 lg:order-2 group flex justify-center items-center aspect-square lg:aspect-[3/4]">
-                                {/* Badges */}
-                                {!productOrVariationOutOfStock && (
-                                    <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 pointer-events-none">
-                                        {isPromoActive ? ( 
-                                            <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> 
-                                                <SaleIcon className="h-4 w-4"/> 
-                                                <span>PROMOÇÃO {discountPercent}%</span> 
-                                            </div> 
-                                        ) : isNew ? ( 
-                                            <div className="bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
-                                        ) : null}
+                        {/* Galeria com Setas */}
+                        <div className="relative group">
+                            <div
+                                ref={galleryRef}
+                                className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide"
+                                style={{
+                                    msOverflowStyle: 'none', 
+                                    scrollbarWidth: 'none' 
+                                }}
+                            >
+                                <style>{` .scrollbar-hide::-webkit-scrollbar { display: none; } `}</style>
+
+                               {product.video_url && (
+                                    <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center transition-colors">
+                                        <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo do produto" className="w-full h-full object-contain filter blur-sm opacity-50"/>
+                                        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
+                                            <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg>
+                                        </div>
                                     </div>
                                 )}
-                                {productOrVariationOutOfStock && ( 
-                                    <div className="absolute top-4 left-4 bg-gray-800 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg z-10 border border-gray-600">ESGOTADO</div> 
-                                )}
-
-                                {/* Container de Imagem */}
-                                <div className="absolute inset-0 flex items-center justify-center p-4 lg:p-8">
-                                    <img 
-                                        src={mainImage} 
-                                        alt={product.name} 
-                                        onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} 
-                                        className={`max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105 ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}
-                                    />
-                                </div>
-                                
-                                {/* Botões de Navegação da Imagem Principal */}
-                                {showGalleryArrows && (
-                                    <>
-                                        <button 
-                                            onClick={handlePrevImage} 
-                                            className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-3 rounded-full shadow-lg border border-gray-200 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-300 z-20"
-                                            aria-label="Imagem anterior"
-                                        >
-                                            <ChevronDownIcon className="h-6 w-6 rotate-90" />
-                                        </button>
-                                        <button 
-                                            onClick={handleNextImage} 
-                                            className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-3 rounded-full shadow-lg border border-gray-200 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-300 z-20"
-                                            aria-label="Próxima imagem"
-                                        >
-                                            <ChevronDownIcon className="h-6 w-6 -rotate-90" />
-                                        </button>
-                                    </>
-                                )}
-
-                                {/* Dica de Zoom (Desktop) */}
-                                <div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-sm p-2 rounded-full text-white/80 opacity-0 group-hover:opacity-100 transition-opacity duration-300 hidden lg:flex items-center justify-center pointer-events-none">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2" /></svg>
-                                </div>
+                                {galleryImages.map((img, index) => (
+                                    <div
+                                        key={index}
+                                        onClick={() => setMainImage(img)}
+                                        onMouseEnter={() => setMainImage(img)}
+                                        className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all duration-150 ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-400'}`}
+                                    >
+                                        <img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-contain" />
+                                    </div>
+                                ))}
                             </div>
+                            {showGalleryArrows && (
+                                <>
+                                    <button onClick={() => scrollGallery('left')} disabled={!canScrollLeft} className={`absolute top-1/2 left-0 transform -translate-y-1/2 -ml-3 z-10 p-2 bg-gray-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-gray-700 disabled:opacity-0 disabled:cursor-default`} aria-label="Scroll Left">
+                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg>
+                                    </button>
+                                     <button onClick={() => scrollGallery('right')} disabled={!canScrollRight} className={`absolute top-1/2 right-0 transform -translate-y-1/2 -mr-3 z-10 p-2 bg-gray-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-gray-700 disabled:opacity-0 disabled:cursor-default`} aria-label="Scroll Right">
+                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
+                                    </button>
+                                </>
+                            )}
                         </div>
                     </div>
 
-                    {/* COLUNA DETALHES (Direita) - Ocupa 5 colunas no Desktop */}
-                    <div className="lg:col-span-5 space-y-6">
+                    <div className="space-y-6">
                         <div>
                             <p className="text-sm text-amber-400 font-semibold tracking-wider mb-1">{product.brand.toUpperCase()}</p>
-                            <h1 className="text-2xl lg:text-4xl font-bold mb-2 leading-tight">{product.name}</h1>
-                            {isPerfume && product.volume && <h2 className="text-base font-medium text-gray-400">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
-                            <div className="flex items-center mt-3 justify-between">
-                                <div className="flex items-center gap-2">
-                                    <div className="flex items-center text-amber-400 gap-0.5">
-                                        {[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-4 w-4 ${i < Math.round(avgRating) ? 'fill-current' : 'text-gray-700'}`} isFilled={i < Math.round(avgRating)} />)}
-                                    </div>
-                                    <span className="text-xs text-gray-400 font-medium">({reviews.length > 0 ? `${reviews.length} avaliações` : 'Novo'})</span>
+                            <h1 className="text-2xl lg:text-3xl font-bold mb-1.5">{product.name}</h1>
+                            {isPerfume && product.volume && <h2 className="text-base font-light text-gray-400">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
+                            <div className="flex items-center mt-2 justify-between">
+                                <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-0.5">{[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-4 w-4 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}</div>
+                                    {reviews.length > 0 && <span className="text-xs text-gray-500">({reviews.length} avaliações)</span>}
+                                    {reviews.length === 0 && <span className="text-xs text-gray-500">Seja o primeiro a avaliar</span>}
                                 </div>
-                                <button onClick={handleShare} className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors bg-gray-800/50 hover:bg-gray-800 px-3 py-1.5 rounded-full text-xs font-bold"> <ShareIcon className="h-3.5 w-3.5"/> Compartilhar </button>
+                                <button onClick={handleShare} className="flex items-center gap-1.5 text-gray-400 hover:text-amber-400 transition-colors p-1 rounded-md text-sm"> <ShareIcon className="h-4 w-4"/> <span className="hidden sm:inline">Compartilhar</span> </button>
                             </div>
                         </div>
 
-                        {/* --- ÁREA DE PREÇO E PROMOÇÃO --- */}
+                        {/* --- ÁREA DE PROMOÇÃO AVANÇADA (MOBILE AJUSTADO) --- */}
                         {isPromoActive && timeLeft && timeLeft !== 'Expirada' && (
-                            <div className="bg-gradient-to-br from-red-900/40 to-black border border-red-800 rounded-lg p-4 mb-4 relative overflow-hidden shadow-lg shadow-red-900/20">
+                            <div className="bg-gradient-to-br from-red-900/40 to-black border border-red-800 rounded-lg p-4 mb-4 relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
                                     <ClockIcon className="h-24 w-24 text-red-500" />
                                 </div>
                                 <div className="flex items-center justify-center sm:justify-start gap-2 mb-3 text-red-400 font-bold uppercase tracking-wide text-xs sm:text-sm">
-                                    <SparklesIcon className="h-4 w-4 animate-pulse text-yellow-400" />
+                                    <SparklesIcon className="h-4 w-4 animate-pulse" />
                                     Oferta por Tempo Limitado
                                 </div>
                                 
                                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 w-full">
+                                    {/* Contador - Centralizado e Responsivo */}
                                     <div className="text-white font-mono text-lg sm:text-2xl font-bold flex justify-center gap-2 w-full sm:w-auto">
                                         <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
                                             <span>{String(timeLeft.days).padStart(2, '0')}</span>
                                             <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">DIAS</span>
                                         </div>
-                                        <span className="self-center text-red-500 animate-pulse">:</span>
+                                        <span className="self-center text-red-500">:</span>
                                         <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
                                             <span>{String(timeLeft.hours).padStart(2, '0')}</span>
                                             <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">HORAS</span>
                                         </div>
-                                        <span className="self-center text-red-500 animate-pulse">:</span>
+                                        <span className="self-center text-red-500">:</span>
                                         <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
                                             <span>{String(timeLeft.minutes).padStart(2, '0')}</span>
                                             <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">MIN</span>
                                         </div>
-                                        <span className="self-center text-red-500 animate-pulse">:</span>
+                                        <span className="self-center text-red-500">:</span>
                                         <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
-                                            <span className="text-red-500">{String(timeLeft.seconds).padStart(2, '0')}</span>
+                                            <span>{String(timeLeft.seconds).padStart(2, '0')}</span>
                                             <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">SEG</span>
                                         </div>
                                     </div>
 
+                                    {/* Preços - Empilhados e centralizados no mobile */}
                                     <div className="flex flex-col items-center sm:items-end w-full sm:w-auto border-t sm:border-t-0 border-red-900/30 pt-3 sm:pt-0 mt-1 sm:mt-0">
                                         <p className="text-gray-400 text-sm">De: <span className="line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</span></p>
                                         <div className="flex items-center justify-center sm:justify-end gap-2">
                                             <p className="text-white font-bold text-xl">Por: <span className="text-amber-400">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</span></p>
                                         </div>
-                                        <p className="text-xs text-green-400 font-semibold mt-1 bg-green-900/20 px-3 py-0.5 rounded-full inline-block border border-green-900/30">Economize {discountPercent}%</p>
+                                        <p className="text-xs text-green-400 font-semibold mt-1 bg-green-900/20 px-3 py-0.5 rounded-full inline-block">Economize {discountPercent}%</p>
                                     </div>
                                 </div>
                             </div>
                         )}
 
+                        {/* --- ÁREA DE PROMOÇÃO PADRÃO (SEM TEMPO LIMITADO) --- */}
                         {isPromoActive && (!timeLeft || timeLeft === 'Expirada') && (
-                             <div className="bg-gradient-to-br from-green-900/40 to-black border border-green-800 rounded-lg p-4 mb-4 relative overflow-hidden shadow-lg shadow-green-900/20">
+                             <div className="bg-gradient-to-br from-green-900/40 to-black border border-green-800 rounded-lg p-4 mb-4 relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
                                     <TagIcon className="h-24 w-24 text-green-500" />
                                 </div>
@@ -4525,31 +3646,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         </div>
 
-                        {/* Seletor na página principal (também controlado pelo estado da página) */}
-                        {isClothing && ( 
-                            <div className="mb-2">
-                                <VariationSelector 
-                                    product={product} 
-                                    variations={productVariations} 
-                                    selectedColor={selectedColor} 
-                                    setSelectedColor={setSelectedColor} 
-                                    selectedSize={selectedSize} 
-                                    setSelectedSize={setSelectedSize} 
-                                    error={selectionError} 
-                                /> 
-                                {/* --- BOTÃO DE GUIA DE MEDIDAS (DESKTOP E MOBILE PRINCIPAL) --- */}
-                                {product.size_guide && (
-                                    <div className="flex justify-end mt-4">
-                                        <button 
-                                            onClick={() => setIsSizeGuideModalOpen(true)}
-                                            className="text-xs font-bold text-amber-400 hover:text-white flex items-center gap-1.5 transition-colors border border-amber-400/30 px-3 py-1.5 rounded hover:bg-amber-400/10"
-                                        >
-                                            <RulerIcon className="h-4 w-4"/> Tabela de Medidas
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                        {isClothing && ( <VariationSelector product={product} variations={productVariations} onSelectionChange={handleVariationSelection} /> )}
 
                         {!productOrVariationOutOfStock && (
                             <div className="flex items-center space-x-4">
@@ -4565,48 +3662,28 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                         )}
 
                         <div className="space-y-3 pt-2">
-                            {productOrVariationOutOfStock ? ( 
-                                <div className="w-full bg-gray-700 text-gray-400 py-3 rounded-md text-base text-center font-bold"> 
-                                    {isClothing && selectedVariation ? 'Variação Esgotada' : 'Produto Esgotado'} 
-                                </div> 
-                            ) : ( 
-                                <> 
-                                    <button onClick={() => handleAction('buyNow')} className="w-full bg-amber-400 text-black py-3.5 rounded-md text-base hover:bg-amber-300 transition font-bold shadow-md hover:shadow-lg flex items-center justify-center gap-2"> 
-                                        Comprar Agora 
-                                    </button> 
-                                    <button onClick={() => handleAction('addToCart')} className="w-full bg-gray-800 border border-gray-700 text-white py-3 rounded-md text-base hover:bg-gray-700 transition font-bold shadow hover:shadow-md flex items-center justify-center gap-2"> 
-                                        <CartIcon className="h-5 w-5" /> Adicionar ao Carrinho 
-                                    </button> 
-                                </> 
-                            )}
+                            {productOrVariationOutOfStock ? ( <div className="w-full bg-gray-700 text-gray-400 py-3 rounded-md text-base text-center font-bold"> {isClothing && selectedVariation ? 'Variação Esgotada' : 'Produto Esgotado'} </div> ) : ( <> <button onClick={() => handleAction('buyNow')} className="w-full bg-amber-400 text-black py-3.5 rounded-md text-base hover:bg-amber-300 transition font-bold disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md hover:shadow-lg" disabled={isClothing && !selectedVariation} > Comprar Agora </button> <button onClick={() => handleAction('addToCart')} className="w-full bg-gray-800 border border-gray-700 text-white py-3 rounded-md text-base hover:bg-gray-700 transition font-bold disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow hover:shadow-md" disabled={isClothing && !selectedVariation} > <CartIcon className="h-5 w-5" /> Adicionar ao Carrinho </button> </> )}
                         </div>
 
                         <ShippingCalculator items={itemsForShipping} />
                     </div>
                 </div>
-                
+
                 <div className="mt-16 lg:mt-24 pt-10 border-t border-gray-800">
                     <div className="flex justify-center border-b border-gray-800 mb-8 flex-wrap -mt-3">
                         <TabButton label="Descrição" tabName="description" />
-                        <TabButton label="Tabela de Medidas" tabName="size_guide" isVisible={isClothing} />
                         <TabButton label="Notas Olfativas" tabName="notes" isVisible={isPerfume} />
                         <TabButton label="Como Usar" tabName="how_to_use" isVisible={isPerfume} />
                         <TabButton label="Ideal Para" tabName="ideal_for" isVisible={isPerfume} />
+                        <TabButton label="Guia de Medidas" tabName="size_guide" isVisible={isClothing} />
                         <TabButton label="Cuidados com a Peça" tabName="care" isVisible={isClothing} />
                     </div>
-                    <div className="text-gray-300 leading-relaxed max-w-3xl mx-auto min-h-[100px] prose prose-invert prose-sm sm:prose-base">
+                    <div className="text-gray-300 leading-relaxed max-w-3xl mx-auto min-h-[100px] prose prose-invert prose-sm sm:prose-base prose-li:my-1 prose-p:my-2">
                         {activeTab === 'description' && <p>{product.description || 'Descrição não disponível.'}</p>}
-                        
-                        {/* --- ATUALIZAÇÃO DA TAB DE GUIA DE MEDIDAS --- */}
-                        {isClothing && activeTab === 'size_guide' && (
-                            product.size_guide 
-                            ? <SizeGuideDisplay dataString={product.size_guide} /> 
-                            : <p className="text-center text-gray-500 italic">Guia de medidas não disponível para este produto.</p>
-                        )}
-                        
                         {isPerfume && activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas olfativas não disponíveis.</p>)}
                         {isPerfume && activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções de uso não disponíveis.'}</p>}
                         {isPerfume && activeTab === 'ideal_for' && (product.ideal_for ? parseTextToList(product.ideal_for) : <p>Informação não disponível.</p>)}
+                        {isClothing && activeTab === 'size_guide' && (product.size_guide ? <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: product.size_guide }}/> : <p>Guia de medidas não disponível.</p>)}
                         {isClothing && activeTab === 'care' && (product.care_instructions ? parseTextToList(product.care_instructions) : <p>Instruções de cuidado não disponíveis.</p>)}
                     </div>
                 </div>
@@ -4658,7 +3735,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     );
 };
 
-const LoginPage = ({ onNavigate, redirectPath }) => { 
+const LoginPage = ({ onNavigate }) => {
     const { login, setUser } = useAuth();
     const notification = useNotification();
 
@@ -4669,83 +3746,30 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
-    // --- NOVO: Estado para "Lembrar meu e-mail" ---
-    const [rememberEmail, setRememberEmail] = useState(false);
-
     // Estados para o fluxo 2FA
     const [isTwoFactorStep, setIsTwoFactorStep] = useState(false);
     const [twoFactorCode, setTwoFactorCode] = useState('');
     const [tempAuthToken, setTempAuthToken] = useState('');
 
-    // Estado para controle de exibição do botão de Biometria
-    const [hasBiometrics, setHasBiometrics] = useState(false);
-
     const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
-    
-    // --- NOVO: Carrega o e-mail salvo ao abrir a página ---
-    useEffect(() => {
-        const savedEmail = localStorage.getItem('lovecestas_saved_email');
-        if (savedEmail) {
-            setEmail(savedEmail);
-            setRememberEmail(true);
-        }
-    }, []);
-
-    // Efeito que verifica se o e-mail digitado possui biometria cadastrada
-    useEffect(() => {
-        const checkBiometrics = async () => {
-            if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-                try {
-                    const response = await apiService('/webauthn/check', 'POST', { email });
-                    setHasBiometrics(response.hasBiometrics);
-                } catch (err) {
-                    setHasBiometrics(false);
-                }
-            } else {
-                setHasBiometrics(false);
-            }
-        };
-
-        const timeoutId = setTimeout(() => {
-            checkBiometrics();
-        }, 500);
-
-        return () => clearTimeout(timeoutId);
-    }, [email]);
-
-    // --- NOVO: Função para salvar/limpar o e-mail na memória ---
-    const handleSaveEmailChoice = () => {
-        if (rememberEmail && email) {
-            localStorage.setItem('lovecestas_saved_email', email);
-        } else {
-            localStorage.removeItem('lovecestas_saved_email');
-        }
-    };
-
-    const handleSuccessRedirect = () => {
-        if (redirectPath) {
-            onNavigate(redirectPath);
-        } else {
-            onNavigate('home');
-        }
-    };
+    const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } };
 
    const handleLogin = async (e) => {
         e.preventDefault();
         setError('');
         setIsLoading(true);
         try {
+            // Usa a função centralizada do AuthContext
             const response = await login(email, password);
 
-            // Grava a decisão de lembrar o e-mail
-            handleSaveEmailChoice();
-
             if (response.twoFactorEnabled) {
+                // Se 2FA for necessário, muda para a próxima etapa
                 setTempAuthToken(response.token);
                 setIsTwoFactorStep(true);
             } else {
+                // Login normal bem-sucedido
                 notification.show('Login bem-sucedido!');
-                handleSuccessRedirect();
+                onNavigate('home'); // Usa a navegação controlada pelo App
             }
         } catch (err) {
             setError(err.message || "Ocorreu um erro desconhecido.");
@@ -4761,15 +3785,14 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
         setIsLoading(true);
         try {
             const response = await apiService('/login/2fa/verify', 'POST', { token: twoFactorCode, tempAuthToken });
-            const { user, accessToken, refreshToken } = response;
+            const { user } = response;
 
+            // Define manualmente o usuário no contexto e no localStorage
             setUser(user);
             localStorage.setItem('user', JSON.stringify(user));
-            if (accessToken) localStorage.setItem('accessToken', accessToken);
-            if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
 
             notification.show('Login bem-sucedido!');
-            handleSuccessRedirect();
+            onNavigate('home'); // Usa a navegação controlada pelo App
 
         } catch (err) {
             setError(err.message || "Código 2FA inválido ou expirado.");
@@ -4779,91 +3802,33 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
         }
     };
 
-    const handleBiometricLogin = async () => {
-        try {
-            const startAuth = window.SimpleWebAuthnBrowser ? window.SimpleWebAuthnBrowser.startAuthentication : null;
-            
-            if (!startAuth) {
-                notification.show("A biblioteca de biometria não está carregada.", "error");
-                return;
-            }
-
-            setIsLoading(true);
-            setError('');
-
-            const optionsResp = await apiService('/webauthn/generate-authentication-options');
-            
-            let authResponse;
-            try {
-                authResponse = await startAuth(optionsResp.options);
-            } catch (err) {
-                console.log("Biometria cancelada ou falhou localmente:", err);
-                setIsLoading(false);
-                return; 
-            }
-
-            const verificationResp = await apiService('/webauthn/verify-authentication', 'POST', {
-                body: authResponse,
-                sessionId: optionsResp.sessionId
-            });
-
-            // Grava a decisão de lembrar o e-mail
-            handleSaveEmailChoice();
-
-            if (verificationResp.twoFactorEnabled) {
-                setTempAuthToken(verificationResp.token);
-                setIsTwoFactorStep(true);
-            } else {
-                const { user, accessToken, refreshToken } = verificationResp;
-                setUser(user);
-                localStorage.setItem('user', JSON.stringify(user));
-                if (accessToken) localStorage.setItem('accessToken', accessToken);
-                if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
-                
-                notification.show('Login biométrico bem-sucedido!');
-                handleSuccessRedirect();
-            }
-
-        } catch (err) {
-            console.error("Erro no login biométrico:", err);
-            setError(err.message || "Falha na autenticação biométrica.");
-            notification.show("Falha na autenticação biométrica.", "error");
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
     return (
-        <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-black p-4 sm:p-6"> 
+        // --- MODIFICAÇÃO: Estilo do container principal e padding ---
+        <div className="min-h-screen flex items-center justify-center bg-black p-4 sm:p-6"> {/* Fundo preto sólido, padding ajustado */}
             <motion.div
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
-                className="w-full max-w-sm sm:max-w-md bg-gray-900 text-white p-6 sm:p-8 rounded-lg shadow-lg border border-gray-800" 
+                // --- MODIFICAÇÃO: Estilo do card de login, cores e responsividade ---
+                className="w-full max-w-sm sm:max-w-md bg-gray-900 text-white p-6 sm:p-8 rounded-lg shadow-lg border border-gray-800" // Fundo mais escuro, padding ajustado, tamanho máximo ajustado para mobile
             >
                 {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md text-sm">{error}</p>}
-                
-                {redirectPath && !isTwoFactorStep && (
-                    <div className="mb-6 p-3 bg-amber-900/40 border border-amber-600 rounded-md flex items-center gap-3">
-                        <ExclamationCircleIcon className="h-5 w-5 text-amber-500 flex-shrink-0" />
-                        <p className="text-xs text-amber-200">
-                            Faça login para acessar os detalhes do pedido ou a página solicitada.
-                        </p>
-                    </div>
-                )}
 
                 <AnimatePresence mode="wait">
                     {!isTwoFactorStep ? (
                         <motion.div key="login-form" initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 50 }}>
                             <div className="text-center mb-6">
-                                <div className="mx-auto mb-3 inline-block w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center"> 
+                                {/* --- MODIFICAÇÃO: Tamanho da imagem e margem --- */}
+                                <div className="mx-auto mb-3 inline-block w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center"> {/* Tamanho menor no mobile */}
                                   <img src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png" alt="Logo" className="w-full h-full object-contain" />
                                 </div>
+                                {/* --- MODIFICAÇÃO: Tamanho do título --- */}
                                 <h2 className="text-2xl sm:text-3xl font-bold text-amber-400">Bem-vindo de Volta</h2>
                             </div>
-                            <form onSubmit={handleLogin} className="space-y-4"> 
+                            <form onSubmit={handleLogin} className="space-y-5"> {/* Espaçamento ligeiramente menor */}
                                 <div>
                                     <label className="text-xs sm:text-sm font-medium text-gray-400 mb-1 block">Email</label>
+                                    {/* --- MODIFICAÇÃO: Padding e tamanho de texto dos inputs --- */}
                                     <input type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-sm sm:text-base" />
                                 </div>
                                 <div>
@@ -4875,53 +3840,18 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
                                         </button>
                                     </div>
                                 </div>
-
-                                {/* --- NOVO: Checkbox de Lembrar E-mail --- */}
-                                <div className="flex items-center mb-2">
-                                    <input 
-                                        type="checkbox" 
-                                        id="remember-email"
-                                        checked={rememberEmail} 
-                                        onChange={(e) => setRememberEmail(e.target.checked)} 
-                                        className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-amber-500 focus:ring-amber-500 focus:ring-offset-gray-900 cursor-pointer"
-                                    />
-                                    <label htmlFor="remember-email" className="ml-2 block text-sm text-gray-400 cursor-pointer hover:text-white transition-colors select-none">
-                                        Lembrar meu e-mail
-                                    </label>
-                                </div>
-
-                                <button type="submit" disabled={isLoading} className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-base sm:text-lg mt-2">
-                                     {isLoading ? <SpinnerIcon /> : 'Entrar com Senha'}
+                                {/* --- MODIFICAÇÃO: Padding e tamanho de texto do botão --- */}
+                                <button type="submit" disabled={isLoading} className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-base sm:text-lg">
+                                     {isLoading ? <SpinnerIcon /> : 'Entrar'}
                                 </button>
                             </form>
-
-                            <AnimatePresence>
-                                {hasBiometrics && (
-                                    <motion.div 
-                                        initial={{ opacity: 0, height: 0 }} 
-                                        animate={{ opacity: 1, height: 'auto' }} 
-                                        exit={{ opacity: 0, height: 0 }}
-                                        className="mt-4 pt-4 border-t border-gray-800 overflow-hidden"
-                                    >
-                                        <button 
-                                            type="button" 
-                                            onClick={handleBiometricLogin} 
-                                            disabled={isLoading}
-                                            className="w-full py-2.5 sm:py-3 px-4 bg-gray-800 border border-gray-700 text-white font-bold rounded-md hover:bg-gray-700 transition flex justify-center items-center gap-2 disabled:opacity-60 text-base sm:text-lg"
-                                        >
-                                            <FingerprintIcon className="h-5 w-5 text-amber-400" /> 
-                                            Entrar com Biometria / Face ID
-                                        </button>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-
+                             {/* --- MODIFICAÇÃO: Tamanho de texto dos links --- */}
                              <div className="text-center mt-5 text-xs sm:text-sm">
                                 <p className="text-gray-400">Não tem uma conta?{' '}<a href="#register" onClick={(e) => {e.preventDefault(); onNavigate('register')}} className="font-semibold text-amber-400 hover:underline">Registre-se</a></p>
                                 <a href="#forgot-password" onClick={(e) => {e.preventDefault(); onNavigate('forgot-password')}} className="text-gray-500 hover:underline mt-2 inline-block">Esqueceu sua senha?</a>
                             </div>
                         </motion.div>
-                    ) : ( 
+                    ) : ( // Formulário 2FA (estilos mantidos, pois já eram adequados)
                         <motion.div key="2fa-form" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
                             <div className="text-center mb-6">
                                 <div className="mx-auto mb-4 inline-block rounded-full bg-gray-800 p-4 border border-gray-700"><CheckBadgeIcon className="h-8 w-8 text-amber-400" /></div>
@@ -4940,7 +3870,7 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
                                         value={twoFactorCode}
                                         onChange={e => setTwoFactorCode(e.target.value)}
                                         required
-                                        className="w-full text-center tracking-[0.5em] sm:tracking-[1em] px-4 py-3 bg-gray-800 text-white border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-xl sm:text-2xl font-mono" />
+                                        className="w-full text-center tracking-[0.5em] sm:tracking-[1em] px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-xl sm:text-2xl font-mono" /> {/* Ajuste no tracking para mobile */}
                                 </div>
                                 <button type="submit" disabled={isLoading} className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-base sm:text-lg">
                                      {isLoading ? <SpinnerIcon /> : 'Verificar'}
@@ -4956,19 +3886,17 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
         </div>
     );
 };
+
 const RegisterPage = ({ onNavigate }) => {
     const { register } = useAuth();
     const notification = useNotification();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState(''); 
     const [cpf, setCpf] = useState('');
-    const [phone, setPhone] = useState(''); 
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-    const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -4983,44 +3911,21 @@ const RegisterPage = ({ onNavigate }) => {
         visible: { opacity: 1, y: 0 }
     };
 
-    // Helper para calcular força da senha
-    const getPasswordStrength = (pass) => {
-        if (!pass) return { label: '', color: '' };
-        if (pass.length < 6) return { label: 'Fraca (mín. 6)', color: 'text-red-500' };
-        if (pass.length < 8) return { label: 'Média', color: 'text-yellow-500' };
-        return { label: 'Forte', color: 'text-green-500' };
-    };
-
-    const passStrength = getPasswordStrength(password);
-    const passwordsMatch = password === confirmPassword;
-    const showMismatch = confirmPassword.length > 0 && !passwordsMatch;
-
     const handleRegister = async (e) => {
         e.preventDefault();
         setError('');
-        
         if (password.length < 6) {
-             setError("A senha é muito fraca. Deve ter pelo menos 6 caracteres.");
+             setError("A senha deve ter pelo menos 6 caracteres.");
              return;
         }
-        
-        if (!passwordsMatch) {
-             setError("As senhas não coincidem. Por favor, verifique.");
-             return;
-        }
-
         if (!validateCPF(cpf)) {
             setError("O CPF informado é inválido.");
-            return;
-        }
-        if (!validatePhone(phone)) {
-            setError("O número de celular informado é inválido.");
             return;
         }
 
         setIsLoading(true);
         try {
-            await register(name, email, password, cpf, phone); 
+            await register(name, email, password, cpf);
             notification.show("Usuário registrado com sucesso! Você já pode fazer o login.");
             setTimeout(() => onNavigate('login'), 2000);
         } catch (err) {
@@ -5035,42 +3940,28 @@ const RegisterPage = ({ onNavigate }) => {
         setCpf(maskCPF(e.target.value));
     };
 
-    const handlePhoneChange = (e) => {
-        setPhone(maskPhone(e.target.value));
-    };
-
     return (
-        <div className="min-h-screen flex items-center justify-center bg-black p-4 sm:p-6">
+        // --- MODIFICAÇÃO: Estilo do container principal e padding ---
+        <div className="min-h-screen flex items-center justify-center bg-black p-4 sm:p-6"> {/* Fundo preto sólido, padding ajustado */}
             <motion.div
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
-                className="w-full max-w-sm sm:max-w-md bg-gray-900 text-white p-6 sm:p-8 rounded-lg shadow-lg border border-gray-800"
+                 // --- MODIFICAÇÃO: Estilo do card de registro, cores e responsividade ---
+                className="w-full max-w-sm sm:max-w-md bg-gray-900 text-white p-6 sm:p-8 rounded-lg shadow-lg border border-gray-800" // Fundo mais escuro, padding ajustado, tamanho máximo ajustado para mobile
             >
                 <motion.div variants={itemVariants} className="text-center mb-6">
+                    {/* --- MODIFICAÇÃO: Tamanho do título --- */}
                     <h2 className="text-2xl sm:text-3xl font-bold text-amber-400">Crie Sua Conta</h2>
                     <p className="text-gray-400 mt-2 text-sm sm:text-base">É rápido e fácil.</p>
                 </motion.div>
 
-                {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md text-sm font-bold border border-red-800">{error}</p>}
-                
-                <motion.form variants={itemVariants} onSubmit={handleRegister} className="space-y-4">
+                {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md text-sm">{error}</p>}
+                <motion.form variants={itemVariants} onSubmit={handleRegister} className="space-y-4"> {/* Reduzido space-y */}
+                    {/* --- MODIFICAÇÃO: Padding e tamanho de texto dos inputs --- */}
                     <input type="text" placeholder="Nome Completo" value={name} onChange={e => setName(e.target.value)} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 transition-all text-sm sm:text-base" />
                     <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 transition-all text-sm sm:text-base" />
                     <input type="text" placeholder="CPF" value={cpf} onChange={handleCpfChange} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 transition-all text-sm sm:text-base" />
-                    
-                    <div className="relative">
-                        <input 
-                            type="text" 
-                            placeholder="Celular / WhatsApp" 
-                            value={phone} 
-                            onChange={handlePhoneChange} 
-                            required 
-                            className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 transition-all pl-10 text-sm sm:text-base" 
-                        />
-                        <WhatsappIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                    </div>
-
                     <div className="relative">
                         <input
                             type={isPasswordVisible ? 'text' : 'password'}
@@ -5088,53 +3979,12 @@ const RegisterPage = ({ onNavigate }) => {
                             {isPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
                         </button>
                     </div>
-
-                    {/* Campo Repetir Senha + Feedbacks */}
-                    <div>
-                        <div className="relative">
-                            <input
-                                type={isConfirmPasswordVisible ? 'text' : 'password'}
-                                placeholder="Repita a Senha"
-                                value={confirmPassword}
-                                onChange={e => setConfirmPassword(e.target.value)}
-                                required
-                                className={`w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border rounded-md focus:outline-none focus:ring-1 transition-all pr-10 text-sm sm:text-base ${showMismatch ? 'border-red-500 focus:ring-red-500' : 'border-gray-700 focus:ring-amber-400'}`}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)}
-                                className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-amber-400"
-                            >
-                                {isConfirmPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
-                            </button>
-                        </div>
-                        
-                        {/* Container Unificado para Feedback de Senha */}
-                        <div className="flex justify-between items-center mt-1.5 px-1 min-h-[20px]">
-                            {/* Aviso de Senhas Diferentes (Esquerda) */}
-                            <div className="flex-1">
-                                {showMismatch && (
-                                    <p className="text-red-500 text-xs font-bold flex items-center gap-1 animate-pulse">
-                                        <ExclamationCircleIcon className="h-3 w-3 inline"/> As senhas não coincidem.
-                                    </p>
-                                )}
-                            </div>
-
-                            {/* Indicador de Força da Senha (Direita) */}
-                            {password && (
-                                <div className="text-right text-xs font-medium ml-2">
-                                    <span className="text-gray-400 mr-1">Força:</span>
-                                    <span className={`${passStrength.color} font-bold`}>{passStrength.label}</span>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                    
+                     {/* --- MODIFICAÇÃO: Padding e tamanho de texto do botão --- */}
                     <button type="submit" disabled={isLoading} className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-base sm:text-lg">
                         {isLoading ? <SpinnerIcon /> : 'Registrar'}
                     </button>
                 </motion.form>
-                
+                {/* --- MODIFICAÇÃO: Tamanho de texto do link --- */}
                  <motion.div variants={itemVariants} className="text-center mt-5 text-xs sm:text-sm">
                      <p className="text-gray-400">
                         Já tem uma conta?{' '}
@@ -5296,20 +4146,16 @@ const ForgotPasswordPage = ({ onNavigate }) => {
 const CartPage = ({ onNavigate }) => {
     const {
         cart,
-        setCart, // Necessário para atualização otimista
         updateQuantity,
         removeFromCart,
-        addToCart, // Necessário para trocar a variação (remove old, add new)
         autoCalculatedShipping,
         isLoadingShipping,
         shippingError,
         couponCode, setCouponCode,
         applyCoupon, removeCoupon,
-        couponMessage, appliedCoupon,
-        discount
+        couponMessage, appliedCoupon
     } = useShop();
     const notification = useNotification();
-    const { isAuthenticated } = useAuth(); // Necessário para sincronização API
 
     const subtotal = useMemo(() => cart.reduce((sum, item) => {
         const price = item.is_on_sale && item.sale_price ? item.sale_price : item.price;
@@ -5317,6 +4163,24 @@ const CartPage = ({ onNavigate }) => {
     }, 0), [cart]);
 
     const shippingCost = useMemo(() => autoCalculatedShipping ? autoCalculatedShipping.price : 0, [autoCalculatedShipping]);
+
+    const discount = useMemo(() => {
+        if (!appliedCoupon) return 0;
+        let discountValue = 0;
+        if (appliedCoupon.type === 'percentage') {
+            discountValue = subtotal * (parseFloat(appliedCoupon.value) / 100);
+        } else if (appliedCoupon.type === 'fixed') {
+            discountValue = parseFloat(appliedCoupon.value);
+        } else if (appliedCoupon.type === 'free_shipping') {
+            discountValue = shippingCost;
+        }
+        // Garante que o desconto não seja maior que o subtotal + frete (exceto frete grátis)
+        if (appliedCoupon.type !== 'free_shipping' && discountValue > subtotal + shippingCost) {
+            return subtotal + shippingCost;
+        }
+        return discountValue;
+    }, [appliedCoupon, subtotal, shippingCost]);
+
 
     const handleApplyCoupon = (e) => {
         e.preventDefault();
@@ -5327,7 +4191,7 @@ const CartPage = ({ onNavigate }) => {
 
     const total = useMemo(() => {
         const calculatedTotal = subtotal - discount + shippingCost;
-        return calculatedTotal < 0 ? 0 : calculatedTotal; 
+        return calculatedTotal < 0 ? 0 : calculatedTotal; // Evita total negativo
     }, [subtotal, discount, shippingCost]);
 
 
@@ -5339,77 +4203,10 @@ const CartPage = ({ onNavigate }) => {
         }
     };
 
-    // --- NOVA FUNÇÃO: Trocar Tamanho no Carrinho ---
-    const handleSizeChange = async (item, newSize) => {
-        if (!item.variation || item.variation.size === newSize) return;
-
-        // 1. Encontrar a variação completa correspondente ao novo tamanho
-        const allVariations = parseJsonString(item.variations, []);
-        const newVariation = allVariations.find(v => v.color === item.variation.color && v.size === newSize);
-
-        if (!newVariation) {
-            notification.show("Tamanho indisponível.", "error");
-            return;
-        }
-
-        if (newVariation.stock < item.qty) {
-            notification.show(`Estoque insuficiente para o tamanho ${newSize}.`, "error");
-            return;
-        }
-
-        // 2. Criar o ID do novo item
-        const newCartItemId = `${item.id}-${newVariation.color}-${newVariation.size}`;
-        
-        // 3. Verificar se já existe esse item no carrinho (para mesclar)
-        const existingItemIndex = cart.findIndex(i => i.cartItemId === newCartItemId);
-        
-        let newCart = [...cart];
-
-        if (existingItemIndex > -1) {
-            // Se já existe, soma a quantidade e remove o item antigo que estava sendo editado
-            newCart[existingItemIndex].qty += item.qty;
-            // Remove o item "antigo" (que tinha o tamanho anterior)
-            newCart = newCart.filter(i => i.cartItemId !== item.cartItemId);
-        } else {
-            // Se não existe, atualiza o item atual com a nova variação e ID
-            newCart = newCart.map(i => {
-                if (i.cartItemId === item.cartItemId) {
-                    return { ...i, variation: newVariation, cartItemId: newCartItemId };
-                }
-                return i;
-            });
-        }
-
-        // 4. Atualiza Estado Local (UI Instantânea)
-        setCart(newCart);
-        notification.show(`Tamanho alterado para ${newSize}`);
-
-        // 5. Sincroniza com Backend (se logado)
-        if (isAuthenticated) {
-            try {
-                // Remove o antigo
-                await apiService(`/cart/${item.id}`, 'DELETE', { variation: item.variation });
-                // Adiciona o novo (ou atualiza se mesclou)
-                // Para simplificar, o backend trata adição como "insert or update qty"
-                await apiService('/cart', 'POST', { 
-                    productId: item.id, 
-                    quantity: item.qty, // Quantidade que estava no item sendo movido
-                    variationId: newVariation.id, 
-                    variation: newVariation,
-                    variation_details: JSON.stringify(newVariation)
-                });
-            } catch (error) {
-                console.error("Erro ao sincronizar troca de tamanho:", error);
-            }
-        }
-    };
-
-    const itemsForShipping = useMemo(() => cart, [cart]);
-
     return (
         <div className="bg-black text-white min-h-screen">
-            <div className="container mx-auto px-4 py-12"> 
-                <h1 className="text-3xl md:text-4xl font-bold mb-10 text-center">Meu Carrinho</h1> 
+            <div className="container mx-auto px-4 py-12"> {/* Aumentado padding vertical */}
+                <h1 className="text-3xl md:text-4xl font-bold mb-10 text-center">Meu Carrinho</h1> {/* Centralizado e margem aumentada */}
                 {cart.length === 0 ? (
                     <EmptyState
                         icon={<CartIcon className="h-12 w-12"/>}
@@ -5419,9 +4216,9 @@ const CartPage = ({ onNavigate }) => {
                         onButtonClick={() => onNavigate('products')}
                     />
                 ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-10"> 
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-10"> {/* Aumentado gap */}
                         {/* Coluna de Itens e Frete */}
-                        <div className="lg:col-span-2 space-y-8"> 
+                        <div className="lg:col-span-2 space-y-8"> {/* Aumentado space-y */}
                             {/* Card de Itens */}
                             <div className="bg-gray-900 rounded-lg border border-gray-800 shadow-lg">
                                 <h2 className="text-xl font-semibold p-5 border-b border-gray-700 text-amber-400">Itens no Carrinho ({cart.length})</h2>
@@ -5430,20 +4227,10 @@ const CartPage = ({ onNavigate }) => {
                                         const isOnSale = item.is_on_sale && item.sale_price > 0;
                                         const currentPrice = isOnSale ? item.sale_price : item.price;
                                         const itemSubtotal = currentPrice * item.qty;
-                                        
-                                        // Preparar opções de tamanho se for roupa
-                                        let availableSizes = [];
-                                        if (item.product_type === 'clothing' && item.variation) {
-                                            const allVars = parseJsonString(item.variations, []);
-                                            availableSizes = allVars
-                                                .filter(v => v.color === item.variation.color && v.stock > 0)
-                                                .map(v => v.size);
-                                        }
-
                                         return (
                                         <motion.div
                                             key={item.cartItemId}
-                                            layout 
+                                            layout // Anima a remoção
                                             initial={{ opacity: 0 }}
                                             animate={{ opacity: 1 }}
                                             exit={{ opacity: 0, x: -50 }}
@@ -5452,45 +4239,25 @@ const CartPage = ({ onNavigate }) => {
                                         >
                                             <div className="flex items-center w-full md:w-auto flex-grow">
                                                 <div
-                                                    className="w-24 h-24 bg-white rounded-md flex-shrink-0 cursor-pointer p-1 border border-gray-700" 
+                                                    className="w-24 h-24 bg-white rounded-md flex-shrink-0 cursor-pointer p-1 border border-gray-700" // Aumentado tamanho
                                                     onClick={() => onNavigate(`product/${item.id}`)}
                                                 >
                                                     <img src={getFirstImage(item.images, 'https://placehold.co/96x96/222/fff?text=Img')} alt={item.name} className="w-full h-full object-contain"/>
                                                 </div>
                                                 <div className="flex-grow px-4">
                                                     <h3 className="font-bold text-lg cursor-pointer hover:text-amber-400 transition line-clamp-2" onClick={() => onNavigate(`product/${item.id}`)}>{item.name}</h3>
-                                                    
-                                                    {/* SEÇÃO DE VARIAÇÃO (COR E TAMANHO) */}
                                                     {item.variation && (
-                                                        <div className="flex flex-wrap items-center gap-3 mt-2">
-                                                            <div className="flex items-center gap-1 text-xs text-gray-300 bg-gray-800 px-2 py-1 rounded border border-gray-700">
-                                                                <span className="text-gray-500">Cor:</span>
-                                                                <span className="font-bold text-white">{item.variation.color}</span>
-                                                            </div>
-
-                                                            {/* SELETOR DE TAMANHO NO CARRINHO */}
-                                                            <div className="flex items-center gap-2">
-                                                                <label className="text-xs text-gray-500">Tam:</label>
-                                                                <select 
-                                                                    value={item.variation.size} 
-                                                                    onChange={(e) => handleSizeChange(item, e.target.value)}
-                                                                    className="bg-gray-800 text-white text-xs font-bold border border-gray-600 rounded px-2 py-1 focus:ring-1 focus:ring-amber-400 outline-none cursor-pointer"
-                                                                >
-                                                                    {availableSizes.map(size => (
-                                                                        <option key={size} value={size}>{size}</option>
-                                                                    ))}
-                                                                </select>
-                                                            </div>
-                                                        </div>
+                                                        <p className="text-xs text-gray-400 mt-1">
+                                                            {item.variation.color} / {item.variation.size}
+                                                        </p>
                                                     )}
-
                                                     {isOnSale ? (
-                                                        <div className="flex items-baseline gap-2 mt-2">
+                                                        <div className="flex items-baseline gap-2 mt-1">
                                                             <p className="text-base text-red-500 font-bold">R$&nbsp;{Number(currentPrice).toFixed(2)}</p>
                                                             <p className="text-xs text-gray-500 line-through">R$&nbsp;{Number(item.price).toFixed(2)}</p>
                                                         </div>
                                                     ) : (
-                                                        <p className="text-base text-amber-400 mt-2">R$&nbsp;{Number(item.price).toFixed(2)}</p>
+                                                        <p className="text-base text-amber-400 mt-1">R$&nbsp;{Number(item.price).toFixed(2)}</p>
                                                     )}
                                                 </div>
                                             </div>
@@ -5518,7 +4285,8 @@ const CartPage = ({ onNavigate }) => {
                                     </button>
                                 </div>
                             </div>
-                            <ShippingCalculator items={itemsForShipping} />
+                            {/* Calculadora de Frete (mantém componente externo) */}
+                            <ShippingCalculator items={cart} />
                         </div>
 
                         {/* Coluna de Resumo */}
@@ -5877,19 +4645,10 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
     );
 };
 
-const CheckoutSection = ({ title, step, children, icon: Icon }) => (
-     <div className="bg-gray-900 rounded-lg border border-gray-800 shadow-md">
-        <div className="flex items-center gap-3 p-4 border-b border-gray-700">
-            {Icon && <Icon className="h-6 w-6 text-amber-400 flex-shrink-0"/>}
-            <h2 className="text-xl font-bold text-amber-400 tracking-wide">{step ? `${step}. ` : ''}{title}</h2>
-        </div>
-        <div className="p-5">
-            {children}
-        </div>
-    </div>
-);
+// Componente PickupPersonForm REMOVIDO. Inputs voltam a ser nativos.
 
 const CheckoutPage = ({ onNavigate }) => {
+    // console.log(`%c--- Rendering CheckoutPage ---`, 'color: yellow; font-weight: bold;'); // Log opcional
     const { user } = useAuth();
     const {
         cart,
@@ -5913,55 +4672,39 @@ const CheckoutPage = ({ onNavigate }) => {
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [isNewAddressModalOpen, setIsNewAddressModalOpen] = useState(false);
     const [isSomeoneElsePickingUp, setIsSomeoneElsePickingUp] = useState(false);
+
+    // Estados que armazenam o valor FINAL (atualizado no onBlur)
     const [pickupPersonName, setPickupPersonName] = useState('');
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
-    const [whatsapp, setWhatsapp] = useState(''); 
 
-    useEffect(() => {
-        const pendingOrderId = sessionStorage.getItem('pendingOrderId');
-        if (pendingOrderId) {
-            onNavigate(`order-success/${pendingOrderId}`);
-        }
-    }, [onNavigate]);
+    // --- REMOVIDO: Estado visual 'displayPickupCpf' não é mais necessário ---
 
+    // --- Efeito para buscar e definir endereço inicial ---
+    // (Lógica mantida)
     useEffect(() => {
         setIsAddressLoading(true);
-        if (user && user.phone) {
-            setWhatsapp(maskPhone(user.phone));
-        }
-
         fetchAddresses().then(userAddresses => {
             let addressToSet = null;
-            
             if (shippingLocation && shippingLocation.cep) {
                 const matchingSavedAddress = userAddresses.find(addr =>
                     addr.cep === shippingLocation.cep &&
-                    addr.logradouro && addr.numero && addr.bairro 
+                    (shippingLocation.alias && !shippingLocation.alias.startsWith('CEP ') && shippingLocation.alias !== 'Localização Atual' ? addr.alias === shippingLocation.alias : true)
                 );
-                
                 if (matchingSavedAddress) {
                     addressToSet = matchingSavedAddress;
                 } else {
                     addressToSet = {
-                        cep: shippingLocation.cep,
-                        localidade: shippingLocation.city,
-                        uf: shippingLocation.state,
-                        alias: 'Endereço Incompleto (Preencha os dados)',
-                        logradouro: '',
-                        numero: '',
-                        bairro: '',
-                        is_incomplete: true
+                        cep: shippingLocation.cep, localidade: shippingLocation.city, uf: shippingLocation.state, alias: shippingLocation.alias,
+                        logradouro: '', numero: '', bairro: '', is_default: false, id: Date.now()
                     };
                 }
             }
-
             if (!addressToSet) {
                 addressToSet = userAddresses.find(addr => addr.is_default) || userAddresses[0] || null;
             }
-            
             setDisplayAddress(addressToSet);
 
-            if (addressToSet && addressToSet.cep && addressToSet.cep !== shippingLocation?.cep) {
+            if (addressToSet && addressToSet.cep !== shippingLocation?.cep) {
                  setShippingLocation({
                     cep: addressToSet.cep, city: addressToSet.localidade, state: addressToSet.uf, alias: addressToSet.alias
                  });
@@ -5969,26 +4712,32 @@ const CheckoutPage = ({ onNavigate }) => {
         }).finally(() => {
             setIsAddressLoading(false);
         });
-    }, [fetchAddresses, shippingLocation, setShippingLocation, user]);
+    }, [fetchAddresses, shippingLocation, setShippingLocation]);
 
+    // --- Efeito para definir os VALORES INICIAIS (para defaultValue) ---
+    // (Aplica máscara no CPF aqui para valor inicial)
     useEffect(() => {
         if (user && !isSomeoneElsePickingUp) {
             setPickupPersonName(user.name || '');
-            setPickupPersonCpf(maskCPF(user.cpf || '')); 
+            setPickupPersonCpf(maskCPF(user.cpf || '')); // Define o valor principal já mascarado
         } else {
+            // Limpa o estado principal
             setPickupPersonName('');
             setPickupPersonCpf('');
         }
     }, [user, isSomeoneElsePickingUp]);
 
+
+    // --- Funções de seleção de frete/endereço ---
     const handleSelectShipping = (option) => {
         setAutoCalculatedShipping(option);
         setSelectedShippingName(option.name);
         if(option.isPickup) {
             setDisplayAddress(null);
+            // Redefine valores iniciais ao selecionar Retirada
             if (!isSomeoneElsePickingUp && user) {
                 setPickupPersonName(user.name || '');
-                setPickupPersonCpf(maskCPF(user.cpf || '')); 
+                setPickupPersonCpf(maskCPF(user.cpf || '')); // Define estado principal
             } else {
                  setPickupPersonName('');
                  setPickupPersonCpf('');
@@ -6001,18 +4750,15 @@ const CheckoutPage = ({ onNavigate }) => {
              }
         }
     };
-
     const handleAddressSelection = (address) => {
         setDisplayAddress(address);
         setShippingLocation({ cep: address.cep, city: address.localidade, state: address.uf, alias: address.alias });
         setIsAddressModalOpen(false);
     };
-    
     const handleAddNewAddress = () => {
         setIsAddressModalOpen(false);
         setIsNewAddressModalOpen(true);
     };
-    
     const handleSaveNewAddress = async (formData) => {
         try {
             const savedAddress = await apiService('/addresses', 'POST', formData);
@@ -6027,10 +4773,7 @@ const CheckoutPage = ({ onNavigate }) => {
         }
     };
 
-    const handleWhatsappChange = (e) => {
-        setWhatsapp(maskPhone(e.target.value));
-    };
-
+    // --- Cálculos de Valores (COM CORREÇÃO NaN) ---
     const subtotal = useMemo(() => {
         return cart.reduce((sum, item) => {
             const price = Number(item.is_on_sale && item.sale_price ? item.sale_price : item.price) || 0;
@@ -6038,9 +4781,9 @@ const CheckoutPage = ({ onNavigate }) => {
             return sum + (price * quantity);
         }, 0);
     }, [cart]);
-    
-    const shippingCost = useMemo(() => Number(autoCalculatedShipping?.price) || 0, [autoCalculatedShipping]);
-    
+    const shippingCost = useMemo(() => {
+        return Number(autoCalculatedShipping?.price) || 0;
+    }, [autoCalculatedShipping]);
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
         let val = 0;
@@ -6057,20 +4800,62 @@ const CheckoutPage = ({ onNavigate }) => {
         const currentTotalBeforeDiscount = currentSubtotal + currentShippingCost;
         return Math.max(0, (appliedCoupon.type !== 'free_shipping' && val > currentTotalBeforeDiscount) ? currentTotalBeforeDiscount : val);
     }, [appliedCoupon, subtotal, shippingCost]);
-    
     const total = useMemo(() => {
         const finalTotal = (Number(subtotal) || 0) - (Number(discount) || 0) + (Number(shippingCost) || 0);
         return Math.max(0, finalTotal);
     }, [subtotal, discount, shippingCost]);
 
-    const getShippingName = (name) => name?.toLowerCase().includes('pac') ? 'PAC' : (name || 'N/A');
-    
-    const getDeliveryDateText = (deliveryTime) => {
-        // Correção: Verifica se já é o texto da Entrega Local
-        if (typeof deliveryTime === 'string' && deliveryTime.includes('Receba até')) {
-            return `${deliveryTime} (1 dia útil)`;
+    // --- Finalizar Pedido (usa pickupPersonCpf) ---
+    const handlePlaceOrderAndPay = async () => {
+        const isPickup = autoCalculatedShipping?.isPickup;
+        if ((!displayAddress && !isPickup) || !paymentMethod || !autoCalculatedShipping) {
+            notification.show("Selecione a forma de entrega e o endereço (se aplicável).", 'error'); return;
+        }
+        const nameToCheck = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
+        const cpfToCheck = isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf;
+        if (isPickup && (!nameToCheck || !validateCPF(cpfToCheck))) {
+            if(!isSomeoneElsePickingUp && !user) {
+                 notification.show("Faça login ou marque 'Outra pessoa vai retirar?' e preencha os dados.", 'error');
+            } else {
+                notification.show("Preencha nome e CPF válidos para quem vai retirar.", 'error');
+            }
+            return;
         }
 
+        setIsLoading(true);
+        try {
+            const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
+            const cpfToSend = (isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf)?.replace(/\D/g, '') || '';
+            const nameToSend = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
+
+            const orderPayload = {
+                items: cart.map(item => ({ id: item.id, qty: item.qty, price: (item.is_on_sale && item.sale_price ? item.sale_price : item.price), variation: item.variation })),
+                total, shippingAddress: finalShippingAddress, paymentMethod,
+                shipping_method: autoCalculatedShipping.name, shipping_cost: shippingCost,
+                coupon_code: appliedCoupon?.code || null, discount_amount: discount,
+                pickup_details: isPickup ? JSON.stringify({ personName: nameToSend, personCpf: cpfToSend }) : null,
+            };
+            const { orderId } = await apiService('/orders', 'POST', orderPayload);
+
+            if (paymentMethod === 'mercadopago') {
+                sessionStorage.setItem('pendingOrderId', orderId);
+                const { init_point } = await apiService('/create-mercadopago-payment', 'POST', { orderId });
+                if (init_point) window.location.href = init_point;
+                else throw new Error("Link de pagamento não obtido.");
+            } else {
+                clearOrderState();
+                onNavigate(`order-success/${orderId}`);
+            }
+        } catch (error) {
+            notification.show(`Erro: ${error.message}`, 'error');
+            setIsLoading(false);
+        }
+    };
+
+    // --- Funções Auxiliares ---
+    const getShippingName = (name) => name?.toLowerCase().includes('pac') ? 'PAC' : (name || 'N/A');
+    // CORREÇÃO: Função getDeliveryDateText (mantida da correção anterior)
+    const getDeliveryDateText = (deliveryTime) => {
         const timeInDays = Number(deliveryTime);
         if (isNaN(timeInDays) || timeInDays <= 0) return 'Prazo indisponível';
 
@@ -6089,118 +4874,45 @@ const CheckoutPage = ({ onNavigate }) => {
         return `Previsão: ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
     };
 
-    const handlePickupNameBlur = (e) => { setPickupPersonName(e.target.value); };
-    const handleCpfInputChangeMask = (e) => { e.target.value = maskCPF(e.target.value); };
-    const handlePickupCpfBlur = (e) => { setPickupPersonCpf(maskCPF(e.target.value)); };
+    // --- Componente de Seção ---
+    const CheckoutSection = ({ title, step, children, icon: Icon }) => (
+         <div className="bg-gray-900 rounded-lg border border-gray-800 shadow-md">
+            <div className="flex items-center gap-3 p-4 border-b border-gray-700">
+                {Icon && <Icon className="h-6 w-6 text-amber-400 flex-shrink-0"/>}
+                <h2 className="text-xl font-bold text-amber-400 tracking-wide">{step ? `${step}. ` : ''}{title}</h2>
+            </div>
+            <div className="p-5">
+                {children}
+            </div>
+        </div>
+    );
 
-    const canPlaceOrder = useMemo(() => {
-        const isPickup = autoCalculatedShipping?.isPickup;
-        
-        if (isPickup) {
-             if (isSomeoneElsePickingUp) {
-                 return pickupPersonName.length > 3 && pickupPersonCpf.length >= 11;
-             }
-             return true; 
-        }
-
-        if (!displayAddress) return false;
-        
-        const hasValidStreet = displayAddress.logradouro && displayAddress.logradouro !== 'N/A' && displayAddress.logradouro.trim() !== '';
-        const hasValidNumber = displayAddress.numero && displayAddress.numero !== 'N/A' && displayAddress.numero.trim() !== '';
-        const hasValidNeighborhood = displayAddress.bairro && displayAddress.bairro !== 'N/A' && displayAddress.bairro.trim() !== '';
-        const isNotMarkedIncomplete = !displayAddress.is_incomplete;
-
-        return hasValidStreet && hasValidNumber && hasValidNeighborhood && isNotMarkedIncomplete;
-    }, [displayAddress, autoCalculatedShipping, isSomeoneElsePickingUp, pickupPersonName, pickupPersonCpf]);
-
-    const handlePlaceOrderAndPay = async () => {
-        const isPickup = autoCalculatedShipping?.isPickup;
-        
-        if (!canPlaceOrder && !isPickup) {
-             notification.show("Por favor, complete o endereço de entrega (Rua, Número e Bairro) para continuar.", 'error');
-             setIsNewAddressModalOpen(true); 
-             return;
-        }
-        
-        if (!whatsapp || !validatePhone(whatsapp)) {
-            notification.show("Por favor, informe um número de WhatsApp válido para contato.", 'error');
-            return;
-        }
-
-        const nameToCheck = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
-        const cpfToCheck = isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf;
-        
-        if (isPickup && (!nameToCheck || !validateCPF(cpfToCheck))) {
-            if(!isSomeoneElsePickingUp && !user) {
-                 notification.show("Faça login ou marque 'Outra pessoa vai retirar?' e preencha os dados.", 'error');
-            } else {
-                notification.show("Preencha nome e CPF válidos para quem vai retirar.", 'error');
-            }
-            return;
-        }
-
-        setIsLoading(true);
-        try {
-            const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
-            const cpfToSend = (isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf)?.replace(/\D/g, '') || '';
-            const nameToSend = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
-
-            const orderPayload = {
-                items: cart.map(item => ({ id: item.id, qty: item.qty, price: (item.is_on_sale && item.sale_price ? item.sale_price : item.price), variation: item.variation })),
-                total, 
-                shippingAddress: finalShippingAddress, 
-                paymentMethod,
-                shipping_method: autoCalculatedShipping.name, 
-                shipping_cost: shippingCost,
-                coupon_code: appliedCoupon?.code || null, 
-                discount_amount: discount,
-                pickup_details: isPickup ? JSON.stringify({ personName: nameToSend, personCpf: cpfToSend }) : null,
-                phone: whatsapp.replace(/\D/g, '')
-            };
-            
-            const { orderId } = await apiService('/orders', 'POST', orderPayload);
-
-            if (paymentMethod === 'mercadopago') {
-                sessionStorage.setItem('pendingOrderId', orderId);
-                const { init_point } = await apiService('/create-mercadopago-payment', 'POST', { orderId });
-                if (init_point) window.location.assign(init_point);
-                else throw new Error("Link de pagamento não obtido.");
-            } else {
-                clearOrderState();
-                onNavigate(`order-success/${orderId}`);
-            }
-        } catch (error) {
-            notification.show(`Erro: ${error.message}`, 'error');
-            setIsLoading(false);
-        }
+    // --- Handlers para os inputs de retirada (AMBOS com onBlur) ---
+    const handlePickupNameBlur = (e) => {
+        setPickupPersonName(e.target.value); // Atualiza o estado principal no blur
     };
+
+    // Handler para aplicar máscara VISUALMENTE no CPF a cada digitação (onInput)
+    const handleCpfInputChangeMask = (e) => {
+        e.target.value = maskCPF(e.target.value); // Manipula o DOM
+    };
+
+    // Handler para atualizar o estado PRINCIPAL do CPF no blur
+    const handlePickupCpfBlur = (e) => {
+        setPickupPersonCpf(maskCPF(e.target.value)); // Atualiza estado principal
+    };
+
 
     return (
         <>
-            {/* OVERLAY DE PROCESSAMENTO DE PEDIDO EM TELA CHEIA */}
-            <AnimatePresence>
-                {isLoading && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/80 backdrop-blur-md"
-                    >
-                        <div className="bg-gray-900 border border-gray-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center transform transition-all ring-1 ring-amber-500/30">
-                            <SpinnerIcon className="h-16 w-16 text-amber-400 mb-6 animate-spin" />
-                            <h3 className="text-2xl font-extrabold text-white mb-2">Processando Pedido</h3>
-                            <p className="text-sm font-medium text-gray-300">Estamos gerando seu link de pagamento seguro no Mercado Pago...</p>
-                            <p className="text-xs text-red-400 mt-5 font-bold uppercase tracking-widest animate-pulse">Por favor, não feche esta janela</p>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
+            {/* Modais */}
             <AddressSelectionModal isOpen={isAddressModalOpen} onClose={() => setIsAddressModalOpen(false)} addresses={addresses} onSelectAddress={handleAddressSelection} onAddNewAddress={handleAddNewAddress} />
             <Modal isOpen={isNewAddressModalOpen} onClose={() => setIsNewAddressModalOpen(false)} title="Adicionar Novo Endereço"><AddressForm onSave={handleSaveNewAddress} onCancel={() => setIsNewAddressModalOpen(false)} /></Modal>
 
+            {/* Conteúdo da Página */}
             <div className="bg-black text-white min-h-screen py-8 sm:py-12">
                 <div className="container mx-auto px-4">
+                    {/* Botão Voltar */}
                     <button onClick={() => onNavigate('cart')} className="text-sm text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 mb-6 w-fit bg-gray-800/50 hover:bg-gray-700/50 px-3 py-1.5 rounded-md border border-gray-700">
                         <ArrowUturnLeftIcon className="h-4 w-4"/> Voltar ao Carrinho
                     </button>
@@ -6208,35 +4920,10 @@ const CheckoutPage = ({ onNavigate }) => {
                     <h1 className="text-3xl md:text-4xl font-bold mb-8 text-center sm:text-left">Finalizar Pedido</h1>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12 items-start">
 
+                        {/* Coluna Esquerda */}
                         <div className="lg:col-span-2 space-y-8">
-                            
-                            <CheckoutSection title="Contato para Status" step={1} icon={WhatsappIcon}>
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">WhatsApp para notificações do pedido <span className="text-red-500">*</span></label>
-                                        <div className="relative">
-                                            <input 
-                                                type="text" 
-                                                value={whatsapp} 
-                                                onChange={handleWhatsappChange} 
-                                                placeholder="(00) 00000-0000" 
-                                                className="w-full pl-10 p-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 text-white" 
-                                            />
-                                            <WhatsappIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-green-500" />
-                                        </div>
-                                    </div>
-                                    <div className="bg-blue-900/30 border border-blue-800 p-3 rounded-md flex gap-3 items-start">
-                                        <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                                        <p className="text-sm text-blue-200">
-                                            Manteremos você informado sobre cada etapa do seu pedido (aprovação, envio e entrega) através deste número. 
-                                            <br/>
-                                            <span className="text-xs text-gray-400 mt-1 block">Caso altere o número aqui, seu cadastro será atualizado automaticamente.</span>
-                                        </p>
-                                    </div>
-                                </div>
-                            </CheckoutSection>
-
-                            <CheckoutSection title="Forma de Entrega" step={2} icon={TruckIcon}>
+                            {/* Seção Forma de Entrega */}
+                            <CheckoutSection title="Forma de Entrega" step={1} icon={TruckIcon}>
                                 <div className="space-y-3">
                                     {shippingOptions.map(option => (
                                         <div key={option.name} onClick={() => handleSelectShipping(option)}
@@ -6256,6 +4943,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                 </div>
                             </CheckoutSection>
 
+                            {/* Seção Endereço ou Detalhes de Retirada */}
                             {autoCalculatedShipping?.isPickup ? (
                                 <CheckoutSection title="Detalhes da Retirada" icon={BoxIcon}>
                                      <div className="text-sm bg-gray-800 p-4 rounded-md space-y-2 border border-gray-700">
@@ -6270,49 +4958,71 @@ const CheckoutPage = ({ onNavigate }) => {
                                             <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
                                             <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
                                         </div>
+                                        {/* --- CORREÇÃO: Usando defaultValue + onBlur para AMBOS --- */}
                                         {isSomeoneElsePickingUp && (
-                                            <div key={isSomeoneElsePickingUp ? "pickup-form-on" : "pickup-form-off"} className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
-                                                <input type="text" defaultValue={pickupPersonName} onBlur={handlePickupNameBlur} placeholder="Nome completo de quem vai retirar" className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"/>
-                                                <input type="text" defaultValue={pickupPersonCpf} onInput={handleCpfInputChangeMask} onBlur={handlePickupCpfBlur} placeholder="CPF de quem vai retirar" maxLength="14" className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"/>
+                                            <div
+                                                // Key para forçar remonte com defaultValue correto
+                                                key={isSomeoneElsePickingUp ? "pickup-form-on" : "pickup-form-off"}
+                                                className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700"
+                                            >
+                                                {/* Input de Nome NÃO CONTROLADO (como funcionava) */}
+                                                <input
+                                                    type="text"
+                                                    defaultValue={pickupPersonName} // Valor inicial
+                                                    onBlur={handlePickupNameBlur} // Atualiza estado no blur
+                                                    placeholder="Nome completo de quem vai retirar"
+                                                    className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
+                                                />
+                                                {/* Input de CPF NÃO CONTROLADO (mesma lógica do Nome) */}
+                                                <input
+                                                    type="text"
+                                                    defaultValue={pickupPersonCpf} // Valor inicial (já mascarado)
+                                                    onInput={handleCpfInputChangeMask} // Aplica máscara VISUALMENTE
+                                                    onBlur={handlePickupCpfBlur} // Atualiza estado PRINCIPAL no blur
+                                                    placeholder="CPF de quem vai retirar"
+                                                    maxLength="14" // Limite visual
+                                                    className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
+                                                />
                                             </div>
                                         )}
+                                        {/* --- FIM DA CORREÇÃO --- */}
                                     </div>
                                 </CheckoutSection>
                             ) : (
                                 <CheckoutSection title="Endereço de Entrega" icon={MapPinIcon}>
                                      {isAddressLoading ? (
                                         <div className="flex justify-center items-center h-24"><SpinnerIcon className="h-6 w-6 text-amber-400"/></div>
-                                    ) : displayAddress && !displayAddress.is_incomplete ? (
-                                        <div className="p-4 bg-gray-800 rounded-md border border-gray-700 relative">
+                                    ) : displayAddress ? (
+                                        <div className="p-4 bg-gray-800 rounded-md border border-gray-700">
                                             <div className="flex justify-between items-start">
                                                 <p className="font-bold text-lg mb-2 text-white">{displayAddress.alias}</p>
-                                                {!!displayAddress.is_default && <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full font-semibold">Padrão</span>}
+                                                {displayAddress.is_default && <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full font-semibold">Padrão</span>}
                                             </div>
                                             <div className="space-y-1 text-gray-300 text-sm">
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Rua:</span> {displayAddress.logradouro}</p>
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Nº:</span> {displayAddress.numero} {displayAddress.complemento && `- ${displayAddress.complemento}`}</p>
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Bairro:</span> {displayAddress.bairro}</p>
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Cidade:</span> {displayAddress.localidade} - {displayAddress.uf}</p>
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">CEP:</span> {displayAddress.cep}</p>
+                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Rua:</span> {displayAddress.logradouro || 'N/A'}</p>
+                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Nº:</span> {displayAddress.numero || 'N/A'} {displayAddress.complemento && `- ${displayAddress.complemento}`}</p>
+                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Bairro:</span> {displayAddress.bairro || 'N/A'}</p>
+                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Cidade:</span> {displayAddress.localidade || 'N/A'} - {displayAddress.uf || 'N/A'}</p>
+                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">CEP:</span> {displayAddress.cep || 'N/A'}</p>
                                             </div>
                                             <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:text-amber-300 mt-4 font-semibold text-sm flex items-center gap-1">
                                                 <EditIcon className="h-4 w-4"/> Alterar Endereço
                                             </button>
                                         </div>
                                     ) : (
-                                        <div className="text-center p-6 bg-red-900/20 rounded-md border border-red-800">
-                                            <MapPinIcon className="h-10 w-10 mx-auto text-red-500 mb-3"/>
-                                            <p className="text-red-200 font-bold mb-2 text-sm">Endereço Incompleto</p>
-                                            <p className="text-gray-400 mb-4 text-xs">Precisamos do nome da rua e número para entregar.</p>
-                                            <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-5 py-2 rounded-md hover:bg-amber-400 font-bold text-sm flex items-center gap-2 mx-auto animate-pulse">
-                                                <PlusIcon className="h-4 w-4"/> Preencher Endereço
+                                        <div className="text-center p-6 bg-gray-800 rounded-md border border-gray-700">
+                                            <MapPinIcon className="h-10 w-10 mx-auto text-gray-500 mb-3"/>
+                                            <p className="text-gray-400 mb-4 text-sm">Nenhum endereço selecionado ou cadastrado.</p>
+                                            <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-5 py-2 rounded-md hover:bg-amber-400 font-bold text-sm flex items-center gap-2 mx-auto">
+                                                <PlusIcon className="h-4 w-4"/> Adicionar Endereço
                                             </button>
                                         </div>
                                     )}
                                 </CheckoutSection>
                             )}
 
-                            <CheckoutSection title="Forma de Pagamento" step={3} icon={CreditCardIcon}>
+                            {/* Seção Forma de Pagamento */}
+                            <CheckoutSection title="Forma de Pagamento" step={2} icon={CreditCardIcon}>
                                 <div className="space-y-3">
                                     <div onClick={() => setPaymentMethod('mercadopago')}
                                          className={`relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center gap-4 ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-gray-800 shadow-inner' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}>
@@ -6330,23 +5040,16 @@ const CheckoutPage = ({ onNavigate }) => {
                             </CheckoutSection>
                         </div> 
 
+                        {/* Coluna Direita: Resumo */}
                         <div className="lg:col-span-1">
                              <div className="bg-gray-900 rounded-lg border border-gray-800 p-5 lg:p-6 shadow-lg h-fit lg:sticky lg:top-24">
                                 <h2 className="text-xl font-bold mb-5 text-amber-400 border-b border-gray-700 pb-3">Resumo do Pedido</h2>
                                 <div className="space-y-2 mb-4 max-h-60 overflow-y-auto pr-2">
                                     {cart.map(item => (
-                                        <div key={item.cartItemId} className="flex justify-between items-start text-gray-300 text-sm py-2 gap-2 border-b border-gray-800 last:border-0">
-                                            <div className="flex items-start gap-3 overflow-hidden">
+                                        <div key={item.cartItemId} className="flex justify-between items-center text-gray-300 text-sm py-1 gap-2">
+                                            <div className="flex items-center gap-2 overflow-hidden">
                                                  <img src={getFirstImage(item.images)} alt={item.name} className="w-10 h-10 object-contain bg-white rounded flex-shrink-0"/>
-                                                <div>
-                                                    <span className="block font-semibold text-white truncate max-w-[150px]">{item.qty}x {item.name}</span>
-                                                    {item.variation && (
-                                                        <div className="text-xs text-gray-400 mt-0.5 flex flex-col">
-                                                            <span>Cor: {item.variation.color}</span>
-                                                            <span>Tam: {item.variation.size}</span>
-                                                        </div>
-                                                    )}
-                                                </div>
+                                                <span className="truncate flex-grow">{item.qty}x {item.name} {item.variation ? `(${item.variation.size})` : ''}</span>
                                             </div>
                                             <span className="font-medium flex-shrink-0">R$&nbsp;{( (Number(item.is_on_sale && item.sale_price ? item.sale_price : item.price) || 0) * (Number(item.qty) || 0) ).toFixed(2)}</span>
                                         </div>
@@ -6376,21 +5079,12 @@ const CheckoutPage = ({ onNavigate }) => {
 
                                 <button
                                     onClick={handlePlaceOrderAndPay}
-                                    disabled={(!canPlaceOrder && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading}
-                                    className={`w-full mt-6 py-3 rounded-md font-bold text-lg shadow-md transition-all duration-300 flex items-center justify-center gap-2
-                                        ${(!canPlaceOrder && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading 
-                                            ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
-                                            : 'bg-gradient-to-r from-amber-400 to-amber-500 text-black hover:from-amber-300 hover:to-amber-400 hover:shadow-lg'
-                                        }`}
+                                    disabled={(!displayAddress && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading}
+                                    className="w-full mt-6 bg-gradient-to-r from-amber-400 to-amber-500 text-black py-3 rounded-md hover:from-amber-300 hover:to-amber-400 font-bold text-lg shadow-md hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:bg-gray-600 flex items-center justify-center gap-2"
                                 >
-                                    <CheckBadgeIcon className="h-5 w-5" />
-                                    Finalizar Compra
+                                    {isLoading ? <SpinnerIcon className="h-6 w-6"/> : <CheckBadgeIcon className="h-6 w-6"/>}
+                                    {isLoading ? 'Processando...' : 'Finalizar e Pagar'}
                                 </button>
-                                {(!canPlaceOrder && !autoCalculatedShipping?.isPickup && !isLoading) && (
-                                    <p className="text-center text-xs text-red-400 mt-3 font-semibold">
-                                        ⚠️ Complete o endereço de entrega para continuar.
-                                    </p>
-                                )}
                             </div>
                         </div>
                     </div>
@@ -6402,14 +5096,10 @@ const CheckoutPage = ({ onNavigate }) => {
 
 const OrderSuccessPage = ({ orderId, onNavigate }) => {
     const { clearOrderState } = useShop();
-    const notification = useNotification();
-    const [pageStatus, setPageStatus] = useState('processing'); // 'processing', 'success', 'timeout', 'pending_action'
+    const [pageStatus, setPageStatus] = useState('processing');
     const [finalOrderStatus, setFinalOrderStatus] = useState('');
-    const [isRetryingPayment, setIsRetryingPayment] = useState(false);
 
     const statusRef = useRef(pageStatus);
-    const pollsCount = useRef(0);
-
     useEffect(() => {
         statusRef.current = pageStatus;
     }, [pageStatus]);
@@ -6429,78 +5119,15 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         return false; 
     }, [orderId]);
 
-    const handleRetryPayment = async () => {
-        setIsRetryingPayment(true);
-        try {
-            const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
-            if (paymentResult && paymentResult.init_point) {
-                // Usa assign para navegação, mas o estado de loading será limpo pelo useEffect abaixo se o usuário voltar
-                window.location.assign(paymentResult.init_point);
-            } else {
-                throw new Error("Não foi possível obter o link de pagamento.");
-            }
-        } catch (error) {
-            notification.show(`Erro ao tentar abrir o pagamento: ${error.message}`, 'error');
-            setIsRetryingPayment(false);
-        }
-    };
-
-    const handleManualCheck = async () => {
-        setPageStatus('processing');
-        const isFinished = await pollStatus();
-        if (!isFinished) {
-            setTimeout(() => {
-                 if (statusRef.current !== 'success') {
-                    setPageStatus('pending_action');
-                    notification.show("O pagamento ainda não foi confirmado. Aguarde alguns instantes.", "error");
-                 }
-            }, 2000);
-        }
-    };
-
-    // --- Reset automático do botão de pagamento ao retornar à aba ---
     useEffect(() => {
-        const resetPaymentState = () => {
-            if (document.visibilityState === 'visible') {
-                setIsRetryingPayment(false);
-            }
-        };
-
-        window.addEventListener('focus', resetPaymentState);
-        window.addEventListener('pageshow', resetPaymentState);
-        document.addEventListener('visibilitychange', resetPaymentState);
-
-        return () => {
-            window.removeEventListener('focus', resetPaymentState);
-            window.removeEventListener('pageshow', resetPaymentState);
-            document.removeEventListener('visibilitychange', resetPaymentState);
-        };
-    }, []);
-
-    useEffect(() => {
-        // Limpa o estado do carrinho
-        clearOrderState(); 
-        
-        // --- CORREÇÃO DE FLUXO ---
-        // Remove a flag de pedido pendente assim que esta página carrega com sucesso.
-        // Isso impede que o AppContent redirecione o usuário de volta para cá
-        // se ele tentar navegar para Home ou outras páginas.
-        sessionStorage.removeItem('pendingOrderId');
-
+        clearOrderState();
         let pollInterval;
         let timeout;
 
         const forceCheck = () => {
-            if (statusRef.current === 'processing' || statusRef.current === 'pending_action') {
+            if (statusRef.current === 'processing') {
                 console.log("Forçando verificação de status (evento de visibilidade/foco)");
-                setPageStatus('processing');
-                pollStatus().then(isFinished => {
-                    if (!isFinished) {
-                         if (pollsCount.current > 2) {
-                             setPageStatus('pending_action');
-                         }
-                    }
-                });
+                pollStatus();
             }
         };
 
@@ -6509,13 +5136,10 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
             if (isFinished) return; 
 
             pollInterval = setInterval(async () => {
-                 pollsCount.current += 1;
                  const finished = await pollStatus();
                  if (finished) {
                      clearInterval(pollInterval);
                      clearTimeout(timeout);
-                 } else if (pollsCount.current >= 4 && statusRef.current === 'processing') {
-                     setPageStatus('pending_action');
                  }
             }, 5000);
             
@@ -6549,75 +5173,40 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
                 return {
                     icon: <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto mb-4" />,
                     title: "Pagamento Aprovado!",
-                    message: `Seu pedido #${orderId} foi confirmado e está com o status "${finalOrderStatus}". Já estamos preparando tudo para o envio!`,
-                    actions: (
-                        <button onClick={() => onNavigate('account')} className="bg-amber-500 text-black px-6 py-3 rounded-md font-bold hover:bg-amber-400 w-full sm:w-auto">Ver Meus Pedidos</button>
-                    )
-                };
-            case 'pending_action':
-                return {
-                    icon: <ExclamationCircleIcon className="h-16 w-16 text-amber-500 mx-auto mb-4" />,
-                    title: "Aguardando Pagamento",
-                    message: `Ainda não recebemos a confirmação do pagamento para o pedido #${orderId}. Se você fechou a janela do Mercado Pago, clique abaixo para pagar.`,
-                    actions: (
-                        <div className="flex flex-col gap-3 w-full sm:w-auto">
-                             <button 
-                                onClick={handleRetryPayment} 
-                                disabled={isRetryingPayment}
-                                className={`px-6 py-3 rounded-md font-bold flex items-center justify-center gap-2 w-full transition-colors ${isRetryingPayment ? 'bg-green-700 text-gray-200 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700'}`}
-                            >
-                                {isRetryingPayment ? <SpinnerIcon className="h-5 w-5"/> : <CreditCardIcon className="h-5 w-5"/>}
-                                {isRetryingPayment ? 'Abrindo...' : 'Realizar Pagamento'}
-                            </button>
-                            <button 
-                                onClick={handleManualCheck} 
-                                className="bg-gray-700 text-white px-6 py-3 rounded-md font-bold hover:bg-gray-600 w-full"
-                            >
-                                Já Paguei (Atualizar)
-                            </button>
-                        </div>
-                    )
+                    message: `Seu pedido #${orderId} foi confirmado e está com o status "${finalOrderStatus}". Já estamos preparando tudo para o envio!`
                 };
             case 'timeout':
                 return {
-                    icon: <ClockIcon className="h-16 w-16 text-gray-500 mx-auto mb-4" />,
-                    title: "Processando...",
-                    message: `Seu pedido #${orderId} foi recebido. Estamos aguardando a confirmação do banco. Você pode verificar o status a qualquer momento em "Meus Pedidos".`,
-                    actions: (
-                        <button onClick={() => onNavigate('account')} className="bg-amber-500 text-black px-6 py-3 rounded-md font-bold hover:bg-amber-400 w-full sm:w-auto">Ir para Meus Pedidos</button>
-                    )
+                    icon: <ClockIcon className="h-16 w-16 text-amber-500 mx-auto mb-4" />,
+                    title: "Processando seu Pedido!",
+                    message: `Seu pedido #${orderId} foi recebido e estamos aguardando a confirmação final do pagamento. Isso é normal para alguns métodos de pagamento. Você pode acompanhar o status atualizado na sua área de "Meus Pedidos".`
                 };
-            case 'processing':
+     case 'processing':
             default:
                 return {
                     icon: (
                         <div className="relative mb-6">
                             <SpinnerIcon className="h-16 w-16 text-amber-500 mx-auto animate-spin" />
+                            <ClockIcon className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-8 w-8 text-white" />
                         </div>
                     ),
                     title: "Confirmando Pagamento...",
-                    message: "Aguarde um instante, estamos confirmando seu pagamento com a operadora.",
-                    actions: null
+                    message: "Aguarde um instante, estamos confirmando seu pagamento com a operadora."
                 };
         }
     };
 
-    const { icon, title, message, actions } = renderContent();
+    const { icon, title, message } = renderContent();
 
     return (
         <div className="bg-black text-white min-h-screen flex items-center justify-center p-4">
             <div className="text-center p-8 bg-gray-900 rounded-lg shadow-lg border border-gray-800 max-w-lg w-full">
                 {icon}
-                <h1 className="text-2xl sm:text-3xl font-bold text-amber-400 mb-4">{title}</h1>
-                <p className="text-gray-300 mb-8 leading-relaxed">{message}</p>
-                
-                <div className="flex flex-col items-center gap-4">
-                    {actions}
-                    {pageStatus !== 'processing' && (
-                        <button onClick={() => onNavigate('home')} className="text-gray-500 hover:text-white underline text-sm mt-2">
-                            Voltar à Página Inicial
-                        </button>
-                    )}
+                <h1 className="text-2xl sm:text-3xl font-bold text-amber-400 mb-2">{title}</h1>
+                <p className="text-gray-300 mb-6">{message}</p>
+                <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
+                    <button onClick={() => onNavigate('account')} className="bg-amber-500 text-black px-6 py-2 rounded-md font-bold hover:bg-amber-400">Ver Meus Pedidos</button>
+                    <button onClick={() => onNavigate('home')} className="bg-gray-700 text-white px-6 py-2 rounded-md font-bold hover:bg-gray-600">Voltar à Página Inicial</button>
                 </div>
             </div>
         </div>
@@ -6956,9 +5545,7 @@ const ProductReviewForm = ({ productId, orderId, onReviewSubmitted }) => {
 };
 
 const OrderDetailPage = ({ onNavigate, orderId }) => {
-    // --- ATUALIZAÇÃO: Extraindo 'logout' do hook useAuth ---
-    const { user, logout } = useAuth(); 
-    const { addToCart, markOrderAsSeen } = useShop(); 
+    const { addToCart } = useShop();
     const notification = useNotification();
     const [order, setOrder] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -6976,30 +5563,19 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const [refundReason, setRefundReason] = useState('');
     const [isProcessingRefund, setIsProcessingRefund] = useState(false);
 
-    // --- NOVO: Marca o pedido como visto ao montar o componente ---
-    useEffect(() => {
-        if (orderId) {
-            markOrderAsSeen(orderId);
-        }
-    }, [orderId, markOrderAsSeen]);
-
     const fetchOrderDetails = useCallback(() => {
         setIsLoading(true);
-        // Adiciona timestamp para evitar cache do navegador
-        return apiService(`/orders/my-orders?id=${orderId}&t=${new Date().getTime()}`)
+        return apiService(`/orders/my-orders?id=${orderId}`)
             .then(data => {
                 if (data && data.length > 0) {
                     setOrder(data[0]);
                 } else {
-                    // Se a API retornar array vazio, significa que não encontrou para este usuário
-                    setOrder(null);
+                    throw new Error("Pedido não encontrado.");
                 }
             })
-            .catch(err => {
-                console.error(err);
-            })
+            .catch(err => notification.show(err.message, 'error'))
             .finally(() => setIsLoading(false));
-    }, [orderId]);
+    }, [orderId, notification]);
 
     useEffect(() => {
         fetchOrderDetails();
@@ -7067,7 +5643,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             notification.show(result.message);
             setIsRefundModalOpen(false);
             setRefundReason('');
-            fetchOrderDetails(); // ATUALIZA A TELA IMEDIATAMENTE
+            fetchOrderDetails(); // Recarrega os dados do pedido
         } catch (error) {
             notification.show(`Erro ao solicitar: ${error.message}`, 'error');
         } finally {
@@ -7094,7 +5670,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             'failed': { text: 'Falha no Reembolso', class: 'text-red-400 bg-red-900/50', icon: <ExclamationCircleIcon className="h-4 w-4"/> }
         };
         // Ajuste para pedidos entregues
-        if (order && order.status === 'Entregue' && status === 'pending_approval') {
+        if (order.status === 'Entregue' && status === 'pending_approval') {
             statuses['pending_approval'].text = 'Reembolso em análise';
         }
         return statuses[status] || { text: `Status: ${status}`, class: 'text-gray-400 bg-gray-700', icon: null };
@@ -7149,6 +5725,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             }
         }
 
+        // Fallback
         return (
             <div className="flex items-center gap-3">
                 <CreditCardIcon className="h-7 w-7 text-gray-300 flex-shrink-0" />
@@ -7161,182 +5738,29 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     };
 
     if (isLoading) return <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin"/></div>;
-    
-    // --- UI PARA PEDIDO NÃO ENCONTRADO ---
-    if (!order) {
-        return (
-            <div className="flex flex-col items-center justify-center py-20 px-4 text-center min-h-[60vh]">
-                <div className="bg-gray-900 p-6 rounded-full mb-6 border-2 border-gray-800 shadow-xl">
-                    <ExclamationCircleIcon className="h-16 w-16 text-gray-500" />
-                </div>
-                <h2 className="text-2xl font-bold text-white mb-3">Pedido não encontrado</h2>
-                <p className="text-gray-400 mb-8 max-w-md leading-relaxed">
-                    Não conseguimos localizar este pedido. Isso pode acontecer se você estiver logado em uma conta diferente da que realizou a compra.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
-                    <button 
-                        onClick={() => { logout(); onNavigate('login'); }} 
-                        className="flex-1 px-6 py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition-colors shadow-lg flex items-center justify-center gap-2"
-                    >
-                        <UserIcon className="h-5 w-5"/>
-                        Sair e Trocar de Conta
-                    </button>
-                    <button 
-                        onClick={() => onNavigate('home')} 
-                        className="flex-1 px-6 py-3 bg-gray-800 text-white font-bold rounded-lg hover:bg-gray-700 transition-colors border border-gray-700"
-                    >
-                        Voltar ao Início
-                    </button>
-                </div>
-            </div>
-        );
-    }
+    if (!order) return <p className="text-center text-gray-400 py-20">Pedido não encontrado.</p>;
 
     const isPickupOrder = order.shipping_method === 'Retirar na loja';
-    const isLocalDelivery = order.shipping_method && order.shipping_method.includes('Motoboy'); 
     const pickupDetails = isPickupOrder && order.pickup_details ? JSON.parse(order.pickup_details) : null;
     const safeHistory = Array.isArray(order.history) ? order.history : [];
     const shippingAddress = !isPickupOrder && order.shipping_address ? JSON.parse(order.shipping_address) : null;
     const subtotal = (Number(order.total) || 0) - (Number(order.shipping_cost) || 0) + (Number(order.discount_amount) || 0);
     
     const cancellableStatuses = ['Pagamento Aprovado', 'Separando Pedido', 'Entregue'];
+    const isOrderDelivered = order.status === 'Entregue';
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const isWithinRefundPeriod = new Date(order.date) > thirtyDaysAgo;
     
-    // --- LÓGICA DE REEMBOLSO ATUALIZADA E CORRIGIDA ---
-    const refundStatus = order.refund_status;
-    const isRefundDenied = refundStatus === 'denied';
-    
-    // Verifica se existe nota de negação (pode vir como refund_notes ou notes da tabela refunds)
-    const refundDeniedReason = order.refund_notes || "Motivo não informado pelo administrador."; 
-
+    // A condição agora verifica o status do pagamento do gateway
     const canRequest = 
-        order.payment_status === 'approved' && 
+        order.payment_status === 'approved' && // <-- VERIFICAÇÃO ADICIONADA
         cancellableStatuses.includes(order.status) && 
-        (!order.refund_id || isRefundDenied) && // Permite se não tem solicitação OU se a anterior foi negada
+        !order.refund_id && 
         (order.status !== 'Entregue' || isWithinRefundPeriod);
-        
-    const actionText = order.status === 'Entregue' ? 'Reembolso' : 'Cancelamento';
+    const actionText = isOrderDelivered ? 'Reembolso' : 'Cancelamento';
     
     const refundInfo = order.refund_id ? getRefundStatusInfo(order.refund_status) : null;
-    const isOrderInactive = ['Cancelado', 'Reembolsado', 'Pagamento Recusado'].includes(order.status);
-
-    const LocalDeliveryTimeline = ({ history, currentStatus, onStatusClick }) => {
-        // ... (Mesma lógica de timeline)
-        const displayLabels = {
-            'Pendente': 'Pedido Pendente',
-            'Pagamento Aprovado': 'Pagamento Aprovado',
-            'Separando Pedido': 'Preparado o pedido para envio',
-            'Saiu para Entrega': 'Saiu para entrega (Motoboy)',
-            'Entregue': 'Pedido entregue',
-            'Reembolsado': 'Pedido Reembolsado',
-            'Cancelado': 'Pedido Cancelado',
-            'Pagamento Recusado': 'Pagamento Recusado'
-        };
-
-        const STATUS_DEFINITIONS = {
-            'Pendente': { icon: <ClockIcon className="h-6 w-6" />, color: 'amber', title: displayLabels['Pendente'], description: 'Aguardando confirmação do pagamento.' },
-            'Pagamento Aprovado': { icon: <CheckBadgeIcon className="h-6 w-6" />, color: 'green', title: displayLabels['Pagamento Aprovado'], description: 'Recebemos seu pagamento! Agora, estamos preparando seu pedido.' },
-            'Separando Pedido': { icon: <PackageIcon className="h-6 w-6" />, color: 'blue', title: displayLabels['Separando Pedido'], description: 'Seu pedido está sendo separado e embalado.' },
-            'Saiu para Entrega': { icon: <TruckIcon className="h-6 w-6" />, color: 'blue', title: displayLabels['Saiu para Entrega'], description: 'O motoboy/Uber saiu com seu pedido.' },
-            'Entregue': { icon: <HomeIcon className="h-6 w-6" />, color: 'green', title: displayLabels['Entregue'], description: 'Pedido entregue com sucesso!' },
-            'Reembolsado': { icon: <CurrencyDollarIcon className="h-6 w-6" />, color: 'gray', title: displayLabels['Reembolsado'], description: 'O valor foi estornado.' },
-            'Cancelado': { icon: <XCircleIcon className="h-6 w-6" />, color: 'red', title: displayLabels['Cancelado'], description: 'Pedido cancelado.' },
-            'Pagamento Recusado': { icon: <XCircleIcon className="h-6 w-6" />, color: 'red', title: displayLabels['Pagamento Recusado'], description: 'Pagamento não autorizado.' }
-        };
-
-        const colorClasses = {
-            amber: { bg: 'bg-amber-500', text: 'text-amber-400', border: 'border-amber-500' },
-            green: { bg: 'bg-green-500', text: 'text-green-400', border: 'border-green-500' },
-            blue:  { bg: 'bg-blue-500', text: 'text-blue-400', border: 'border-blue-500' },
-            red:   { bg: 'bg-red-500', text: 'text-red-400', border: 'border-red-500' },
-            gray:  { bg: 'bg-gray-700', text: 'text-gray-500', border: 'border-gray-600' }
-        };
-
-        if (['Cancelado', 'Pagamento Recusado', 'Reembolsado'].includes(currentStatus)) {
-            const specialStatus = STATUS_DEFINITIONS[currentStatus];
-            const specialClasses = colorClasses[specialStatus.color] || colorClasses.gray;
-            
-            return (
-                <div className="p-4 bg-gray-800 rounded-lg">
-                    <div onClick={() => onStatusClick && onStatusClick(specialStatus)} className="flex items-center gap-4 cursor-pointer">
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center ${specialClasses.bg} text-white`}>
-                            {React.cloneElement(specialStatus.icon, { className: 'h-7 w-7'})}
-                        </div>
-                        <div>
-                            <h4 className={`font-bold text-lg ${specialClasses.text}`}>{specialStatus.title}</h4>
-                            <p className="text-sm text-gray-400">Clique para ver mais detalhes</p>
-                        </div>
-                    </div>
-                </div>
-            );
-        }
-
-        const timelineOrder = [
-            'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Saiu para Entrega', 'Entregue'
-        ];
-
-        const historyMap = new Map((Array.isArray(history) ? history : []).filter(h => h.status).map(h => [h.status, h]));
-        const currentStatusIndex = timelineOrder.indexOf(currentStatus);
-
-        return (
-            <div className="w-full">
-                <div className="hidden md:flex justify-between items-center flex-wrap gap-2">
-                    {timelineOrder.map((statusKey, index) => {
-                        const statusInfo = historyMap.get(statusKey);
-                        const isStepActive = index <= currentStatusIndex;
-                        const definition = STATUS_DEFINITIONS[statusKey];
-                        if (!definition) return null;
-                        const currentClasses = isStepActive ? colorClasses[definition.color] : colorClasses.gray;
-                        
-                        return (
-                            <React.Fragment key={statusKey}>
-                                <div 
-                                    className={`flex flex-col items-center ${isStepActive && statusInfo ? 'cursor-pointer group' : 'cursor-default'}`} 
-                                    onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
-                                    <div className={`relative w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isStepActive ? 'animate-pulse' : ''}`}>
-                                        {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
-                                    </div>
-                                    <p className={`mt-2 text-xs text-center font-semibold transition-all ${currentClasses.text}`}>{displayLabels[statusKey]}</p>
-                                    {statusInfo && isStepActive && (<p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleDateString('pt-BR')}</p>)}
-                                </div>
-                                {index < timelineOrder.length - 1 && <div className={`flex-1 h-1 transition-colors ${isStepActive ? currentClasses.bg : colorClasses.gray.bg}`}></div>}
-                            </React.Fragment>
-                        );
-                    })}
-                </div>
-                <div className="md:hidden flex flex-col">
-                    {timelineOrder.map((statusKey, index) => {
-                        const statusInfo = historyMap.get(statusKey);
-                        const isStepActive = index <= currentStatusIndex;
-                        const definition = STATUS_DEFINITIONS[statusKey];
-                        if (!definition) return null;
-                        const currentClasses = isStepActive ? colorClasses[definition.color] : colorClasses.gray;
-
-                        return (
-                            <div key={statusKey} className="flex">
-                                <div className="flex flex-col items-center mr-4">
-                                    <div 
-                                        className={`relative w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isStepActive && statusInfo ? 'cursor-pointer' : 'cursor-default'}`}
-                                        onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
-                                        {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
-                                    </div>
-                                    {index < timelineOrder.length - 1 && <div className={`w-px flex-grow transition-colors my-1 ${index < currentStatusIndex ? currentClasses.bg : colorClasses.gray.bg}`}></div>}
-                                </div>
-                                <div 
-                                    className={`pt-1.5 pb-8 ${isStepActive && statusInfo ? 'cursor-pointer' : 'cursor-default'}`}
-                                    onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
-                                    <p className={`font-semibold transition-all ${currentClasses.text}`}>{displayLabels[statusKey]}</p>
-                                    {statusInfo && isStepActive && (<p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleString('pt-BR')}</p>)}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-        );
-    };
 
     return (
         <>
@@ -7377,7 +5801,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                 )}
             </AnimatePresence>
             <div>
-                <button onClick={() => onNavigate('account/orders')} className="text-sm text-amber-400 hover:underline flex items-center mb-6 w-fit transition-colors">
+                <button onClick={() => onNavigate('account/orders')} className="text-sm text-amber-400 hover:underline flex items-center mb-6 w-fit">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                     Voltar para todos os pedidos
                 </button>
@@ -7397,40 +5821,13 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                             </button>
                         </div>
                     )}
-                    
-                    {/* --- ÁREA DE AVISO DE REEMBOLSO NEGADO (VISÍVEL E DESTACADA) --- */}
-                    {isRefundDenied && (
-                        <div className="my-6 p-5 bg-red-950/60 border border-red-600 rounded-lg animate-fade-in shadow-lg shadow-red-900/30">
-                            <div className="flex items-start gap-3">
-                                <ExclamationCircleIcon className="h-7 w-7 text-red-500 flex-shrink-0 mt-0.5 animate-pulse" />
-                                <div className="flex-1">
-                                    <h4 className="font-bold text-red-200 text-lg mb-2">Solicitação de Reembolso Negada</h4>
-                                    <p className="text-sm text-gray-300 mb-3 leading-relaxed">
-                                        Nossa equipe analisou sua solicitação e, infelizmente, ela não pôde ser aprovada no momento.
-                                    </p>
-                                    
-                                    {/* Mostra o motivo vindo do banco */}
-                                    <div className="bg-black/40 p-4 rounded-md text-sm text-white border border-red-500/30 mb-3">
-                                        <strong className="text-red-400 block mb-1">Motivo da recusa:</strong>
-                                        <span className="italic">"{refundDeniedReason}"</span>
-                                    </div>
-
-                                    <p className="text-xs text-gray-400">
-                                        Se você acredita que houve um erro ou deseja enviar novas informações, por favor, clique em <strong>"Nova Solicitação"</strong> abaixo e forneça mais detalhes.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
 
                     <div className="my-6">
-                        {isLocalDelivery ? (
-                            <LocalDeliveryTimeline history={safeHistory} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
-                        ) : isPickupOrder ? (
+                        {isPickupOrder ? 
                             <PickupOrderStatusTimeline history={safeHistory} currentStatus={order.status} onStatusClick={handleOpenStatusModal} /> 
-                        ) : (
+                            : 
                             <OrderStatusTimeline history={safeHistory} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
-                        )}
+                        }
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
@@ -7483,24 +5880,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                                     <p><span className="font-semibold text-gray-400">CEP:</span> {shippingAddress.cep}</p>
                                 </div>
                             ) : <p>Endereço não informado.</p>}
-                            
-                            {/* Lógica de Rastreamento (Uber vs Correios) - OCULTA se cancelado/reembolsado */}
-                            {order.tracking_code && !isOrderInactive && (
-                                <div className="mt-4 pt-3 border-t border-gray-700">
-                                    {isLocalDelivery ? (
-                                        <a 
-                                            href={order.tracking_code} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer" 
-                                            className="block w-full text-center bg-black text-white font-bold py-3 rounded-md hover:bg-gray-900 border border-gray-600 transition-colors animate-pulse"
-                                        >
-                                            🚗 Acompanhar entrega em tempo real
-                                        </a>
-                                    ) : (
-                                        <p className="font-mono text-amber-400"><strong>Cód. Rastreio:</strong> {order.tracking_code}</p>
-                                    )}
-                                </div>
-                            )}
+                            {order.tracking_code && <p className="mt-2 pt-2 border-t border-gray-700"><strong>Cód. Rastreio:</strong> {order.tracking_code}</p>}
                         </div>
                     )}
 
@@ -7556,12 +5936,10 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                             {isPickupOrder ? (
                                 <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Ver Status da Retirada</button>
                             ) : (
-                                order.tracking_code && !isLocalDelivery && !isOrderInactive && <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Rastrear Pedido</button>
+                                order.tracking_code && <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Rastrear Pedido</button>
                             )}
                              {canRequest && (
-                                <button onClick={() => setIsRefundModalOpen(true)} className="bg-amber-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-amber-700 font-bold shadow-lg shadow-amber-900/30 transform hover:-translate-y-0.5 transition-transform">
-                                    {isRefundDenied ? 'Nova Solicitação' : `Solicitar ${actionText}`}
-                                </button>
+                                <button onClick={() => setIsRefundModalOpen(true)} className="bg-amber-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-amber-700">Solicitar {actionText}</button>
                             )}
                             {refundInfo && (
                                 <div className={`flex items-center gap-2 text-sm font-semibold px-3 py-1.5 rounded-md ${refundInfo.class}`}>
@@ -7581,6 +5959,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         </>
     );
 };
+
 const MyOrdersListPage = ({ onNavigate }) => {
     const [orders, setOrders] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -7588,9 +5967,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
     const [orderToReview, setOrderToReview] = useState(null);
     const [itemToReview, setItemToReview] = useState(null);
 
-    // Função para buscar pedidos
     const fetchOrders = useCallback(() => {
-        // A API agora retorna o campo 'has_unseen_update'
         return apiService('/orders/my-orders')
             .then(data => setOrders(data.sort((a, b) => new Date(b.date) - new Date(a.date))))
             .catch(err => {
@@ -7678,30 +6055,18 @@ const MyOrdersListPage = ({ onNavigate }) => {
                 <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin" /></div>
             ) : orders.length > 0 ? (
                 <div className="space-y-4">
-                    {orders.map((order, idx) => {
+                    {orders.map(order => {
                         const firstItem = order.items && order.items.length > 0 ? order.items[0] : null;
                         const canReviewOrder = order.status === 'Entregue' && order.items?.some(item => !item.is_reviewed);
-                        
-                        // --- LÓGICA DE NOTIFICAÇÃO ---
-                        // Verifica se o pedido tem atualização não vista
-                        const hasNotification = !!order.has_unseen_update;
 
                         return (
                             <motion.div
                                 key={order.id}
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.1 * idx }}
-                                className={`bg-gray-800 p-4 rounded-lg border relative transition-all ${hasNotification ? 'border-amber-500 shadow-lg shadow-amber-900/20' : 'border-gray-700'}`}
+                                transition={{ delay: 0.1 * orders.indexOf(order) }}
+                                className="bg-gray-800 p-4 rounded-lg border border-gray-700"
                             >
-                                {/* --- BOLINHA DE NOTIFICAÇÃO NO CARD --- */}
-                                {hasNotification && (
-                                    <div className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-full border-2 border-black z-10 flex items-center gap-1 animate-bounce">
-                                        <span className="h-2 w-2 bg-white rounded-full inline-block"></span>
-                                        Nova Atualização
-                                    </div>
-                                )}
-
                                 {firstItem && (
                                     <div className="flex items-center gap-4 border-b border-gray-700 pb-4 mb-4">
                                         <div onClick={() => onNavigate(`product/${firstItem.product_id}`)} className="cursor-pointer flex-shrink-0">
@@ -7723,12 +6088,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                         <div><p className="text-xs text-gray-400">Total</p><p className="font-bold text-amber-400">R$ {Number(order.total).toFixed(2)}</p></div>
                                     </div>
                                     <div className="flex-shrink-0 w-full sm:w-auto flex flex-col items-stretch gap-2">
-                                        <button 
-                                            onClick={() => onNavigate(`account/orders/${order.id}`)} 
-                                            className={`w-full font-bold px-4 py-2 rounded-md transition ${hasNotification ? 'bg-amber-500 text-black hover:bg-amber-400' : 'bg-gray-700 text-white hover:bg-gray-600'}`}
-                                        >
-                                            {hasNotification ? 'Ver Atualização' : 'Ver Detalhes'}
-                                        </button>
+                                        <button onClick={() => onNavigate(`account/orders/${order.id}`)} className="w-full bg-gray-700 text-white font-bold px-4 py-2 rounded-md hover:bg-gray-600 transition">Ver Detalhes</button>
                                         {canReviewOrder && (
                                              <button onClick={() => setOrderToReview(order)} className="w-full bg-amber-600 text-white font-bold px-4 py-2 rounded-md hover:bg-amber-700 transition">Avaliar Pedido</button>
                                         )}
@@ -7744,7 +6104,6 @@ const MyOrdersListPage = ({ onNavigate }) => {
 };
 const MyAccountPage = ({ onNavigate, path }) => {
     const { user, logout } = useAuth();
-    const { orderNotificationCount } = useShop(); // Hook para pegar a contagem
     
     // A lógica agora extrai a aba principal e o ID do detalhe
     const pathParts = (path || 'orders').split('/');
@@ -7756,13 +6115,7 @@ const MyAccountPage = ({ onNavigate, path }) => {
     };
 
     const tabs = [
-        { 
-            key: 'orders', 
-            label: 'Meus Pedidos', 
-            icon: <PackageIcon className="h-5 w-5"/>,
-            // Adiciona a contagem apenas nesta aba
-            notification: orderNotificationCount 
-        },
+        { key: 'orders', label: 'Meus Pedidos', icon: <PackageIcon className="h-5 w-5"/> },
         { key: 'addresses', label: 'Meus Endereços', icon: <MapPinIcon className="h-5 w-5"/> },
         { key: 'profile', label: 'Meus Dados', icon: <UserIcon className="h-5 w-5"/> },
     ];
@@ -7793,21 +6146,9 @@ const MyAccountPage = ({ onNavigate, path }) => {
                     <aside className="lg:col-span-1">
                         <div className="bg-gray-900 p-4 rounded-lg border border-gray-800 space-y-2">
                             {tabs.map(tab => (
-                                <button 
-                                    key={tab.key} 
-                                    onClick={() => handleNavigation(tab.key)} 
-                                    className={`w-full flex items-center justify-between px-4 py-3 rounded-md text-left transition-colors ${activeTab === tab.key ? 'bg-amber-500 text-black font-bold' : 'hover:bg-gray-800'}`}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        {tab.icon}
-                                        <span>{tab.label}</span>
-                                    </div>
-                                    {/* Exibe o badge se houver notificações */}
-                                    {tab.notification > 0 && (
-                                        <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
-                                            {tab.notification}
-                                        </span>
-                                    )}
+                                <button key={tab.key} onClick={() => handleNavigation(tab.key)} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-md text-left transition-colors ${activeTab === tab.key ? 'bg-amber-500 text-black font-bold' : 'hover:bg-gray-800'}`}>
+                                    {tab.icon}
+                                    <span>{tab.label}</span>
                                 </button>
                             ))}
                             <button onClick={() => { logout(); onNavigate('home'); }} className="w-full flex items-center space-x-3 px-4 py-3 rounded-md text-left transition-colors hover:bg-gray-800">
@@ -8159,11 +6500,8 @@ const MyProfileSection = () => {
     const [twoFactorSecret, setTwoFactorSecret] = useState('');
     const [verificationCode, setVerificationCode] = useState('');
     const [disablePassword, setDisablePassword] = useState('');
-    const [disableVerificationCode, setDisableVerificationCode] = useState(''); 
+    const [disableVerificationCode, setDisableVerificationCode] = useState(''); // NOVO ESTADO
     const [is2faLoading, setIs2faLoading] = useState(false);
-
-    // Estado para Biometria
-    const [isBiometricLoading, setIsBiometricLoading] = useState(false);
 
     const handlePasswordChange = async (e) => {
         e.preventDefault();
@@ -8181,66 +6519,6 @@ const MyProfileSection = () => {
             notification.show(`Erro: ${error.message}`, 'error');
         } finally {
             setIsPasswordLoading(false);
-        }
-    };
-
-    // --- LÓGICA DE CADASTRO BIOMÉTRICO ---
-    const handleRegisterBiometrics = async () => {
-        try {
-            const startReg = window.SimpleWebAuthnBrowser ? window.SimpleWebAuthnBrowser.startRegistration : null;
-            if (!startReg) {
-                notification.show("A biblioteca de biometria não está carregada.", "error");
-                return;
-            }
-
-            setIsBiometricLoading(true);
-
-            const options = await apiService('/webauthn/generate-registration-options');
-
-            let attResp;
-            try {
-                attResp = await startReg(options);
-            } catch (err) {
-                if (err.name === 'InvalidStateError') {
-                    notification.show("Esta biometria já está cadastrada.", "error");
-                } else {
-                    console.log("Biometria cancelada:", err);
-                }
-                setIsBiometricLoading(false);
-                return;
-            }
-
-            const verification = await apiService('/webauthn/verify-registration', 'POST', attResp);
-
-            if (verification && verification.verified) {
-                notification.show("Biometria cadastrada com sucesso! Você já pode usar no próximo login.");
-                const updatedUser = { ...user, has_biometrics: true };
-                setUser(updatedUser);
-                localStorage.setItem('user', JSON.stringify(updatedUser));
-            } else {
-                notification.show("Não foi possível salvar a biometria.", "error");
-            }
-        } catch (err) {
-            console.error("Erro ao registrar biometria:", err);
-            notification.show(err.message || "Erro ao configurar biometria.", "error");
-        } finally {
-            setIsBiometricLoading(false);
-        }
-    };
-
-    // --- LÓGICA PARA REMOVER BIOMETRIA ---
-    const handleRemoveBiometrics = async () => {
-        setIsBiometricLoading(true);
-        try {
-            await apiService('/webauthn/remove', 'DELETE');
-            notification.show('Biometria desativada com sucesso.');
-            const updatedUser = { ...user, has_biometrics: false };
-            setUser(updatedUser);
-            localStorage.setItem('user', JSON.stringify(updatedUser));
-        } catch (err) {
-            notification.show('Erro ao remover biometria.', 'error');
-        } finally {
-            setIsBiometricLoading(false);
         }
     };
 
@@ -8281,7 +6559,7 @@ const MyProfileSection = () => {
         try {
             await apiService('/2fa/disable', 'POST', { 
                 password: disablePassword,
-                token: disableVerificationCode 
+                token: disableVerificationCode // ENVIA O TOKEN
             });
             notification.show('Autenticação de Dois Fatores desativada.');
             const updatedUser = { ...user, is_two_factor_enabled: 0 };
@@ -8289,7 +6567,7 @@ const MyProfileSection = () => {
             localStorage.setItem('user', JSON.stringify(updatedUser));
             setIs2faDisableModalOpen(false);
             setDisablePassword('');
-            setDisableVerificationCode(''); 
+            setDisableVerificationCode(''); // LIMPA O ESTADO
         } catch (error) {
             notification.show(`Erro ao desativar: ${error.message}`, 'error');
         } finally {
@@ -8305,8 +6583,7 @@ const MyProfileSection = () => {
                         <form onSubmit={handlePasswordChange} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
-                                {/* CORREÇÃO: text-gray-900 adicionado */}
-                                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="w-full p-2 bg-gray-100 text-gray-900 border border-gray-300 rounded-md" />
+                                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md" />
                             </div>
                             <button type="submit" disabled={isPasswordLoading} className="w-full bg-amber-500 text-black font-bold py-2 rounded-md hover:bg-amber-400 flex justify-center items-center disabled:opacity-50">
                                 {isPasswordLoading ? <SpinnerIcon/> : "Confirmar Alteração"}
@@ -8326,14 +6603,13 @@ const MyProfileSection = () => {
                             <p className="font-mono bg-gray-200 p-2 rounded-md text-gray-800 break-all">{twoFactorSecret}</p>
                             <form onSubmit={handleVerifyAndEnable2FA} className="space-y-3 pt-4 border-t">
                                 <label className="block text-sm font-medium text-gray-700">2. Insira o código de 6 dígitos gerado:</label>
-                                {/* CORREÇÃO: text-gray-900 adicionado */}
                                 <input 
                                     type="text" 
                                     value={verificationCode}
                                     onChange={e => setVerificationCode(e.target.value)}
                                     maxLength="6"
                                     placeholder="123456"
-                                    className="w-full max-w-xs mx-auto text-center tracking-[0.5em] p-2 bg-gray-100 text-gray-900 border border-gray-300 rounded-md text-xl font-mono"
+                                    className="w-full max-w-xs mx-auto text-center tracking-[0.5em] p-2 bg-gray-100 border border-gray-300 rounded-md text-xl font-mono"
                                 />
                                 <button type="submit" disabled={is2faLoading} className="w-full max-w-xs mx-auto bg-green-600 text-white font-bold py-2 rounded-md hover:bg-green-700 flex justify-center items-center disabled:opacity-50">
                                     {is2faLoading ? <SpinnerIcon/> : "Ativar e Verificar"}
@@ -8351,12 +6627,10 @@ const MyProfileSection = () => {
                             <p className="text-red-700 bg-red-100 p-3 rounded-md text-sm">Atenção: Para desativar o 2FA, por segurança, você deve fornecer sua **senha** e um **código de autenticação** válido.</p>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Sua Senha</label>
-                                {/* CORREÇÃO: text-gray-900 adicionado */}
-                                <input type="password" value={disablePassword} onChange={e => setDisablePassword(e.target.value)} required className="w-full p-2 bg-gray-100 text-gray-900 border border-gray-300 rounded-md" />
+                                <input type="password" value={disablePassword} onChange={e => setDisablePassword(e.target.value)} required className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Código de Autenticação (2FA)</label>
-                                {/* CORREÇÃO: text-gray-900 adicionado */}
                                 <input 
                                     type="text" 
                                     value={disableVerificationCode} 
@@ -8364,7 +6638,7 @@ const MyProfileSection = () => {
                                     maxLength="6"
                                     placeholder="123456"
                                     required 
-                                    className="w-full p-2 bg-gray-100 text-gray-900 border border-gray-300 rounded-md text-center font-mono tracking-widest"
+                                    className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md text-center font-mono tracking-widest"
                                 />
                             </div>
                             <button type="submit" disabled={is2faLoading} className="w-full bg-red-600 text-white font-bold py-2 rounded-md hover:bg-red-700 flex justify-center items-center disabled:opacity-50">
@@ -8380,69 +6654,34 @@ const MyProfileSection = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center"><strong className="w-24 text-gray-400 flex-shrink-0">Nome:</strong><span className="text-white">{user?.name}</span></div>
                 <div className="flex flex-col sm:flex-row sm:items-center"><strong className="w-24 text-gray-400 flex-shrink-0">Email:</strong><span className="text-white">{user?.email}</span></div>
             </div>
+            <button onClick={() => setIsPasswordModalOpen(true)} className="mt-6 bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600">Alterar Senha</button>
 
-            {/* --- SEÇÃO DE SEGURANÇA E ACESSO RÁPIDO --- */}
-            <div className="mt-8 pt-6 border-t border-gray-800">
-                <h3 className="text-xl font-bold text-amber-400 mb-4">Segurança e Acesso</h3>
-                
-                <div className="grid grid-cols-1 gap-4">
-                    {/* Alterar Senha Tradicional */}
+            {user?.role === 'admin' && (
+                <div className="mt-8 pt-6 border-t border-gray-800">
+                    <h3 className="text-xl font-bold text-amber-400 mb-4">Segurança (Admin)</h3>
                     <div className="bg-gray-800 p-6 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div>
-                            <h4 className="font-bold flex items-center gap-2">Senha de Acesso</h4>
-                            <p className="text-sm text-gray-400 mt-1">Atualize sua senha periodicamente para manter a conta segura.</p>
+                            <h4 className="font-bold flex items-center gap-2"><ShieldCheckIcon className="h-5 w-5 text-amber-400"/> Autenticação de Dois Fatores (2FA)</h4>
+                            <p className="text-sm text-gray-400 mt-1">Aumente a segurança da sua conta exigindo um código de verificação ao fazer login.</p>
                         </div>
-                        <button onClick={() => setIsPasswordModalOpen(true)} className="bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600 flex-shrink-0">Alterar Senha</button>
-                    </div>
-
-                    {/* Cadastrar Biometria (Para Todos) */}
-                    <div className="bg-gray-800 p-6 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <div>
-                            <h4 className="font-bold flex items-center gap-2"><FingerprintIcon className="h-5 w-5 text-amber-400"/> Login Biométrico / Face ID</h4>
-                            <p className="text-sm text-gray-400 mt-1">Acesse mais rápido e com segurança usando reconhecimento biométrico (Passkeys).</p>
-                        </div>
-                        
-                        {user?.has_biometrics ? (
+                        {user.is_two_factor_enabled ? (
                             <div className="text-center flex-shrink-0">
                                 <p className="text-sm font-semibold text-green-400 bg-green-900/50 px-3 py-1 rounded-full mb-2">Ativo</p>
-                                <button onClick={handleRemoveBiometrics} disabled={isBiometricLoading} className="text-xs text-red-400 hover:underline">Remover</button>
+                                <button onClick={() => setIs2faDisableModalOpen(true)} className="text-xs text-red-400 hover:underline">Desativar</button>
                             </div>
                         ) : (
-                            <button 
-                                onClick={handleRegisterBiometrics} 
-                                disabled={isBiometricLoading}
-                                className="bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600 flex items-center justify-center disabled:opacity-50 flex-shrink-0 gap-2"
-                            >
-                                {isBiometricLoading ? <SpinnerIcon/> : <FingerprintIcon className="h-5 w-5" />}
-                                Ativar Biometria
+                            <button onClick={handleGenerate2FA} disabled={is2faLoading} className="bg-amber-500 text-black font-bold py-2 px-4 rounded-md hover:bg-amber-400 flex items-center justify-center disabled:opacity-50 flex-shrink-0">
+                                {is2faLoading ? <SpinnerIcon/> : "Ativar 2FA"}
                             </button>
                         )}
                     </div>
-
-                    {/* 2FA Apenas para Admins */}
-                    {user?.role === 'admin' && (
-                        <div className="bg-gray-800 p-6 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border border-indigo-900/50">
-                            <div>
-                                <h4 className="font-bold flex items-center gap-2"><ShieldCheckIcon className="h-5 w-5 text-indigo-400"/> Autenticação de Dois Fatores (Admin)</h4>
-                                <p className="text-sm text-gray-400 mt-1">Exija um código de verificação via app ao fazer login no painel administrativo.</p>
-                            </div>
-                            {user.is_two_factor_enabled ? (
-                                <div className="text-center flex-shrink-0">
-                                    <p className="text-sm font-semibold text-green-400 bg-green-900/50 px-3 py-1 rounded-full mb-2">Ativo</p>
-                                    <button onClick={() => setIs2faDisableModalOpen(true)} className="text-xs text-red-400 hover:underline">Desativar</button>
-                                </div>
-                            ) : (
-                                <button onClick={handleGenerate2FA} disabled={is2faLoading} className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700 flex items-center justify-center disabled:opacity-50 flex-shrink-0">
-                                    {is2faLoading ? <SpinnerIcon/> : "Ativar 2FA"}
-                                </button>
-                            )}
-                        </div>
-                    )}
                 </div>
-            </div>
+            )}
         </>
     );
 };
+
+
 const AjudaPage = ({ onNavigate }) => {
     const faqData = [
         {
@@ -8907,12 +7146,10 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     const { user, logout } = useAuth();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [newOrdersCount, setNewOrdersCount] = useState(0);
-    const [pendingRefundsCount, setPendingRefundsCount] = useState(0); // NOVO ESTADO
     const mainContentRef = useRef(null);
 
-    // Busca contagem de novos pedidos e reembolsos para os badges de notificação
+    // Busca contagem de novos pedidos para o badge de notificação
     useEffect(() => {
-        // Busca Pedidos Recentes
         apiService('/orders')
             .then(data => {
                 if (!Array.isArray(data)) {
@@ -8931,20 +7168,6 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                 console.error("Erro silencioso ao buscar contagem de pedidos:", err);
                 setNewOrdersCount(0);
             });
-
-        // NOVO: Busca Reembolsos Pendentes
-        apiService('/refunds')
-            .then(data => {
-                if (Array.isArray(data)) {
-                    const pending = data.filter(r => r.status === 'pending_approval');
-                    setPendingRefundsCount(pending.length);
-                }
-            })
-            .catch(err => {
-                console.error("Erro silencioso ao buscar reembolsos:", err);
-                setPendingRefundsCount(0);
-            });
-
     }, [activePage]);
 
     const handleLogout = () => {
@@ -8958,7 +7181,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
             items: [
                 { key: 'dashboard', label: 'Visão Geral', icon: <ChartIcon className="h-5 w-5"/> },
                 { key: 'orders', label: 'Pedidos', icon: <TruckIcon className="h-5 w-5"/>, badge: newOrdersCount },
-                { key: 'refunds', label: 'Reembolsos', icon: <CurrencyDollarArrowIcon className="h-5 w-5"/>, badge: pendingRefundsCount }, // ATUALIZADO
+                { key: 'refunds', label: 'Reembolsos', icon: <CurrencyDollarArrowIcon className="h-5 w-5"/> },
             ]
         },
         {
@@ -8977,11 +7200,10 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                 { key: 'newsletter', label: 'Newsletter VIP', icon: <SparklesIcon className="h-5 w-5"/> },
             ]
         },
-       {
+        {
             title: "Sistema",
             items: [
                 { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
-                { key: 'shipping', label: 'Frete Local', icon: <TruckIcon className="h-5 w-5"/> }, 
                 { key: 'logs', label: 'Logs do Sistema', icon: <ClipboardDocListIcon className="h-5 w-5"/> },
             ]
         }
@@ -9100,306 +7322,6 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
         </div>
     );
 });
-
-const AdminShippingSettings = () => {
-    const [config, setConfig] = useState({ base_price: 20, rules: [] });
-    const [productsData, setProductsData] = useState({ brands: [], categories: [] });
-    const [isLoading, setIsLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
-    const notification = useNotification();
-    const confirmation = useConfirmation(); // Usaremos o hook de confirmação existente
-
-    // Estado para nova regra
-    const [newRule, setNewRule] = useState({ type: 'category', value: '', action: 'free_shipping', amount: 0 });
-
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                // Busca configuração atual
-                const configData = await apiService('/settings/shipping-local');
-                // Garante que base_price seja número e rules um array
-                setConfig({
-                    base_price: parseFloat(configData.base_price) || 20,
-                    rules: Array.isArray(configData.rules) ? configData.rules : []
-                });
-
-                // Busca dados para os selects (Marcas e Categorias)
-                const [products, collections] = await Promise.all([
-                    apiService('/products/all'),
-                    apiService('/collections/admin')
-                ]);
-
-                const uniqueBrands = [...new Set(products.map(p => p.brand).filter(Boolean))].sort();
-                const uniqueCats = [...new Set([...products.map(p => p.category), ...collections.map(c => c.filter)].filter(Boolean))].sort();
-
-                setProductsData({ brands: uniqueBrands, categories: uniqueCats });
-            } catch (err) {
-                notification.show("Erro ao carregar configurações.", "error");
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchData();
-    }, []);
-
-    const handleAddRule = () => {
-        if (!newRule.value) {
-            notification.show("Selecione um valor para a regra.", "error");
-            return;
-        }
-        setConfig(prev => ({
-            ...prev,
-            rules: [...prev.rules, { ...newRule, id: Date.now(), amount: parseFloat(newRule.amount) || 0 }]
-        }));
-        setNewRule({ type: 'category', value: '', action: 'free_shipping', amount: 0 });
-    };
-
-    const handleRemoveRule = (id) => {
-        setConfig(prev => ({
-            ...prev,
-            rules: prev.rules.filter(r => r.id !== id)
-        }));
-    };
-
-    const handleSave = async () => {
-        // Usa o hook de confirmação que já lida com senha/2FA
-        confirmation.show(
-            "Esta é uma alteração crítica nas regras de frete. Por favor, confirme sua identidade para salvar.",
-            async () => {
-                setIsSaving(true);
-                try {
-                    // O confirmation.show já cuidou da verificação prévia (/auth/verify-action),
-                    // mas o endpoint específico de settings TAMBÉM pode exigir a senha no corpo se foi configurado assim.
-                    // No entanto, se o endpoint de settings pede senha no body, precisamos coletá-la.
-                    // O hook `useConfirmation` padrão geralmente apenas verifica a sessão/token.
-                    // SE o backend exige a senha NO CORPO da requisição de settings, precisamos de uma abordagem diferente.
-                    // Assumindo que o backend exige senha/token NO BODY da requisição PUT:
-
-                    // Como o hook `useConfirmation` do projeto atual é genérico e não retorna o valor digitado (apenas chama o callback),
-                    // precisaremos reimplementar um modal simples AQUI ou ajustar a lógica.
-                    // Pela estrutura atual do backend que você enviou, ele espera `password` ou `token` no body.
-                    
-                    // VAMOS SIMPLIFICAR: Como não tenho acesso fácil ao valor digitado no `useConfirmation` padrão sem alterá-lo,
-                    // Vou criar um estado local para um modal de confirmação específico deste componente.
-                } catch (err) {
-                   // ...
-                }
-            },
-            { requiresAuth: false } // Desativamos a auth do hook padrão para usar o nosso modal específico abaixo
-        );
-        // Ajeitando para usar a lógica correta abaixo com modal local
-        setIsAuthModalOpen(true);
-    };
-    
-    // Estados para o Modal de Autenticação Local
-    const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-    const [authInput, setAuthInput] = useState('');
-    const [isAuthVerify, setIsAuthVerify] = useState(false);
-
-    const confirmSaveWithAuth = async (e) => {
-        e.preventDefault();
-        setIsAuthVerify(true);
-        setIsSaving(true);
-        
-        try {
-            // Garante envio de números corretos
-            const payload = {
-                base_price: parseFloat(config.base_price),
-                rules: config.rules.map(r => ({
-                    ...r,
-                    amount: parseFloat(r.amount) || 0
-                })),
-                // Envia a senha ou token dependendo do que for (aqui assumimos senha por padrão, 
-                // mas se for 2FA o backend tenta validar como token também se falhar a senha, ou podemos enviar ambos)
-                // O backend espera `password` OU `token`. Vamos enviar como `password` se for longo, ou tentar inferir.
-                // Mas para ser seguro e compatível com o backend que espera campos distintos:
-                password: authInput, 
-                token: authInput.length === 6 && !isNaN(authInput) ? authInput : null 
-                // Nota: Se a senha for de 6 números, pode dar conflito, mas geralmente senha é mais complexa.
-                // O ideal é ter campos separados ou um input inteligente. Vamos mandar nos dois e o backend decide a prioridade.
-            };
-            
-            await apiService('/settings/shipping-local', 'PUT', payload);
-            notification.show("Configurações de frete salvas com sucesso!");
-            setIsAuthModalOpen(false);
-            setAuthInput('');
-        } catch (err) {
-            notification.show(err.message || "Erro ao salvar. Verifique sua senha/token.", "error");
-        } finally {
-            setIsSaving(false);
-            setIsAuthVerify(false);
-        }
-    };
-
-    if (isLoading) return <div className="flex justify-center p-10"><SpinnerIcon className="h-8 w-8 text-indigo-600"/></div>;
-
-    return (
-        <div className="max-w-4xl mx-auto space-y-8">
-            
-            {/* MODAL DE CONFIRMAÇÃO DE SEGURANÇA */}
-            <AnimatePresence>
-                {isAuthModalOpen && (
-                    <Modal isOpen={true} onClose={() => setIsAuthModalOpen(false)} title="Confirmação de Segurança">
-                        <form onSubmit={confirmSaveWithAuth} className="space-y-4">
-                            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-                                <p className="text-sm text-yellow-700">
-                                    Esta é uma alteração crítica. Por favor, confirme sua <strong>Senha</strong> ou código <strong>2FA</strong> para continuar.
-                                </p>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Senha ou Código 2FA</label>
-                                <input 
-                                    type="password" 
-                                    value={authInput} 
-                                    onChange={(e) => setAuthInput(e.target.value)} 
-                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                                    placeholder="Digite sua senha ou token..."
-                                    required
-                                />
-                            </div>
-                            <div className="flex justify-end gap-3">
-                                <button type="button" onClick={() => setIsAuthModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 text-gray-700">Cancelar</button>
-                                <button type="submit" disabled={isAuthVerify} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center gap-2">
-                                    {isAuthVerify && <SpinnerIcon className="h-4 w-4"/>}
-                                    Confirmar e Salvar
-                                </button>
-                            </div>
-                        </form>
-                    </Modal>
-                )}
-            </AnimatePresence>
-
-            <div>
-                <h1 className="text-3xl font-bold text-slate-800">Configuração de Entrega Local</h1>
-                <p className="text-slate-500">Defina os preços para entregas via Motoboy (João Pessoa).</p>
-            </div>
-
-            {/* Configuração Base */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <TruckIcon className="h-5 w-5 text-indigo-600"/> Preço Base
-                </h3>
-                <div className="flex items-center gap-4">
-                    <div className="flex-1 max-w-xs">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Valor Padrão (R$)</label>
-                        <input 
-                            type="number" 
-                            step="0.01" 
-                            value={config.base_price} 
-                            onChange={(e) => setConfig({...config, base_price: e.target.value})}
-                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                    </div>
-                    <div className="flex-1 text-sm text-gray-500 pt-6">
-                        Este valor será cobrado se nenhuma regra específica for aplicada.
-                    </div>
-                </div>
-            </div>
-
-            {/* Regras Avançadas */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <TagIcon className="h-5 w-5 text-indigo-600"/> Regras Específicas
-                </h3>
-                
-                {/* Formulário de Nova Regra */}
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                    <div className="md:col-span-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase">Se</label>
-                        <select 
-                            value={newRule.type} 
-                            onChange={(e) => setNewRule({...newRule, type: e.target.value, value: ''})}
-                            className="w-full p-2 text-sm border rounded-md"
-                        >
-                            <option value="category">Categoria</option>
-                            <option value="brand">Marca</option>
-                        </select>
-                    </div>
-                    <div className="md:col-span-3">
-                        <label className="text-xs font-bold text-gray-500 uppercase">For Igual A</label>
-                        <select 
-                            value={newRule.value} 
-                            onChange={(e) => setNewRule({...newRule, value: e.target.value})}
-                            className="w-full p-2 text-sm border rounded-md"
-                        >
-                            <option value="">Selecione...</option>
-                            {newRule.type === 'category' 
-                                ? productsData.categories.map(c => <option key={c} value={c}>{c}</option>)
-                                : productsData.brands.map(b => <option key={b} value={b}>{b}</option>)
-                            }
-                        </select>
-                    </div>
-                    <div className="md:col-span-3">
-                        <label className="text-xs font-bold text-gray-500 uppercase">Aplicar</label>
-                        <select 
-                            value={newRule.action} 
-                            onChange={(e) => setNewRule({...newRule, action: e.target.value})}
-                            className="w-full p-2 text-sm border rounded-md"
-                        >
-                            <option value="free_shipping">Frete Grátis</option>
-                            <option value="surcharge">Acréscimo (+R$)</option>
-                            <option value="discount">Desconto (-R$)</option>
-                        </select>
-                    </div>
-                    <div className="md:col-span-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase">Valor</label>
-                        <input 
-                            type="number" 
-                            disabled={newRule.action === 'free_shipping'}
-                            value={newRule.amount}
-                            onChange={(e) => setNewRule({...newRule, amount: e.target.value})}
-                            className={`w-full p-2 text-sm border rounded-md ${newRule.action === 'free_shipping' ? 'bg-gray-200 cursor-not-allowed' : 'bg-white'}`}
-                            placeholder="0.00"
-                        />
-                    </div>
-                    <div className="md:col-span-2">
-                        <button 
-                            onClick={handleAddRule}
-                            className="w-full bg-indigo-600 text-white p-2 rounded-md font-bold text-sm hover:bg-indigo-700 transition-colors"
-                        >
-                            + Adicionar
-                        </button>
-                    </div>
-                </div>
-
-                {/* Lista de Regras */}
-                {config.rules.length === 0 ? (
-                    <p className="text-center text-gray-400 py-4 text-sm">Nenhuma regra configurada.</p>
-                ) : (
-                    <div className="space-y-2">
-                        {config.rules.map((rule, index) => (
-                            <div key={rule.id || index} className="flex items-center justify-between p-3 bg-white border rounded-md shadow-sm">
-                                <div className="flex items-center gap-2 text-sm">
-                                    <span className="font-bold bg-gray-100 px-2 py-1 rounded text-gray-600 capitalize">{rule.type === 'category' ? 'Categoria' : 'Marca'}</span>
-                                    <span className="text-gray-400">é</span>
-                                    <span className="font-bold text-indigo-700">{rule.value}</span>
-                                    <span className="text-gray-400">→</span>
-                                    {rule.action === 'free_shipping' && <span className="text-green-600 font-bold bg-green-50 px-2 py-1 rounded border border-green-200">Frete Grátis</span>}
-                                    {rule.action === 'surcharge' && <span className="text-red-600 font-bold">Acréscimo de R$ {Number(rule.amount).toFixed(2)}</span>}
-                                    {rule.action === 'discount' && <span className="text-blue-600 font-bold">Desconto de R$ {Number(rule.amount).toFixed(2)}</span>}
-                                </div>
-                                <button onClick={() => handleRemoveRule(rule.id)} className="text-red-400 hover:text-red-600 p-1">
-                                    <TrashIcon className="h-4 w-4"/>
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            <div className="flex justify-end pt-4">
-                <button 
-                    onClick={() => setIsAuthModalOpen(true)} 
-                    disabled={isSaving}
-                    className="bg-green-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-green-700 shadow-md flex items-center gap-2 disabled:opacity-70"
-                >
-                    {isSaving ? <SpinnerIcon className="h-5 w-5"/> : <CheckIcon className="h-5 w-5"/>}
-                    Salvar Alterações
-                </button>
-            </div>
-        </div>
-    );
-};
 
 const AdminDashboard = ({ onNavigate }) => {
     const { user } = useAuth();
@@ -9823,92 +7745,58 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
     };
 
     return (
-        <div className="group relative grid grid-cols-1 md:grid-cols-12 gap-4 items-start p-4 bg-white rounded-lg border border-gray-200 shadow-sm transition-all hover:shadow-md hover:border-indigo-200">
-            {/* Número da Variação (Visual) */}
-            <div className="absolute -left-2 -top-2 w-6 h-6 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center text-xs font-bold border border-gray-200 shadow-sm z-10">
-                {index + 1}
-            </div>
-
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start p-3 bg-gray-50 rounded-md border">
             <div className="md:col-span-3">
-                <label className="block text-xs font-bold text-gray-700 mb-1">Cor</label>
-                <div className="relative">
-                    <select 
-                        value={variation.color} 
-                        onChange={(e) => onVariationChange(index, 'color', e.target.value)} 
-                        className="w-full pl-3 pr-8 py-2 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block transition-colors"
-                    >
-                        <option value="">Selecione...</option>
-                        {availableColors.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                    {variation.color && (
-                        <div className="absolute right-8 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border border-gray-300 shadow-sm" style={{ backgroundColor: variation.color === 'Multicolorido' ? 'transparent' : variation.color.toLowerCase() }}></div>
-                    )}
-                </div>
+                <label className="text-xs text-gray-500">Cor</label>
+                <select value={variation.color} onChange={(e) => onVariationChange(index, 'color', e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-white">
+                    <option value="">Selecione a Cor</option>
+                    {availableColors.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
             </div>
-            
             <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-gray-700 mb-1">Tamanho</label>
-                <input 
-                    type="text" 
-                    list={`available-sizes-${index}`} 
-                    value={variation.size} 
-                    onChange={(e) => onVariationChange(index, 'size', e.target.value)} 
-                    className="w-full p-2 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 uppercase transition-colors" 
-                    placeholder="M, 42..."
-                />
-                <datalist id={`available-sizes-${index}`}>{availableSizes.map(s => <option key={s} value={s}>{s}</option>)}</datalist>
+                <label className="text-xs text-gray-500">Tamanho</label>
+                <input type="text" list="available-sizes" value={variation.size} onChange={(e) => onVariationChange(index, 'size', e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" placeholder="Ex: M ou 42"/>
+                <datalist id="available-sizes">{availableSizes.map(s => <option key={s} value={s}>{s}</option>)}</datalist>
             </div>
-            
             <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-gray-700 mb-1">Estoque</label>
-                <input 
-                    type="number" 
-                    min="0" 
-                    value={variation.stock} 
-                    onChange={(e) => onVariationChange(index, 'stock', parseInt(e.target.value, 10) || 0)} 
-                    className="w-full p-2 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors" 
-                    placeholder="0"
-                />
+                <label className="text-xs text-gray-500">Estoque</label>
+                <input type="number" min="0" value={variation.stock} onChange={(e) => onVariationChange(index, 'stock', parseInt(e.target.value, 10) || 0)} className="w-full p-2 border border-gray-300 rounded-md" placeholder="0"/>
             </div>
-
-            <div className={`md:col-span-4 space-y-2 ${!isFirstOfColor ? 'opacity-50 grayscale' : ''}`}>
+            <div className={`md:col-span-4 space-y-2 ${!isFirstOfColor && 'opacity-40'}`}>
                  {isFirstOfColor ? (
                     <>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Imagens ({variation.color || 'Geral'})</label>
-                        <div className="p-2 border border-dashed border-gray-300 rounded-lg bg-gray-50 min-h-[64px] flex flex-wrap gap-2 items-center transition-colors hover:bg-gray-100">
+                        <label className="text-xs text-gray-500 font-semibold">Imagens para a cor "{variation.color || '...'}"</label>
+                        <div className="p-2 border rounded-md bg-white min-h-[60px]">
                             {variation.images && variation.images.length > 0 ? (
-                                variation.images.map((img, imgIndex) => (
-                                    <div key={imgIndex} className="relative group/img w-10 h-10">
-                                        <img src={img} alt="Var" className="w-full h-full object-cover rounded-md border border-gray-200 shadow-sm" />
-                                        <button type="button" onClick={() => handleRemoveImage(imgIndex)} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover/img:opacity-100 transition-all shadow-sm hover:bg-red-600 transform hover:scale-110">
-                                            <XMarkIcon className="h-3 w-3" />
-                                        </button>
-                                    </div>
-                                ))
-                            ) : ( 
-                                <span className="text-xs text-gray-400 w-full text-center">Sem imagens</span> 
-                            )}
-                            
-                            <div className="flex gap-1 ml-auto">
-                                <input type="file" multiple accept="image/*" ref={galleryInputRef} onChange={handleFileChange} className="hidden" />
-                                <input type="file" accept="image/*" capture="environment" ref={cameraInputRef} onChange={handleFileChange} className="hidden" />
-                                <button type="button" onClick={() => galleryInputRef.current.click()} className="p-1.5 bg-white border border-gray-200 rounded hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors" title="Galeria"><UploadIcon className="h-4 w-4" /></button>
-                                <button type="button" onClick={() => cameraInputRef.current.click()} className="p-1.5 bg-white border border-gray-200 rounded hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors" title="Câmera"><CameraIcon className="h-4 w-4" /></button>
-                            </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {variation.images.map((img, imgIndex) => (
+                                        <div key={imgIndex} className="relative group">
+                                            <img src={img} alt="Variação" className="w-12 h-12 object-cover rounded-md border" />
+                                            <button type="button" onClick={() => handleRemoveImage(imgIndex)} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"><XMarkIcon className="h-3 w-3" /></button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : ( <p className="text-xs text-gray-400 text-center py-2">Nenhuma imagem</p> )}
                         </div>
-                        {uploadStatus && <p className={`text-[10px] font-medium mt-1 ${uploadStatus.startsWith('Erro') ? 'text-red-500' : 'text-green-600 flex items-center gap-1'} animate-pulse`}><CheckCircleIcon className="h-3 w-3 inline"/> {uploadStatus}</p>}
+                        <div>
+                            <input type="file" multiple accept="image/*" ref={galleryInputRef} onChange={handleFileChange} className="hidden" />
+                            <input type="file" accept="image/*" capture="environment" ref={cameraInputRef} onChange={handleFileChange} className="hidden" />
+                            <div className="flex gap-2 mt-1">
+                                <button type="button" onClick={() => galleryInputRef.current.click()} className="w-1/2 text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-1 px-2 rounded-md flex items-center justify-center gap-1"><UploadIcon className="h-4 w-4" /> Galeria</button>
+                                <button type="button" onClick={() => cameraInputRef.current.click()} className="w-1/2 text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-1 px-2 rounded-md flex items-center justify-center gap-1"><CameraIcon className="h-4 w-4" /> Câmera</button>
+                            </div>
+                            {uploadStatus && <p className={`text-xs mt-1 ${uploadStatus.startsWith('Erro') ? 'text-red-500' : 'text-green-500'}`}>{uploadStatus}</p>}
+                        </div>
                     </>
                  ) : (
-                    <div className="flex items-center h-full pt-4">
-                        <p className="text-xs text-gray-400 italic bg-gray-50 px-2 py-1 rounded border border-gray-100 w-full text-center">Imagens vinculadas à 1ª variação desta cor.</p>
+                    <div>
+                        <label className="text-xs text-gray-500">Imagens</label>
+                        <p className="text-xs text-gray-500 p-2 border rounded-md bg-gray-100">As imagens são definidas na primeira variação desta cor.</p>
                     </div>
                  )}
             </div>
-
-            <div className="md:col-span-1 flex items-center justify-end h-full pt-6">
-                <button type="button" onClick={() => onRemoveVariation(index)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-all" title="Remover variação">
-                    <TrashIcon className="h-5 w-5"/>
-                </button>
+            <div className="md:col-span-1 flex items-center justify-center h-full pt-4 md:pt-0">
+                <button type="button" onClick={() => onRemoveVariation(index)} className="bg-red-100 text-red-600 p-2 rounded-md hover:bg-red-200"><TrashIcon className="h-5 w-5 mx-auto"/></button>
             </div>
         </div>
     );
@@ -10001,17 +7889,6 @@ const AdminCrudForm = ({ item, onSave, onCancel, fieldsConfig }) => {
     );
 };
 
-// Componente Auxiliar para Seções (Movido para fora para evitar perda de foco)
-const FormSection = ({ title, icon: Icon, children }) => (
-    <div className="bg-white p-5 md:p-6 rounded-xl border border-gray-200 shadow-sm space-y-4">
-        <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2 border-b border-gray-100 pb-3">
-            {Icon && <Icon className="h-5 w-5 text-indigo-600" />}
-            {title}
-        </h3>
-        {children}
-    </div>
-);
-
 const ProductForm = ({ item, onSave, onCancel, productType, setProductType, brands = [], categories = [] }) => {
     const [formData, setFormData] = useState({});
     const [uploadStatus, setUploadStatus] = useState('');
@@ -10037,32 +7914,32 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     const perfumeBrands = ["O Boticário", "Avon", "Natura", "Eudora"];
 
     const perfumeFields = [
-        { name: 'stock', label: 'Estoque Total', type: 'number', required: true, placeholder: '0' },
-        { name: 'volume', label: 'Volume (ex: 100ml)', type: 'text', placeholder: '100ml' },
-        { name: 'notes', label: 'Notas Olfativas', type: 'textarea', placeholder: 'Topo: ...\nCorpo: ...\nFundo: ...' },
-        { name: 'how_to_use', label: 'Como Usar', type: 'textarea', placeholder: 'Instruções de aplicação...' },
-        { name: 'ideal_for', label: 'Ideal Para', type: 'textarea', placeholder: 'Ocasiões, tipo de pele...' },
+        { name: 'stock', label: 'Estoque', type: 'number', required: true },
+        { name: 'notes', label: 'Notas Olfativas (Ex: Topo: Maçã\\nCorpo: Canela)', type: 'textarea' },
+        { name: 'how_to_use', label: 'Como Usar', type: 'textarea' },
+        { name: 'ideal_for', label: 'Ideal Para', type: 'textarea' },
+        { name: 'volume', label: 'Volume (ex: 100ml)', type: 'text' },
     ];
     
-    // --- ATUALIZAÇÃO: Removido size_guide de textarea simples ---
     const clothingFields = [
-        { name: 'variations', label: 'Grade de Variações', type: 'variations' },
-        { name: 'care_instructions', label: 'Cuidados com a Peça', type: 'textarea', placeholder: 'Lavar à mão\nNão usar alvejante...' },
+        { name: 'variations', label: 'Variações (Cor, Tamanho, Estoque, Imagens)', type: 'variations' },
+        { name: 'size_guide', label: 'Guia de Medidas (HTML permitido)', type: 'textarea' },
+        { name: 'care_instructions', label: 'Cuidados com a Peça (um por linha)', type: 'textarea' },
     ];
 
    const commonFields = [
-        { name: 'name', label: 'Nome do Produto', type: 'text', required: true, placeholder: 'Ex: Perfume Floral ou Vestido Longo' },
-        { name: 'brand', label: 'Marca', type: 'text', required: true, placeholder: 'Selecione ou digite...' },
-        { name: 'category', label: 'Categoria', type: 'text', required: true, placeholder: 'Selecione...' },
-        { name: 'price', label: 'Preço Original (R$)', type: 'number', required: true, step: '0.01', placeholder: '0.00' },
-        { name: 'video_url', label: 'Vídeo do YouTube (URL)', type: 'url', placeholder: 'https://www.youtube.com/watch?v=...' },
+        { name: 'name', label: 'Nome do Produto', type: 'text', required: true },
+        { name: 'brand', label: 'Marca', type: 'text', required: true },
+        { name: 'category', label: 'Categoria', type: 'text', required: true },
+        { name: 'price', label: 'Preço Original', type: 'number', required: true, step: '0.01' },
+        { name: 'video_url', label: 'Link do Vídeo do YouTube (Opcional)', type: 'url', placeholder: 'https://www.youtube.com/watch?v=...' },
         { name: 'images_upload', label: 'Upload de Imagens Principais', type: 'file' },
         { name: 'images', label: 'URLs das Imagens Principais', type: 'text_array' },
-        { name: 'description', label: 'Descrição Detalhada', type: 'textarea', placeholder: 'Descreva os detalhes e benefícios do produto...' },
-        { name: 'weight', label: 'Peso (kg)', type: 'number', step: '0.01', required: true, placeholder: '0.5' },
-        { name: 'width', label: 'Largura (cm)', type: 'number', required: true, placeholder: '10' },
-        { name: 'height', label: 'Altura (cm)', type: 'number', required: true, placeholder: '10' },
-        { name: 'length', label: 'Comprimento (cm)', type: 'number', required: true, placeholder: '10' },
+        { name: 'description', label: 'Descrição', type: 'textarea' },
+        { name: 'weight', label: 'Peso (kg)', type: 'number', step: '0.01', required: true },
+        { name: 'width', label: 'Largura (cm)', type: 'number', required: true },
+        { name: 'height', label: 'Altura (cm)', type: 'number', required: true },
+        { name: 'length', label: 'Comprimento (cm)', type: 'number', required: true },
         { name: 'is_active', label: 'Produto Ativo', type: 'checkbox' },
     ];
 
@@ -10093,9 +7970,6 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             initialData.images = parseJsonString(item.images, []);
             initialData.variations = parseJsonString(item.variations, []);
             
-            // --- ATUALIZAÇÃO: Carregar size_guide existente ---
-            initialData.size_guide = item.size_guide || '';
-
             initialData.is_on_sale = !!item.is_on_sale;
             initialData.sale_price = item.sale_price || '';
             
@@ -10131,7 +8005,6 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             initialData.is_on_sale = false;
             initialData.sale_price = '';
             initialData.sale_end_date = '';
-            initialData.size_guide = ''; // Inicializa vazio
         }
 
         setFormData(initialData);
@@ -10382,124 +8255,152 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     const availableSizes = useMemo(() => [...new Set(categories.filter(c => c.type === 'size').map(c => c.name))], [categories]);
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6 bg-gray-50/50 p-1">
-            {/* --- SELETOR DE TIPO --- */}
-            <div className="bg-white p-1.5 rounded-xl border border-gray-200 shadow-sm flex relative">
-                <button type="button" onClick={() => setProductType('perfume')} className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300 z-10 ${productType === 'perfume' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}>
-                    <SparklesIcon className="h-5 w-5" /> Perfume
-                </button>
-                <button type="button" onClick={() => setProductType('clothing')} className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300 z-10 ${productType === 'clothing' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}>
-                    <ShirtIcon className="h-5 w-5" /> Roupa
-                </button>
+        <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="p-4 bg-gray-100 rounded-lg">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Produto</label>
+                <div className="flex gap-4">
+                    <button type="button" onClick={() => setProductType('perfume')} className={`flex-1 p-3 rounded-md border-2 font-semibold flex items-center justify-center gap-2 ${productType === 'perfume' ? 'bg-amber-100 border-amber-500 text-amber-800' : 'bg-white border-gray-300 hover:border-amber-400'}`}>
+                        <SparklesIcon className="h-5 w-5" /> Perfume
+                    </button>
+                    <button type="button" onClick={() => setProductType('clothing')} className={`flex-1 p-3 rounded-md border-2 font-semibold flex items-center justify-center gap-2 ${productType === 'clothing' ? 'bg-amber-100 border-amber-500 text-amber-800' : 'bg-white border-gray-300 hover:border-amber-400'}`}>
+                        <ShirtIcon className="h-5 w-5" /> Roupa
+                    </button>
+                </div>
             </div>
 
-            {/* --- INFORMAÇÕES BÁSICAS --- */}
-            <FormSection title="Informações Básicas" icon={FileIcon}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div className="md:col-span-2">
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Nome do Produto <span className="text-red-500">*</span></label>
-                        <input type="text" name="name" value={formData.name || ''} onChange={handleChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm font-medium" placeholder="Ex: Perfume Floral ou Vestido Longo" required />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {commonFields.map(field => {
+                    if (field.type === 'checkbox' || field.name === 'images' || field.name === 'images_upload') return null;
+
+                    if (field.name === 'category') {
+                         return (
+                            <div key={field.name}>
+                                <label className="block text-sm font-medium text-gray-700">{field.label}</label>
+                                <select 
+                                    name="category" 
+                                    value={formData.category || ''} 
+                                    onChange={handleChange} 
+                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white" 
+                                    required={field.required}
+                                >
+                                    <option value="">Selecione...</option>
+                                    {availableProductCategories.map(cat => <option key={cat.id} value={cat.filter}>{cat.name}</option>)}
+                                </select>
+                            </div>
+                        );
+                    }
+                    if (field.name === 'brand') {
+                        if (productType === 'perfume') {
+                            return (
+                                <div key={field.name}>
+                                    <label className="block text-sm font-medium text-gray-700">{field.label}</label>
+                                    <select
+                                        name="brand"
+                                        value={formData.brand || ''}
+                                        onChange={handleChange}
+                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white"
+                                        required={field.required}
+                                    >
+                                        <option value="">Selecione...</option>
+                                        {perfumeBrands.map(b => <option key={b} value={b}>{b}</option>)}
+                                    </select>
+                                </div>
+                            )
+                        } else {
+                             return (
+                                <div key={field.name}>
+                                    <label className="block text-sm font-medium text-gray-700">{field.label}</label>
+                                    <input
+                                        type="text"
+                                        name={field.name}
+                                        value={formData[field.name] || ''}
+                                        onChange={handleChange}
+                                        list="brand-datalist"
+                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                                        required={field.required}
+                                    />
+                                    <datalist id="brand-datalist">
+                                        {brands.map(opt => <option key={opt} value={opt} />)}
+                                    </datalist>
+                                </div>
+                            );
+                        }
+                    }
+                   
+                    if (field.type === 'textarea') {
+                         return (
+                            <div key={field.name} className="lg:col-span-3">
+                                <label className="block text-sm font-medium text-gray-700">{field.label}</label>
+                                <textarea name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm h-24" required={field.required}></textarea>
+                            </div>
+                         )
+                    }
+                    
+                    const isNameField = field.name === 'name';
+                    if (field.name === 'sale_price') return null;
+                    
+                    return (
+                        <div key={field.name} className={`${isNameField ? 'lg:col-span-3' : ''}`}>
+                            <label className="block text-sm font-medium text-gray-700">{field.label}</label>
+                            <input type={field.type} name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required={field.required} step={field.step} />
+                        </div>
+                    );
+                })}
+
+                {/* --- ÁREA DE DESTAQUE PARA PROMOÇÃO --- */}
+                <div className="lg:col-span-3 bg-yellow-50 border-2 border-yellow-200 rounded-lg p-5 space-y-4 shadow-sm">
+                    <div className="flex items-center">
+                        <input 
+                            type="checkbox" 
+                            name="is_on_sale" 
+                            id="is_on_sale_checkbox" 
+                            checked={!!formData['is_on_sale']} // CORREÇÃO: !! Garante booleano e evita o "0" na tela
+                            onChange={handlePromoToggle} 
+                            className="h-5 w-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500 cursor-pointer" 
+                        />
+                        <label htmlFor="is_on_sale_checkbox" className="ml-2 text-base font-bold text-gray-800 cursor-pointer">Produto em Promoção?</label>
                     </div>
                     
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Categoria <span className="text-red-500">*</span></label>
-                        <select name="category" value={formData.category || ''} onChange={handleChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm" required>
-                            <option value="">Selecione...</option>
-                            {availableProductCategories.map(cat => <option key={cat.id} value={cat.filter}>{cat.name}</option>)}
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Marca <span className="text-red-500">*</span></label>
-                        {productType === 'perfume' ? (
-                             <select name="brand" value={formData.brand || ''} onChange={handleChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm" required>
-                                <option value="">Selecione...</option>
-                                {perfumeBrands.map(b => <option key={b} value={b}>{b}</option>)}
-                            </select>
-                        ) : (
-                            <>
-                                <input type="text" name="brand" value={formData.brand || ''} onChange={handleChange} list="brand-datalist" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm" required placeholder="Digite ou selecione..." />
-                                <datalist id="brand-datalist">{brands.map(opt => <option key={opt} value={opt} />)}</datalist>
-                            </>
-                        )}
-                    </div>
-                    
-                    <div className="md:col-span-2 flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="relative flex items-start">
-                            <div className="flex items-center h-5">
-                                <input id="is_active" name="is_active" type="checkbox" checked={!!formData.is_active} onChange={handleChange} className="focus:ring-indigo-500 h-5 w-5 text-indigo-600 border-gray-300 rounded cursor-pointer" />
-                            </div>
-                            <div className="ml-3 text-sm">
-                                <label htmlFor="is_active" className="font-bold text-gray-700 cursor-pointer">Produto Ativo</label>
-                                <p className="text-gray-500 text-xs">Se desmarcado, o produto ficará oculto na loja.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </FormSection>
-
-             {/* --- PREÇO E ESTOQUE --- */}
-             <FormSection title="Preço e Promoção" icon={CurrencyDollarIcon}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Preço Original (R$) <span className="text-red-500">*</span></label>
-                        <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">R$</span>
-                            <input type="number" name="price" value={formData.price || ''} onChange={handleChange} className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-bold text-gray-900" placeholder="0.00" step="0.01" required />
-                        </div>
-                    </div>
-
-                    {/* Lógica de Estoque para Perfumes (Roupas usam variações) */}
-                    {productType === 'perfume' && (
-                        <div>
-                             <label className="block text-sm font-bold text-gray-700 mb-1">Estoque Total <span className="text-red-500">*</span></label>
-                             <input type="number" name="stock" value={formData.stock || ''} onChange={handleChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-bold" placeholder="0" min="0" required />
-                        </div>
-                    )}
-                </div>
-
-                {/* Card de Promoção */}
-                <div className={`mt-4 border-2 rounded-xl p-5 transition-all ${!!formData.is_on_sale ? 'bg-amber-50 border-amber-300 shadow-inner' : 'bg-gray-50 border-dashed border-gray-300'}`}>
-                    <div className="flex items-center mb-4">
-                         <input type="checkbox" id="is_on_sale" name="is_on_sale" checked={!!formData.is_on_sale} onChange={handlePromoToggle} className="h-5 w-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500 cursor-pointer" />
-                         <label htmlFor="is_on_sale" className="ml-3 font-bold text-gray-800 cursor-pointer select-none">Habilitar Promoção</label>
-                    </div>
-
-                    {!!formData.is_on_sale && (
-                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-4">
-                            <div className="flex gap-4 p-2 bg-white rounded-lg border border-amber-100">
-                                <label className="flex items-center cursor-pointer px-2">
-                                    <input type="radio" name="promoMode" value="fixed" checked={promoMode === 'fixed'} onChange={() => handlePromoModeChange('fixed')} className="text-amber-600 focus:ring-amber-500"/>
-                                    <span className="ml-2 text-sm font-medium">Preço Fixo</span>
+                    {/* CORREÇÃO: !! Garante que só renderiza se for true, evitando o "0" */}
+                    {!!formData['is_on_sale'] && (
+                        <motion.div 
+                            initial={{ opacity: 0, height: 0 }} 
+                            animate={{ opacity: 1, height: 'auto' }} 
+                            className="space-y-4"
+                        >
+                            <div className="flex gap-4 border-b border-yellow-200 pb-3">
+                                <label className="flex items-center cursor-pointer">
+                                    <input type="radio" name="promoMode" value="fixed" checked={promoMode === 'fixed'} onChange={() => handlePromoModeChange('fixed')} className="h-4 w-4 text-amber-600 focus:ring-amber-500"/>
+                                    <span className="ml-2 text-sm font-medium text-gray-800">Preço Fixo (R$)</span>
                                 </label>
-                                <label className="flex items-center cursor-pointer px-2">
-                                    <input type="radio" name="promoMode" value="percentage" checked={promoMode === 'percentage'} onChange={() => handlePromoModeChange('percentage')} className="text-amber-600 focus:ring-amber-500"/>
-                                    <span className="ml-2 text-sm font-medium">Porcentagem (%)</span>
+                                <label className="flex items-center cursor-pointer">
+                                    <input type="radio" name="promoMode" value="percentage" checked={promoMode === 'percentage'} onChange={() => handlePromoModeChange('percentage')} className="h-4 w-4 text-amber-600 focus:ring-amber-500"/>
+                                    <span className="ml-2 text-sm font-medium text-gray-800">Porcentagem (%)</span>
                                 </label>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Desconto (%)</label>
+                                    <label className="block text-sm font-bold text-gray-800 mb-1">Desconto (%)</label>
                                     <div className="relative">
                                         <input type="number" value={promoPercent} onChange={handlePercentChange} disabled={promoMode !== 'percentage'} className={`block w-full pr-8 pl-3 py-2 border rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 ${promoMode !== 'percentage' ? 'bg-gray-200 text-gray-500 border-gray-200 cursor-not-allowed' : 'bg-white border-gray-300'}`} min="0" max="100"/>
-                                        <span className="absolute right-3 top-2 text-xs text-gray-400">%</span>
+                                        <span className="absolute right-3 top-2 text-gray-500">%</span>
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Preço Final</label>
+                                    <label className="block text-sm font-bold text-gray-800 mb-1">Preço Final (R$)</label>
                                     <div className="relative">
-                                        <span className="absolute left-3 top-2 text-xs text-gray-500">R$</span>
+                                        <span className="absolute left-3 top-2 text-gray-500">R$</span>
                                         <input type="number" name="sale_price" value={formData.sale_price || ''} onChange={handleChange} disabled={promoMode !== 'fixed'} className={`block w-full pl-8 pr-3 py-2 border rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 ${promoMode !== 'fixed' ? 'bg-gray-200 text-gray-500 border-gray-200 cursor-not-allowed' : 'bg-white border-gray-300'}`} step="0.01" />
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fim da Promoção (Opcional)</label>
+                                    <label className="block text-sm font-bold text-red-700 mb-1">Data/Hora Fim (Opcional)</label>
                                     <input type="datetime-local" name="sale_end_date" value={formData.sale_end_date || ''} onChange={handleChange} className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 bg-white" />
                                 </div>
                             </div>
-                            
-                            {/* Seleção de Cores para Promoção (Roupas) */}
+
+                            {/* --- SELEÇÃO DE CORES PARA ROUPAS --- */}
                             {productType === 'clothing' && currentVariationColors.length > 0 && (
                                 <div className="mt-4 pt-4 border-t border-yellow-200">
                                     <label className="block text-sm font-bold text-gray-800 mb-2">Aplicar Desconto nas Cores:</label>
@@ -10522,173 +8423,107 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                         </motion.div>
                     )}
                 </div>
-             </FormSection>
 
-            {/* --- DETALHES ESPECÍFICOS --- */}
-            {productType === 'perfume' && (
-                <FormSection title="Detalhes do Perfume" icon={SparklesIcon}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                         <div className="md:col-span-2">
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Volume</label>
-                            <input type="text" name="volume" value={formData.volume || ''} onChange={handleChange} onBlur={handleVolumeBlur} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="Ex: 100ml" />
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Notas Olfativas</label>
-                            <textarea name="notes" value={formData.notes || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-24" placeholder="Topo: ...&#10;Corpo: ...&#10;Fundo: ..."></textarea>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Como Usar</label>
-                            <textarea name="how_to_use" value={formData.how_to_use || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-20"></textarea>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Ideal Para</label>
-                            <textarea name="ideal_for" value={formData.ideal_for || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-20"></textarea>
-                        </div>
-                    </div>
-                </FormSection>
-            )}
-
-            {productType === 'clothing' && (
-                 <FormSection title="Variações e Tamanhos" icon={ShirtIcon}>
-                    {/* Lista de Variações */}
-                    <div className="space-y-4 mb-6">
-                        <div className="flex justify-between items-center mb-2">
-                            <label className="text-sm font-bold text-gray-700">Grade de Cores e Tamanhos</label>
-                            <button type="button" onClick={addVariation} className="text-xs bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100 font-bold border border-indigo-200 transition-colors">
-                                + Adicionar Variação
-                            </button>
-                        </div>
-                        
-                        {(formData.variations || []).length > 0 ? (
-                            (formData.variations || []).map((v, i) => {
-                                const seenColors = new Set();
-                                // Helper simples para identificar primeira ocorrência visualmente
-                                const isFirst = (formData.variations || []).findIndex(va => va.color === v.color) === i;
-                                return (
-                                    <VariationInputRow 
-                                        key={i} 
-                                        variation={v} 
-                                        index={i} 
-                                        onVariationChange={handleVariationChange}
-                                        onRemoveVariation={removeVariation}
-                                        availableColors={allColors}
-                                        availableSizes={availableSizes}
-                                        onImageUpload={(e) => handleVariationImageUpload(i, e)}
-                                        uploadStatus={uploadingStatus[i]}
-                                        isFirstOfColor={isFirst}
-                                    />
-                                );
-                            })
-                        ) : (
-                            <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
-                                <p className="text-gray-500 text-sm mb-2">Nenhuma variação adicionada.</p>
-                                <button type="button" onClick={addVariation} className="text-indigo-600 font-bold text-sm hover:underline">Clique para adicionar cor/tamanho</button>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="space-y-5 pt-4 border-t border-gray-100">
-                        {/* --- ATUALIZAÇÃO DE LAYOUT: Cuidados acima, Tabela abaixo --- */}
-                        <div>
-                             <label className="block text-sm font-bold text-gray-700 mb-1">Cuidados com a Peça</label>
-                            <textarea name="care_instructions" value={formData.care_instructions || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-32"></textarea>
-                        </div>
-
-                        <div>
-                             <label className="block text-sm font-bold text-gray-700 mb-1">Guia de Medidas (Tabela)</label>
-                             <SizeGuideAdminInput 
-                                value={formData.size_guide} 
-                                onChange={(newVal) => setFormData(prev => ({...prev, size_guide: newVal}))} 
-                             />
-                        </div>
-                    </div>
-                 </FormSection>
-            )}
-
-            {/* --- MÍDIA --- */}
-            <FormSection title="Imagens Principais e Vídeo" icon={PhotoIcon}>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="lg:col-span-1">
-                        <label className="block text-sm font-bold text-gray-700 mb-2">Upload Rápido</label>
-                         <div className="flex gap-2 mb-2">
-                             <input type="file" multiple accept="image/*" ref={mainGalleryInputRef} onChange={handleImageChange} className="hidden" />
-                             <button type="button" onClick={() => mainGalleryInputRef.current.click()} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-lg flex flex-col items-center justify-center gap-1 border border-gray-300 transition-colors">
-                                <UploadIcon className="h-6 w-6 text-gray-500" />
-                                <span className="text-xs font-bold">Galeria</span>
-                             </button>
-                             <input type="file" accept="image/*" capture="environment" ref={mainCameraInputRef} onChange={handleImageChange} className="hidden" />
-                             <button type="button" onClick={() => mainCameraInputRef.current.click()} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-lg flex flex-col items-center justify-center gap-1 border border-gray-300 transition-colors">
-                                <CameraIcon className="h-6 w-6 text-gray-500" />
-                                <span className="text-xs font-bold">Câmera</span>
-                             </button>
-                         </div>
-                         {uploadStatus && <p className={`text-xs font-bold text-center ${uploadStatus.startsWith('Erro') ? 'text-red-500' : 'text-green-600'} animate-pulse`}>{uploadStatus}</p>}
-                    </div>
-
-                    <div className="lg:col-span-2 space-y-3">
-                        <label className="block text-sm font-bold text-gray-700">URLs das Imagens (Ou gerenciamento)</label>
-                        <div className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
-                            {(formData.images || []).map((img, index) => (
-                                <div key={index} className="flex items-center gap-2 group">
-                                    <div className="w-10 h-10 rounded border border-gray-200 bg-gray-100 flex-shrink-0 overflow-hidden">
-                                        <img src={img || 'https://placehold.co/40x40/eee/ccc?text=?'} alt="Thumb" className="w-full h-full object-cover" />
-                                    </div>
-                                    <input type="text" value={img} onChange={(e) => handleImageArrayChange(index, e.target.value)} className="flex-grow px-3 py-2 bg-white border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-indigo-500 text-gray-600" placeholder="https://..." />
-                                    <button type="button" onClick={() => removeImageField(index)} className="p-2 text-gray-400 hover:text-red-500 transition-colors"><TrashIcon className="h-4 w-4"/></button>
-                                </div>
-                            ))}
-                        </div>
-                        <button type="button" onClick={addImageField} className="text-xs font-bold text-indigo-600 hover:underline">+ Adicionar campo de URL</button>
-                    </div>
-
-                    <div className="lg:col-span-3">
-                         <label className="block text-sm font-bold text-gray-700 mb-1">Link do Vídeo (YouTube)</label>
-                         <input type="url" name="video_url" value={formData.video_url || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="https://www.youtube.com/watch?v=..." />
+                <div className="lg:col-span-3 grid grid-cols-1 gap-4">
+                    <div className="flex items-center pt-2">
+                        <input type="checkbox" name="is_active" id="is_active_checkbox" checked={!!formData['is_active']} onChange={handleChange} className="h-5 w-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500" />
+                        <label htmlFor="is_active_checkbox" className="ml-2 text-sm font-medium text-gray-700">Produto Ativo</label>
                     </div>
                 </div>
-            </FormSection>
 
-            {/* --- DETALHES GERAIS E DIMENSÕES --- */}
-            <FormSection title="Descrição e Entrega" icon={BoxIcon}>
-                 <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Descrição Completa</label>
-                        <textarea name="description" value={formData.description || ''} onChange={handleChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-32" placeholder="Descreva os detalhes, benefícios e diferenciais do produto..."></textarea>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-100">
-                        <div className="md:col-span-4 mb-1">
-                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Dimensões para Frete</p>
+            </div>
+            
+            {/* ... restante do código mantido igual (uploads e variações) ... */}
+            <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
+                <h3 className="font-semibold text-gray-800">Gerenciamento de Imagens Principais</h3>
+                <div>
+                     <label className="block text-sm font-medium text-gray-700 mb-1">Fazer Upload de Novas Imagens</label>
+                     <input type="file" multiple accept="image/*" ref={mainGalleryInputRef} onChange={handleImageChange} className="hidden" />
+                     <input type="file" accept="image/*" capture="environment" ref={mainCameraInputRef} onChange={handleImageChange} className="hidden" />
+                     <div className="flex gap-2">
+                        <button type="button" onClick={() => mainGalleryInputRef.current.click()} className="w-1/2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-md flex items-center justify-center gap-2"><UploadIcon className="h-5 w-5" /> Galeria</button>
+                        <button type="button" onClick={() => mainCameraInputRef.current.click()} className="w-1/2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-md flex items-center justify-center gap-2"><CameraIcon className="h-5 w-5" /> Câmera</button>
+                     </div>
+                     {uploadStatus && <p className={`text-sm mt-2 ${uploadStatus.startsWith('Erro') ? 'text-red-500' : 'text-green-500'}`}>{uploadStatus}</p>}
+                </div>
+                 <div>
+                     <label className="block text-sm font-medium text-gray-700 mt-4">URLs das Imagens</label>
+                     {(formData.images || []).map((img, index) => (
+                        <div key={index} className="flex items-center space-x-2 mt-2">
+                            <img src={img || 'https://placehold.co/40x40/eee/ccc?text=?'} alt="Thumbnail" className="w-10 h-10 object-cover rounded-md border" />
+                            <input type="text" value={img} onChange={(e) => handleImageArrayChange(index, e.target.value)} className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder={`URL da Imagem ${index + 1}`} />
+                            <button type="button" onClick={() => removeImageField(index)} className="p-2 bg-red-100 text-red-600 rounded-md flex-shrink-0 hover:bg-red-200"><TrashIcon className="h-4 w-4"/></button>
                         </div>
-                        <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Peso (kg)</label>
-                            <input type="number" name="weight" value={formData.weight || ''} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md text-sm" step="0.01" required />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Largura (cm)</label>
-                            <input type="number" name="width" value={formData.width || ''} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md text-sm" required />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Altura (cm)</label>
-                            <input type="number" name="height" value={formData.height || ''} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md text-sm" required />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Comp. (cm)</label>
-                            <input type="number" name="length" value={formData.length || ''} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md text-sm" required />
-                        </div>
-                    </div>
-                 </div>
-            </FormSection>
+                     ))}
+                     <button type="button" onClick={addImageField} className="mt-3 text-sm text-blue-600 hover:text-blue-800">Adicionar URL manualmente</button>
+                </div>
+            </div>
 
-            {/* --- AÇÕES FIXAS --- */}
-            <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 -mx-1 flex justify-end gap-3 rounded-b-lg shadow-lg z-20">
-                <button type="button" onClick={onCancel} className="px-6 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-bold hover:bg-gray-50 transition-colors">
-                    Cancelar
-                </button>
-                <button type="submit" className="px-8 py-2.5 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-md transition-all transform active:scale-95 flex items-center gap-2">
-                    <CheckIcon className="h-5 w-5"/>
-                    Salvar Produto
-                </button>
+            <AnimatePresence mode="wait">
+                <motion.div
+                    key={productType}
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-4"
+                >
+                    {productType === 'perfume' && perfumeFields.map(field => (
+                        <div key={field.name}>
+                            <label className="block text-sm font-medium text-gray-700">{field.label}</label>
+                            {field.type === 'textarea' ? (
+                                <textarea name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm h-24" required={field.required}></textarea>
+                            ) : (
+                            <input type={field.type} name={field.name} value={formData[field.name] || ''} onChange={handleChange} onBlur={field.name === 'volume' ? handleVolumeBlur : null} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required={field.required} />
+                            )}
+                        </div>
+                    ))}
+                    {productType === 'clothing' && clothingFields.map(field => {
+                        if (field.name === 'variations') {
+                             const seenColors = new Set();
+                            return (
+                                <div key={field.name} className="p-4 border rounded-lg bg-gray-50 space-y-3">
+                                    <h3 className="font-semibold text-gray-800">{field.label}</h3>
+                                    {(formData.variations || []).map((v, i) => {
+                                        let isFirst = false;
+                                        if (v.color && !seenColors.has(v.color)) {
+                                            seenColors.add(v.color);
+                                            isFirst = true;
+                                        }
+                                        return (
+                                            <VariationInputRow 
+                                                key={i} 
+                                                variation={v} 
+                                                index={i} 
+                                                onVariationChange={handleVariationChange}
+                                                onRemoveVariation={removeVariation}
+                                                availableColors={allColors} // Usa a lista completa de cores padrão
+                                                availableSizes={availableSizes}
+                                                onImageUpload={(e) => handleVariationImageUpload(i, e)}
+                                                uploadStatus={uploadingStatus[i]}
+                                                isFirstOfColor={isFirst}
+                                            />
+                                        )
+                                    })}
+                                    <button type="button" onClick={addVariation} className="w-full text-sm text-blue-600 hover:text-blue-800 border-dashed border-2 p-2 rounded-md hover:border-blue-500">
+                                        + Adicionar Variação
+                                    </button>
+                                </div>
+                            );
+                        }
+                        return (
+                            <div key={field.name}>
+                                <label className="block text-sm font-medium text-gray-700">{field.label}</label>
+                                <textarea name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm h-24" required={field.required}></textarea>
+                            </div>
+                        );
+                    })}
+                </motion.div>
+            </AnimatePresence>
+
+            <div className="flex justify-end space-x-3 pt-4 border-t mt-6">
+                <button type="button" onClick={onCancel} className="px-6 py-2 bg-gray-200 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
+                <button type="submit" className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 font-semibold">Salvar</button>
             </div>
         </form>
     );
@@ -10862,10 +8697,6 @@ const AdminProducts = ({ onNavigate }) => {
   const [bulkEndDate, setBulkEndDate] = useState('');
   const [isApplyingBulk, setIsApplyingBulk] = useState(false);
   const [isClearingPromos, setIsClearingPromos] = useState(false); 
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
-
-  // NOVO ESTADO: Controle da tela de carregamento em tela cheia para ações em massa
-  const [bulkProgress, setBulkProgress] = useState({ isRunning: false, text: '' });
 
   const [searchTerm, setSearchTerm] = useState('');
   const [uniqueBrands, setUniqueBrands] = useState([]);
@@ -10981,108 +8812,11 @@ const AdminProducts = ({ onNavigate }) => {
                 await apiService(`/products/${id}`, 'DELETE');
                 fetchProducts();
                 notification.show('Produto deletado com sucesso.');
-                setSearchTerm(''); // Limpa a barra de pesquisa para evitar o bug de tela vazia com autofill
               } catch(error) {
                 notification.show(`Erro ao deletar produto: ${error.message}`, 'error');
               }
           },
           { requiresAuth: true, confirmText: 'Deletar', confirmColor: 'bg-red-600 hover:bg-red-700' }
-      );
-  };
-
-  // --- Exclusão em Massa ---
-  const handleBulkDelete = () => {
-      if (selectedProducts.length === 0) return;
-      
-      confirmation.show(
-          `Tem certeza que deseja EXCLUIR permanentemente os ${selectedProducts.length} produto(s) selecionado(s)?`,
-          async () => {
-              setBulkProgress({ isRunning: true, text: `Excluindo ${selectedProducts.length} produto(s)...` });
-              try {
-                  await apiService('/products', 'DELETE', { ids: selectedProducts });
-                  notification.show(`${selectedProducts.length} produto(s) excluído(s) com sucesso.`);
-                  setSearchTerm('');
-                  setSelectedProducts([]);
-                  fetchProducts();
-              } catch (error) {
-                  notification.show(`Erro ao excluir produtos: ${error.message}`, 'error');
-              } finally {
-                  setBulkProgress({ isRunning: false, text: '' });
-              }
-          },
-          { requiresAuth: true, confirmText: 'Excluir Selecionados', confirmColor: 'bg-red-600 hover:bg-red-700' }
-      );
-  };
-
-  // --- Ativação/Inativação em Massa ---
-  const handleBulkStatusUpdate = async (newStatus) => {
-      if (selectedProducts.length === 0) return;
-      const actionText = newStatus ? 'ATIVAR' : 'INATIVAR';
-
-      confirmation.show(
-          `Tem certeza que deseja ${actionText} os ${selectedProducts.length} produto(s) selecionado(s)?`,
-          async () => {
-              setIsUpdatingStatus(true);
-              setBulkProgress({ isRunning: true, text: `${newStatus ? 'Ativando' : 'Inativando'} ${selectedProducts.length} produto(s)...` });
-              try {
-                  // Processa de forma sequencial para não sobrecarregar o pool de conexões do MySQL
-                  for (const id of selectedProducts) {
-                      const product = products.find(p => p.id === id);
-                      if (!product) continue;
-
-                      // Clona o produto e limpa campos excedentes gerados pelo select de agregação (evita conflito)
-                      const payload = { ...product, is_active: newStatus ? 1 : 0 };
-                      delete payload.avg_rating;
-                      delete payload.review_count;
-                      delete payload.created_at;
-
-                      // Converte null para string vazia em todos os campos de texto opcionais
-                      const textFields = ['description', 'notes', 'how_to_use', 'ideal_for', 'volume', 'size_guide', 'care_instructions', 'video_url'];
-                      textFields.forEach(field => {
-                          if (payload[field] === null || payload[field] === undefined) {
-                              payload[field] = '';
-                          }
-                      });
-
-                      if (payload.sale_end_date && payload.sale_end_date !== '') {
-                          payload.sale_end_date = new Date(payload.sale_end_date).toISOString();
-                      } else {
-                          payload.sale_end_date = null;
-                      }
-
-                      if (!payload.sale_price) payload.sale_price = null;
-                      
-                      // Sanitização de arrays/objetos
-                      if (payload.product_type === 'clothing') {
-                          if (!payload.variations || payload.variations === 'null') {
-                              payload.variations = '[]';
-                          } else if (typeof payload.variations === 'object') {
-                              payload.variations = JSON.stringify(payload.variations);
-                          }
-                      } else {
-                          payload.variations = '[]';
-                      }
-                      
-                      if (typeof payload.images === 'object') {
-                          payload.images = JSON.stringify(payload.images);
-                      } else if (!payload.images || payload.images === 'null') {
-                          payload.images = '[]';
-                      }
-
-                      await apiService(`/products/${id}`, 'PUT', payload);
-                  }
-
-                  notification.show(`${selectedProducts.length} produto(s) atualizado(s) com sucesso!`);
-                  setSelectedProducts([]);
-                  fetchProducts();
-              } catch (error) {
-                  notification.show(`Erro ao atualizar status: ${error.message}`, 'error');
-              } finally {
-                  setIsUpdatingStatus(false);
-                  setBulkProgress({ isRunning: false, text: '' });
-              }
-          },
-          { requiresAuth: true, confirmText: `Sim, ${actionText}`, confirmColor: newStatus ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-700' }
       );
   };
 
@@ -11113,7 +8847,6 @@ const AdminProducts = ({ onNavigate }) => {
       }
       
       setIsApplyingBulk(true);
-      setBulkProgress({ isRunning: true, text: `Aplicando desconto em ${selectedProducts.length} produto(s)...` });
       try {
           const formattedEndDate = isBulkLimitedTime ? new Date(bulkEndDate).toISOString() : null;
 
@@ -11135,10 +8868,10 @@ const AdminProducts = ({ onNavigate }) => {
           notification.show(`Erro ao aplicar promoção: ${error.message}`, 'error');
       } finally {
           setIsApplyingBulk(false);
-          setBulkProgress({ isRunning: false, text: '' });
       }
   };
 
+  // --- NOVA LÓGICA: ENCERRAR PROMOÇÕES APENAS DOS SELECIONADOS ---
   const handleClearSelectedPromotions = () => {
       if (selectedProducts.length === 0) return;
 
@@ -11146,49 +8879,24 @@ const AdminProducts = ({ onNavigate }) => {
           `Tem certeza que deseja ENCERRAR a promoção de ${selectedProducts.length} produtos selecionados?`,
           async () => {
               setIsClearingPromos(true);
-              setBulkProgress({ isRunning: true, text: `Encerrando promoções de ${selectedProducts.length} produto(s)...` });
               try {
                   const result = await apiService('/products/bulk-clear-promo', 'PUT', { productIds: selectedProducts });
                   notification.show(result.message);
                   setSearchTerm(''); 
-                  setSelectedProducts([]); 
+                  setSelectedProducts([]); // Limpa a seleção
                   fetchProducts();
               } catch (error) {
                   notification.show(`Erro ao encerrar promoções: ${error.message}`, 'error');
               } finally {
                   setIsClearingPromos(false);
-                  setBulkProgress({ isRunning: false, text: '' });
               }
           },
           { requiresAuth: true, confirmText: 'Encerrar Promoções', confirmColor: 'bg-red-600 hover:bg-red-700' }
       );
   };
 
-  // Verificações lógicas para exibir botões apropriados na barra de ações em massa
-  const hasInactiveSelected = selectedProducts.some(id => products.find(p => p.id === id)?.is_active === 0);
-  const hasActiveSelected = selectedProducts.some(id => products.find(p => p.id === id)?.is_active === 1);
-
   return (
     <div>
-        {/* OVERLAY DE CARREGAMENTO EM TELA CHEIA */}
-        <AnimatePresence>
-            {bulkProgress.isRunning && (
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-900/80 backdrop-blur-sm"
-                >
-                    <div className="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center transform transition-all">
-                        <SpinnerIcon className="h-14 w-14 text-indigo-600 mb-5 animate-spin" />
-                        <h3 className="text-xl font-extrabold text-slate-800 mb-2">Processando</h3>
-                        <p className="text-sm font-medium text-slate-600">{bulkProgress.text}</p>
-                        <p className="text-xs text-slate-400 mt-4">Por favor, não feche esta janela.</p>
-                    </div>
-                </motion.div>
-            )}
-        </AnimatePresence>
-
         <AnimatePresence>
             {isBulkPromoModalOpen && (
                 <Modal isOpen={isBulkPromoModalOpen} onClose={() => setIsBulkPromoModalOpen(false)} title={`Aplicar Promoção em ${selectedProducts.length} Produtos`}>
@@ -11237,8 +8945,8 @@ const AdminProducts = ({ onNavigate }) => {
                         )}
 
                         <div className="flex justify-end gap-3 pt-4 border-t">
-                            <button type="button" onClick={() => setIsBulkPromoModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50" disabled={isApplyingBulk}>Cancelar</button>
-                            <button type="submit" disabled={isApplyingBulk} className="px-6 py-2 bg-amber-500 text-black font-bold rounded-md hover:bg-amber-400 flex items-center gap-2 disabled:opacity-50">
+                            <button type="button" onClick={() => setIsBulkPromoModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
+                            <button type="submit" disabled={isApplyingBulk} className="px-6 py-2 bg-amber-500 text-black font-bold rounded-md hover:bg-amber-400 flex items-center gap-2">
                                 {isApplyingBulk ? <SpinnerIcon className="h-5 w-5"/> : <SaleIcon className="h-5 w-5"/>}
                                 Aplicar Desconto
                             </button>
@@ -11272,61 +8980,39 @@ const AdminProducts = ({ onNavigate }) => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
             <h1 className="text-3xl font-bold">Gerenciar Produtos</h1>
             <div className="flex flex-wrap gap-2">
-                <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2 shadow-sm transition-colors">
+                
+                {/* --- BOTÃO DE AÇÃO EM MASSA (SÓ APARECE SE TIVER SELEÇÃO) --- */}
+                {selectedProducts.length > 0 && (
+                    <>
+                        <button onClick={() => setIsBulkPromoModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 flex items-center space-x-2 font-bold animate-pulse">
+                            <SaleIcon className="h-5 w-5"/> <span>Aplicar Promoção ({selectedProducts.length})</span>
+                        </button>
+                        
+                        <button 
+                            onClick={handleClearSelectedPromotions} 
+                            disabled={isClearingPromos}
+                            className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center space-x-2 disabled:opacity-50"
+                            title="Remove a promoção apenas dos produtos selecionados"
+                        >
+                            {isClearingPromos ? <SpinnerIcon className="h-5 w-5"/> : <XMarkIcon className="h-5 w-5"/>}
+                            <span>Encerrar ({selectedProducts.length})</span>
+                        </button>
+                    </>
+                )}
+                
+                {/* O botão "Encerrar Todas" foi removido daqui para atender ao seu pedido */}
+
+                <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2">
                     <PlusIcon className="h-5 w-5"/> <span>Novo Produto</span>
                 </button>
             </div>
         </div>
-
-        {/* --- BARRA DE AÇÕES EM MASSA FLUTUANTE --- */}
-        <AnimatePresence>
-            {selectedProducts.length > 0 && (
-                <motion.div 
-                    initial={{ opacity: 0, y: -10 }} 
-                    animate={{ opacity: 1, y: 0 }} 
-                    exit={{ opacity: 0, y: -10 }}
-                    className="bg-indigo-50 border border-indigo-200 p-3 rounded-lg mb-6 flex flex-wrap items-center justify-between gap-3 sticky top-16 z-20 shadow-md"
-                >
-                    <div className="text-sm font-bold text-indigo-800 flex items-center gap-2">
-                        <span className="bg-indigo-200 text-indigo-900 px-2.5 py-0.5 rounded-full">{selectedProducts.length}</span>
-                        itens selecionados
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                        {hasInactiveSelected && (
-                            <button onClick={() => handleBulkStatusUpdate(true)} disabled={isUpdatingStatus} className="px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700 flex items-center gap-1 shadow-sm disabled:opacity-50">
-                                <CheckIcon className="h-3 w-3"/> Ativar
-                            </button>
-                        )}
-                        {hasActiveSelected && (
-                            <button onClick={() => handleBulkStatusUpdate(false)} disabled={isUpdatingStatus} className="px-3 py-1.5 bg-gray-600 text-white text-xs font-bold rounded hover:bg-gray-700 flex items-center gap-1 shadow-sm disabled:opacity-50">
-                                <XMarkIcon className="h-3 w-3"/> Inativar
-                            </button>
-                        )}
-                        <button onClick={() => setIsBulkPromoModalOpen(true)} disabled={isApplyingBulk} className="px-3 py-1.5 bg-amber-500 text-black text-xs font-bold rounded hover:bg-amber-400 flex items-center gap-1 shadow-sm disabled:opacity-50">
-                            <SaleIcon className="h-3 w-3"/> Promoção
-                        </button>
-                        <button onClick={handleClearSelectedPromotions} disabled={isClearingPromos} className="px-3 py-1.5 bg-orange-600 text-white text-xs font-bold rounded hover:bg-orange-700 flex items-center gap-1 shadow-sm disabled:opacity-50">
-                            <XMarkIcon className="h-3 w-3"/> Encerrar Promo
-                        </button>
-                        <button onClick={handleBulkDelete} disabled={bulkProgress.isRunning} className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded hover:bg-red-700 flex items-center gap-1 shadow-sm disabled:opacity-50">
-                            <TrashIcon className="h-3 w-3"/> Excluir
-                        </button>
-                        <button onClick={() => setSelectedProducts([])} disabled={bulkProgress.isRunning} className="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 text-xs font-bold rounded hover:bg-gray-100 shadow-sm ml-1 disabled:opacity-50">
-                            Cancelar
-                        </button>
-                    </div>
-                </motion.div>
-            )}
-        </AnimatePresence>
         
         <div className="mb-6">
             <input 
                 type="text" 
-                name="search_products_no_autofill" 
-                autoComplete="new-password" 
-                spellCheck="false"
-                data-lpignore="true"
-                data-form-type="other"
+                name="search_products_admin_safe" 
+                autoComplete="off" 
                 placeholder="Pesquisar por nome, marca ou categoria..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
@@ -11347,7 +9033,6 @@ const AdminProducts = ({ onNavigate }) => {
                             <th className="p-4">Tipo</th>
                             <th className="p-4">Preço</th>
                             <th className="p-4">Promoção</th>
-                            <th className="p-4">Vendas</th>
                             <th className="p-4">Estoque</th>
                             <th className="p-4">Status</th>
                             <th className="p-4">Ações</th>
@@ -11358,8 +9043,8 @@ const AdminProducts = ({ onNavigate }) => {
                             const isTimeLimited = p.is_on_sale && p.sale_end_date && new Date(p.sale_end_date).getTime() > new Date().getTime();
                             
                             return (
-                                <tr key={p.id} className={`border-b ${selectedProducts.includes(p.id) ? 'bg-indigo-50' : ''} ${p.stock < LOW_STOCK_THRESHOLD ? 'bg-red-50' : ''}`}>
-                                    <td className="p-4"><input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="h-4 w-4 text-indigo-600 rounded focus:ring-indigo-500" /></td>
+                                <tr key={p.id} className={`border-b ${selectedProducts.includes(p.id) ? 'bg-amber-50' : ''} ${p.stock < LOW_STOCK_THRESHOLD ? 'bg-red-50' : ''}`}>
+                                    <td className="p-4"><input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} /></td>
                                     <td className="p-4 flex items-center">
                                         <div className="w-10 h-10 mr-4 flex-shrink-0 bg-gray-200 rounded-md flex items-center justify-center">
                                             <img src={getFirstImage(p.images, 'https://placehold.co/40x40/222/fff?text=Img')} className="max-h-full max-w-full object-contain" alt={p.name}/>
@@ -11399,9 +9084,6 @@ const AdminProducts = ({ onNavigate }) => {
                                             <span className="text-gray-400 text-xs">-</span>
                                         )}
                                     </td>
-                                    <td className="p-4 font-semibold text-gray-700">
-                                        {p.sales || 0}
-                                    </td>
                                     <td className={`p-4 font-bold ${p.stock < LOW_STOCK_THRESHOLD ? 'text-red-600' : ''}`}>
                                         {p.stock < LOW_STOCK_THRESHOLD && <ExclamationIcon className="h-4 w-4 inline-block mr-1 text-yellow-500"/>}
                                         {p.stock}
@@ -11417,11 +9099,12 @@ const AdminProducts = ({ onNavigate }) => {
                 </table>
             </div>
             
-            {/* --- VERSÃO MOBILE DO ADMIN --- */}
+            {/* --- VERSÃO MOBILE DO ADMIN (ATUALIZADA) --- */}
             <div className="md:hidden">
+                {/* Cabeçalho Mobile com Selecionar Todos */}
                 <div className="flex items-center justify-between p-4 bg-gray-50 border-b border-gray-200">
                      <label className="flex items-center gap-3 font-bold text-gray-700">
-                        <input type="checkbox" onChange={handleSelectAll} checked={filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length} className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                        <input type="checkbox" onChange={handleSelectAll} checked={filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length} className="h-5 w-5 rounded border-gray-300 text-amber-500 focus:ring-amber-500" />
                         Selecionar Todos
                      </label>
                      <span className="text-xs text-gray-500">{filteredProducts.length} itens</span>
@@ -11431,10 +9114,10 @@ const AdminProducts = ({ onNavigate }) => {
                     {filteredProducts.map(p => {
                         const isTimeLimited = p.is_on_sale && p.sale_end_date && new Date(p.sale_end_date).getTime() > new Date().getTime();
                         return (
-                            <div key={p.id} className={`bg-white border rounded-lg p-4 shadow-sm transition-colors ${selectedProducts.includes(p.id) ? 'border-indigo-400 bg-indigo-50 ring-1 ring-indigo-400' : ''}`}>
+                            <div key={p.id} className={`bg-white border rounded-lg p-4 shadow-sm ${selectedProducts.includes(p.id) ? 'border-amber-400 bg-amber-50' : ''}`}>
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-center">
-                                        <input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="mr-4 h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"/>
+                                        <input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="mr-4 h-5 w-5 rounded border-gray-300 text-amber-500 focus:ring-amber-500"/>
                                         <img src={getFirstImage(p.images, 'https://placehold.co/40x40/222/fff?text=Img')} className="h-14 w-14 object-contain mr-3 bg-gray-100 rounded"/>
                                         <div>
                                             <p className="font-bold text-gray-900 line-clamp-1">{p.name}</p>
@@ -11442,21 +9125,16 @@ const AdminProducts = ({ onNavigate }) => {
                                         </div>
                                     </div>
                                     
-                                    {/* Badge de Status e TIPO DE PRODUTO Mobile */}
+                                    {/* Badge de Status Mobile - CORREÇÃO DO 0 */}
                                     <div className="flex flex-col items-end gap-1">
-                                         <span className="bg-indigo-100 text-indigo-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase whitespace-nowrap">
-                                             {p.product_type === 'clothing' ? 'Roupa' : (p.product_type === 'perfume' ? 'Perfume' : p.product_type)}
-                                         </span>
-                                         <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold uppercase whitespace-nowrap ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'}`}>
-                                             {p.is_active ? 'Ativo' : 'Inativo'}
-                                         </span>
+                                         <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold uppercase ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'}`}>{p.is_active ? 'Ativo' : 'Inativo'}</span>
                                          {!!p.is_on_sale && (
-                                             <span className="bg-red-100 text-red-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase whitespace-nowrap">Promo</span>
+                                             <span className="bg-red-100 text-red-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">Promo</span>
                                          )}
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-3 gap-4 mt-4 text-sm border-t pt-4">
+                                <div className="grid grid-cols-2 gap-4 mt-4 text-sm border-t pt-4">
                                     <div>
                                         <strong className="text-gray-500 block text-xs uppercase tracking-wide mb-1">Preço</strong> 
                                         {!!p.is_on_sale && p.sale_price > 0 ? (
@@ -11473,12 +9151,6 @@ const AdminProducts = ({ onNavigate }) => {
                                         ) : (
                                             <span className="font-bold text-gray-800">R$ {Number(p.price).toFixed(2)}</span>
                                         )}
-                                    </div>
-                                    <div>
-                                        <strong className="text-gray-500 block text-xs uppercase tracking-wide mb-1">Vendas</strong> 
-                                        <div className="font-bold text-gray-800">
-                                            {p.sales || 0} un.
-                                        </div>
                                     </div>
                                     <div>
                                         <strong className="text-gray-500 block text-xs uppercase tracking-wide mb-1">Estoque</strong> 
@@ -11660,100 +9332,37 @@ const AdminCoupons = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCoupon, setEditingCoupon] = useState(null);
     const [productsData, setProductsData] = useState({ brands: [], categories: [] });
-    const [searchTerm, setSearchTerm] = useState(''); 
-    const [selectedCoupons, setSelectedCoupons] = useState([]); 
     const notification = useNotification();
     const confirmation = useConfirmation();
 
-    // Helper robusto para JSON
-    const tryParse = (data) => {
-        if (Array.isArray(data)) return data;
-        try {
-            const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-            return Array.isArray(parsed) ? parsed : [];
-        } catch (e) {
-            return [];
-        }
-    };
-
+    // Busca cupons e dados auxiliares (Marcas/Categorias)
     useEffect(() => {
         fetchCoupons();
-        
-        Promise.all([
-            apiService('/products/all'),
-            apiService('/collections/admin')
-        ]).then(([products, collections]) => {
-            const productBrands = products.map(p => p.brand).filter(b => b && b.trim() !== "");
-            const productCats = products.map(p => p.category).filter(c => c && c.trim() !== "");
-            const collectionCats = collections.map(c => c.filter || c.name).filter(c => c && c.trim() !== "");
-
-            const uniqueBrands = [...new Set(productBrands)].sort();
-            const uniqueCategories = [...new Set([...productCats, ...collectionCats])].sort();
-
-            setProductsData({ brands: uniqueBrands, categories: uniqueCategories });
-        }).catch(() => {});
+        apiService('/products/all').then(products => {
+            const brands = [...new Set(products.map(p => p.brand).filter(Boolean))].sort();
+            const categories = [...new Set(products.map(p => p.category).filter(Boolean))].sort();
+            setProductsData({ brands, categories });
+        });
     }, []);
 
     const fetchCoupons = () => {
         apiService('/coupons').then(setCoupons).catch(console.error);
     };
 
-    const filteredCoupons = coupons.filter(coupon => {
-        const term = searchTerm.toLowerCase();
-        const codeMatch = coupon.code.toLowerCase().includes(term);
-        return codeMatch;
-    });
-
-    const handleSelectAll = (e) => {
-        if (e.target.checked) setSelectedCoupons(filteredCoupons.map(c => c.id));
-        else setSelectedCoupons([]);
-    };
-
-    const handleSelectCoupon = (id) => {
-        setSelectedCoupons(prev => prev.includes(id) ? prev.filter(cId => cId !== id) : [...prev, id]);
-    };
-
-    const handleBulkAction = (action) => {
-         if (selectedCoupons.length === 0) return;
-         const actionText = action === 'delete' ? 'excluir' : (action === 'deactivate' ? 'desativar' : 'ativar');
-         confirmation.show(`Confirmar ${actionText} ${selectedCoupons.length} cupom(ns)?`, async () => {
-            try {
-                const promises = selectedCoupons.map(id => {
-                    if (action === 'delete') return apiService(`/coupons/${id}`, 'DELETE');
-                    const original = coupons.find(c => c.id === id);
-                    if (!original) return Promise.resolve();
-                    return apiService(`/coupons/${id}`, 'PUT', { ...original, is_active: action === 'activate' ? 1 : 0 });
-                });
-                await Promise.all(promises);
-                notification.show(`Ação concluída!`);
-                setSelectedCoupons([]);
-                fetchCoupons();
-            } catch (e) { notification.show(e.message, 'error'); }
-         });
-    };
-    
     const handleSave = async (formData) => {
         try {
-            const hasRestrictions = (formData.allowed_categories && formData.allowed_categories.length > 0) || 
-                                    (formData.allowed_brands && formData.allowed_brands.length > 0);
-            
-            const payload = {
-                ...formData,
-                is_global: hasRestrictions ? 0 : (formData.is_global ? 1 : 0),
-                allowed_categories: hasRestrictions ? formData.allowed_categories : [],
-                allowed_brands: hasRestrictions ? formData.allowed_brands : []
-            };
-
             if (formData.id) {
-                await apiService(`/coupons/${formData.id}`, 'PUT', payload);
-                notification.show('Atualizado!');
+                await apiService(`/coupons/${formData.id}`, 'PUT', formData);
+                notification.show('Cupom atualizado!');
             } else {
-                await apiService('/coupons', 'POST', payload);
-                notification.show('Criado!');
+                await apiService('/coupons', 'POST', formData);
+                notification.show('Cupom criado!');
             }
             fetchCoupons();
             setIsModalOpen(false);
-        } catch (error) { notification.show(error.message, 'error'); }
+        } catch (error) {
+            notification.show(error.message, 'error');
+        }
     };
 
     const handleDelete = (id) => {
@@ -11761,129 +9370,92 @@ const AdminCoupons = () => {
             try {
                 await apiService(`/coupons/${id}`, 'DELETE');
                 fetchCoupons();
-                notification.show('Excluído.');
+                notification.show('Cupom excluído.');
             } catch(e) { notification.show(e.message, 'error'); }
         });
     };
 
-    const CouponCountdown = ({ createdAt, validityDays }) => {
-        const [timeLeft, setTimeLeft] = useState('');
-        useEffect(() => {
-            if (!validityDays || Number(validityDays) === 0) { setTimeLeft('Permanente'); return; }
-            const calc = () => {
-                const exp = new Date(new Date(createdAt).getTime() + Number(validityDays) * 86400000);
-                const diff = exp - new Date();
-                if (diff <= 0) { setTimeLeft('Expirado'); return; }
-                const d = Math.floor(diff / 86400000);
-                const h = Math.floor((diff % 86400000) / 3600000);
-                const m = Math.floor((diff % 3600000) / 60000);
-                const s = Math.floor((diff % 60000) / 1000);
-                setTimeLeft(`${d}d ${h}h ${m}m ${s}s`);
-            };
-            calc();
-            const i = setInterval(calc, 1000);
-            return () => clearInterval(i);
-        }, [createdAt, validityDays]);
-        
-        let color = 'text-gray-500';
-        if(timeLeft === 'Expirado') color = 'text-red-500 font-bold';
-        else if(timeLeft === 'Permanente') color = 'text-green-600 font-bold';
-        else color = 'text-amber-600 font-mono';
-        return <span className={`text-xs ${color}`}>{timeLeft}</span>;
-    };
-
+    // Componente Interno do Formulário
     const CouponForm = ({ item, onSave, onCancel }) => {
         const [form, setForm] = useState(item || {
             code: '', type: 'percentage', value: '', is_active: 1, is_global: 1,
-            allowed_categories: [], allowed_brands: [], validity_days: '',
-            is_first_purchase: 0, is_single_use_per_user: 0
+            allowed_categories: [], allowed_brands: []
         });
 
         const toggleSelection = (field, value) => {
             setForm(prev => {
                 const list = prev[field] || [];
-                if (list.includes(value)) {
-                    return { ...prev, [field]: list.filter(v => v !== value) };
-                } else {
-                    return { ...prev, [field]: [...list, value], is_global: 0 };
-                }
+                if (list.includes(value)) return { ...prev, [field]: list.filter(v => v !== value) };
+                return { ...prev, [field]: [...list, value] };
             });
         };
 
         return (
-            <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4 max-h-[75vh] overflow-y-auto px-1">
-                 <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-bold">Código</label>
+                        <label className="block text-sm font-bold text-gray-700">Código</label>
                         <input type="text" value={form.code} onChange={e => setForm({...form, code: e.target.value.toUpperCase()})} className="w-full p-2 border rounded uppercase" required />
                     </div>
                     <div>
-                        <label className="block text-sm font-bold">Tipo</label>
+                        <label className="block text-sm font-bold text-gray-700">Tipo</label>
                         <select value={form.type} onChange={e => setForm({...form, type: e.target.value})} className="w-full p-2 border rounded">
-                            <option value="percentage">%</option>
-                            <option value="fixed">R$</option>
+                            <option value="percentage">Porcentagem (%)</option>
+                            <option value="fixed">Valor Fixo (R$)</option>
                             <option value="free_shipping">Frete Grátis</option>
                         </select>
                     </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                     {form.type !== 'free_shipping' && (
-                        <div>
-                            <label className="block text-sm font-bold">Valor</label>
-                            <input type="number" value={form.value} onChange={e => setForm({...form, value: e.target.value})} className="w-full p-2 border rounded" required />
-                        </div>
-                    )}
+                
+                {form.type !== 'free_shipping' && (
                     <div>
-                        <label className="block text-sm font-bold">Validade (Dias)</label>
-                        <input type="number" value={form.validity_days} onChange={e => setForm({...form, validity_days: e.target.value})} placeholder="Vazio = Eterno" className="w-full p-2 border rounded" />
+                        <label className="block text-sm font-bold text-gray-700">Valor do Desconto</label>
+                        <input type="number" value={form.value} onChange={e => setForm({...form, value: e.target.value})} className="w-full p-2 border rounded" required />
                     </div>
-                </div>
+                )}
 
-                <div className="border-t pt-4">
-                     <label className="flex items-center space-x-2 cursor-pointer mb-2 bg-gray-100 p-2 rounded">
-                        <input 
-                            type="checkbox" 
-                            checked={!!form.is_global} 
-                            onChange={e => {
-                                const checked = e.target.checked;
-                                setForm({...form, is_global: checked ? 1 : 0, allowed_categories: checked ? [] : form.allowed_categories, allowed_brands: checked ? [] : form.allowed_brands});
-                            }} 
-                        />
-                        <span className="font-bold">Cupom Global</span>
+                <div className="border-t pt-4 mt-4">
+                    <label className="flex items-center space-x-2 cursor-pointer mb-4">
+                        <input type="checkbox" checked={!!form.is_global} onChange={e => setForm({...form, is_global: e.target.checked ? 1 : 0})} className="h-5 w-5 text-green-600 rounded" />
+                        <span className="font-bold text-gray-800">Cupom Global (Válido para todo o site)</span>
                     </label>
 
-                    {(!form.is_global || form.allowed_categories.length > 0 || form.allowed_brands.length > 0) && (
-                        <div className="bg-white p-3 border rounded">
-                             <p className="text-xs text-red-600 font-bold mb-2">*Restrições (Selecione para ativar):</p>
-                             <div className="mb-2">
-                                <span className="block text-xs font-bold uppercase">Categorias</span>
-                                <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                    {!form.is_global && (
+                        <div className="bg-gray-50 p-4 rounded border animate-fade-in">
+                            <p className="text-sm text-red-600 mb-2 font-semibold">Selecione as restrições (pelo menos uma):</p>
+                            
+                            <div className="mb-4">
+                                <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Categorias Permitidas</span>
+                                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
                                     {productsData.categories.map(cat => (
-                                        <button type="button" key={cat} onClick={() => toggleSelection('allowed_categories', cat)} className={`px-2 py-0.5 text-[10px] rounded border ${form.allowed_categories?.includes(cat) ? 'bg-blue-600 text-white' : 'bg-gray-50'}`}>{cat}</button>
+                                        <button type="button" key={cat} onClick={() => toggleSelection('allowed_categories', cat)}
+                                            className={`px-3 py-1 text-xs rounded-full border ${form.allowed_categories?.includes(cat) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700'}`}
+                                        >
+                                            {cat}
+                                        </button>
                                     ))}
                                 </div>
-                             </div>
-                             <div>
-                                <span className="block text-xs font-bold uppercase">Marcas</span>
-                                <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                            </div>
+
+                            <div>
+                                <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Marcas Permitidas</span>
+                                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
                                     {productsData.brands.map(brand => (
-                                        <button type="button" key={brand} onClick={() => toggleSelection('allowed_brands', brand)} className={`px-2 py-0.5 text-[10px] rounded border ${form.allowed_brands?.includes(brand) ? 'bg-purple-600 text-white' : 'bg-gray-50'}`}>{brand}</button>
+                                        <button type="button" key={brand} onClick={() => toggleSelection('allowed_brands', brand)}
+                                            className={`px-3 py-1 text-xs rounded-full border ${form.allowed_brands?.includes(brand) ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-700'}`}
+                                        >
+                                            {brand}
+                                        </button>
                                     ))}
                                 </div>
-                             </div>
+                            </div>
                         </div>
                     )}
                 </div>
-                
-                 <div className="border-t pt-2 space-y-2 bg-yellow-50 p-2 rounded">
-                     <label className="flex items-center space-x-2"><input type="checkbox" checked={!!form.is_first_purchase} onChange={e => setForm({...form, is_first_purchase: e.target.checked ? 1 : 0})}/> <span className="text-xs">Apenas 1ª Compra</span></label>
-                     <label className="flex items-center space-x-2"><input type="checkbox" checked={!!form.is_single_use_per_user} onChange={e => setForm({...form, is_single_use_per_user: e.target.checked ? 1 : 0})}/> <span className="text-xs">Uso Único por Cliente</span></label>
-                </div>
-                <div className="pt-2"><label className="flex items-center space-x-2"><input type="checkbox" checked={!!form.is_active} onChange={e => setForm({...form, is_active: e.target.checked ? 1 : 0})}/> <span className="font-bold">Ativo</span></label></div>
 
-                <div className="flex justify-end gap-2 pt-4 border-t">
+                <div className="flex justify-end gap-3 pt-4">
                     <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-200 rounded">Cancelar</button>
-                    <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded font-bold">Salvar</button>
+                    <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded font-bold">Salvar Cupom</button>
                 </div>
             </form>
         );
@@ -11892,126 +9464,56 @@ const AdminCoupons = () => {
     return (
         <div>
             <AnimatePresence>
-                {isModalOpen && <Modal isOpen={true} onClose={() => setIsModalOpen(false)} title={editingCoupon ? 'Editar' : 'Novo'}><CouponForm item={editingCoupon} onSave={handleSave} onCancel={() => setIsModalOpen(false)} /></Modal>}
-            </AnimatePresence>
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold">Gerenciar Cupons</h1>
-                <button onClick={() => { setEditingCoupon(null); setIsModalOpen(true); }} className="bg-gray-800 text-white px-4 py-2 rounded flex items-center gap-2"><PlusIcon className="h-5 w-5"/> Novo</button>
-            </div>
-            
-            {/* Barra de Pesquisa */}
-            <div className="mb-6 relative">
-                <input type="text" placeholder="Pesquisar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-3 pl-10 border rounded shadow-sm" />
-                <div className="absolute top-1/2 left-3 transform -translate-y-1/2 text-gray-400"><SearchIcon className="h-5 w-5" /></div>
-            </div>
-
-            {/* Barra de Ações em Massa (Visível apenas se houver seleção) */}
-            <AnimatePresence>
-                {selectedCoupons.length > 0 && (
-                    <motion.div 
-                        initial={{ opacity: 0, y: -10 }} 
-                        animate={{ opacity: 1, y: 0 }} 
-                        exit={{ opacity: 0, y: -10 }}
-                        className="bg-blue-50 border border-blue-200 p-3 rounded-lg mb-6 flex flex-wrap items-center justify-between gap-3 sticky top-16 z-20 shadow-md"
-                    >
-                        <div className="text-sm font-bold text-blue-800">
-                            {selectedCoupons.length} selecionado(s)
-                        </div>
-                        <div className="flex gap-2">
-                            <button onClick={() => handleBulkAction('activate')} className="px-2 py-1 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700">Ativar</button>
-                            <button onClick={() => handleBulkAction('deactivate')} className="px-2 py-1 bg-yellow-500 text-white text-xs font-bold rounded hover:bg-yellow-600">Desativar</button>
-                            <button onClick={() => handleBulkAction('delete')} className="px-2 py-1 bg-red-600 text-white text-xs font-bold rounded hover:bg-red-700 flex items-center gap-1"><TrashIcon className="h-3 w-3"/> Excluir</button>
-                            <button onClick={() => setSelectedCoupons([])} className="px-2 py-1 bg-white border border-gray-300 text-gray-600 text-xs font-bold rounded hover:bg-gray-100">Cancelar</button>
-                        </div>
-                    </motion.div>
+                {isModalOpen && (
+                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingCoupon ? 'Editar Cupom' : 'Novo Cupom'}>
+                        <CouponForm item={editingCoupon} onSave={handleSave} onCancel={() => setIsModalOpen(false)} />
+                    </Modal>
                 )}
             </AnimatePresence>
 
-            {/* Seleção Múltipla Mobile (Apenas Checkbox) */}
-            <div className="md:hidden flex items-center mb-4 px-1">
-                <input 
-                    type="checkbox" 
-                    id="mobile-select-all"
-                    onChange={handleSelectAll} 
-                    checked={filteredCoupons.length > 0 && selectedCoupons.length === filteredCoupons.length}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-5 w-5 mr-2"
-                />
-                <label htmlFor="mobile-select-all" className="text-sm font-bold text-gray-700">Selecionar Todos</label>
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-3xl font-bold">Gerenciar Cupons</h1>
+                <button onClick={() => { setEditingCoupon(null); setIsModalOpen(true); }} className="bg-gray-800 text-white px-4 py-2 rounded-md flex items-center gap-2">
+                    <PlusIcon className="h-5 w-5"/> Novo Cupom
+                </button>
             </div>
 
-            <div className="hidden md:block bg-white rounded shadow overflow-hidden">
+            <div className="bg-white rounded-lg shadow overflow-hidden">
                 <table className="w-full text-left">
                     <thead className="bg-gray-100">
                         <tr>
-                            <th className="p-3 w-10"><input type="checkbox" onChange={handleSelectAll} checked={filteredCoupons.length > 0 && selectedCoupons.length === filteredCoupons.length}/></th>
-                            <th className="p-3">Código</th><th className="p-3">Regra</th><th className="p-3">Desc.</th><th className="p-3">Restrições</th><th className="p-3">Valid.</th><th className="p-3">Status</th><th className="p-3">Ações</th>
+                            <th className="p-4">Código</th>
+                            <th className="p-4">Regra</th>
+                            <th className="p-4">Desconto</th>
+                            <th className="p-4">Status</th>
+                            <th className="p-4">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredCoupons.map(c => (
+                        {coupons.map(c => (
                             <tr key={c.id} className="border-b hover:bg-gray-50">
-                                <td className="p-3"><input type="checkbox" checked={selectedCoupons.includes(c.id)} onChange={() => handleSelectCoupon(c.id)}/></td>
-                                <td className="p-3 font-mono font-bold text-blue-600">{c.code}</td>
-                                <td className="p-3 text-xs">{c.is_global ? <span className="text-green-600 font-bold">Global</span> : <span className="text-amber-600 font-bold">Restrito</span>}</td>
-                                <td className="p-3 text-sm">{c.type === 'free_shipping' ? 'Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$${c.value}`)}</td>
-                                <td className="p-3 text-xs text-gray-500">
-                                    {!c.is_global && (
-                                        <div className="flex flex-col gap-1">
-                                            {tryParse(c.allowed_brands).length > 0 && <span className="text-purple-700">M: {tryParse(c.allowed_brands).join(', ')}</span>}
-                                            {tryParse(c.allowed_categories).length > 0 && <span className="text-blue-700">C: {tryParse(c.allowed_categories).join(', ')}</span>}
-                                        </div>
-                                    )}
-                                    {!!c.is_first_purchase && <div className="text-amber-700 font-semibold">• 1ª Compra</div>}
-                                    {!!c.is_single_use_per_user && <div className="text-blue-700 font-semibold">• Uso Único</div>}
+                                <td className="p-4 font-mono font-bold text-blue-600">{c.code}</td>
+                                <td className="p-4 text-sm">
+                                    {c.is_global ? <span className="text-green-600 font-bold">Global</span> : <span className="text-amber-600 font-bold">Restrito</span>}
                                 </td>
-                                <td className="p-3"><CouponCountdown createdAt={c.created_at} validityDays={c.validity_days}/></td>
-                                <td className="p-3"><span className={`px-2 py-0.5 text-xs rounded ${c.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100'}`}>{c.is_active ? 'Ativo' : 'Inativo'}</span></td>
-                                <td className="p-3 flex gap-2">
-                                    <button onClick={() => { setEditingCoupon({ ...c, allowed_categories: tryParse(c.allowed_categories), allowed_brands: tryParse(c.allowed_brands) }); setIsModalOpen(true); }}><EditIcon className="h-4 w-4 text-gray-500"/></button>
-                                    <button onClick={() => handleDelete(c.id)}><TrashIcon className="h-4 w-4 text-red-500"/></button>
+                                <td className="p-4">{c.type === 'free_shipping' ? 'Frete Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2)}`)}</td>
+                                <td className="p-4"><span className={`px-2 py-1 text-xs rounded ${c.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{c.is_active ? 'Ativo' : 'Inativo'}</span></td>
+                                <td className="p-4 flex gap-2">
+                                    <button onClick={() => { setEditingCoupon({
+                                        ...c, 
+                                        allowed_categories: JSON.parse(c.allowed_categories || '[]'),
+                                        allowed_brands: JSON.parse(c.allowed_brands || '[]')
+                                    }); setIsModalOpen(true); }}><EditIcon className="h-5 w-5 text-gray-500"/></button>
+                                    <button onClick={() => handleDelete(c.id)}><TrashIcon className="h-5 w-5 text-red-500"/></button>
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
-            
-            <div className="md:hidden space-y-3">
-                 {filteredCoupons.map(c => (
-                    <div key={c.id} className={`bg-white border rounded p-3 relative ${selectedCoupons.includes(c.id) ? 'border-blue-400 ring-1 ring-blue-400' : ''}`}>
-                         <div className="flex justify-between">
-                            <div><h3 className="font-bold text-blue-700">{c.code}</h3><p className="text-xs">{c.type === 'free_shipping' ? 'Frete Grátis' : `${c.value}${c.type==='percentage'?'%':'R$'}`}</p></div>
-                            <input type="checkbox" checked={selectedCoupons.includes(c.id)} onChange={() => handleSelectCoupon(c.id)}/>
-                         </div>
-                         
-                         <div className="flex justify-between mt-2 text-xs text-gray-500 items-center">
-                            <span className="bg-gray-100 px-2 py-0.5 rounded">{c.is_global ? 'Global' : 'Restrito'}</span>
-                            <span className={`font-bold px-2 py-0.5 rounded ${c.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                {c.is_active ? 'Ativo' : 'Inativo'}
-                            </span>
-                            <CouponCountdown createdAt={c.created_at} validityDays={c.validity_days}/>
-                         </div>
-
-                         <div className="text-xs mt-2">
-                            {!c.is_global && (
-                                <div className="flex flex-col gap-1 text-gray-600 bg-gray-50 p-1 rounded">
-                                    {tryParse(c.allowed_brands).length > 0 && <span>M: {tryParse(c.allowed_brands).join(', ')}</span>}
-                                    {tryParse(c.allowed_categories).length > 0 && <span>C: {tryParse(c.allowed_categories).join(', ')}</span>}
-                                </div>
-                            )}
-                            {!!c.is_first_purchase && <span className="block text-amber-700 font-semibold">• 1ª Compra</span>}
-                            {!!c.is_single_use_per_user && <span className="block text-blue-700 font-semibold">• Uso Único</span>}
-                         </div>
-                         <div className="flex justify-end gap-3 mt-2 border-t pt-2">
-                            <button onClick={() => { setEditingCoupon({ ...c, allowed_categories: tryParse(c.allowed_categories), allowed_brands: tryParse(c.allowed_brands) }); setIsModalOpen(true); }} className="text-blue-600 text-xs font-bold flex gap-1"><EditIcon className="h-3 w-3"/> Edit</button>
-                            <button onClick={() => handleDelete(c.id)} className="text-red-600 text-xs font-bold flex gap-1"><TrashIcon className="h-3 w-3"/> Del</button>
-                         </div>
-                    </div>
-                 ))}
-            </div>
         </div>
     );
-};
+};;
 
 const AdminRefunds = ({ onNavigate }) => {
     const [refunds, setRefunds] = useState([]);
@@ -12210,380 +9712,79 @@ const AdminOrders = () => {
     const notification = useNotification();
 
     const [currentPage, setCurrentPage] = useState(1);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [orderIdSearch, setOrderIdSearch] = useState('');
     const [newOrdersCount, setNewOrdersCount] = useState(0);
     const [showNewOrderNotification, setShowNewOrderNotification] = useState(true);
-    const [itemsExpanded, setItemsExpanded] = useState(true);
-
     const ordersPerPage = 10;
 
     const [filters, setFilters] = useState({
         startDate: '',
         endDate: '',
         status: '',
+        customerName: '',
         minPrice: '',
         maxPrice: '',
     });
 
+    // --- Estados para o Modal de Reembolso ---
     const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
     const [refundAmount, setRefundAmount] = useState(0);
     const [refundReason, setRefundReason] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
 
-    // --- STATUS BASE ---
-    const allStatuses = [
-        'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 
-        'Pronto para Retirada', 'Enviado', 'Saiu para Entrega', 
-        'Entregue', 'Pagamento Recusado', 'Cancelado'
+    // Define os fluxos de status separados
+    const shippingStatuses = [
+        'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue',
+        'Pagamento Recusado', 'Cancelado', /* 'Reembolsado' removido */
+    ];
+    const pickupStatuses = [
+        'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Pronto para Retirada', 'Entregue',
+        'Pagamento Recusado', 'Cancelado', /* 'Reembolsado' removido */
     ];
 
-    // --- HELPER VISUAL DE ENVIO ---
-    const getShippingDisplay = (method) => {
-        const lower = method ? method.toLowerCase() : '';
-        if (lower.includes('retirar') || lower.includes('loja')) {
-            return { 
-                icon: <BoxIcon className="h-4 w-4"/>, 
-                label: 'Retirada',
-                fullText: 'Retirada na Loja', 
-                classes: 'bg-purple-100 text-purple-700 border border-purple-200' 
-            };
-        }
-        if (lower.includes('motoboy') || lower.includes('delivery') || lower.includes('local')) {
-            return { 
-                icon: <TruckIcon className="h-4 w-4"/>, 
-                label: 'Motoboy',
-                fullText: 'Entrega Local (Moto)', 
-                classes: 'bg-blue-100 text-blue-700 border border-blue-200' 
-            };
-        }
-        return { 
-            icon: <TruckIcon className="h-4 w-4"/>, 
-            label: 'Correios',
-            fullText: method || 'Envio Padrão', 
-            classes: 'bg-amber-100 text-amber-700 border border-amber-200' 
-        };
-    };
-
-    // --- COMPONENTE DE TIMELINE INTERNO ---
-    const TimelineDisplay = ({ order }) => {
-        const isLocalDelivery = order.shipping_method && (order.shipping_method.toLowerCase().includes('motoboy') || order.shipping_method.toLowerCase().includes('entrega local'));
-        const isPickup = order.shipping_method === 'Retirar na loja';
-        
-        let timelineOrder = [];
-        let displayLabels = {};
-
-        if (isLocalDelivery) {
-            timelineOrder = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Saiu para Entrega', 'Entregue'];
-            displayLabels = { 'Pendente': 'Pendente', 'Pagamento Aprovado': 'Aprovado', 'Separando Pedido': 'Separando', 'Saiu para Entrega': 'Em Rota', 'Entregue': 'Entregue' };
-        } else if (isPickup) {
-            timelineOrder = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Pronto para Retirada', 'Entregue'];
-            displayLabels = { 'Pendente': 'Pendente', 'Pagamento Aprovado': 'Aprovado', 'Separando Pedido': 'Separando', 'Pronto para Retirada': 'Pronto', 'Entregue': 'Retirado' };
-        } else { 
-            timelineOrder = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue'];
-            displayLabels = { 'Pendente': 'Pendente', 'Pagamento Aprovado': 'Aprovado', 'Separando Pedido': 'Separando', 'Enviado': 'Enviado', 'Saiu para Entrega': 'Saiu p/ Entrega', 'Entregue': 'Entregue' };
-        }
-
-        if (['Cancelado', 'Pagamento Recusado', 'Reembolsado'].includes(order.status)) {
-            return (
-                <div className="w-full p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-center gap-3 mb-6">
-                     <XCircleIcon className="h-6 w-6 text-red-600" />
-                     <div className="text-center">
-                         <p className="font-bold text-red-800 text-lg uppercase tracking-wide">{order.status}</p>
-                         <p className="text-xs text-red-600">O fluxo deste pedido foi interrompido.</p>
-                     </div>
-                </div>
-            );
-        }
-
-        const currentStatusIndex = timelineOrder.indexOf(order.status);
-        const progressWidth = currentStatusIndex >= 0 
-            ? (currentStatusIndex / (timelineOrder.length - 1)) * 100 
-            : 0;
-
-        return (
-            <div className="w-full py-6 mb-4">
-                <div className="flex items-center justify-between relative">
-                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-200 -z-10 rounded-full"></div>
-                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 bg-green-500 -z-10 rounded-full transition-all duration-500" style={{ width: `${progressWidth}%` }}></div>
-                    {timelineOrder.map((statusKey, index) => {
-                        const isCompleted = index <= currentStatusIndex;
-                        const isCurrent = statusKey === order.status;
-                        return (
-                            <div key={statusKey} className="flex flex-col items-center group">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center border-4 transition-all duration-300 z-10 ${isCompleted ? 'bg-green-500 border-green-500 scale-110' : 'bg-white border-gray-300'}`}>
-                                    {isCompleted && <CheckIcon className="h-4 w-4 text-white stroke-2" />}
-                                </div>
-                                <p className={`absolute -bottom-8 text-[10px] font-bold text-center w-20 transition-colors ${isCurrent ? 'text-green-700' : (isCompleted ? 'text-gray-600' : 'text-gray-400')}`}>
-                                    {displayLabels[statusKey]}
-                                </p>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-        );
-    };
-
-    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS (RESTAURADA) ---
-    const generateWhatsAppStatusMessage = (status, order, trackingCode) => {
-        const customerName = order.user_name;
-        const orderId = order.id;
-        const firstName = customerName ? customerName.split(' ')[0] : 'Cliente';
-        const isPickup = order.shipping_method === 'Retirar na loja';
-        const isLocalDelivery = order.shipping_method && (order.shipping_method.toLowerCase().includes('motoboy') || order.shipping_method.toLowerCase().includes('entrega local'));
-        
-        // Link principal para detalhes (acompanhamento)
-        const orderLink = `${window.location.origin}/#account/orders/${orderId}`;
-        // Link específico para pagamento direto (Página de Sucesso/Checkout)
-        const paymentLink = `${window.location.origin}/#order-success/${orderId}`;
-
-        const EMOJI = {
-            PACKAGE: String.fromCodePoint(0x1F4E6),
-            TRUCK: String.fromCodePoint(0x1F69A),
-            DOC: String.fromCodePoint(0x1F4C4),
-            LINK: String.fromCodePoint(0x1F517),
-            MOTO: String.fromCodePoint(0x1F6F5),
-            CHECK: String.fromCodePoint(0x2705),
-            BAGS: String.fromCodePoint(0x1F6CD, 0xFE0F),
-            PIN: String.fromCodePoint(0x1F4CD),
-            CLOCK: String.fromCodePoint(0x23F0),
-            MONEY: String.fromCodePoint(0x1F4B8),
-            CROSS: String.fromCodePoint(0x274C),
-            WARN: String.fromCodePoint(0x26A0, 0xFE0F),
-            NEW: String.fromCodePoint(0x1F195),
-            PHONE: String.fromCodePoint(0x1F4F1),
-            HOUSE: String.fromCodePoint(0x1F3E0),
-            ROCKET: String.fromCodePoint(0x1F680),
-            PAY: String.fromCodePoint(0x1F4B3)
-        };
-
-        let text = `Olá, *${firstName}*.\n\n`;
-
-        // --- LÓGICA ESPECIAL PARA COBRANÇA (PENDENTE) ---
-        if (status === 'Pendente') {
-             text += `🔔 *Lembrete de Pagamento: Pedido #${orderId}*\n\n`;
-             text += `Recebemos seu pedido, mas ainda não identificamos a confirmação do pagamento.\n\n`;
-             
-             text += `${EMOJI.PAY} *Para realizar o pagamento, acesse:* \n${paymentLink}\n\n`;
-             
-             text += `⚠️ *Caso já tenha efetuado o pagamento:* \nPor favor, desconsidere esta mensagem. O sistema pode levar alguns instantes para processar.\n\n`;
-             
-             text += `${EMOJI.DOC} *Acompanhe o status do pedido aqui:* \n${orderLink}\n\n`;
-             
-             text += `${EMOJI.CHECK} Assim que confirmado, você será notificado automaticamente por aqui e por e-mail.\n`;
-             
-             // Encerra a mensagem aqui para focar na ação de pagamento
-             text += `\nAtenciosamente,\n*Equipe Love Cestas e Perfumes*\n${EMOJI.PHONE} (83) 98737-9573`;
-             return text;
-        }
-
-        // --- LÓGICA PADRÃO PARA OUTROS STATUS ---
-        text += `O status do seu pedido *#${orderId}* foi atualizado:\n\n`;
-
-        switch (status) {
-            case 'Separando Pedido':
-                text += `${EMOJI.PACKAGE} *Novo Status: Preparado o pedido para envio*\n`;
-                text += `Estamos separando seus itens com cuidado.`;
-                break;
-            case 'Enviado': 
-                text += `${EMOJI.TRUCK} *Novo Status: Pedido Enviado*\n`;
-                if (trackingCode) text += `\n\n${EMOJI.DOC} *Rastreio:* ${trackingCode}\n${EMOJI.LINK} *Acompanhe:* https://linketrack.com/track?codigo=${trackingCode}`;
-                break;
-            case 'Saiu para Entrega':
-                if (isLocalDelivery) {
-                    text += `${EMOJI.MOTO} *Novo Status: Saiu para entrega (Motoboy)*\n`;
-                    text += `O motorista já está a caminho do seu endereço.`;
-                    if (trackingCode && trackingCode.startsWith('http')) {
-                        text += `\n\n${EMOJI.LINK} *Acompanhe em tempo real:*\n${trackingCode}`;
-                    }
-                } else {
-                    text += `${EMOJI.MOTO} *Novo Status: Saiu para Entrega*\n`;
-                    text += `Seu pedido está em rota de entrega pelos Correios.`;
-                }
-                break;
-            case 'Entregue':
-                text += `${EMOJI.CHECK} *Novo Status: Pedido entregue*\n`;
-                text += `Confirmamos a entrega. Esperamos que goste dos produtos!`;
-                break;
-            case 'Pronto para Retirada':
-                text += `${EMOJI.BAGS} *Novo Status: Pronto para Retirada*\n`;
-                text += `Já disponível em nossa loja.`;
-                break;
-            case 'Pagamento Aprovado':
-                text += `${EMOJI.MONEY} *Novo Status: Pagamento Aprovado*\n`;
-                text += `Pagamento confirmado. Iniciaremos a separação.`;
-                break;
-            case 'Cancelado':
-                text += `${EMOJI.CROSS} *Novo Status: Cancelado*\n`;
-                text += `O pedido foi cancelado. Se tiver dúvidas, estamos à disposição.`;
-                break;
-            case 'Pagamento Recusado':
-                text += `${EMOJI.WARN} *Novo Status: Pagamento Recusado*\n`;
-                text += `O pagamento não foi autorizado. Tente novamente ou entre em contato.`;
-                break;
-            case 'Reembolsado':
-                text += `${EMOJI.MONEY} *Novo Status: Reembolsado*\n`;
-                text += `O reembolso do seu pedido foi processado.`;
-                break;
-            default:
-                text += `${EMOJI.NEW} *Novo Status:* ${status}`;
-        }
-
-        // Se cancelado, recusado ou reembolsado, NÃO mostra endereço
-        if (status !== 'Cancelado' && status !== 'Reembolsado' && status !== 'Pagamento Recusado') {
-             text += `\n\n--------------------------------\n`;
-             if (isPickup) {
-                text += `${EMOJI.PIN} *Local de Retirada:*\nR. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB\n\n`;
-                text += `${EMOJI.CLOCK} *Horário:* Seg a Sáb, 09h-11h30 e 15h-17h30\n`;
-                text += `${EMOJI.DOC} *Necessário:* Documento com foto e número do pedido.`;
-            } else {
-                try {
-                    const addr = JSON.parse(order.shipping_address);
-                    if (addr) {
-                        text += `${EMOJI.HOUSE} *Endereço de Entrega:*\n`;
-                        text += `${addr.logradouro}, ${addr.numero}\n`;
-                        if (addr.bairro) text += `${addr.bairro} - `;
-                        text += `${addr.localidade}/${addr.uf}`;
-                    }
-                } catch (e) {
-                    text += `${EMOJI.TRUCK} Envio para o endereço cadastrado.`;
-                }
-            }
-        }
-
-        text += `\n\n${EMOJI.LINK} *Detalhes no site:*\n${orderLink}`;
-        text += `\n\nAtenciosamente,\n*Equipe Love Cestas e Perfumes*\n${EMOJI.PHONE} (83) 98737-9573`;
-        
-        return text;
-    };
-
-    const handleManualWhatsAppNotification = () => {
-        if (!editingOrder || !editingOrder.user_phone) {
-            notification.show("Telefone do cliente não disponível.", "error");
-            return;
-        }
-
-        const statusToSend = editFormData.status || editingOrder.status;
-        const trackingToSend = editFormData.tracking_code || editingOrder.tracking_code;
-
-        const message = generateWhatsAppStatusMessage(
-            statusToSend,
-            editingOrder,
-            trackingToSend
-        );
-
-        const cleanPhone = editingOrder.user_phone.replace(/\D/g, '');
-
-        if (cleanPhone.length >= 10) {
-            const waUrl = `https://api.whatsapp.com/send?phone=55${cleanPhone}&text=${encodeURIComponent(message)}`;
-            window.open(waUrl, '_blank');
-        } else {
-            notification.show("Número de telefone do cliente inválido.", "error");
-        }
-    };
-    
     const fetchOrders = useCallback(() => {
         apiService('/orders')
             .then(data => {
                 const sortedData = data.sort((a,b) => new Date(b.date) - new Date(a.date));
                 setOrders(sortedData);
+
                 const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-                const recent = sortedData.filter(o => {
+                const recentOrders = sortedData.filter(o => {
                     if (!o || !o.date) return false;
-                    const d = new Date(o.date);
-                    return !isNaN(d) && d > twentyFourHoursAgo;
+                    const orderDate = new Date(o.date);
+                    return !isNaN(orderDate) && orderDate > twentyFourHoursAgo;
                 });
-                setNewOrdersCount(recent.length);
+                setNewOrdersCount(recentOrders.length);
+
             })
-            .catch(console.error);
+            .catch(err => console.error("Falha ao buscar pedidos:", err));
     }, []);
 
-    useEffect(() => { fetchOrders(); }, [fetchOrders]);
-    
     useEffect(() => {
-        let temp = [...orders];
-
-        if (searchTerm) {
-            const lowerTerm = searchTerm.toLowerCase();
-            temp = temp.filter(o => 
-                String(o.id).includes(lowerTerm) || 
-                (o.user_name && o.user_name.toLowerCase().includes(lowerTerm)) ||
-                (o.user_cpf && o.user_cpf.includes(lowerTerm))
-            );
-        }
-
-        if (filters.status) temp = temp.filter(o => o.status === filters.status);
-        if (filters.minPrice) temp = temp.filter(o => Number(o.total) >= Number(filters.minPrice));
-        if (filters.maxPrice) temp = temp.filter(o => Number(o.total) <= Number(filters.maxPrice));
-        
-        if (filters.startDate) {
-            const start = new Date(filters.startDate);
-            start.setHours(0,0,0,0);
-            temp = temp.filter(o => new Date(o.date) >= start);
-        }
-        if (filters.endDate) {
-            const end = new Date(filters.endDate);
-            end.setHours(23,59,59,999);
-            temp = temp.filter(o => new Date(o.date) <= end);
-        }
-
-        setFilteredOrders(temp);
-        setCurrentPage(1);
-    }, [orders, filters, searchTerm]);
-
+        fetchOrders();
+    }, [fetchOrders]);
+    
     const handleOpenEditModal = async (order) => {
         try {
-            const fullDetails = await apiService(`/orders/${order.id}`);
-            setEditingOrder(fullDetails);
-            setEditFormData({ status: fullDetails.status, tracking_code: fullDetails.tracking_code || '' });
-            setItemsExpanded(true); 
+            const fullOrderDetails = await apiService(`/orders/${order.id}`);
+            setEditingOrder(fullOrderDetails);
+            setEditFormData({
+                status: fullOrderDetails.status,
+                tracking_code: fullOrderDetails.tracking_code || ''
+            });
             setIsEditModalOpen(true);
-        } catch (e) { notification.show("Erro ao abrir pedido.", "error"); }
-    };
-
-    const handleSaveOrder = async (e) => {
-        e.preventDefault();
-        if (!editingOrder) return;
-        try {
-            await apiService(`/orders/${editingOrder.id}`, 'PUT', editFormData);
-            notification.show('Pedido atualizado!');
-            fetchOrders();
-            setIsEditModalOpen(false);
-        } catch(e) { notification.show(e.message, 'error'); }
-    };
-
-    const DetailCard = ({ title, icon: Icon, children, className = "" }) => (
-        <div className={`bg-white p-5 rounded-xl border border-gray-200 shadow-sm ${className}`}>
-            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-gray-100 pb-2">
-                {Icon && <Icon className="h-4 w-4 text-indigo-500"/>}
-                {title}
-            </h4>
-            <div className="text-sm text-gray-700 space-y-2">
-                {children}
-            </div>
-        </div>
-    );
-
-    const indexOfLastOrder = currentPage * ordersPerPage;
-    const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
-    const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
-    const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
-
-    const getStatusLabel = (status, order) => {
-        const isLocal = editingOrder?.shipping_method?.toLowerCase().includes('motoboy');
-        if (isLocal) {
-            if (status === 'Saiu para Entrega') return 'Saiu para entrega (Motoboy)';
-            if (status === 'Separando Pedido') return 'Preparado p/ envio';
+        } catch (error) {
+            notification.show("Erro ao buscar detalhes do pedido.", 'error');
+            console.error(error);
         }
-        return status;
     };
 
     const handleOpenRefundModal = () => {
         if (!editingOrder) return;
         setRefundAmount(editingOrder.total);
         setRefundReason('');
-        setIsEditModalOpen(false);
-        setIsRefundModalOpen(true);
+        setIsEditModalOpen(false); // Fecha o modal de detalhes
+        setIsRefundModalOpen(true); // Abre o modal de reembolso
     };
 
     const handleRequestRefund = async (e) => {
@@ -12613,16 +9814,64 @@ const AdminOrders = () => {
         setEditFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleSaveOrder = async (e) => {
+        e.preventDefault();
+        if (!editingOrder) return;
+        try {
+            await apiService(`/orders/${editingOrder.id}`, 'PUT', editFormData);
+            fetchOrders();
+            setIsEditModalOpen(false);
+            setEditingOrder(null);
+            notification.show('Pedido atualizado com sucesso!');
+        } catch(error) {
+            notification.show(`Erro ao atualizar pedido: ${error.message}`, 'error');
+        }
+    };
+
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
         setFilters(prev => ({ ...prev, [name]: value }));
     };
 
-    const applyFilters = useCallback(() => { /* Lógica mantida */ }, []);
+    const applyFilters = useCallback(() => {
+        let tempOrders = [...orders];
+
+        if (orderIdSearch) {
+            tempOrders = tempOrders.filter(o => String(o.id).includes(orderIdSearch));
+        }
+        
+        if (filters.startDate) {
+            tempOrders = tempOrders.filter(o => new Date(o.date) >= new Date(filters.startDate));
+        }
+        if (filters.endDate) {
+            const endOfDay = new Date(filters.endDate);
+            endOfDay.setHours(23, 59, 59, 999);
+            tempOrders = tempOrders.filter(o => new Date(o.date) <= endOfDay);
+        }
+        if (filters.status) {
+            tempOrders = tempOrders.filter(o => o.status === filters.status);
+        }
+        if (filters.customerName) {
+            tempOrders = tempOrders.filter(o => o.user_name.toLowerCase().includes(filters.customerName.toLowerCase()));
+        }
+        if (filters.minPrice) {
+            tempOrders = tempOrders.filter(o => parseFloat(o.total) >= parseFloat(filters.minPrice));
+        }
+        if (filters.maxPrice) {
+            tempOrders = tempOrders.filter(o => parseFloat(o.total) <= parseFloat(filters.maxPrice));
+        }
+        
+        setFilteredOrders(tempOrders);
+        setCurrentPage(1);
+    }, [orders, filters, orderIdSearch]);
     
+    useEffect(() => {
+        applyFilters();
+    }, [filters, orderIdSearch, orders, applyFilters]);
+
     const clearFilters = () => {
-        setFilters({ startDate: '', endDate: '', status: '', minPrice: '', maxPrice: '' });
-        setSearchTerm('');
+        setFilters({ startDate: '', endDate: '', status: '', customerName: '', minPrice: '', maxPrice: '' });
+        setOrderIdSearch('');
         setCurrentPage(1);
     }
 
@@ -12633,85 +9882,11 @@ const AdminOrders = () => {
         if (lowerStatus.includes('pendente')) return 'bg-yellow-100 text-yellow-800';
         return 'bg-blue-100 text-blue-800';
     };
-
-    // --- RENDERIZAÇÃO DO FORMULÁRIO DE ATUALIZAÇÃO (COMPONENTIZADO) ---
-    const renderUpdateOrderForm = () => {
-        const isLocalDelivery = editingOrder.shipping_method && (editingOrder.shipping_method.toLowerCase().includes('motoboy') || editingOrder.shipping_method.toLowerCase().includes('entrega local'));
-        const isPickup = editingOrder.shipping_method === 'Retirar na loja';
-        const canRequestRefund = editingOrder.payment_status === 'approved' && !editingOrder.refund_id && editingOrder.status !== 'Cancelado' && editingOrder.status !== 'Reembolsado';
-
-        let availableStatuses = [];
-        if (isLocalDelivery) availableStatuses = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Saiu para Entrega', 'Entregue', 'Cancelado', 'Pagamento Recusado'];
-        else if (isPickup) availableStatuses = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Pronto para Retirada', 'Entregue', 'Cancelado', 'Pagamento Recusado'];
-        else availableStatuses = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue', 'Cancelado', 'Pagamento Recusado'];
-
-        if (!availableStatuses.includes(editingOrder.status)) availableStatuses.push(editingOrder.status);
-
-        return (
-            <div className="bg-white p-6 rounded-xl shadow-md border border-indigo-100 mt-6 lg:mt-0">
-                <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2 border-b pb-3">
-                    <EditIcon className="h-5 w-5 text-indigo-600"/> Atualizar Status e Entrega
-                </h4>
-                <form onSubmit={handleSaveOrder} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Status do Pedido</label>
-                            <select name="status" value={editFormData.status} onChange={handleEditFormChange} className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 bg-white">
-                                {availableStatuses.map(s => <option key={s} value={s}>{getStatusLabel(s)}</option>)}
-                            </select>
-                        </div>
-                        {!isPickup && (
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                                    {isLocalDelivery ? "Link de Acompanhamento (Uber/Moto)" : "Código de Rastreio"}
-                                </label>
-                                <input 
-                                    type="text" 
-                                    name="tracking_code" 
-                                    value={editFormData.tracking_code} 
-                                    onChange={handleEditFormChange} 
-                                    placeholder={isLocalDelivery ? "Cole o link da viagem aqui" : "Ex: AA123456789BR"}
-                                    className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" 
-                                />
-                                {isLocalDelivery && <p className="text-xs text-gray-500 mt-1">Link para o cliente acompanhar o motoboy.</p>}
-                            </div>
-                        )}
-                    </div>
-                    
-                    <div className="flex flex-col-reverse md:flex-row justify-between items-center pt-4 border-t border-gray-100 gap-4">
-                        <div className="flex flex-wrap gap-3 w-full md:w-auto justify-start">
-                            {canRequestRefund ? (
-                                <button type="button" onClick={handleOpenRefundModal} className="px-4 py-2.5 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 font-bold text-sm flex items-center gap-2 transition-colors flex-grow md:flex-grow-0 justify-center">
-                                    <CurrencyDollarIcon className="h-5 w-5"/> Reembolso
-                                </button>
-                            ) : editingOrder.refund_id ? (
-                                <span className="text-xs font-bold text-orange-600 bg-orange-50 px-3 py-1 rounded-full border border-orange-200 self-center">Reembolso Solicitado</span>
-                            ) : null}
-
-                            {editingOrder.user_phone && (
-                                <button 
-                                    type="button" 
-                                    onClick={handleManualWhatsAppNotification}
-                                    className="px-4 py-2.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-bold text-sm flex items-center gap-2 transition-colors flex-grow md:flex-grow-0 justify-center"
-                                >
-                                    <WhatsappIcon className="h-5 w-5"/> Notificar
-                                </button>
-                            )}
-                        </div>
-
-                        <div className="flex flex-wrap gap-3 w-full md:w-auto">
-                            <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 md:flex-none px-6 py-2.5 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 text-sm transition-colors">
-                                Cancelar
-                            </button>
-                            <button type="submit" className="flex-1 md:flex-none px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-md text-sm transition-colors flex items-center justify-center gap-2">
-                                <CheckIcon className="h-5 w-5"/> Salvar
-                            </button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        );
-    };
+    
+    const indexOfLastOrder = currentPage * ordersPerPage;
+    const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
+    const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
+    const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
 
     return (
         <div>
@@ -12741,264 +9916,153 @@ const AdminOrders = () => {
             </AnimatePresence>
             <AnimatePresence>
                 {editingOrder && (() => {
-                    // --- VARIÁVEIS DE ESTADO ---
-                    const isLocalDelivery = editingOrder.shipping_method && (editingOrder.shipping_method.toLowerCase().includes('motoboy') || editingOrder.shipping_method.toLowerCase().includes('entrega local'));
-                    const isPickup = editingOrder.shipping_method === 'Retirar na loja';
+                    const baseStatuses = editingOrder.shipping_method === 'Retirar na loja' 
+                        ? pickupStatuses 
+                        : shippingStatuses;
+                    
+                    const availableStatuses = baseStatuses.filter(s => s !== 'Reembolsado');
+
+                    if (!availableStatuses.includes(editingOrder.status)) {
+                        availableStatuses.push(editingOrder.status);
+                    }
+
+                    const canRequestRefund = editingOrder.payment_status === 'approved' && !editingOrder.refund_id && editingOrder.status !== 'Cancelado' && editingOrder.status !== 'Reembolsado';
 
                     return (
-                        <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Pedido #${editingOrder.id}`} size="3xl">
-                            <div className="bg-gray-50/50 -m-6 p-4 sm:p-6 pb-24">
-                                
-                                {/* 1. Timeline */}
-                                <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
-                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-2">
-                                        <div>
-                                            <p className="text-xs text-gray-500 font-medium">Realizado em</p>
-                                            <p className="text-sm font-bold text-gray-900">{new Date(editingOrder.date).toLocaleString('pt-BR')}</p>
-                                        </div>
-                                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border self-start sm:self-auto ${
-                                            editingOrder.status === 'Entregue' ? 'bg-green-50 text-green-700 border-green-200' :
-                                            editingOrder.status === 'Cancelado' ? 'bg-red-50 text-red-700 border-red-200' :
-                                            'bg-blue-50 text-blue-700 border-blue-200'
-                                        }`}>
-                                            {editingOrder.status}
-                                        </span>
+                        <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Detalhes do Pedido #${editingOrder.id}`}>
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4 text-sm items-start">
+                                    <div>
+                                        <h4 className="font-bold text-gray-700 mb-1">Cliente</h4>
+                                        <p>{editingOrder.user_name}</p>
                                     </div>
-                                    <TimelineDisplay order={editingOrder} />
-                                </div>
-
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                    {/* COLUNA DA ESQUERDA: Itens */}
-                                    <div className="lg:col-span-2 space-y-6">
-                                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                                            {/* Header do Accordion */}
-                                            <div 
-                                                className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center cursor-pointer select-none hover:bg-gray-100 transition-colors"
-                                                onClick={() => setItemsExpanded(!itemsExpanded)}
-                                            >
-                                                <h4 className="font-bold text-gray-700 flex items-center gap-2"><BoxIcon className="h-4 w-4"/> Itens do Pedido</h4>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xs font-medium text-gray-500">{editingOrder.items?.length || 0} itens</span>
-                                                    <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform duration-300 ${itemsExpanded ? 'rotate-180' : ''}`} />
-                                                </div>
-                                            </div>
-
-                                            {/* Conteúdo do Accordion */}
-                                            <AnimatePresence initial={false}>
-                                                {itemsExpanded && (
-                                                    <motion.div
-                                                        initial={{ height: 0, opacity: 0 }}
-                                                        animate={{ height: "auto", opacity: 1 }}
-                                                        exit={{ height: 0, opacity: 0 }}
-                                                        transition={{ duration: 0.3 }}
-                                                    >
-                                                        {/* Lista de Itens com Scroll e Badges */}
-                                                        <div className="divide-y divide-gray-100 max-h-[60vh] overflow-y-auto custom-scrollbar">
-                                                            {editingOrder.items?.map((item, idx) => {
-                                                                let variation = item.variation;
-                                                                if (typeof variation === 'string') {
-                                                                    try { variation = JSON.parse(variation); } catch(e) {}
-                                                                }
-                                                                
-                                                                // Lógica de Badge baseada na presença de variação
-                                                                const isClothing = !!variation;
-                                                                const itemTypeLabel = isClothing ? 'ROUPA' : 'PERFUME';
-                                                                const itemTypeClass = isClothing ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-purple-100 text-purple-700 border-purple-200';
-                                                                
-                                                                return (
-                                                                <div key={idx} className="p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 hover:bg-gray-50 transition-colors">
-                                                                    <div className="w-12 h-12 rounded-lg border border-gray-200 bg-white flex-shrink-0 p-1">
-                                                                        <img src={getFirstImage(item.images)} alt="" className="w-full h-full object-contain"/>
-                                                                    </div>
-                                                                    <div className="flex-grow">
-                                                                        <div className="flex items-center gap-2 mb-1">
-                                                                            <span className={`text-[10px] px-1.5 py-0.5 rounded border font-bold uppercase ${itemTypeClass}`}>
-                                                                                {itemTypeLabel}
-                                                                            </span>
-                                                                        </div>
-                                                                        <p className="text-sm font-bold text-gray-800 line-clamp-1">{item.name}</p>
-                                                                        {variation && (
-                                                                            <div className="flex items-center gap-2 mt-1">
-                                                                                <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
-                                                                                    Cor: {variation.color}
-                                                                                </span>
-                                                                                <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
-                                                                                    Tam: {variation.size}
-                                                                                </span>
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                    <div className="text-right w-full sm:w-auto">
-                                                                        <p className="text-xs text-gray-500">{item.quantity} x R$ {Number(item.price).toFixed(2)}</p>
-                                                                        <p className="text-sm font-bold text-gray-900">R$ {(item.quantity * item.price).toFixed(2)}</p>
-                                                                    </div>
-                                                                </div>
-                                                            )})}
-                                                        </div>
-                                                        <div className="bg-gray-50 p-4 border-t border-gray-200 space-y-2">
-                                                            <div className="flex justify-between text-xs text-gray-600">
-                                                                <span>Subtotal</span>
-                                                                <span>R$ {(Number(editingOrder.total) - Number(editingOrder.shipping_cost) + Number(editingOrder.discount_amount)).toFixed(2)}</span>
-                                                            </div>
-                                                            <div className="flex justify-between text-xs text-gray-600">
-                                                                <span>Frete ({editingOrder.shipping_method})</span>
-                                                                <span>R$ {Number(editingOrder.shipping_cost).toFixed(2)}</span>
-                                                            </div>
-                                                            {Number(editingOrder.discount_amount) > 0 && (
-                                                                <div className="flex justify-between text-xs text-green-600 font-medium">
-                                                                    <span>Desconto ({editingOrder.coupon_code})</span>
-                                                                    <span>- R$ {Number(editingOrder.discount_amount).toFixed(2)}</span>
-                                                                </div>
-                                                            )}
-                                                            <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-200">
-                                                                <span>Total Geral</span>
-                                                                <span>R$ {Number(editingOrder.total).toFixed(2)}</span>
-                                                            </div>
-                                                        </div>
-                                                    </motion.div>
-                                                )}
-                                            </AnimatePresence>
-                                        </div>
-                                        
-                                        {/* ATUALIZAR PEDIDO (Visível apenas em Desktop) */}
-                                        <div className="hidden lg:block">
-                                            {renderUpdateOrderForm()}
-                                        </div>
-                                    </div>
-
-                                    {/* COLUNA DA DIREITA: Informações */}
-                                    <div className="space-y-6">
-                                        <DetailCard title="Cliente" icon={UserIcon}>
-                                            <div className="flex items-center gap-3 mb-3">
-                                                <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-lg">
-                                                    {editingOrder.user_name.charAt(0)}
-                                                </div>
-                                                <div className="overflow-hidden">
-                                                    <p className="font-bold text-gray-900 leading-tight truncate">{editingOrder.user_name}</p>
-                                                    <p className="text-xs text-gray-500">ID: {editingOrder.user_id}</p>
-                                                </div>
-                                            </div>
-                                            <div className="space-y-2 text-xs">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-8 text-right font-semibold text-gray-500">CPF:</div>
-                                                    <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">{maskCPF(editingOrder.user_cpf || '---')}</span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-8 text-right"><WhatsappIcon className="h-4 w-4 text-green-500 mx-auto"/></div>
-                                                    <a href={`https://wa.me/55${editingOrder.user_phone?.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="hover:underline hover:text-green-600">
-                                                        {maskPhone(editingOrder.user_phone || '')}
-                                                    </a>
-                                                </div>
-                                                {/* BOTÃO ADICIONADO: CONVERSAR NO WHATSAPP */}
-                                                {editingOrder.user_phone && (
-                                                    <a 
-                                                        href={`https://api.whatsapp.com/send?phone=55${editingOrder.user_phone.replace(/\D/g, '')}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="mt-3 w-full flex items-center justify-center gap-2 bg-green-500 text-white py-2 rounded-md hover:bg-green-600 font-bold transition-colors shadow-sm"
-                                                        title="Abrir conversa no WhatsApp"
-                                                    >
-                                                        <WhatsappIcon className="h-4 w-4 text-white"/> Conversar no WhatsApp
-                                                    </a>
-                                                )}
-                                            </div>
-                                        </DetailCard>
-
-                                        <DetailCard title="Entrega" icon={MapPinIcon}>
-                                            {/* --- EXIBIÇÃO EXPLÍCITA DO MÉTODO --- */}
-                                            <div className="mb-3 pb-2 border-b border-gray-100">
-                                                <span className="text-xs text-gray-500 block">Método Escolhido</span>
-                                                <p className="font-bold text-indigo-700 text-sm">{editingOrder.shipping_method || 'Não informado'}</p>
-                                            </div>
-
-                                            {isPickup ? (
-                                                <div className="bg-amber-50 border border-amber-200 rounded p-2 text-xs text-amber-800">
-                                                    <strong>Retirada na Loja</strong>
-                                                    {editingOrder.pickup_details && (() => {
-                                                        try {
-                                                            const p = JSON.parse(editingOrder.pickup_details);
-                                                            return <p className="mt-1">Retirado por: {p.personName} (CPF: {p.personCpf})</p>
-                                                        } catch { return null; }
-                                                    })()}
-                                                </div>
-                                            ) : (
-                                                <div className="text-xs space-y-2">
-                                                    {(() => {
-                                                        try {
-                                                            const addr = JSON.parse(editingOrder.shipping_address);
-                                                            return (
-                                                                <>
-                                                                    <div className="flex gap-2">
-                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Rua:</span>
-                                                                        <span className="text-gray-800 font-medium">{addr.logradouro}</span>
-                                                                    </div>
-                                                                    <div className="flex gap-2">
-                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Nº:</span>
-                                                                        <span className="text-gray-800">{addr.numero} {addr.complemento ? `(${addr.complemento})` : ''}</span>
-                                                                    </div>
-                                                                    <div className="flex gap-2">
-                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Bairro:</span>
-                                                                        <span className="text-gray-800">{addr.bairro}</span>
-                                                                    </div>
-                                                                    <div className="flex gap-2">
-                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Cidade:</span>
-                                                                        <span className="text-gray-800">{addr.localidade}</span>
-                                                                    </div>
-                                                                    <div className="flex gap-2">
-                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Estado:</span>
-                                                                        <span className="text-gray-800">{addr.uf}</span>
-                                                                    </div>
-                                                                    <div className="flex gap-2">
-                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">CEP:</span>
-                                                                        <span className="font-mono text-gray-800 bg-gray-100 px-1 rounded">{addr.cep}</span>
-                                                                    </div>
-                                                                </>
-                                                            );
-                                                        } catch { return <p>Endereço inválido</p>; }
-                                                    })()}
-                                                </div>
-                                            )}
-                                        </DetailCard>
-
-                                        <DetailCard title="Pagamento" icon={CreditCardIcon}>
-                                            <div className="flex flex-col gap-2">
-                                                {(() => {
-                                                    let details = {};
-                                                    try { 
-                                                        const parsed = JSON.parse(editingOrder.payment_details); 
-                                                        if (parsed && typeof parsed === 'object') details = parsed; 
-                                                    } catch {}
-                                                    
+                                    <div>
+                                        <h4 className="font-bold text-gray-700 mb-1">Pagamento</h4>
+                                        {(() => {
+                                            if (!editingOrder.payment_details) {
+                                                return <p className="capitalize">{editingOrder.payment_method || 'N/A'}</p>;
+                                            }
+                                            try {
+                                                const details = JSON.parse(editingOrder.payment_details);
+                                                if (details.method === 'credit_card') {
                                                     return (
-                                                        <>
-                                                            <span className="inline-flex items-center w-fit px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
-                                                                {details.method === 'pix' ? 'Pix' : details.method === 'boleto' ? 'Boleto' : details.method === 'credit_card' ? 'Cartão' : 'Outro'}
-                                                            </span>
-                                                            {details.method === 'credit_card' && (
-                                                                <div className="text-xs text-gray-600">
-                                                                    <p className="capitalize">{details.card_brand} •••• {details.card_last_four}</p>
-                                                                    <p>{details.installments}x de R$ {(Number(editingOrder.total)/details.installments).toFixed(2)}</p>
-                                                                </div>
-                                                            )}
-                                                            <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center">
-                                                                <span className="text-xs text-gray-500">Status</span>
-                                                                <span className={`text-xs font-bold ${editingOrder.payment_status === 'approved' ? 'text-green-600' : 'text-amber-600'}`}>
-                                                                    {editingOrder.payment_status === 'approved' ? 'Aprovado' : 'Pendente'}
-                                                                </span>
-                                                            </div>
-                                                        </>
-                                                    )
-                                                })()}
-                                            </div>
-                                        </DetailCard>
+                                                        <div className="text-sm">
+                                                            <p className="font-semibold text-gray-800">Cartão de Crédito</p>
+                                                            <p className="text-gray-600">Bandeira: <span className="uppercase">{details.card_brand}</span></p>
+                                                            <p className="text-gray-600">Final: •••• {details.card_last_four}</p>
+                                                            <p className="text-gray-600">Parcelas: {details.installments}x</p>
+                                                        </div>
+                                                    );
+                                                }
+                                                if (details.method === 'pix') {
+                                                    return <p className="font-semibold text-gray-800">Pix</p>;
+                                                }
+                                                if (details.method === 'boleto') {
+                                                    return <p className="font-semibold text-gray-800">Boleto</p>;
+                                                }
+                                            } catch (e) {
+                                                return <p className="capitalize">{editingOrder.payment_method || 'N/A'}</p>;
+                                            }
+                                            return <p className="capitalize">{editingOrder.payment_method || 'N/A'}</p>;
+                                        })()}
                                     </div>
                                 </div>
-                                
-                                {/* ATUALIZAR PEDIDO (Visível apenas em Mobile - FINAL DO FORMULÁRIO) */}
-                                <div className="lg:hidden mt-6">
-                                    {renderUpdateOrderForm()}
+                                {editingOrder.shipping_method === 'Retirar na loja' ? (
+                                    <div>
+                                        <h4 className="font-bold text-gray-700 mb-1">Detalhes da Retirada</h4>
+                                        <div className="text-sm bg-blue-50 p-3 rounded-md border border-blue-200">
+                                            <p className="font-semibold text-blue-800 flex items-center gap-2"><BoxIcon className="h-5 w-5"/> Este pedido será retirado na loja.</p>
+                                            {(() => {
+                                                try {
+                                                    const details = JSON.parse(editingOrder.pickup_details);
+                                                    return (
+                                                        <div className="mt-2 pt-2 border-t">
+                                                            <p><strong>Nome:</strong> {details.personName}</p>
+                                                            <p><strong>CPF:</strong> {maskCPF(details.personCpf)}</p>
+                                                        </div>
+                                                    )
+                                                } catch { return <p className="text-red-600 mt-2">Erro: Detalhes de retirada mal formatados.</p> }
+                                            })()}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <h4 className="font-bold text-gray-700 mb-1">Endereço de Entrega</h4>
+                                        <div className="text-sm bg-gray-100 p-3 rounded-md">
+                                            {editingOrder.shipping_address ? (() => {
+                                                try {
+                                                    const addr = JSON.parse(editingOrder.shipping_address);
+                                                    return (
+                                                        <div className="space-y-1">
+                                                            <p><span className="font-semibold text-gray-500">Rua:</span> {addr.logradouro}</p>
+                                                            <p><span className="font-semibold text-gray-500">Nº:</span> {addr.numero} {addr.complemento && `- ${addr.complemento}`}</p>
+                                                            <p><span className="font-semibold text-gray-500">Bairro:</span> {addr.bairro}</p>
+                                                            <p><span className="font-semibold text-gray-500">Cidade:</span> {addr.localidade} - {addr.uf}</p>
+                                                            <p><span className="font-semibold text-gray-500">CEP:</span> {addr.cep}</p>
+                                                        </div>
+                                                    )
+                                                } catch { return <p>Endereço mal formatado.</p> }
+                                            })() : <p>Nenhum endereço de entrega.</p>}
+                                        </div>
+                                    </div>
+                                )}
+                                <div>
+                                    <h4 className="font-bold text-gray-700 mb-2">Itens do Pedido</h4>
+                                    <div className="space-y-2 border-t pt-2 max-h-48 overflow-y-auto">
+                                        {editingOrder.items?.map(item => (
+                                            <div key={item.id} className="flex items-center text-sm">
+                                                <img src={getFirstImage(item.images)} alt={item.name} className="h-12 w-12 object-contain mr-3 bg-gray-100 rounded"/>
+                                                <div>
+                                                    <p className="font-semibold text-gray-800">{item.name}</p>
+                                                    <p className="text-gray-600">{item.quantity} x R$ {Number(item.price).toFixed(2)}</p>
+                                                    {item.variation && typeof item.variation === 'object' && (
+                                                        <p className="text-xs text-indigo-600 bg-indigo-100 font-medium rounded-full px-2 py-1 w-fit mt-1">Cor: {item.variation.color} / Tamanho: {item.variation.size}</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-
+                                <div>
+                                    <h4 className="font-bold text-gray-700 mb-2">Resumo Financeiro</h4>
+                                    <div className="text-sm bg-gray-100 p-3 rounded-md space-y-1">
+                                        <div className="flex justify-between"><span>Subtotal:</span> <span>R$ {(editingOrder.items?.reduce((acc, item) => acc + (Number(item.price) * item.quantity), 0) || 0).toFixed(2)}</span></div>
+                                        <div className="flex justify-between"><span>Frete ({editingOrder.shipping_method || 'N/A'}):</span> <span>R$ {Number(editingOrder.shipping_cost || 0).toFixed(2)}</span></div>
+                                        {Number(editingOrder.discount_amount) > 0 && (<div className="flex justify-between text-green-600"><span>Desconto ({editingOrder.coupon_code || ''}):</span><span>- R$ {Number(editingOrder.discount_amount).toFixed(2)}</span></div>)}
+                                        <div className="flex justify-between font-bold text-base border-t mt-2 pt-2"><span>Total:</span> <span>R$ {Number(editingOrder.total).toFixed(2)}</span></div>
+                                    </div>
+                                </div>
+                                <form onSubmit={handleSaveOrder} className="space-y-4 border-t pt-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Status do Pedido</label>
+                                        <select name="status" value={editFormData.status} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500">
+                                            {availableStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                    </div>
+                                    {editingOrder.shipping_method !== 'Retirar na loja' && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Código de Rastreio</label>
+                                            <input type="text" name="tracking_code" value={editFormData.tracking_code} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500" />
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between items-center space-x-3 pt-4">
+                                        <div>
+                                            {canRequestRefund ? (
+                                                <button type="button" onClick={handleOpenRefundModal} className="px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 font-semibold">
+                                                    Solicitar Reembolso
+                                                </button>
+                                            ) : (
+                                                <p className="text-xs text-gray-500">
+                                                    {editingOrder.refund_id ? "Reembolso já solicitado." : "Pedido não elegível para reembolso."}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
+                                            <button type="submit" className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900">Salvar Alterações</button>
+                                        </div>
+                                    </div>
+                                </form>
                             </div>
                         </Modal>
                     );
@@ -13027,18 +10091,19 @@ const AdminOrders = () => {
             </AnimatePresence>
 
             <h1 className="text-3xl font-bold mb-6">Gerenciar Pedidos</h1>
-            {/* ... Filtros ... */}
+            
             <div className="bg-white p-4 rounded-lg shadow-md mb-6 space-y-4">
                 <h2 className="text-xl font-semibold">Pesquisa Avançada</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <input type="text" name="orderIdSearch" placeholder="Pesquisar por ID, Nome ou CPF..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="p-2 border rounded-md col-span-1 md:col-span-2 lg:col-span-4"/>
+                    <input type="text" name="orderIdSearch" placeholder="Pesquisar por ID..." value={orderIdSearch} onChange={e => setOrderIdSearch(e.target.value)} className="p-2 border rounded-md col-span-1 md:col-span-2 lg:col-span-4"/>
                     <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data de Início"/>
                     <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data Final"/>
                     <input type="number" name="minPrice" placeholder="Preço Mín." value={filters.minPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
                     <input type="number" name="maxPrice" placeholder="Preço Máx." value={filters.maxPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
+                    <input type="text" name="customerName" placeholder="Nome do Cliente" value={filters.customerName} onChange={handleFilterChange} className="p-2 border rounded-md md:col-span-2"/>
                     <select name="status" value={filters.status} onChange={handleFilterChange} className="p-2 border rounded-md bg-white">
                         <option value="">Todos os Status</option>
-                        {[...new Set(allStatuses)].map(s => <option key={s} value={s}>{s}</option>)}
+                        {[...new Set([...shippingStatuses, ...pickupStatuses])].map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                 </div>
                 <div className="mt-4 flex gap-2 flex-wrap">
@@ -13046,122 +10111,104 @@ const AdminOrders = () => {
                     <button onClick={clearFilters} className="bg-gray-400 text-white px-4 py-2 rounded-md hover:bg-gray-500">Limpar Filtros</button>
                 </div>
             </div>
-            
-            {/* Tabela de Listagem de Pedidos */}
+
             <div className="bg-white shadow-md rounded-lg overflow-hidden">
                 <div className="hidden lg:block overflow-x-auto">
                      <table className="w-full text-left">
                          <thead className="bg-gray-100">
                             <tr>
-                                <th className="p-4 font-semibold text-gray-600">ID</th>
-                                <th className="p-4 font-semibold text-gray-600">Cliente</th>
-                                <th className="p-4 font-semibold text-gray-600">Contato</th>
-                                <th className="p-4 font-semibold text-gray-600">Envio</th>
-                                <th className="p-4 font-semibold text-gray-600">Total</th>
-                                <th className="p-4 font-semibold text-gray-600">Status</th>
-                                <th className="p-4 font-semibold text-gray-600">Ações</th>
+                                <th className="p-4 font-semibold">Pedido ID</th>
+                                <th className="p-4 font-semibold">Cliente</th>
+                                <th className="p-4 font-semibold">Data</th>
+                                <th className="p-4 font-semibold">Total</th>
+                                <th className="p-4 font-semibold">Entrega</th>
+                                <th className="p-4 font-semibold">Status</th>
+                                <th className="p-4 font-semibold">Ações</th>
                             </tr>
                          </thead>
-                         <tbody className="divide-y divide-gray-100">
+                         <tbody>
                             {currentOrders.map(o => {
-                                const shipInfo = getShippingDisplay(o.shipping_method);
+                                const orderDate = new Date(o.date);
+                                const formattedDate = !isNaN(orderDate) ? orderDate.toLocaleString('pt-BR') : 'Data Inválida';
                                 return (
-                                <tr key={o.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="p-4">
-                                        <span className="font-mono text-indigo-600 font-bold bg-indigo-50 px-2 py-1 rounded">#{o.id}</span>
-                                        <p className="text-xs text-gray-400 mt-1">{new Date(o.date).toLocaleDateString('pt-BR')}</p>
-                                    </td>
-                                    <td className="p-4">
-                                        <p className="font-bold text-gray-900">{o.user_name}</p>
-                                        <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                                            <UserIcon className="h-3 w-3"/> {maskCPF(o.user_cpf || '')}
-                                        </p>
-                                    </td>
-                                    <td className="p-4">
-                                        {o.user_phone ? (
-                                            <a href={`https://wa.me/55${o.user_phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-green-600 font-bold hover:underline text-sm bg-green-50 px-2 py-1 rounded w-fit">
-                                                <WhatsappIcon className="h-4 w-4"/> {maskPhone(o.user_phone)}
-                                            </a>
-                                        ) : <span className="text-gray-400 text-xs">Sem contato</span>}
-                                    </td>
-                                    <td className="p-4">
-                                        <div className={`flex items-center gap-2 px-2 py-1 rounded-md w-fit ${shipInfo.classes}`}>
-                                            {shipInfo.icon}
-                                            <span className="text-xs font-bold">{shipInfo.label}</span>
-                                        </div>
-                                    </td>
-                                    <td className="p-4 font-bold text-gray-800">R$ {Number(o.total).toFixed(2)}</td>
-                                    <td className="p-4">
-                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
-                                    </td>
-                                    <td className="p-4">
-                                        <button onClick={() => handleOpenEditModal(o)} className="text-gray-500 hover:text-indigo-600 transition-colors p-2 rounded-full hover:bg-indigo-50" title="Ver Detalhes">
-                                            <EyeIcon className="h-5 w-5"/>
-                                        </button>
-                                    </td>
-                                </tr>
-                            )})}
+                                    <tr key={o.id} className="border-b hover:bg-gray-50">
+                                        <td className="p-4 font-mono">#{o.id}</td>
+                                        <td className="p-4">{o.user_name}</td>
+                                        <td className="p-4">{formattedDate}</td>
+                                        <td className="p-4">R$ {Number(o.total).toFixed(2)}</td>
+                                        <td className="p-4">
+                                            {o.shipping_method === 'Retirar na loja' ? (
+                                                <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada</span>
+                                            ) : (
+                                                <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio</span>
+                                            )}
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="flex flex-col items-start gap-1">
+                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
+                                                {o.refund_status === 'pending_approval' && (
+                                                    <span className="flex items-center gap-1 mt-1 px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800 animate-pulse">
+                                                        <ArrowUturnLeftIcon className="h-3 w-3"/>
+                                                        Reembolso Solicitado
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="p-4"><button onClick={() => handleOpenEditModal(o)} className="text-blue-600 hover:text-blue-800"><EditIcon className="h-5 w-5"/></button></td>
+                                    </tr>
+                                );
+                            })}
                          </tbody>
                      </table>
                 </div>
-                
-                {/* Mobile List View (Cards Melhorados) */}
-                <div className="lg:hidden space-y-4 p-4 bg-gray-50">
+
+                <div className="lg:hidden space-y-4 p-4">
                     {currentOrders.map(o => {
-                        const shipInfo = getShippingDisplay(o.shipping_method);
+                        const orderDate = new Date(o.date);
+                        const formattedDateOnly = !isNaN(orderDate) ? orderDate.toLocaleDateString('pt-BR') : 'Data Inválida';
                         return (
-                        <div key={o.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm relative overflow-hidden">
-                            {/* Faixa lateral de status */}
-                            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${o.status === 'Entregue' ? 'bg-green-500' : (o.status === 'Cancelado' ? 'bg-red-500' : 'bg-indigo-500')}`}></div>
-                            
-                            <div className="pl-3">
-                                <div className="flex justify-between items-start mb-3">
+                            <div key={o.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                                <div className="flex justify-between items-start">
                                     <div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-mono font-bold text-indigo-700 text-lg">#{o.id}</span>
-                                            <span className="text-xs text-gray-400">{new Date(o.date).toLocaleDateString('pt-BR')}</span>
-                                        </div>
-                                        <p className="font-bold text-gray-800 text-sm">{o.user_name}</p>
+                                        <p className="font-bold">Pedido #{o.id}</p>
+                                        <p className="text-sm text-gray-600">{o.user_name}</p>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="font-bold text-gray-900">R$ {Number(o.total).toFixed(2)}</p>
-                                        <span className={`inline-block mt-1 px-2 py-0.5 text-[10px] uppercase font-bold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
-                                    </div>
-                                </div>
-
-                                {/* Dados do Cliente (Mobile) */}
-                                <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 bg-gray-50 p-2.5 rounded-lg border border-gray-100 mb-3">
-                                    <div className="flex items-center gap-1.5">
-                                        <UserIcon className="h-3.5 w-3.5 text-gray-400"/>
-                                        <span className="font-mono">{maskCPF(o.user_cpf || '---')}</span>
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                        <WhatsappIcon className="h-3.5 w-3.5 text-green-500"/>
-                                        <span className="font-bold text-green-700">{maskPhone(o.user_phone || '---')}</span>
+                                    <div className="flex flex-col items-end gap-1">
+                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
+                                        {o.refund_status === 'pending_approval' && (
+                                            <span className="flex items-center gap-1 mt-1 px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800 animate-pulse">
+                                                <ArrowUturnLeftIcon className="h-3 w-3"/>
+                                                Reembolso Solicitado
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
-
-                                {/* Dados de Envio (Mobile) */}
-                                <div className={`flex items-center gap-2 p-2 rounded-lg mb-3 ${shipInfo.classes}`}>
-                                    {shipInfo.icon}
-                                    <span className="text-xs font-bold">{shipInfo.fullText}</span>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t pt-4">
+                                     <div><strong className="text-gray-500 block">Data</strong> {formattedDateOnly}</div>
+                                     <div><strong className="text-gray-500 block">Total</strong> R$ {Number(o.total).toFixed(2)}</div>
+                                     <div className="col-span-2">
+                                        <strong className="text-gray-500 block">Entrega</strong>
+                                        {o.shipping_method === 'Retirar na loja' ? (
+                                            <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada na Loja</span>
+                                        ) : (
+                                            <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio Padrão</span>
+                                        )}
+                                    </div>
                                 </div>
-
-                                <button onClick={() => handleOpenEditModal(o)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-md active:scale-95">
-                                    <EyeIcon className="h-4 w-4"/> Ver Detalhes do Pedido
-                                </button>
+                                 <div className="flex justify-end mt-4 pt-2 border-t">
+                                    <button onClick={() => handleOpenEditModal(o)} className="flex items-center space-x-2 text-sm text-blue-600 font-semibold"><EditIcon className="h-4 w-4"/> <span>Detalhes</span></button>
+                                </div>
                             </div>
-                        </div>
-                    )})}
+                        );
+                    })}
                 </div>
             </div>
-            
-            {/* Paginação */}
+
             {totalPages > 1 && (
                 <div className="flex justify-between items-center mt-6">
-                    <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-white border rounded-md disabled:opacity-50 font-bold text-gray-700">Anterior</button>
-                    <span className="text-sm font-medium text-gray-600">Página {currentPage} de {totalPages}</span>
-                    <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-4 py-2 bg-white border rounded-md disabled:opacity-50 font-bold text-gray-700">Próxima</button>
+                    <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50 font-semibold">Anterior</button>
+                    <span className="text-sm font-semibold">Página {currentPage} de {totalPages}</span>
+                    <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50 font-semibold">Próxima</button>
                 </div>
             )}
         </div>
@@ -13170,7 +10217,6 @@ const AdminOrders = () => {
 const AdminReports = () => {
     const [reportData, setReportData] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [expandedRows, setExpandedRows] = useState([]); // Para controlar quais linhas da tabela estão expandidas
     const notification = useNotification();
     
     // Define as datas padrão
@@ -13178,27 +10224,21 @@ const AdminReports = () => {
         const date = new Date();
         date.setDate(1);
         date.setHours(0, 0, 0, 0);
-        return date.toISOString().split('T')[0];
+        return date.toISOString().split('T')[0]; // Formato YYYY-MM-DD
     };
     const getToday = () => {
-        return new Date().toISOString().split('T')[0];
+        return new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD
     };
 
     const [startDate, setStartDate] = useState(getFirstDayOfMonth());
     const [endDate, setEndDate] = useState(getToday());
 
-    const toggleRow = (orderId) => {
-        setExpandedRows(prev => 
-            prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId]
-        );
-    };
-
     // Função para buscar os dados da API
     const handleGenerateReport = useCallback(() => {
         setIsLoading(true);
-        setReportData(null); 
-        setExpandedRows([]); // Reseta expansão
+        setReportData(null); // Limpa dados antigos
         
+        // Destrói gráficos antigos para evitar sobreposição
         if (window.mySalesOverTimeChart) window.mySalesOverTimeChart.destroy();
         if (window.myTopProductsChart) window.myTopProductsChart.destroy();
 
@@ -13214,29 +10254,37 @@ const AdminReports = () => {
             });
     }, [startDate, endDate, notification]);
 
+    // Busca o relatório do mês atual ao carregar a página
     useEffect(() => {
         handleGenerateReport();
-    }, [handleGenerateReport]); 
+    }, [handleGenerateReport]); // Roda apenas uma vez na montagem
 
+    // Efeito para RENDERIZAR os gráficos DEPOIS que os dados chegarem
     useEffect(() => {
         if (reportData && !isLoading) {
             const renderCharts = () => {
                 if (window.Chart) {
+                    // Gráfico de Vendas ao Longo do Tempo
                     const salesCtx = document.getElementById('salesOverTimeChart')?.getContext('2d');
                     if (salesCtx && reportData.salesOverTime) {
                         if (window.mySalesOverTimeChart) window.mySalesOverTimeChart.destroy();
                         
+                        // --- CORREÇÃO DA DATA ---
                         const safeLabels = reportData.salesOverTime.map(d => {
                             if (!d.sale_date) return "Data Inválida";
+                            // Passa a string ISO completa (ex: 2025-10-18T03:00:00.000Z)
                             const dateObj = new Date(d.sale_date); 
-                            if (isNaN(dateObj.getTime())) return "Data Inválida";
+                            if (isNaN(dateObj.getTime())) {
+                                return "Data Inválida";
+                            }
+                            // Formata a data na localidade BR, tratando como UTC para evitar problemas de fuso
                             return dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
                         });
 
                         window.mySalesOverTimeChart = new window.Chart(salesCtx, {
                             type: 'line',
                             data: {
-                                labels: safeLabels, 
+                                labels: safeLabels, // <-- USA AS LABELS CORRIGIDAS
                                 datasets: [{
                                     label: 'Faturamento (R$)',
                                     data: reportData.salesOverTime.map(d => d.daily_total),
@@ -13249,6 +10297,7 @@ const AdminReports = () => {
                         });
                     }
                     
+                    // Gráfico de Produtos Mais Vendidos
                     const productsCtx = document.getElementById('topProductsChart')?.getContext('2d');
                     if (productsCtx && reportData.topProducts) {
                         if (window.myTopProductsChart) window.myTopProductsChart.destroy();
@@ -13267,12 +10316,13 @@ const AdminReports = () => {
                         });
                     }
                 } else {
+                    console.warn("Chart.js não carregado, tentando renderizar gráficos novamente...");
                     setTimeout(renderCharts, 100);
                 }
             };
             renderCharts();
         }
-    }, [reportData, isLoading]);
+    }, [reportData, isLoading]); // Depende dos dados e do status de carregamento
 
     const StatCard = ({ title, value }) => (
         <div className="bg-white p-6 rounded-lg shadow-md text-center">
@@ -13281,6 +10331,7 @@ const AdminReports = () => {
         </div>
     );
 
+    // --- INÍCIO DAS FUNÇÕES DE EXPORTAÇÃO (Movidas para dentro do componente) ---
     const runWhenLibsReady = (callback, requiredLibs) => {
         const check = () => {
             const isPdfReady = requiredLibs.includes('pdf') ? (window.jspdf && window.jspdf.jsPDF && typeof window.jspdf.jsPDF.API.autoTable === 'function') : true;
@@ -13329,65 +10380,9 @@ const AdminReports = () => {
             });
             let lastY = doc.lastAutoTable.finalY + 10;
 
-            // Detalhamento de Vendas
-            if (reportData.detailedSales && reportData.detailedSales.length > 0) {
-                doc.setFontSize(12);
-                doc.text("Detalhamento de Vendas e Itens", 14, lastY);
-                
-                const tableBody = [];
-                reportData.detailedSales.forEach(order => {
-                    tableBody.push([
-                        `#${order.id}`, 
-                        order.customer_name, 
-                        new Date(order.date).toLocaleDateString(), 
-                        `R$ ${Number(order.total).toFixed(2)}`,
-                        order.status
-                    ]);
-                    
-                    const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
-                    items.forEach(item => {
-                        tableBody.push([
-                            '', 
-                            `-> ${item.quantity}x ${item.name}`, 
-                            '', 
-                            `R$ ${Number(item.price).toFixed(2)} un.`, 
-                            ''
-                        ]);
-                    });
-                });
-
-                doc.autoTable({
-                    startY: lastY + 5,
-                    head: [['ID', 'Cliente / Produto', 'Data', 'Valor', 'Status']],
-                    body: tableBody,
-                    theme: 'grid',
-                    styles: { fontSize: 8 },
-                    columnStyles: {
-                        0: { fontStyle: 'bold', cellWidth: 20 },
-                        1: { cellWidth: 'auto' },
-                        2: { cellWidth: 25 },
-                        3: { halign: 'right', cellWidth: 30 },
-                        4: { cellWidth: 30 }
-                    },
-                    didParseCell: function(data) {
-                        if (data.section === 'body' && data.row.raw[0] === '') {
-                            data.cell.styles.textColor = [100, 100, 100];
-                            data.cell.styles.fontStyle = 'italic';
-                            data.cell.styles.fillColor = [250, 250, 250];
-                        }
-                        if (data.section === 'body' && data.row.raw[0] !== '') {
-                            data.cell.styles.fillColor = [240, 240, 240];
-                            data.cell.styles.fontStyle = 'bold';
-                        }
-                    }
-                });
-                lastY = doc.lastAutoTable.finalY + 10;
-            }
-
-            doc.addPage();
-            lastY = 20;
+            // Tabela de Produtos Mais Vendidos
             doc.setFontSize(12);
-            doc.text("Top Produtos", 14, lastY);
+            doc.text("Produtos Mais Vendidos (por Unidade)", 14, lastY);
             doc.autoTable({
                 startY: lastY + 5,
                 head: [['Produto', 'Unidades Vendidas', 'Faturamento (R$)']],
@@ -13398,10 +10393,27 @@ const AdminReports = () => {
                 ]),
                 theme: 'striped'
             });
+            lastY = doc.lastAutoTable.finalY + 10;
+            
+            // Tabela de Clientes Mais Valiosos
+            doc.setFontSize(12);
+            doc.text("Clientes Mais Valiosos", 14, lastY);
+            doc.autoTable({
+                startY: lastY + 5,
+                head: [['Cliente', 'E-mail', 'Total de Pedidos', 'Valor Gasto (R$)']],
+                body: reportData.topCustomers.map(c => [
+                    c.name,
+                    c.email,
+                    c.total_orders,
+                    `R$ ${Number(c.total_spent).toFixed(2)}`
+                ]),
+                theme: 'striped'
+            });
 
             doc.save(`relatorio_detalhado_${startDate}_a_${endDate}.pdf`);
         }, ['pdf']);
     };
+    // --- FIM DAS FUNÇÕES DE EXPORTAÇÃO ---
 
     return (
         <div>
@@ -13417,7 +10429,7 @@ const AdminReports = () => {
                             id="startDate"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
-                            className="mt-1 p-2 border border-gray-300 rounded-md w-full md:w-auto"
+                            className="mt-1 p-2 border border-gray-300 rounded-md"
                         />
                     </div>
                     <div>
@@ -13427,27 +10439,25 @@ const AdminReports = () => {
                             id="endDate"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
-                            className="mt-1 p-2 border border-gray-300 rounded-md w-full md:w-auto"
+                            className="mt-1 p-2 border border-gray-300 rounded-md"
                         />
                     </div>
-                    <div className="flex gap-2 w-full md:w-auto mt-3 md:mt-6">
-                        <button
-                            onClick={handleGenerateReport}
-                            disabled={isLoading}
-                            className="flex-1 md:flex-none bg-gray-800 text-white px-6 py-2 rounded-md hover:bg-gray-900 disabled:bg-gray-400"
-                        >
-                            {isLoading ? <SpinnerIcon /> : 'Gerar Relatório'}
-                        </button>
-                        <button
-                            onClick={handleExportPDF}
-                            disabled={isLoading || !reportData}
-                            className="flex-1 md:flex-none bg-red-600 text-white px-6 py-2 rounded-md hover:bg-red-700 disabled:bg-gray-400 flex items-center justify-center gap-2"
-                        >
-                            <DownloadIcon className="h-5 w-5"/>
-                            <span className="hidden md:inline">Exportar PDF</span>
-                            <span className="md:hidden">PDF</span>
-                        </button>
-                    </div>
+                    <button
+                        onClick={handleGenerateReport}
+                        disabled={isLoading}
+                        className="w-full md:w-auto bg-gray-800 text-white px-6 py-2 rounded-md hover:bg-gray-900 disabled:bg-gray-400 mt-3 md:mt-6"
+                    >
+                        {isLoading ? <SpinnerIcon /> : 'Gerar Relatório'}
+                    </button>
+                    {/* --- NOVO BOTÃO DE EXPORTAR PDF --- */}
+                    <button
+                        onClick={handleExportPDF}
+                        disabled={isLoading || !reportData}
+                        className="w-full md:w-auto bg-red-600 text-white px-6 py-2 rounded-md hover:bg-red-700 disabled:bg-gray-400 mt-3 md:mt-6 flex items-center justify-center gap-2"
+                    >
+                        <DownloadIcon className="h-5 w-5"/>
+                        Exportar PDF
+                    </button>
                 </div>
             </div>
 
@@ -13470,134 +10480,6 @@ const AdminReports = () => {
                         <StatCard title="Novos Clientes" value={reportData.kpis.newCustomers} />
                     </div>
 
-                    {/* NOVA SEÇÃO: DETALHAMENTO DE VENDAS */}
-                    <div className="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
-                        <div className="p-4 border-b border-gray-200 bg-gray-50">
-                            <h3 className="font-bold text-lg text-gray-800">Detalhamento de Vendas ({reportData.detailedSales ? reportData.detailedSales.length : 0})</h3>
-                        </div>
-                        {reportData.detailedSales && reportData.detailedSales.length > 0 ? (
-                            <>
-                                {/* VISÃO DESKTOP (TABELA) */}
-                                <div className="hidden md:block overflow-x-auto">
-                                    <table className="w-full text-left text-sm">
-                                        <thead className="bg-gray-100 text-gray-600 font-semibold uppercase text-xs">
-                                            <tr>
-                                                <th className="p-4 w-10"></th>
-                                                <th className="p-4">Pedido</th>
-                                                <th className="p-4">Cliente</th>
-                                                <th className="p-4">Data</th>
-                                                <th className="p-4">Total</th>
-                                                <th className="p-4">Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-200">
-                                            {reportData.detailedSales.map(order => {
-                                                const isExpanded = expandedRows.includes(order.id);
-                                                const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
-
-                                                return (
-                                                    <React.Fragment key={order.id}>
-                                                        <tr className={`hover:bg-gray-50 transition-colors cursor-pointer ${isExpanded ? 'bg-blue-50' : ''}`} onClick={() => toggleRow(order.id)}>
-                                                            <td className="p-4 text-center">
-                                                                <ChevronDownIcon className={`h-4 w-4 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}/>
-                                                            </td>
-                                                            <td className="p-4 font-bold text-indigo-600">#{order.id}</td>
-                                                            <td className="p-4">{order.customer_name}</td>
-                                                            <td className="p-4 text-gray-500">{new Date(order.date).toLocaleDateString()}</td>
-                                                            <td className="p-4 font-bold text-green-600">R$ {Number(order.total).toFixed(2)}</td>
-                                                            <td className="p-4">
-                                                                <span className="px-2 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-700">
-                                                                    {order.status}
-                                                                </span>
-                                                            </td>
-                                                        </tr>
-                                                        {isExpanded && (
-                                                            <tr className="bg-gray-50">
-                                                                <td colSpan="6" className="p-4 pl-12 border-t border-gray-200 shadow-inner">
-                                                                    <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Itens do Pedido:</h4>
-                                                                    <div className="space-y-2">
-                                                                        {items.map((item, idx) => (
-                                                                            <div key={idx} className="flex justify-between text-sm text-gray-700 border-b border-gray-200 pb-1 last:border-0 last:pb-0">
-                                                                                <span>{item.quantity}x {item.name}</span>
-                                                                                <span className="font-mono">R$ {Number(item.price).toFixed(2)}</span>
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
-                                                                </td>
-                                                            </tr>
-                                                        )}
-                                                    </React.Fragment>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                {/* VISÃO MOBILE (CARDS) */}
-                                <div className="md:hidden space-y-4 p-4">
-                                    {reportData.detailedSales.map(order => {
-                                        const isExpanded = expandedRows.includes(order.id);
-                                        const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
-
-                                        return (
-                                            <div key={order.id} className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-                                                <div 
-                                                    className={`p-4 flex justify-between items-start cursor-pointer ${isExpanded ? 'bg-blue-50 border-b border-blue-100' : ''}`}
-                                                    onClick={() => toggleRow(order.id)}
-                                                >
-                                                    <div className="space-y-1">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="font-bold text-indigo-600">#{order.id}</span>
-                                                            <span className="text-xs text-gray-500">{new Date(order.date).toLocaleDateString()}</span>
-                                                        </div>
-                                                        <p className="font-medium text-gray-800">{order.customer_name}</p>
-                                                        <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200">
-                                                            {order.status}
-                                                        </span>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="font-bold text-green-600 mb-2">R$ {Number(order.total).toFixed(2)}</p>
-                                                        <ChevronDownIcon className={`h-5 w-5 text-gray-400 ml-auto transition-transform ${isExpanded ? 'rotate-180' : ''}`}/>
-                                                    </div>
-                                                </div>
-                                                
-                                                {/* Detalhes Mobile Expandidos */}
-                                                <AnimatePresence>
-                                                    {isExpanded && (
-                                                        <motion.div 
-                                                            initial={{ height: 0 }} 
-                                                            animate={{ height: 'auto' }} 
-                                                            exit={{ height: 0 }} 
-                                                            className="overflow-hidden bg-gray-50"
-                                                        >
-                                                            <div className="p-4 border-t border-gray-100">
-                                                                <h4 className="text-xs font-bold text-gray-500 uppercase mb-3 flex items-center gap-1">
-                                                                    <BoxIcon className="h-3 w-3"/> Itens do Pedido
-                                                                </h4>
-                                                                <div className="space-y-3">
-                                                                    {items.map((item, idx) => (
-                                                                        <div key={idx} className="flex justify-between text-sm text-gray-700 border-b border-gray-200 pb-2 last:border-0 last:pb-0">
-                                                                            <div className="flex-1 pr-2">
-                                                                                <span className="font-bold text-gray-900">{item.quantity}x</span> {item.name}
-                                                                            </div>
-                                                                            <span className="font-mono text-gray-600 whitespace-nowrap">R$ {Number(item.price).toFixed(2)}</span>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            </div>
-                                                        </motion.div>
-                                                    )}
-                                                </AnimatePresence>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </>
-                        ) : (
-                            <div className="p-8 text-center text-gray-500">Nenhuma venda encontrada neste período.</div>
-                        )}
-                    </div>
-
                     {/* Gráficos */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div className="bg-white p-6 rounded-lg shadow min-h-[300px]">
@@ -13613,8 +10495,36 @@ const AdminReports = () => {
                             </div>
                         </div>
                     </div>
+
+                    {/* Tabela de Clientes */}
+                    <div className="bg-white p-6 rounded-lg shadow">
+                        <h3 className="font-bold mb-4 text-lg">Clientes Mais Valiosos</h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-gray-100">
+                                    <tr>
+                                        <th className="p-3 font-semibold">Cliente</th>
+                                        <th className="p-3 font-semibold">E-mail</th>
+                                        <th className="p-3 font-semibold">Total de Pedidos</th>
+                                        <th className="p-3 font-semibold">Valor Gasto (R$)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {reportData.topCustomers.map((customer, index) => (
+                                        <tr key={index} className="border-b last:border-b-0 hover:bg-gray-50">
+                                            <td className="p-3">{customer.name}</td>
+                                            <td className="p-3">{customer.email}</td>
+                                            <td className="p-3">{customer.total_orders}</td>
+                                            <td className="p-3 font-medium">R$ {Number(customer.total_spent).toFixed(2)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </motion.div>
             )}
+
         </div>
     );
 };
@@ -13640,7 +10550,7 @@ const AdminLogsPage = () => {
 
     return (
         <div>
-            <h1 className="text-3xl font-bold mb-6">Histórico de Ações e Auditoria</h1>
+            <h1 className="text-3xl font-bold mb-6">Histórico de Ações</h1>
             {isLoading ? (
                 <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-500"/></div>
             ) : (
@@ -13652,7 +10562,6 @@ const AdminLogsPage = () => {
                                 <tr>
                                     <th className="p-4 font-semibold">Data</th>
                                     <th className="p-4 font-semibold">Administrador</th>
-                                    <th className="p-4 font-semibold">IP</th> {/* Nova Coluna */}
                                     <th className="p-4 font-semibold">Ação</th>
                                     <th className="p-4 font-semibold">Detalhes</th>
                                 </tr>
@@ -13662,7 +10571,6 @@ const AdminLogsPage = () => {
                                     <tr key={log.id} className="border-b hover:bg-gray-50">
                                         <td className="p-4 whitespace-nowrap text-gray-600">{new Date(log.created_at).toLocaleString('pt-BR')}</td>
                                         <td className="p-4 font-medium">{log.user_name}</td>
-                                        <td className="p-4 font-mono text-xs text-gray-500">{log.ip_address || 'N/A'}</td> {/* Exibição do IP */}
                                         <td className="p-4"><span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full capitalize">{log.action.replace(/_/g, ' ')}</span></td>
                                         <td className="p-4 text-gray-700 break-words">{log.details}</td>
                                     </tr>
@@ -13680,9 +10588,6 @@ const AdminLogsPage = () => {
                                         <p className="text-xs text-gray-500">{new Date(log.created_at).toLocaleString('pt-BR')}</p>
                                     </div>
                                     <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full capitalize">{log.action.replace(/_/g, ' ')}</span>
-                                </div>
-                                <div className="mb-2">
-                                    <span className="text-xs font-bold text-gray-500 uppercase">IP:</span> <span className="font-mono text-xs">{log.ip_address || 'N/A'}</span>
                                 </div>
                                 <div>
                                     <p className="text-gray-700 break-words">{log.details}</p>
@@ -14064,7 +10969,7 @@ const AdminBanners = () => {
             { 
                 confirmText: "Excluir", 
                 confirmColor: "bg-red-600 hover:bg-red-700",
-                requiresAuth: true // Segurança adicionada
+                requiresAuth: true // Segurança adicionada: requer senha/2FA
             }
         );
     };
@@ -14156,33 +11061,21 @@ const AdminBanners = () => {
                                         const now = new Date();
                                         const start = banner.start_date ? new Date(banner.start_date) : null;
                                         const end = banner.end_date ? new Date(banner.end_date) : null;
-                                        
-                                        // CORREÇÃO CRÍTICA DO "0": Usar !! para converter para booleano real
-                                        const isActiveNow = !!banner.is_active && (!start || now >= start) && (!end || now <= end);
-                                        // Verifica se é o Padrão (sem datas)
-                                        const isDefault = !start && !end;
+                                        // Lógica simples de "No Ar": (Sem data OU Data válida) E Ativo
+                                        const isActiveNow = banner.is_active && (!start || now >= start) && (!end || now <= end);
                                         
                                         return (
                                             <div key={banner.id} className={`flex flex-col md:flex-row bg-white border rounded-lg overflow-hidden shadow-sm ${isActiveNow ? 'border-green-500 ring-1 ring-green-500' : 'border-gray-200 opacity-80'}`}>
                                                 <div className="w-full md:w-48 h-32 bg-gray-100 relative">
                                                     <img src={banner.image_url} alt={banner.title} className="w-full h-full object-cover"/>
-                                                    
-                                                    {/* Renderização Condicional Corrigida */}
                                                     {isActiveNow && <span className="absolute top-2 left-2 bg-green-500 text-white text-[10px] px-2 py-1 rounded font-bold shadow">NO AR</span>}
-                                                    {isDefault && <span className="absolute bottom-2 left-2 bg-gray-600 text-white text-[10px] px-2 py-1 rounded font-bold shadow">PADRÃO</span>}
                                                 </div>
                                                 <div className="p-4 flex-grow flex flex-col justify-center">
                                                     <h4 className="font-bold text-gray-800 text-lg">{banner.title}</h4>
                                                     <p className="text-sm text-gray-500">{banner.subtitle}</p>
                                                     <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
-                                                        {start ? (
-                                                            <>
-                                                                <span className="bg-blue-50 px-2 py-1 rounded border border-blue-100"><ClockIcon className="h-3 w-3 inline mr-1"/> De: {start.toLocaleDateString()}</span>
-                                                                <span className="bg-blue-50 px-2 py-1 rounded border border-blue-100">Até: {end ? end.toLocaleDateString() : 'Indefinido'}</span>
-                                                            </>
-                                                        ) : (
-                                                            <span className="bg-gray-100 px-2 py-1 rounded border">Sem agendamento (Exibido se nenhum outro estiver ativo)</span>
-                                                        )}
+                                                        <span className="bg-gray-100 px-2 py-1 rounded border flex items-center gap-1"><ClockIcon className="h-3 w-3"/> Início: {start ? start.toLocaleDateString() : 'Imediato'}</span>
+                                                        <span className="bg-gray-100 px-2 py-1 rounded border flex items-center gap-1"><ClockIcon className="h-3 w-3"/> Fim: {end ? end.toLocaleDateString() : 'Indefinido'}</span>
                                                     </div>
                                                 </div>
                                                 <div className="p-4 flex md:flex-col justify-center gap-2 border-t md:border-t-0 md:border-l bg-gray-50">
@@ -14219,8 +11112,8 @@ const AdminBanners = () => {
                                             key={card.id} 
                                             banner={card} 
                                             onEdit={() => handleOpenModal(card, 'cards')} 
-                                            onDelete={() => handleDelete(card.id)} 
-                                            customLabel={idx === 0 ? "Esquerda" : "Direita"}
+                                            onDelete={() => handleDelete(card.id)} // Adicionada deleção com segurança
+                                            customLabel={idx === 0 ? "Esquerda (Fixo)" : "Direita (Fixo)"}
                                             customColor="bg-purple-600 text-white"
                                             description={card.subtitle}
                                         />
@@ -14252,7 +11145,7 @@ const AdminBanners = () => {
                                                 key={banner.id} 
                                                 banner={banner} 
                                                 onEdit={(b) => handleOpenModal(b, 'carousel')} 
-                                                onDelete={() => handleDelete(banner.id)}
+                                                onDelete={() => handleDelete(banner.id)} // Adicionada deleção com segurança
                                             />
                                         ))}
                                     </div>
@@ -14272,22 +11165,12 @@ const UserEditForm = ({ user, onSave, onCancel }) => {
         name: user.name || '',
         email: user.email || '',
         role: user.role || 'user',
-        cpf: user.cpf || '',
-        phone: user.phone || '',
         password: ''
     });
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
-    };
-
-    const handleCpfChange = (e) => {
-        setFormData(prev => ({ ...prev, cpf: maskCPF(e.target.value) }));
-    };
-
-    const handlePhoneChange = (e) => {
-        setFormData(prev => ({ ...prev, phone: maskPhone(e.target.value) }));
     };
 
     const handleSubmit = (e) => {
@@ -14301,21 +11184,6 @@ const UserEditForm = ({ user, onSave, onCancel }) => {
                 <label className="block text-sm font-medium text-gray-700">Nome</label>
                 <input type="text" name="name" value={formData.name} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700">CPF</label>
-                    <input type="text" name="cpf" value={formData.cpf} onChange={handleCpfChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700">Celular / WhatsApp</label>
-                    <div className="relative">
-                        <input type="text" name="phone" value={formData.phone} onChange={handlePhoneChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md pl-10"/>
-                        <WhatsappIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-green-500" />
-                    </div>
-                </div>
-            </div>
-
             <div>
                 <label className="block text-sm font-medium text-gray-700">Email</label>
                 <input type="email" name="email" value={formData.email} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
@@ -14888,7 +11756,7 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
 
     return (
         <section 
-            className="relative h-[55vh] sm:h-[70vh] w-full overflow-hidden group bg-black"
+            className="relative h-[90vh] sm:h-[70vh] w-full overflow-hidden group bg-black"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -14918,7 +11786,7 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
                             {currentBanner.title && (
                                 <motion.h1 
                                     variants={itemVariants}
-                                    className="text-3xl sm:text-5xl md:text-7xl font-extrabold tracking-wider drop-shadow-lg"
+                                    className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-wider drop-shadow-lg"
                                 >
                                     {currentBanner.title}
                                 </motion.h1>
@@ -14926,15 +11794,14 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
                             {currentBanner.subtitle && (
                                 <motion.p 
                                     variants={itemVariants}
-                                    className="text-base md:text-xl mt-2 md:mt-4 max-w-2xl text-gray-200"
+                                    className="text-lg md:text-xl mt-4 max-w-2xl text-gray-200"
                                 >
                                     {currentBanner.subtitle}
                                 </motion.p>
                             )}
                              {currentBanner.cta_enabled === 1 && currentBanner.cta_text && (
                                 <motion.div variants={itemVariants}>
-                                    {/* ATUALIZAÇÃO: Botões aumentados no mobile (px-8 py-3 e text-base) para melhor destaque e usabilidade */}
-                                    <button className="mt-6 md:mt-8 bg-amber-400 text-black px-8 py-3 md:px-12 md:py-4 rounded-md text-base md:text-lg font-bold hover:bg-amber-300 transition-colors shadow-xl active:scale-95">
+                                    <button className="mt-8 bg-amber-400 text-black px-8 sm:px-10 py-3 rounded-md text-lg font-bold hover:bg-amber-300 transition-colors">
                                         {currentBanner.cta_text}
                                     </button>
                                 </motion.div>
@@ -14962,28 +11829,15 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
         </section>
     );
 });
-// --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
 
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
-
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
-
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
-  // Efeito para buscar o status de manutenção
+  // Efeito para buscar o status de manutenção (inicial e periodicamente)
   useEffect(() => {
     const checkStatus = () => {
         apiService('/settings/maintenance-status')
@@ -14997,7 +11851,7 @@ function AppContent({ deferredPrompt }) {
                 });
             })
             .catch(err => {
-                console.error("Falha ao verificar manutenção.", err);
+                console.error("Falha ao verificar o modo de manutenção, o site continuará online por segurança.", err);
                 setIsInMaintenance(false);
             })
             .finally(() => {
@@ -15012,48 +11866,21 @@ function AppContent({ deferredPrompt }) {
     return () => clearInterval(intervalId); 
   }, [isStatusLoading]); 
 
-  // Lógica de Registro de Push Notifications
-  useEffect(() => {
-    const registerPush = async () => {
-        if (!isAuthenticated || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
-        try {
-            const registration = await navigator.serviceWorker.ready;
-            const permission = await Notification.requestPermission();
-            if (permission !== 'granted') return;
-
-            const publicVapidKey = "BGDEC_rvB5lgb2pzKg8bZMwAfOwohu0sf_777oDMYHV1dTQzV1Q4UgU2eFXj_2IVoFlKvN3YkrETqNJVSje0t4g";
-            const subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
-            });
-            await apiService('/notifications/subscribe', 'POST', subscription);
-        } catch (error) {
-            console.error('Erro ao registrar push:', error);
-        }
-    };
-    registerPush();
-  }, [isAuthenticated]); 
-
   const navigate = useCallback((path) => {
     window.location.hash = path;
   }, []);
   
-  // Redirecionamento de retorno do MP
   useEffect(() => {
-    const checkPendingOrder = () => {
-        const pendingOrderId = sessionStorage.getItem('pendingOrderId');
-        if (pendingOrderId && !window.location.hash.includes('order-success')) {
-            navigate(`order-success/${pendingOrderId}`);
-        }
-    };
-    checkPendingOrder();
-    window.addEventListener('focus', checkPendingOrder);
-    window.addEventListener('visibilitychange', checkPendingOrder);
-    return () => {
-        window.removeEventListener('focus', checkPendingOrder);
-        window.removeEventListener('visibilitychange', checkPendingOrder);
-    };
-  }, [navigate]); 
+    const pendingOrderId = sessionStorage.getItem('pendingOrderId');
+    
+    if (pendingOrderId && !currentPath.startsWith('order-success')) {
+      console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting to success page.`);
+      sessionStorage.removeItem('pendingOrderId'); 
+      navigate(`order-success/${pendingOrderId}`);
+    } else if (currentPath.startsWith('order-success')) {
+        sessionStorage.removeItem('pendingOrderId');
+    }
+  }, [currentPath, navigate]); 
   
   useEffect(() => {
     const handleHashChange = () => {
@@ -15067,22 +11894,10 @@ function AppContent({ deferredPrompt }) {
     window.scrollTo(0, 0);
   }, [currentPath]);
   
-  // --- TELA DE CARREGAMENTO INICIAL PREMIUM ---
   if (isLoading || isStatusLoading) {
       return (
-        <div className="h-screen flex flex-col items-center justify-center bg-black gap-6">
-            <motion.div 
-                animate={{ scale: [1, 1.05, 1], opacity: [0.8, 1, 0.8] }} 
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                className="w-28 h-28 relative"
-            >
-                <div className="absolute inset-0 bg-amber-500 blur-2xl opacity-20 rounded-full animate-pulse"></div>
-                <img src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png" alt="Love Cestas e Perfumes" className="w-full h-full object-contain relative z-10" />
-            </motion.div>
-            <div className="flex flex-col items-center gap-3">
-                <SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin"/>
-                <p className="text-amber-400/80 font-bold tracking-[0.2em] text-xs uppercase animate-pulse">Preparando a loja...</p>
-            </div>
+        <div className="h-screen flex items-center justify-center bg-black">
+            <SpinnerIcon className="h-8 w-8 text-amber-400"/>
         </div>
       );
   }
@@ -15123,8 +11938,7 @@ function AppContent({ deferredPrompt }) {
             'coupons': <AdminCoupons />,
             'reports': <AdminReports />,
             'logs': <AdminLogsPage />,
-            'newsletter': <AdminNewsletter />, 
-            'shipping': <AdminShippingSettings />, 
+            'newsletter': <AdminNewsletter />, // Rota para gestão de Newsletter
         };
 
         return (
@@ -15135,7 +11949,7 @@ function AppContent({ deferredPrompt }) {
     }
 
     if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) {
-        return <LoginPage onNavigate={navigate} redirectPath={currentPath} />;
+        return <LoginPage onNavigate={navigate} />;
     }
     
     if (mainPage === 'product' && pageId) {
@@ -15153,7 +11967,7 @@ function AppContent({ deferredPrompt }) {
    const pages = {
         'home': <HomePage onNavigate={navigate} />,
         'products': <ProductsPage onNavigate={navigate} initialSearch={initialSearch} initialCategory={initialCategory} initialBrand={initialBrand} initialIsPromo={initialIsPromo} />,
-        'categories': <CategoriesPage onNavigate={navigate} />, 
+        'categories': <CategoriesPage onNavigate={navigate} />, // Rota para o novo menu mobile
         'login': <LoginPage onNavigate={navigate} />,
         'register': <RegisterPage onNavigate={navigate} />,
         'cart': <CartPage onNavigate={navigate} />,
@@ -15208,21 +12022,25 @@ function AppContent({ deferredPrompt }) {
                     </div>
 
                     <div className="space-y-4">
-                        <h3 className="font-bold text-white tracking-wider">Segurança e Qualidade</h3>
-                        <div className="flex flex-col gap-3 items-center md:items-start text-sm text-gray-400">
-                             <div className="flex items-center gap-2">
-                                <ShieldCheckIcon className="h-5 w-5 text-green-500"/>
-                                <span>Compra 100% Segura</span>
-                             </div>
-                             <div className="flex items-center gap-2">
-                                <CheckBadgeIcon className="h-5 w-5 text-blue-500"/>
-                                <span>Produtos Originais</span>
-                             </div>
-                             <div className="flex items-center gap-2">
-                                <TruckIcon className="h-5 w-5 text-amber-500"/>
-                                <span>Entrega Garantida</span>
-                             </div>
+                        <h3 className="font-bold text-white tracking-wider">Formas de Pagamento</h3>
+                        <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
+                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <PixIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <VisaIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <MastercardIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <EloIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <BoletoIcon className="h-6 w-auto text-black"/>
+                            </div>
                         </div>
+                         <p className="text-xs text-gray-500">Parcele em até 4x sem juros.</p>
                     </div>
                 </div>
             </div>
@@ -15237,45 +12055,47 @@ function AppContent({ deferredPrompt }) {
   );
 }
 
-// ATUALIZAÇÃO DO COMPONENTE BASE: Carregando a biblioteca do frontend
 export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
 
     useEffect(() => {
-        window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); setDeferredPrompt(e); });
+        // --- Configuração PWA ---
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            setDeferredPrompt(e);
+            console.log('`beforeinstallprompt` event foi disparado e está pronto para ser usado.');
+        });
         
+        // Registra o Service Worker a partir do arquivo estático
         if ('serviceWorker' in navigator) {
-            const registerSW = () => {
+            window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js')
-                    .then(registration => console.log('SW registrado com sucesso:', registration))
-                    .catch(error => console.log('Falha no SW:', error));
-            };
-
-            if (document.readyState === 'complete' || document.readyState === 'interactive') {
-                registerSW();
-            } else {
-                window.addEventListener('load', registerSW);
-            }
+                    .then(registration => console.log('Service Worker estático registrado com sucesso:', registration))
+                    .catch(error => console.log('Falha no registro do Service Worker estático:', error));
+            });
         }
 
-        // Scripts externos (Chart, Excel, PDF, MercadoPago e agora o WEBAUTHN)
+        // --- Carregamento de Scripts Externos ---
         const loadScript = (src, id, callback) => {
-            if (document.getElementById(id)) { if (callback) callback(); return; }
+            if (document.getElementById(id)) {
+                if (callback) callback();
+                return;
+            }
             const script = document.createElement('script');
-            script.src = src; script.id = id; script.async = true;
+            script.src = src;
+            script.id = id;
+            script.async = true;
             script.onload = () => { if (callback) callback(); };
             document.body.appendChild(script);
         };
-        
-        // --- NOVO: Carrega a biblioteca de biometria via CDN dinamicamente ---
-        loadScript('https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.umd.min.js', 'webauthn-browser-script');
-        
+
         loadScript('https://cdn.jsdelivr.net/npm/chart.js', 'chartjs-script');
         loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'xlsx-script');
         loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'jspdf-script', () => {
             loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js', 'jspdf-autotable-script');
         });
         loadScript('https://sdk.mercadopago.com/js/v2', 'mercadopago-sdk');
+
     }, []);
 
     return (
@@ -15290,3 +12110,4 @@ export default function App() {
         </AuthProvider>
     );
 }
+
