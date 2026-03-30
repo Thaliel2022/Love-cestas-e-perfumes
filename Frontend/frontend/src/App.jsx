@@ -14260,7 +14260,7 @@ const AdminBanners = () => {
                         </div>
                     )}
 
-                    {/* --- ABA CARDS --- */}
+              {/* --- ABA CARDS --- */}
                     {activeTab === 'cards' && (
                         <div className="space-y-6 animate-fade-in">
                             <div className="flex justify-between items-center bg-purple-50 p-4 rounded-lg border border-purple-100">
@@ -14270,14 +14270,13 @@ const AdminBanners = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {[card1, card2].map((card, idx) => (
                                     card ? (
-                                        <SortableBannerCard 
+                                        <StaticBannerCard 
                                             key={card.id} 
                                             banner={card} 
                                             onEdit={() => handleOpenModal(card, 'cards')} 
                                             onDelete={() => handleDelete(card.id)} 
-                                            customLabel={idx === 0 ? "Esquerda" : "Direita"}
+                                            customLabel={idx === 0 ? "ESQUERDA" : "DIREITA"}
                                             customColor="bg-purple-600 text-white"
-                                            description={card.subtitle}
                                         />
                                     ) : (
                                         <div key={idx} className="h-48 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center bg-gray-50 text-gray-400">
