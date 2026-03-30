@@ -15963,6 +15963,9 @@ function AppContent({ deferredPrompt }) {
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
+  
+  // NOVO ESTADO: Detectar se está rodando como App instalado (PWA)
+  const [isStandalone, setIsStandalone] = useState(false);
 
   const defaultThemeFallback = {
       primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af', animationsEnabled: true, activeSeason: null
@@ -16211,6 +16214,22 @@ function AppContent({ deferredPrompt }) {
     };
     registerPush();
   }, [isAuthenticated]); 
+  
+  // NOVO EFEITO: Verifica se está rodando como PWA (Standalone)
+  useEffect(() => {
+      const checkStandalone = () => {
+          setIsStandalone(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone);
+      };
+      checkStandalone();
+      
+      const mediaQuery = window.matchMedia('(display-mode: standalone)');
+      const handleChange = (e) => setIsStandalone(e.matches);
+      
+      if (mediaQuery.addEventListener) {
+          mediaQuery.addEventListener('change', handleChange);
+          return () => mediaQuery.removeEventListener('change', handleChange);
+      }
+  }, []);
 
   const navigate = useCallback((path) => {
     window.location.hash = path;
@@ -16373,6 +16392,9 @@ function AppContent({ deferredPrompt }) {
   const shouldRunAnimations = appThemeConfig.animationsEnabled !== false && 
                               (appThemeConfig.autoSeasonal || effectiveForcedSeason);
   
+  // ATUALIZAÇÃO: Esconde o footer se for PWA (Standalone)
+  const showFooter = showHeaderFooter && !currentPath.startsWith('order-success') && !isStandalone;
+
   return (
     <div className="bg-black min-h-screen flex flex-col transition-colors duration-500 relative">
       
@@ -16393,10 +16415,9 @@ function AppContent({ deferredPrompt }) {
           />
       )}
 
-      {/* CORREÇÃO: Removido 'z-10' e 'relative' que causavam o bloqueio da tela de categorias */}
       <main className="flex-grow">{renderPage()}</main>
       
-      {showHeaderFooter && !currentPath.startsWith('order-success') && (
+      {showFooter && (
         <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800 transition-colors duration-500 z-10 relative">
             <div className="container mx-auto px-4 py-12">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
