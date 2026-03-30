@@ -13821,9 +13821,9 @@ const BannerForm = ({ item, section, onSave, onCancel }) => {
 
     const getHints = () => {
         switch(section) {
-            case 'promo': return { title: "Destaque Agendável (Meio)", sizeDesktop: "1920 x 600 px", showMobile: false, showSchedule: true };
-            case 'cards': return { title: "Card de Categoria (Inferior)", sizeDesktop: "600 x 800 px", showMobile: false, showSchedule: false };
-            default: return { title: "Banner Rotativo (Topo)", sizeDesktop: "1920 x 720 px", showMobile: true, showSchedule: false };
+            case 'promo': return { title: "Destaque Agendável (Meio)", sizeDesktop: "1920 x 600 px", showMobile: false, showSchedule: true, aspectDesktop: "aspect-[21/9]", aspectMobile: "aspect-[4/5]" };
+            case 'cards': return { title: "Card de Categoria (Inferior)", sizeDesktop: "600 x 800 px", showMobile: false, showSchedule: false, aspectDesktop: "aspect-[3/4]", aspectMobile: "aspect-[3/4]" };
+            default: return { title: "Banner Rotativo (Topo)", sizeDesktop: "1920 x 720 px", showMobile: true, showSchedule: false, aspectDesktop: "aspect-[21/9]", aspectMobile: "aspect-[4/5]" };
         }
     };
 
@@ -13854,10 +13854,12 @@ const BannerForm = ({ item, section, onSave, onCancel }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Imagem Principal</label>
-                    <p className="text-xs text-amber-600 mt-1 font-semibold">Recomendado: {hints.sizeDesktop}</p>
+                    <p className="text-xs text-amber-600 mt-1 font-semibold">Recomendado: {hints.sizeDesktop} (Proporção real mantida)</p>
                     <div className="flex flex-col gap-2 mt-2">
-                        <img src={formData.image_url || 'https://placehold.co/600x300/eee/ccc?text=Sem+Imagem'} alt="Preview" className="w-full h-32 object-cover rounded-md border bg-white"/>
-                        <input type="text" name="image_url" value={formData.image_url || ''} onChange={handleChange} required placeholder="https://..." className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"/>
+                        <div className={`w-full bg-gray-100 rounded-md border border-gray-300 flex items-center justify-center overflow-hidden shadow-inner ${hints.aspectDesktop}`}>
+                            <img src={formData.image_url || 'https://placehold.co/1920x720/eee/ccc?text=Sem+Imagem'} alt="Preview" className="w-full h-full object-cover"/>
+                        </div>
+                        <input type="text" name="image_url" value={formData.image_url || ''} onChange={handleChange} required placeholder="https://..." className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm mt-1"/>
                         <input type="file" ref={desktopInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'desktop')} />
                         <button type="button" onClick={() => desktopInputRef.current.click()} disabled={uploading.desktop} className="text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-3 rounded-md flex items-center justify-center gap-2 disabled:opacity-50">
                             {uploading.desktop ? <><SpinnerIcon className="h-4 w-4"/> Enviando...</> : <><UploadIcon className="h-4 w-4"/> Upload Imagem</>}
@@ -13868,9 +13870,12 @@ const BannerForm = ({ item, section, onSave, onCancel }) => {
                 {hints.showMobile && (
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Imagem Mobile (Opcional)</label>
+                        <p className="text-xs text-amber-600 mt-1 font-semibold">Recomendado: 1080 x 1350 px (Proporção real mantida)</p>
                         <div className="flex flex-col gap-2 mt-2">
-                            <img src={formData.image_url_mobile || 'https://placehold.co/300x400/eee/ccc?text=Mobile'} alt="Preview Mobile" className="w-full h-32 object-contain rounded-md border bg-white"/>
-                            <input type="text" name="image_url_mobile" value={formData.image_url_mobile || ''} onChange={handleChange} placeholder="https://..." className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"/>
+                            <div className={`w-full max-w-[200px] mx-auto bg-gray-100 rounded-md border border-gray-300 flex items-center justify-center overflow-hidden shadow-inner ${hints.aspectMobile}`}>
+                                <img src={formData.image_url_mobile || 'https://placehold.co/1080x1350/eee/ccc?text=Mobile'} alt="Preview Mobile" className="w-full h-full object-cover"/>
+                            </div>
+                            <input type="text" name="image_url_mobile" value={formData.image_url_mobile || ''} onChange={handleChange} placeholder="https://..." className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm mt-1"/>
                             <input type="file" ref={mobileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'mobile')} />
                             <button type="button" onClick={() => mobileInputRef.current.click()} disabled={uploading.mobile} className="text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-3 rounded-md flex items-center justify-center gap-2 disabled:opacity-50">
                                 {uploading.mobile ? <><SpinnerIcon className="h-4 w-4"/> Enviando...</> : <><UploadIcon className="h-4 w-4"/> Upload Mobile</>}
@@ -13963,7 +13968,16 @@ const AdminBanners = () => {
     const [isGenerating, setIsGenerating] = useState(false);
     const notification = useNotification();
     const confirmation = useConfirmation();
-    const sensors = useSensors(useSensor(PointerSensor));
+    
+    // CORREÇÃO CRÍTICA MÓVEL: activationConstraint adicionado para exigir movimento
+    // de 5px antes que o arrasto ative, permitindo que a tela role normalmente no touch.
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 5,
+            },
+        })
+    );
 
     const fetchBanners = useCallback(() => {
         setIsLoading(true);
