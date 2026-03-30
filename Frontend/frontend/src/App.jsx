@@ -1176,6 +1176,7 @@ const TrackingModal = memo(({ isOpen, onClose, order }) => {
                                         <div className="flex"><span className="font-bold text-gray-500 w-16">Nº:</span> <span className="text-gray-800">{address.numero}</span></div>
                                         <div className="flex"><span className="font-bold text-gray-500 w-16">Bairro:</span> <span className="text-gray-800">{address.bairro}</span></div>
                                         <div className="flex"><span className="font-bold text-gray-500 w-16">Cidade:</span> <span className="text-gray-800">{address.cidade}</span></div>
+                                        <div className="flex"><span className="font-bold text-gray-500 w-16">Estado:</span> <span className="text-gray-800">{address.estado || address.uf}</span></div>
                                         <div className="flex"><span className="font-bold text-gray-500 w-16">CEP:</span> <span className="text-gray-800 font-mono bg-gray-100 px-1 rounded">{address.cep}</span></div>
                                     </div>
                                 ) : (
@@ -6127,6 +6128,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                                         <div className="flex"><span className="font-semibold text-gray-500 w-16">Nº:</span> <span className="text-gray-200">{pAddress.numero}</span></div>
                                                         <div className="flex"><span className="font-semibold text-gray-500 w-16">Bairro:</span> <span className="text-gray-200">{pAddress.bairro}</span></div>
                                                         <div className="flex"><span className="font-semibold text-gray-500 w-16">Cidade:</span> <span className="text-gray-200">{pAddress.cidade}</span></div>
+                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">Estado:</span> <span className="text-gray-200">{pAddress.estado || pAddress.uf}</span></div>
                                                         <div className="flex"><span className="font-semibold text-gray-500 w-16">CEP:</span> <span className="text-gray-200 font-mono">{pAddress.cep}</span></div>
                                                     </div>
                                                 ) : (
@@ -7186,7 +7188,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const pAddress = pickupConfig?.address;
     const isPAddressObj = typeof pAddress === 'object' && pAddress !== null;
 
-    // Timeline component omitted for brevity
     const LocalDeliveryTimeline = ({ history, currentStatus, onStatusClick }) => {
         const displayLabels = {
             'Pendente': 'Pedido Pendente',
@@ -7410,7 +7411,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                         </div>
                     </div>
 
-                    {/* SEÇÃO MODIFICADA E DINÂMICA: Retirada na loja com Maps e BD */}
                     {isPickupOrder ? (
                         <div className="my-4 p-4 bg-gray-800 rounded-md text-sm space-y-3">
                             <div className="flex items-center gap-2 mb-1">
@@ -7424,6 +7424,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                                     <div className="flex"><span className="font-semibold text-gray-500 w-16">Nº:</span> <span className="text-gray-200">{pAddress.numero}</span></div>
                                     <div className="flex"><span className="font-semibold text-gray-500 w-16">Bairro:</span> <span className="text-gray-200">{pAddress.bairro}</span></div>
                                     <div className="flex"><span className="font-semibold text-gray-500 w-16">Cidade:</span> <span className="text-gray-200">{pAddress.cidade}</span></div>
+                                    <div className="flex"><span className="font-semibold text-gray-500 w-16">Estado:</span> <span className="text-gray-200">{pAddress.estado || pAddress.uf}</span></div>
                                     <div className="flex"><span className="font-semibold text-gray-500 w-16">CEP:</span> <span className="text-gray-200 font-mono">{pAddress.cep}</span></div>
                                 </div>
                             ) : (
@@ -7431,8 +7432,8 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                             )}
 
                             {pickupConfig?.mapsLink && (
-                                <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 hover:underline text-xs font-bold mt-1 inline-flex items-center gap-1">
-                                    Abrir no Google Maps &rarr;
+                                <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 hover:underline text-xs font-bold mt-1 inline-flex items-center gap-1 bg-amber-400/10 px-3 py-1.5 rounded-md border border-amber-400/30 transition-all">
+                                    Ver localização no mapa <ArrowUturnLeftIcon className="h-3 w-3 rotate-180" />
                                 </a>
                             )}
                             
@@ -9119,7 +9120,7 @@ const AdminShippingSettings = () => {
     const [newRule, setNewRule] = useState({ type: 'category', value: '', action: 'free_shipping', amount: 0 });
 
     const [pickupConfig, setPickupConfig] = useState({ 
-        address: { rua: '', numero: '', bairro: '', cidade: '', cep: '' }, 
+        address: { rua: '', numero: '', bairro: '', cidade: '', estado: '', cep: '' }, 
         hours: '', 
         instructions: '', 
         mapsLink: '' 
@@ -9152,8 +9153,8 @@ const AdminShippingSettings = () => {
                 if (pickupData) {
                     setPickupConfig({
                         address: typeof pickupData.address === 'object' && pickupData.address !== null 
-                            ? pickupData.address 
-                            : { rua: pickupData.address || '', numero: '', bairro: '', cidade: '', cep: '' },
+                            ? { ...pickupData.address, estado: pickupData.address.estado || pickupData.address.uf || '' }
+                            : { rua: pickupData.address || '', numero: '', bairro: '', cidade: '', estado: '', cep: '' },
                         hours: pickupData.hours || '',
                         instructions: pickupData.instructions || '',
                         mapsLink: pickupData.mapsLink || ''
@@ -9320,10 +9321,14 @@ const AdminShippingSettings = () => {
                                         <input type="text" name="bairro" value={pickupConfig.address?.bairro || ''} onChange={handleAddressChange} className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="Bairro" />
                                     </div>
                                     <div className="md:col-span-4">
-                                        <label className="block text-xs font-bold text-gray-700 mb-1">Cidade - UF</label>
-                                        <input type="text" name="cidade" value={pickupConfig.address?.cidade || ''} onChange={handleAddressChange} className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="Sua Cidade - UF" />
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Cidade</label>
+                                        <input type="text" name="cidade" value={pickupConfig.address?.cidade || ''} onChange={handleAddressChange} className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="Sua Cidade" />
                                     </div>
-                                    <div className="md:col-span-4">
+                                    <div className="md:col-span-2">
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Estado</label>
+                                        <input type="text" name="estado" value={pickupConfig.address?.estado || ''} onChange={handleAddressChange} className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="Paraíba" />
+                                    </div>
+                                    <div className="md:col-span-2">
                                         <label className="block text-xs font-bold text-gray-700 mb-1">CEP</label>
                                         <input type="text" name="cep" value={pickupConfig.address?.cep || ''} onChange={handleAddressChange} className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="00000-000" />
                                     </div>
@@ -12308,41 +12313,23 @@ const AdminOrders = ({ appName }) => {
     const [refundReason, setRefundReason] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
 
-    // --- STATUS BASE ---
     const allStatuses = [
         'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 
         'Pronto para Retirada', 'Enviado', 'Saiu para Entrega', 
         'Entregue', 'Pagamento Recusado', 'Cancelado'
     ];
 
-    // --- HELPER VISUAL DE ENVIO ---
     const getShippingDisplay = (method) => {
         const lower = method ? method.toLowerCase() : '';
         if (lower.includes('retirar') || lower.includes('loja')) {
-            return { 
-                icon: <BoxIcon className="h-4 w-4"/>, 
-                label: 'Retirada',
-                fullText: 'Retirada na Loja', 
-                classes: 'bg-purple-100 text-purple-700 border border-purple-200' 
-            };
+            return { icon: <BoxIcon className="h-4 w-4"/>, label: 'Retirada', fullText: 'Retirada na Loja', classes: 'bg-purple-100 text-purple-700 border border-purple-200' };
         }
         if (lower.includes('motoboy') || lower.includes('delivery') || lower.includes('local')) {
-            return { 
-                icon: <TruckIcon className="h-4 w-4"/>, 
-                label: 'Motoboy',
-                fullText: 'Entrega Local (Moto)', 
-                classes: 'bg-blue-100 text-blue-700 border border-blue-200' 
-            };
+            return { icon: <TruckIcon className="h-4 w-4"/>, label: 'Motoboy', fullText: 'Entrega Local (Moto)', classes: 'bg-blue-100 text-blue-700 border border-blue-200' };
         }
-        return { 
-            icon: <TruckIcon className="h-4 w-4"/>, 
-            label: 'Correios',
-            fullText: method || 'Envio Padrão', 
-            classes: 'bg-amber-100 text-amber-700 border border-amber-200' 
-        };
+        return { icon: <TruckIcon className="h-4 w-4"/>, label: 'Correios', fullText: method || 'Envio Padrão', classes: 'bg-amber-100 text-amber-700 border border-amber-200' };
     };
 
-    // --- COMPONENTE DE TIMELINE INTERNO ---
     const TimelineDisplay = ({ order }) => {
         const isLocalDelivery = order.shipping_method && (order.shipping_method.toLowerCase().includes('motoboy') || order.shipping_method.toLowerCase().includes('entrega local'));
         const isPickup = order.shipping_method === 'Retirar na loja';
@@ -12374,9 +12361,7 @@ const AdminOrders = ({ appName }) => {
         }
 
         const currentStatusIndex = timelineOrder.indexOf(order.status);
-        const progressWidth = currentStatusIndex >= 0 
-            ? (currentStatusIndex / (timelineOrder.length - 1)) * 100 
-            : 0;
+        const progressWidth = currentStatusIndex >= 0 ? (currentStatusIndex / (timelineOrder.length - 1)) * 100 : 0;
 
         return (
             <div className="w-full py-6 mb-4">
@@ -12402,7 +12387,6 @@ const AdminOrders = ({ appName }) => {
         );
     };
 
-    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS (ATUALIZADA) ---
     const generateWhatsAppStatusMessage = (status, order, trackingCode) => {
         const customerName = order.user_name;
         const orderId = order.id;
@@ -12414,22 +12398,11 @@ const AdminOrders = ({ appName }) => {
         const paymentLink = `${window.location.origin}/#order-success/${orderId}`;
 
         const EMOJI = {
-            PACKAGE: String.fromCodePoint(0x1F4E6),
-            TRUCK: String.fromCodePoint(0x1F69A),
-            DOC: String.fromCodePoint(0x1F4C4),
-            LINK: String.fromCodePoint(0x1F517),
-            MOTO: String.fromCodePoint(0x1F6F5),
-            CHECK: String.fromCodePoint(0x2705),
-            BAGS: String.fromCodePoint(0x1F6CD, 0xFE0F),
-            PIN: String.fromCodePoint(0x1F4CD),
-            CLOCK: String.fromCodePoint(0x23F0),
-            MONEY: String.fromCodePoint(0x1F4B8),
-            CROSS: String.fromCodePoint(0x274C),
-            WARN: String.fromCodePoint(0x26A0, 0xFE0F),
-            NEW: String.fromCodePoint(0x1F195),
-            PHONE: String.fromCodePoint(0x1F4F1),
-            HOUSE: String.fromCodePoint(0x1F3E0),
-            ROCKET: String.fromCodePoint(0x1F680),
+            PACKAGE: String.fromCodePoint(0x1F4E6), TRUCK: String.fromCodePoint(0x1F69A), DOC: String.fromCodePoint(0x1F4C4),
+            LINK: String.fromCodePoint(0x1F517), MOTO: String.fromCodePoint(0x1F6F5), CHECK: String.fromCodePoint(0x2705),
+            BAGS: String.fromCodePoint(0x1F6CD, 0xFE0F), PIN: String.fromCodePoint(0x1F4CD), CLOCK: String.fromCodePoint(0x23F0),
+            MONEY: String.fromCodePoint(0x1F4B8), CROSS: String.fromCodePoint(0x274C), WARN: String.fromCodePoint(0x26A0, 0xFE0F),
+            NEW: String.fromCodePoint(0x1F195), PHONE: String.fromCodePoint(0x1F4F1), HOUSE: String.fromCodePoint(0x1F3E0),
             PAY: String.fromCodePoint(0x1F4B3)
         };
 
@@ -12439,76 +12412,40 @@ const AdminOrders = ({ appName }) => {
              text += `🔔 *Lembrete de Pagamento: Pedido #${orderId}*\n\n`;
              text += `Recebemos seu pedido, mas ainda não identificamos a confirmação do pagamento.\n\n`;
              text += `${EMOJI.PAY} *Para realizar o pagamento, acesse:* \n${paymentLink}\n\n`;
-             text += `⚠️ *Caso já tenha efetuado o pagamento:* \nPor favor, desconsidere esta mensagem. O sistema pode levar alguns instantes para processar.\n\n`;
-             text += `${EMOJI.DOC} *Acompanhe o status do pedido aqui:* \n${orderLink}\n\n`;
-             text += `${EMOJI.CHECK} Assim que confirmado, você será notificado automaticamente por aqui e por e-mail.\n`;
-             text += `\nAtenciosamente,\n*Equipe ${appName || 'da Loja'}*\n${EMOJI.PHONE} (83) 98737-9573`;
+             text += `⚠️ *Caso já tenha efetuado o pagamento:* \nPor favor, desconsidere esta mensagem.\n\n`;
+             text += `${EMOJI.DOC} *Acompanhe o status aqui:* \n${orderLink}\n\n`;
+             text += `Atenciosamente,\n*Equipe ${appName || 'da Loja'}*\n${EMOJI.PHONE} (83) 98737-9573`;
              return text;
         }
 
         text += `O status do seu pedido *#${orderId}* foi atualizado:\n\n`;
 
         switch (status) {
-            case 'Separando Pedido':
-                text += `${EMOJI.PACKAGE} *Novo Status: Preparado o pedido para envio*\n`;
-                text += `Estamos separando seus itens com cuidado.`;
-                break;
-            case 'Enviado': 
-                text += `${EMOJI.TRUCK} *Novo Status: Pedido Enviado*\n`;
-                if (trackingCode) text += `\n\n${EMOJI.DOC} *Rastreio:* ${trackingCode}\n${EMOJI.LINK} *Acompanhe:* https://linketrack.com/track?codigo=${trackingCode}`;
-                break;
+            case 'Separando Pedido': text += `${EMOJI.PACKAGE} *Novo Status: Preparado o pedido para envio*\nEstamos separando seus itens com cuidado.`; break;
+            case 'Enviado': text += `${EMOJI.TRUCK} *Novo Status: Pedido Enviado*\n${trackingCode ? `\n${EMOJI.DOC} *Rastreio:* ${trackingCode}\n${EMOJI.LINK} *Acompanhe:* https://linketrack.com/track?codigo=${trackingCode}` : ''}`; break;
             case 'Saiu para Entrega':
-                if (isLocalDelivery) {
-                    text += `${EMOJI.MOTO} *Novo Status: Saiu para entrega (Motoboy)*\n`;
-                    text += `O motorista já está a caminho do seu endereço.`;
-                    if (trackingCode && trackingCode.startsWith('http')) {
-                        text += `\n\n${EMOJI.LINK} *Acompanhe em tempo real:*\n${trackingCode}`;
-                    }
-                } else {
-                    text += `${EMOJI.MOTO} *Novo Status: Saiu para Entrega*\n`;
-                    text += `Seu pedido está em rota de entrega pelos Correios.`;
-                }
+                if (isLocalDelivery) text += `${EMOJI.MOTO} *Novo Status: Saiu para entrega (Motoboy)*\nO motorista já está a caminho.${trackingCode?.startsWith('http') ? `\n\n${EMOJI.LINK} *Acompanhe em tempo real:*\n${trackingCode}` : ''}`;
+                else text += `${EMOJI.MOTO} *Novo Status: Saiu para Entrega*\nSeu pedido está em rota de entrega.`;
                 break;
-            case 'Entregue':
-                text += `${EMOJI.CHECK} *Novo Status: Pedido entregue*\n`;
-                text += `Confirmamos a entrega. Esperamos que goste dos produtos!`;
-                break;
-            case 'Pronto para Retirada':
-                text += `${EMOJI.BAGS} *Novo Status: Pronto para Retirada*\n`;
-                text += `Já disponível em nossa loja.`;
-                break;
-            case 'Pagamento Aprovado':
-                text += `${EMOJI.MONEY} *Novo Status: Pagamento Aprovado*\n`;
-                text += `Pagamento confirmado. Iniciaremos a separação.`;
-                break;
-            case 'Cancelado':
-                text += `${EMOJI.CROSS} *Novo Status: Cancelado*\n`;
-                text += `O pedido foi cancelado. Se tiver dúvidas, estamos à disposição.`;
-                break;
-            case 'Pagamento Recusado':
-                text += `${EMOJI.WARN} *Novo Status: Pagamento Recusado*\n`;
-                text += `O pagamento não foi autorizado. Tente novamente ou entre em contato.`;
-                break;
-            case 'Reembolsado':
-                text += `${EMOJI.MONEY} *Novo Status: Reembolsado*\n`;
-                text += `O reembolso do seu pedido foi processado.`;
-                break;
-            default:
-                text += `${EMOJI.NEW} *Novo Status:* ${status}`;
+            case 'Entregue': text += `${EMOJI.CHECK} *Novo Status: Pedido entregue*\nConfirmamos a entrega. Esperamos que goste dos produtos!`; break;
+            case 'Pronto para Retirada': text += `${EMOJI.BAGS} *Novo Status: Pronto para Retirada*\nJá disponível em nossa loja.`; break;
+            case 'Pagamento Aprovado': text += `${EMOJI.MONEY} *Novo Status: Pagamento Aprovado*\nPagamento confirmado. Iniciaremos a separação.`; break;
+            case 'Cancelado': text += `${EMOJI.CROSS} *Novo Status: Cancelado*\nO pedido foi cancelado. Se tiver dúvidas, estamos à disposição.`; break;
+            case 'Pagamento Recusado': text += `${EMOJI.WARN} *Novo Status: Pagamento Recusado*\nO pagamento não foi autorizado. Tente novamente ou entre em contato.`; break;
+            case 'Reembolsado': text += `${EMOJI.MONEY} *Novo Status: Reembolsado*\nO reembolso do seu pedido foi processado.`; break;
+            default: text += `${EMOJI.NEW} *Novo Status:* ${status}`;
         }
 
-        if (status !== 'Cancelado' && status !== 'Reembolsado' && status !== 'Pagamento Recusado') {
+        if (!['Cancelado', 'Reembolsado', 'Pagamento Recusado'].includes(status)) {
              text += `\n\n--------------------------------\n`;
              if (isPickup) {
-                // INJEÇÃO DA CONFIGURAÇÃO DINÂMICA
                 const pAddr = pickupConfig?.address;
                 let pAddrStr = 'Endereço não configurado';
                 if (typeof pAddr === 'object' && pAddr !== null) {
-                    pAddrStr = `Rua: ${pAddr.rua}\nNº: ${pAddr.numero}\nBairro: ${pAddr.bairro}\nCidade: ${pAddr.cidade}\nCEP: ${pAddr.cep}`;
+                    pAddrStr = `Rua: ${pAddr.rua}\nNº: ${pAddr.numero}\nBairro: ${pAddr.bairro}\nCidade: ${pAddr.cidade}\nEstado: ${pAddr.estado || pAddr.uf}\nCEP: ${pAddr.cep}`;
                 } else if (typeof pAddr === 'string') {
                     pAddrStr = pAddr;
                 }
-
                 const pHours = pickupConfig?.hours || 'Seg a Sáb, 09h-11h30 e 15h-17h30';
                 const pInst = pickupConfig?.instructions || 'Documento com foto e número do pedido.';
                 const pMaps = pickupConfig?.mapsLink || '';
@@ -12521,46 +12458,24 @@ const AdminOrders = ({ appName }) => {
                 try {
                     const addr = JSON.parse(order.shipping_address);
                     if (addr) {
-                        text += `${EMOJI.HOUSE} *Endereço de Entrega:*\n`;
-                        text += `${addr.logradouro}, ${addr.numero}\n`;
-                        if (addr.bairro) text += `${addr.bairro} - `;
-                        text += `${addr.localidade}/${addr.uf}`;
+                        text += `${EMOJI.HOUSE} *Endereço de Entrega:*\n${addr.logradouro}, ${addr.numero}\n${addr.bairro ? `${addr.bairro} - ` : ''}${addr.localidade}/${addr.uf}`;
                     }
-                } catch (e) {
-                    text += `${EMOJI.TRUCK} Envio para o endereço cadastrado.`;
-                }
+                } catch (e) { text += `${EMOJI.TRUCK} Envio para o endereço cadastrado.`; }
             }
         }
 
-        text += `\n\n${EMOJI.LINK} *Detalhes no site:*\n${orderLink}`;
-        text += `\n\nAtenciosamente,\n*Equipe ${appName || 'da Loja'}*\n${EMOJI.PHONE} (83) 98737-9573`;
-        
+        text += `\n\n${EMOJI.LINK} *Detalhes no site:*\n${orderLink}\n\nAtenciosamente,\n*Equipe ${appName || 'da Loja'}*\n${EMOJI.PHONE} (83) 98737-9573`;
         return text;
     };
 
     const handleManualWhatsAppNotification = () => {
-        if (!editingOrder || !editingOrder.user_phone) {
-            notification.show("Telefone do cliente não disponível.", "error");
-            return;
-        }
-
+        if (!editingOrder || !editingOrder.user_phone) { notification.show("Telefone do cliente não disponível.", "error"); return; }
         const statusToSend = editFormData.status || editingOrder.status;
         const trackingToSend = editFormData.tracking_code || editingOrder.tracking_code;
-
-        const message = generateWhatsAppStatusMessage(
-            statusToSend,
-            editingOrder,
-            trackingToSend
-        );
-
+        const message = generateWhatsAppStatusMessage(statusToSend, editingOrder, trackingToSend);
         const cleanPhone = editingOrder.user_phone.replace(/\D/g, '');
-
-        if (cleanPhone.length >= 10) {
-            const waUrl = `https://api.whatsapp.com/send?phone=55${cleanPhone}&text=${encodeURIComponent(message)}`;
-            window.open(waUrl, '_blank');
-        } else {
-            notification.show("Número de telefone do cliente inválido.", "error");
-        }
+        if (cleanPhone.length >= 10) window.open(`https://api.whatsapp.com/send?phone=55${cleanPhone}&text=${encodeURIComponent(message)}`, '_blank');
+        else notification.show("Número de telefone do cliente inválido.", "error");
     };
     
     const fetchOrders = useCallback(() => {
@@ -12569,45 +12484,30 @@ const AdminOrders = ({ appName }) => {
                 const sortedData = data.sort((a,b) => new Date(b.date) - new Date(a.date));
                 setOrders(sortedData);
                 const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-                const recent = sortedData.filter(o => {
-                    if (!o || !o.date) return false;
-                    const d = new Date(o.date);
-                    return !isNaN(d) && d > twentyFourHoursAgo;
-                });
+                const recent = sortedData.filter(o => o?.date && !isNaN(new Date(o.date)) && new Date(o.date) > twentyFourHoursAgo);
                 setNewOrdersCount(recent.length);
-            })
-            .catch(console.error);
+            }).catch(console.error);
     }, []);
 
     useEffect(() => { fetchOrders(); }, [fetchOrders]);
     
     useEffect(() => {
         let temp = [...orders];
-
         if (searchTerm) {
             const lowerTerm = searchTerm.toLowerCase();
-            temp = temp.filter(o => 
-                String(o.id).includes(lowerTerm) || 
-                (o.user_name && o.user_name.toLowerCase().includes(lowerTerm)) ||
-                (o.user_cpf && o.user_cpf.includes(lowerTerm))
-            );
+            temp = temp.filter(o => String(o.id).includes(lowerTerm) || (o.user_name?.toLowerCase().includes(lowerTerm)) || (o.user_cpf?.includes(lowerTerm)));
         }
-
         if (filters.status) temp = temp.filter(o => o.status === filters.status);
         if (filters.minPrice) temp = temp.filter(o => Number(o.total) >= Number(filters.minPrice));
         if (filters.maxPrice) temp = temp.filter(o => Number(o.total) <= Number(filters.maxPrice));
-        
         if (filters.startDate) {
-            const start = new Date(filters.startDate);
-            start.setHours(0,0,0,0);
+            const start = new Date(filters.startDate); start.setHours(0,0,0,0);
             temp = temp.filter(o => new Date(o.date) >= start);
         }
         if (filters.endDate) {
-            const end = new Date(filters.endDate);
-            end.setHours(23,59,59,999);
+            const end = new Date(filters.endDate); end.setHours(23,59,59,999);
             temp = temp.filter(o => new Date(o.date) <= end);
         }
-
         setFilteredOrders(temp);
         setCurrentPage(1);
     }, [orders, filters, searchTerm]);
@@ -12661,51 +12561,27 @@ const AdminOrders = ({ appName }) => {
 
     const handleOpenRefundModal = () => {
         if (!editingOrder) return;
-        setRefundAmount(editingOrder.total);
-        setRefundReason('');
-        setIsEditModalOpen(false);
-        setIsRefundModalOpen(true);
+        setRefundAmount(editingOrder.total); setRefundReason('');
+        setIsEditModalOpen(false); setIsRefundModalOpen(true);
     };
 
     const handleRequestRefund = async (e) => {
         e.preventDefault();
         setIsProcessing(true);
         try {
-            if (parseFloat(refundAmount) > parseFloat(editingOrder.total)) {
-                throw new Error("O valor do reembolso não pode ser maior que o total do pedido.");
-            }
-            const result = await apiService('/refunds', 'POST', {
-                order_id: editingOrder.id,
-                amount: refundAmount,
-                reason: refundReason,
-            });
+            if (parseFloat(refundAmount) > parseFloat(editingOrder.total)) throw new Error("O valor do reembolso não pode ser maior que o total do pedido.");
+            const result = await apiService('/refunds', 'POST', { order_id: editingOrder.id, amount: refundAmount, reason: refundReason });
             notification.show(result.message);
             setIsRefundModalOpen(false);
             fetchOrders();
-        } catch (error) {
-            notification.show(`Erro ao solicitar reembolso: ${error.message}`, 'error');
-        } finally {
-            setIsProcessing(false);
-        }
+        } catch (error) { notification.show(`Erro ao solicitar reembolso: ${error.message}`, 'error'); } 
+        finally { setIsProcessing(false); }
     };
 
-    const handleEditFormChange = (e) => {
-        const { name, value } = e.target;
-        setEditFormData(prev => ({ ...prev, [name]: value }));
-    };
-
-    const handleFilterChange = (e) => {
-        const { name, value } = e.target;
-        setFilters(prev => ({ ...prev, [name]: value }));
-    };
-
-    const applyFilters = useCallback(() => { /* Lógica mantida */ }, []);
-    
-    const clearFilters = () => {
-        setFilters({ startDate: '', endDate: '', status: '', minPrice: '', maxPrice: '' });
-        setSearchTerm('');
-        setCurrentPage(1);
-    }
+    const handleEditFormChange = (e) => setEditFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    const handleFilterChange = (e) => setFilters(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    const applyFilters = useCallback(() => { /* Lógica de filtro reativa já trata */ }, []);
+    const clearFilters = () => { setFilters({ startDate: '', endDate: '', status: '', minPrice: '', maxPrice: '' }); setSearchTerm(''); setCurrentPage(1); }
 
     const getStatusChipClass = (status) => {
         const lowerStatus = status ? status.toLowerCase() : '';
@@ -12715,11 +12591,10 @@ const AdminOrders = ({ appName }) => {
         return 'bg-blue-100 text-blue-800';
     };
 
-    // --- RENDERIZAÇÃO DO FORMULÁRIO DE ATUALIZAÇÃO (COMPONENTIZADO) ---
     const renderUpdateOrderForm = () => {
         const isLocalDelivery = editingOrder.shipping_method && (editingOrder.shipping_method.toLowerCase().includes('motoboy') || editingOrder.shipping_method.toLowerCase().includes('entrega local'));
         const isPickup = editingOrder.shipping_method === 'Retirar na loja';
-        const canRequestRefund = editingOrder.payment_status === 'approved' && !editingOrder.refund_id && editingOrder.status !== 'Cancelado' && editingOrder.status !== 'Reembolsado';
+        const canRequestRefund = editingOrder.payment_status === 'approved' && !editingOrder.refund_id && !['Cancelado', 'Reembolsado'].includes(editingOrder.status);
 
         let availableStatuses = [];
         if (isLocalDelivery) availableStatuses = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Saiu para Entrega', 'Entregue', 'Cancelado', 'Pagamento Recusado'];
@@ -12746,14 +12621,7 @@ const AdminOrders = ({ appName }) => {
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
                                     {isLocalDelivery ? "Link de Acompanhamento (Uber/Moto)" : "Código de Rastreio"}
                                 </label>
-                                <input 
-                                    type="text" 
-                                    name="tracking_code" 
-                                    value={editFormData.tracking_code} 
-                                    onChange={handleEditFormChange} 
-                                    placeholder={isLocalDelivery ? "Cole o link da viagem aqui" : "Ex: AA123456789BR"}
-                                    className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" 
-                                />
+                                <input type="text" name="tracking_code" value={editFormData.tracking_code} onChange={handleEditFormChange} placeholder={isLocalDelivery ? "Cole o link da viagem aqui" : "Ex: AA123456789BR"} className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" />
                                 {isLocalDelivery && <p className="text-xs text-gray-500 mt-1">Link para o cliente acompanhar o motoboy.</p>}
                             </div>
                         )}
@@ -12770,20 +12638,14 @@ const AdminOrders = ({ appName }) => {
                             ) : null}
 
                             {editingOrder.user_phone && (
-                                <button 
-                                    type="button" 
-                                    onClick={handleManualWhatsAppNotification}
-                                    className="px-4 py-2.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-bold text-sm flex items-center gap-2 transition-colors flex-grow md:flex-grow-0 justify-center"
-                                >
+                                <button type="button" onClick={handleManualWhatsAppNotification} className="px-4 py-2.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-bold text-sm flex items-center gap-2 transition-colors flex-grow md:flex-grow-0 justify-center">
                                     <WhatsappIcon className="h-5 w-5"/> Notificar
                                 </button>
                             )}
                         </div>
 
                         <div className="flex flex-wrap gap-3 w-full md:w-auto">
-                            <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 md:flex-none px-6 py-2.5 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 text-sm transition-colors">
-                                Cancelar
-                            </button>
+                            <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 md:flex-none px-6 py-2.5 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 text-sm transition-colors">Cancelar</button>
                             <button type="submit" className="flex-1 md:flex-none px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-md text-sm transition-colors flex items-center justify-center gap-2">
                                 <CheckIcon className="h-5 w-5"/> Salvar
                             </button>
@@ -12793,9 +12655,6 @@ const AdminOrders = ({ appName }) => {
             </div>
         );
     };
-
-    const pAddress = pickupConfig?.address;
-    const isPAddressObj = typeof pAddress === 'object' && pAddress !== null;
 
     return (
         <div>
@@ -12827,6 +12686,8 @@ const AdminOrders = ({ appName }) => {
                 {editingOrder && (() => {
                     const isLocalDelivery = editingOrder.shipping_method && (editingOrder.shipping_method.toLowerCase().includes('motoboy') || editingOrder.shipping_method.toLowerCase().includes('entrega local'));
                     const isPickup = editingOrder.shipping_method === 'Retirar na loja';
+                    const pAddress = pickupConfig?.address;
+                    const isPAddressObj = typeof pAddress === 'object' && pAddress !== null;
 
                     return (
                         <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Pedido #${editingOrder.id}`} size="3xl">
@@ -13000,6 +12861,7 @@ const AdminOrders = ({ appName }) => {
                                                             <div className="flex"><span className="font-semibold w-12">Nº:</span> <span>{pAddress.numero}</span></div>
                                                             <div className="flex"><span className="font-semibold w-12">Bairro:</span> <span>{pAddress.bairro}</span></div>
                                                             <div className="flex"><span className="font-semibold w-12">Cidade:</span> <span>{pAddress.cidade}</span></div>
+                                                            <div className="flex"><span className="font-semibold w-12">Estado:</span> <span>{pAddress.estado || pAddress.uf}</span></div>
                                                             <div className="flex"><span className="font-semibold w-12">CEP:</span> <span>{pAddress.cep}</span></div>
                                                         </div>
                                                     ) : (
@@ -13207,6 +13069,7 @@ const AdminOrders = ({ appName }) => {
                         const shipInfo = getShippingDisplay(o.shipping_method);
                         return (
                         <div key={o.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm relative overflow-hidden">
+                            {/* Faixa lateral de status */}
                             <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${o.status === 'Entregue' ? 'bg-green-500' : (o.status === 'Cancelado' ? 'bg-red-500' : 'bg-indigo-500')}`}></div>
                             
                             <div className="pl-3">
