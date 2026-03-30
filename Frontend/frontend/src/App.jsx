@@ -13929,7 +13929,9 @@ const BannerForm = ({ item, section, onSave, onCancel }) => {
 
 const SortableBannerCard = ({ banner, onEdit, onDelete, isLastItem }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: banner.id });
-    const style = { transform: CSS.Transform.toString(transform), transition, touchAction: 'none' };
+    
+    // CORREÇÃO: Removido o touchAction: 'none' daqui para liberar o scroll na foto
+    const style = { transform: CSS.Transform.toString(transform), transition };
 
     return (
         <div ref={setNodeRef} style={style} className={`bg-white border rounded-lg shadow-sm overflow-hidden group relative ${!banner.is_active ? 'opacity-50' : ''} ${isLastItem ? 'border-2 border-amber-500 ring-2 ring-amber-100' : ''}`}>
@@ -13938,9 +13940,18 @@ const SortableBannerCard = ({ banner, onEdit, onDelete, isLastItem }) => {
                      DESTAQUE (HOME)
                  </div>
              )}
-             <div {...attributes} {...listeners} className="absolute top-2 right-2 p-2 bg-black/40 rounded-full cursor-grab active:cursor-grabbing text-white opacity-0 group-hover:opacity-100 transition-opacity z-10" title="Arraste para reordenar">
+             
+             {/* CORREÇÃO: touchAction: 'none' colocado APENAS no botão de arrastar */}
+             <div 
+                {...attributes} 
+                {...listeners} 
+                style={{ touchAction: 'none' }}
+                className="absolute top-2 right-2 p-2 bg-black/40 rounded-full cursor-grab active:cursor-grabbing text-white opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity z-10" 
+                title="Arraste para reordenar"
+             >
                 <BarsGripIcon className="h-5 w-5" />
             </div>
+            
             <img src={banner.image_url} alt={banner.title || 'Banner'} className="w-full h-32 object-cover"/>
             <div className="p-3">
                 <p className="font-bold text-sm truncate">{banner.title || "Banner sem título"}</p>
