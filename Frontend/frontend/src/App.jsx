@@ -3204,10 +3204,10 @@ const HomePage = ({ onNavigate }) => {
     }, []);
 
     return (
-      <div className="bg-black min-h-screen pb-0 overflow-x-hidden">
+      // CORREÇÃO: Alterado pb-0 para pb-24 md:pb-0 para liberar o espaço do menu inferior
+      <div className="bg-black min-h-screen pb-24 md:pb-0 overflow-x-hidden">
         {/* Banner Principal Rotativo */}
         {isLoadingBanners ? (
-            // ATUALIZAÇÃO: Altura do loading ajustada para h-[55vh] no mobile para coincidir com o banner real
             <div className="relative h-[55vh] sm:h-[70vh] bg-gray-900 flex items-center justify-center">
                 <SpinnerIcon className="h-10 w-10 text-amber-400" />
             </div>
