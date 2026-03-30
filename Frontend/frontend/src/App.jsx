@@ -5786,104 +5786,6 @@ const AddressForm = ({ initialData = {}, onSave, onCancel }) => {
         return alias && cep.replace(/\D/g, '').length === 8 && logradouro && numero && bairro && localidade && uf;
     }, [formData]);
 
-    return (
-        <form onSubmit={handleSubmit} className="space-y-4 text-gray-800">
-            <input name="alias" value={formData.alias} onChange={handleChange} placeholder="Apelido do Endereço (ex: Casa, Trabalho)" className="w-full p-3 bg-gray-100 border border-gray-300 rounded-md" required />
-            <input name="cep" value={formData.cep} onChange={handleCepChange} placeholder="CEP" className="w-full p-3 bg-gray-100 border border-gray-300 rounded-md" required />
-            <input name="logradouro" value={formData.logradouro} onChange={handleChange} placeholder="Rua / Logradouro" className="w-full p-3 bg-gray-100 border border-gray-300 rounded-md" required />
-            <div className="flex space-x-4">
-                <input name="numero" value={formData.numero} onChange={handleChange} placeholder="Número" className="w-1/2 p-3 bg-gray-100 border border-gray-300 rounded-md" required />
-                <input name="complemento" value={formData.complemento} onChange={handleChange} placeholder="Complemento (Opcional)" className="w-1/2 p-3 bg-gray-100 border border-gray-300 rounded-md" />
-            </div>
-            <input name="bairro" value={formData.bairro} onChange={handleChange} placeholder="Bairro" className="w-full p-3 bg-gray-100 border border-gray-300 rounded-md" required />
-            <div className="flex space-x-4">
-                <input name="localidade" value={formData.localidade} onChange={handleChange} placeholder="Cidade" className="flex-grow p-3 bg-gray-100 border border-gray-300 rounded-md" required />
-                <input name="uf" value={formData.uf} onChange={handleChange} placeholder="UF" className="w-1/4 p-3 bg-gray-100 border border-gray-300 rounded-md" required />
-            </div>
-            <div className="flex items-center">
-                <input type="checkbox" id="is_default" name="is_default" checked={formData.is_default} onChange={handleChange} className="h-4 w-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500" />
-                <label htmlFor="is_default" className="ml-2 block text-sm text-gray-700">Salvar como endereço padrão</label>
-            </div>
-            <div className="flex justify-end space-x-3 pt-4">
-                <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
-                <button type="submit" disabled={!isFormValid || isSaving} className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 disabled:bg-gray-400 flex items-center justify-center">
-                    {isSaving ? <SpinnerIcon /> : 'Salvar Endereço'}
-                </button>
-            </div>
-        </form>
-    );
-};
-
-const AddressForm = ({ initialData = {}, onSave, onCancel }) => {
-    const [formData, setFormData] = useState({
-        alias: '',
-        cep: '',
-        logradouro: '',
-        numero: '',
-        complemento: '',
-        bairro: '',
-        localidade: '',
-        uf: '',
-        is_default: false,
-        ...initialData
-    });
-    const [isSaving, setIsSaving] = useState(false);
-    const notification = useNotification();
-
-    const handleCepLookup = useCallback(async (cepValue) => {
-        const cep = cepValue.replace(/\D/g, '');
-        if (cep.length !== 8) return;
-        
-        try {
-            const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-            if (!response.ok) throw new Error('Falha na resposta da API de CEP.');
-            
-            const data = await response.json();
-            if (!data.erro) {
-                setFormData(prev => ({ 
-                    ...prev, 
-                    logradouro: data.logradouro, 
-                    bairro: data.bairro, 
-                    localidade: data.localidade, 
-                    uf: data.uf
-                }));
-            } else {
-                notification.show("CEP não encontrado.", "error");
-            }
-        } catch (error) {
-            console.error("Erro ao buscar CEP:", error);
-            notification.show("Não foi possível buscar o CEP. Tente novamente.", "error");
-        }
-    }, [notification]);
-
-    const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value
-        }));
-    };
-
-    const handleCepChange = (e) => {
-        const newCep = maskCEP(e.target.value);
-        setFormData(prev => ({ ...prev, cep: newCep }));
-        if (newCep.replace(/\D/g, '').length === 8) {
-            handleCepLookup(newCep);
-        }
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setIsSaving(true);
-        await onSave(formData);
-        setIsSaving(false);
-    };
-    
-    const isFormValid = useMemo(() => {
-        const { alias, cep, logradouro, numero, bairro, localidade, uf } = formData;
-        return alias && cep.replace(/\D/g, '').length === 8 && logradouro && numero && bairro && localidade && uf;
-    }, [formData]);
-
     // Identifica quais campos exatos estão faltando
     const missingFields = useMemo(() => {
         const missing = [];
@@ -5941,6 +5843,36 @@ const AddressForm = ({ initialData = {}, onSave, onCancel }) => {
                 </button>
             </div>
         </form>
+    );
+};
+
+const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, onAddNewAddress }) => {
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Selecione um Endereço de Entrega" size="md">
+            <div className="space-y-3">
+                {addresses.map(addr => (
+                    <div 
+                        key={addr.id} 
+                        onClick={() => onSelectAddress(addr)}
+                        className="p-4 border-2 rounded-lg cursor-pointer transition-all bg-gray-50 hover:border-amber-400 hover:bg-amber-50"
+                    >
+                        <p className="font-bold text-gray-800">{addr.alias} {addr.is_default ? <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full ml-2">Padrão</span> : ''}</p>
+                        <p className="text-sm text-gray-600">{addr.logradouro}, {addr.numero}</p>
+                        <p className="text-sm text-gray-500">{addr.bairro}, {addr.localidade} - {addr.uf}</p>
+                        <p className="text-sm text-gray-500">{addr.cep}</p>
+                    </div>
+                ))}
+                {addresses.length < 5 && (
+                    <button 
+                        onClick={onAddNewAddress}
+                        className="w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-amber-400 hover:text-amber-600 transition-colors"
+                    >
+                        <PlusCircleIcon className="h-6 w-6" />
+                        <span>Adicionar Novo Endereço</span>
+                    </button>
+                )}
+            </div>
+        </Modal>
     );
 };
 
