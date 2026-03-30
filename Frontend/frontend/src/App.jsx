@@ -3936,26 +3936,20 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const isClothing = product?.product_type === 'clothing';
     const isPerfume = product?.product_type === 'perfume';
 
-    // --- CORREÇÃO: LÓGICA DE ESTOQUE ---
-    // Garante que Number seja usado para evitar strings "0" passarem batido.
     const globalStock = Number(product?.stock) || 0;
     let productOrVariationOutOfStock = false;
     let stockLimit = 0;
 
     if (isClothing) {
         if (globalStock <= 0) {
-            // Se o produto de roupa zerou por completo o estoque global
             productOrVariationOutOfStock = true;
         } else if (selectedVariation) {
-            // Se selecionou uma cor e tamanho específicos
             productOrVariationOutOfStock = Number(selectedVariation.stock) <= 0;
             stockLimit = Number(selectedVariation.stock);
         } else {
-            // Se ainda não selecionou tamanho, usa o global para o input provisório
             stockLimit = globalStock;
         }
     } else {
-        // Para perfumes e outros itens sem variação
         productOrVariationOutOfStock = globalStock <= 0;
         stockLimit = globalStock;
     }
@@ -3963,8 +3957,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const isQtyAtMax = stockLimit > 0 ? quantity >= stockLimit : false;
 
     const getYouTubeEmbedUrl = (url) => { if (!url) return null; try { let videoId = ''; const urlObj = new URL(url); if (urlObj.hostname === 'youtu.be') { videoId = urlObj.pathname.slice(1); } else if (urlObj.hostname.includes('youtube.com')) { if (urlObj.searchParams.has('v')) { videoId = urlObj.searchParams.get('v'); } else if (urlObj.pathname.includes('/embed/')) { videoId = urlObj.pathname.split('/embed/')[1]; } else if (urlObj.pathname.includes('/shorts/')) { videoId = urlObj.pathname.split('/shorts/')[1]; } } if (!videoId) return null; videoId = videoId.split('?')[0].split('&')[0]; return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`; } catch (e) { if (url && url.includes('youtu.be/')) { const simpleId = url.split('youtu.be/')[1]?.split('?')[0]; return simpleId ? `https://www.youtube.com/embed/${simpleId}?autoplay=1&rel=0` : null; } return null; } };
-    const parseTextToList = (text) => { if (!text || text.trim() === '') return null; return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>; };
-    const getInstallmentSummary = () => { if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; } const noInterest = [...installments].reverse().find(p => p.installment_rate === 0); if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } const lastInstallment = installments[installments.length - 1]; if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } return null; };
+    const parseTextToList = (text) => { if (!text || text.trim() === '') return null; return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">✓</span><span>{line}</span></li>)}</ul>; };
+    const getInstallmentSummary = () => { if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; } const noInterest = [...installments].reverse().find(p => p.installment_rate === 0); if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$ {noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } const lastInstallment = installments[installments.length - 1]; if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$ {lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } return null; };
 
     const fetchProductData = useCallback(async (id) => {
         const controller = new AbortController();
@@ -4122,7 +4116,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     };
 
     const TabButton = ({ label, tabName, isVisible = true }) => { if (!isVisible) return null; return ( <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-amber-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'}`} > {label} </button> ); };
-    const Lightbox = ({ mainImage, onClose }) => ( <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}> <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">&times;</button> <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div> </div> );
+    const Lightbox = ({ mainImage, onClose }) => ( <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}> <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">×</button> <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div> </div> );
 
     if (isLoading) {
         return (
@@ -4145,7 +4139,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const showGalleryArrows = galleryImages.length > 1;
 
     return (
-        <div className="bg-black text-white min-h-screen">
+        // CORREÇÃO AQUI: pb-28 md:pb-12 aplicado para o padding inferior no mobile
+        <div className="bg-black text-white min-h-screen pb-28 md:pb-12">
             <style>{`
                 .scrollbar-hide::-webkit-scrollbar {
                     display: none;
