@@ -5048,7 +5048,8 @@ app.get('/api/settings/pickup', async (req, res) => {
                 rua: "R. Leopoldo Pereira Lima",
                 numero: "378",
                 bairro: "Mangabeira VIII",
-                cidade: "João Pessoa - PB",
+                cidade: "João Pessoa",
+                estado: "Paraíba",
                 cep: "58059-123"
             }, 
             hours: "Segunda a Sábado, das 9h às 11h30 e das 15h às 17h30 (exceto feriados).", 
