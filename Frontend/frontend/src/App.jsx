@@ -3318,7 +3318,6 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
             apiService('/collections', 'GET', null, { signal: controller.signal })
         ]).then(([productsData, collectionsData]) => {
             setAllProducts(productsData);
-            // Cria uma lista única de categorias a partir das coleções ativas
             const activeCategories = collectionsData.map(cat => cat.filter);
             setUniqueCategories([...new Set(activeCategories)].sort());
         }).catch(err => {
@@ -3351,13 +3350,11 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
             result = result.filter(p => p.brand === filters.brand);
         }
         if (filters.category) {
-            // CORREÇÃO: Lógica para mapear categorias genéricas dos banners para tipos de produto
             if (filters.category === 'Roupas') {
                 result = result.filter(p => p.product_type === 'clothing');
             } else if (filters.category === 'Perfumes') {
                 result = result.filter(p => p.product_type === 'perfume');
             } else {
-                // Filtro padrão exato para categorias específicas (ex: "Blusas")
                 result = result.filter(p => p.category === filters.category);
             }
         }
@@ -3398,7 +3395,8 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
     const pageTitle = initialIsPromo ? 'Produtos em Promoção' : 'Nossa Coleção';
 
     return (
-        <div className="bg-black text-white py-12 min-h-screen">
+        // CORREÇÃO AQUI: pt-12 pb-28 md:pb-12 para liberar espaço do navbar mobile
+        <div className="bg-black text-white min-h-screen pt-12 pb-28 md:pb-12">
             <div className="container mx-auto px-4">
                 <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">{pageTitle}</h2>
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -7760,9 +7758,8 @@ const MyOrdersListPage = ({ onNavigate }) => {
 };
 const MyAccountPage = ({ onNavigate, path }) => {
     const { user, logout } = useAuth();
-    const { orderNotificationCount } = useShop(); // Hook para pegar a contagem
+    const { orderNotificationCount } = useShop(); 
     
-    // A lógica agora extrai a aba principal e o ID do detalhe
     const pathParts = (path || 'orders').split('/');
     const activeTab = pathParts[0];
     const detailId = pathParts[1];
@@ -7776,7 +7773,6 @@ const MyAccountPage = ({ onNavigate, path }) => {
             key: 'orders', 
             label: 'Meus Pedidos', 
             icon: <PackageIcon className="h-5 w-5"/>,
-            // Adiciona a contagem apenas nesta aba
             notification: orderNotificationCount 
         },
         { key: 'addresses', label: 'Meus Endereços', icon: <MapPinIcon className="h-5 w-5"/> },
@@ -7791,19 +7787,17 @@ const MyAccountPage = ({ onNavigate, path }) => {
                 return <MyProfileSection user={user} />;
             case 'orders':
             default:
-                // Se houver um ID na URL, mostra a página de detalhes
                 if (detailId && !isNaN(detailId)) {
                     return <OrderDetailPage orderId={detailId} onNavigate={onNavigate} />;
                 }
-                // Senão, mostra a lista de pedidos
                 return <MyOrdersListPage onNavigate={onNavigate} />;
         }
     };
 
     return (
-        <div className="bg-black text-white min-h-screen py-8 sm:py-12">
+        // CORREÇÃO AQUI: pt-8 pb-28 sm:pt-12 sm:pb-12 para liberar espaço do navbar mobile
+        <div className="bg-black text-white min-h-screen pt-8 pb-28 sm:pt-12 sm:pb-12">
             <div className="container mx-auto px-4">
-                {/* Oculta o título principal na página de detalhes para evitar repetição */}
                 {!detailId && <h1 className="text-3xl md:text-4xl font-bold mb-8">Minha Conta</h1>}
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                     <aside className="lg:col-span-1">
@@ -7818,7 +7812,6 @@ const MyAccountPage = ({ onNavigate, path }) => {
                                         {tab.icon}
                                         <span>{tab.label}</span>
                                     </div>
-                                    {/* Exibe o badge se houver notificações */}
                                     {tab.notification > 0 && (
                                         <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
                                             {tab.notification}
