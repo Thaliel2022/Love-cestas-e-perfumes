@@ -13023,7 +13023,7 @@ const AdminOrders = ({ appName }) => {
                 </div>
             </div>
             
-            {/* Tabela de Listagem de Pedidos */}
+            {/* Tabela de Listagem de Pedidos (COM ESTADO VAZIO) */}
             <div className="bg-white shadow-md rounded-lg overflow-hidden">
                 <div className="hidden lg:block overflow-x-auto">
                      <table className="w-full text-left">
@@ -13039,96 +13039,124 @@ const AdminOrders = ({ appName }) => {
                             </tr>
                          </thead>
                          <tbody className="divide-y divide-gray-100">
-                            {currentOrders.map(o => {
-                                const shipInfo = getShippingDisplay(o.shipping_method);
-                                return (
-                                <tr key={o.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="p-4">
-                                        <span className="font-mono text-indigo-600 font-bold bg-indigo-50 px-2 py-1 rounded">#{o.id}</span>
-                                        <p className="text-xs text-gray-400 mt-1">{new Date(o.date).toLocaleDateString('pt-BR')}</p>
-                                    </td>
-                                    <td className="p-4">
-                                        <p className="font-bold text-gray-900">{o.user_name}</p>
-                                        <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                                            <UserIcon className="h-3 w-3"/> {maskCPF(o.user_cpf || '')}
-                                        </p>
-                                    </td>
-                                    <td className="p-4">
-                                        {o.user_phone ? (
-                                            <a href={`https://wa.me/55${o.user_phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-green-600 font-bold hover:underline text-sm bg-green-50 px-2 py-1 rounded w-fit">
-                                                <WhatsappIcon className="h-4 w-4"/> {maskPhone(o.user_phone)}
-                                            </a>
-                                        ) : <span className="text-gray-400 text-xs">Sem contato</span>}
-                                    </td>
-                                    <td className="p-4">
-                                        <div className={`flex items-center gap-2 px-2 py-1 rounded-md w-fit ${shipInfo.classes}`}>
-                                            {shipInfo.icon}
-                                            <span className="text-xs font-bold">{shipInfo.label}</span>
+                            {currentOrders.length > 0 ? (
+                                currentOrders.map(o => {
+                                    const shipInfo = getShippingDisplay(o.shipping_method);
+                                    return (
+                                    <tr key={o.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="p-4">
+                                            <span className="font-mono text-indigo-600 font-bold bg-indigo-50 px-2 py-1 rounded">#{o.id}</span>
+                                            <p className="text-xs text-gray-400 mt-1">{new Date(o.date).toLocaleDateString('pt-BR')}</p>
+                                        </td>
+                                        <td className="p-4">
+                                            <p className="font-bold text-gray-900">{o.user_name}</p>
+                                            <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                                                <UserIcon className="h-3 w-3"/> {maskCPF(o.user_cpf || '')}
+                                            </p>
+                                        </td>
+                                        <td className="p-4">
+                                            {o.user_phone ? (
+                                                <a href={`https://wa.me/55${o.user_phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-green-600 font-bold hover:underline text-sm bg-green-50 px-2 py-1 rounded w-fit">
+                                                    <WhatsappIcon className="h-4 w-4"/> {maskPhone(o.user_phone)}
+                                                </a>
+                                            ) : <span className="text-gray-400 text-xs">Sem contato</span>}
+                                        </td>
+                                        <td className="p-4">
+                                            <div className={`flex items-center gap-2 px-2 py-1 rounded-md w-fit ${shipInfo.classes}`}>
+                                                {shipInfo.icon}
+                                                <span className="text-xs font-bold">{shipInfo.label}</span>
+                                            </div>
+                                        </td>
+                                        <td className="p-4 font-bold text-gray-800">R$ {Number(o.total).toFixed(2)}</td>
+                                        <td className="p-4">
+                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
+                                        </td>
+                                        <td className="p-4">
+                                            <button onClick={() => handleOpenEditModal(o)} className="text-gray-500 hover:text-indigo-600 transition-colors p-2 rounded-full hover:bg-indigo-50" title="Ver Detalhes">
+                                                <EyeIcon className="h-5 w-5"/>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                )})
+                            ) : (
+                                <tr>
+                                    <td colSpan="7" className="p-12 text-center">
+                                        <div className="flex flex-col items-center justify-center">
+                                            <PackageIcon className="h-12 w-12 text-gray-300 mb-3" />
+                                            <h3 className="text-lg font-bold text-gray-700">Nenhum pedido encontrado</h3>
+                                            <p className="text-sm text-gray-500 mt-1">
+                                                {searchTerm || filters.status || filters.startDate || filters.endDate || filters.minPrice || filters.maxPrice 
+                                                    ? 'Nenhum pedido corresponde aos filtros aplicados.' 
+                                                    : 'Sua loja ainda não possui pedidos.'}
+                                            </p>
                                         </div>
                                     </td>
-                                    <td className="p-4 font-bold text-gray-800">R$ {Number(o.total).toFixed(2)}</td>
-                                    <td className="p-4">
-                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
-                                    </td>
-                                    <td className="p-4">
-                                        <button onClick={() => handleOpenEditModal(o)} className="text-gray-500 hover:text-indigo-600 transition-colors p-2 rounded-full hover:bg-indigo-50" title="Ver Detalhes">
-                                            <EyeIcon className="h-5 w-5"/>
-                                        </button>
-                                    </td>
                                 </tr>
-                            )})}
+                            )}
                          </tbody>
                      </table>
                 </div>
                 
                 {/* Mobile List View (Cards Melhorados) */}
                 <div className="lg:hidden space-y-4 p-4 bg-gray-50">
-                    {currentOrders.map(o => {
-                        const shipInfo = getShippingDisplay(o.shipping_method);
-                        return (
-                        <div key={o.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm relative overflow-hidden">
-                            {/* Faixa lateral de status */}
-                            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${o.status === 'Entregue' ? 'bg-green-500' : (o.status === 'Cancelado' ? 'bg-red-500' : 'bg-indigo-500')}`}></div>
-                            
-                            <div className="pl-3">
-                                <div className="flex justify-between items-start mb-3">
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-mono font-bold text-indigo-700 text-lg">#{o.id}</span>
-                                            <span className="text-xs text-gray-400">{new Date(o.date).toLocaleDateString('pt-BR')}</span>
+                    {currentOrders.length > 0 ? (
+                        currentOrders.map(o => {
+                            const shipInfo = getShippingDisplay(o.shipping_method);
+                            return (
+                            <div key={o.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm relative overflow-hidden">
+                                {/* Faixa lateral de status */}
+                                <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${o.status === 'Entregue' ? 'bg-green-500' : (o.status === 'Cancelado' ? 'bg-red-500' : 'bg-indigo-500')}`}></div>
+                                
+                                <div className="pl-3">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-mono font-bold text-indigo-700 text-lg">#{o.id}</span>
+                                                <span className="text-xs text-gray-400">{new Date(o.date).toLocaleDateString('pt-BR')}</span>
+                                            </div>
+                                            <p className="font-bold text-gray-800 text-sm">{o.user_name}</p>
                                         </div>
-                                        <p className="font-bold text-gray-800 text-sm">{o.user_name}</p>
+                                        <div className="text-right">
+                                            <p className="font-bold text-gray-900">R$ {Number(o.total).toFixed(2)}</p>
+                                            <span className={`inline-block mt-1 px-2 py-0.5 text-[10px] uppercase font-bold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
+                                        </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="font-bold text-gray-900">R$ {Number(o.total).toFixed(2)}</p>
-                                        <span className={`inline-block mt-1 px-2 py-0.5 text-[10px] uppercase font-bold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
-                                    </div>
-                                </div>
 
-                                {/* Dados do Cliente (Mobile) */}
-                                <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 bg-gray-50 p-2.5 rounded-lg border border-gray-100 mb-3">
-                                    <div className="flex items-center gap-1.5">
-                                        <UserIcon className="h-3.5 w-3.5 text-gray-400"/>
-                                        <span className="font-mono">{maskCPF(o.user_cpf || '---')}</span>
+                                    {/* Dados do Cliente (Mobile) */}
+                                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 bg-gray-50 p-2.5 rounded-lg border border-gray-100 mb-3">
+                                        <div className="flex items-center gap-1.5">
+                                            <UserIcon className="h-3.5 w-3.5 text-gray-400"/>
+                                            <span className="font-mono">{maskCPF(o.user_cpf || '---')}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            <WhatsappIcon className="h-3.5 w-3.5 text-green-500"/>
+                                            <span className="font-bold text-green-700">{maskPhone(o.user_phone || '---')}</span>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-1.5">
-                                        <WhatsappIcon className="h-3.5 w-3.5 text-green-500"/>
-                                        <span className="font-bold text-green-700">{maskPhone(o.user_phone || '---')}</span>
+
+                                    {/* Dados de Envio (Mobile) */}
+                                    <div className={`flex items-center gap-2 p-2 rounded-lg mb-3 ${shipInfo.classes}`}>
+                                        {shipInfo.icon}
+                                        <span className="text-xs font-bold">{shipInfo.fullText}</span>
                                     </div>
-                                </div>
 
-                                {/* Dados de Envio (Mobile) */}
-                                <div className={`flex items-center gap-2 p-2 rounded-lg mb-3 ${shipInfo.classes}`}>
-                                    {shipInfo.icon}
-                                    <span className="text-xs font-bold">{shipInfo.fullText}</span>
+                                    <button onClick={() => handleOpenEditModal(o)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-md active:scale-95">
+                                        <EyeIcon className="h-4 w-4"/> Ver Detalhes do Pedido
+                                    </button>
                                 </div>
-
-                                <button onClick={() => handleOpenEditModal(o)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-md active:scale-95">
-                                    <EyeIcon className="h-4 w-4"/> Ver Detalhes do Pedido
-                                </button>
                             </div>
+                        )})
+                    ) : (
+                        <div className="text-center p-8 bg-white rounded-xl border border-gray-200 shadow-sm">
+                            <PackageIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                            <h3 className="text-lg font-bold text-gray-700">Nenhum pedido encontrado</h3>
+                            <p className="text-sm text-gray-500 mt-1">
+                                {searchTerm || filters.status || filters.startDate || filters.endDate || filters.minPrice || filters.maxPrice 
+                                    ? 'Tente limpar os filtros para ver mais resultados.' 
+                                    : 'Ainda não há pedidos.'}
+                            </p>
                         </div>
-                    )})}
+                    )}
                 </div>
             </div>
             
