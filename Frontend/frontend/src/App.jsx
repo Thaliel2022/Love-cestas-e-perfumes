@@ -15192,6 +15192,15 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
     const [touchEnd, setTouchEnd] = useState(null);
     const minSwipeDistance = 50;
 
+    // Detecta mobile dinamicamente para atualizar a imagem certa (Desktop vs Mobile)
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+    
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 640);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     useEffect(() => {
         setCurrentIndex(0);
     }, [banners]);
@@ -15238,7 +15247,6 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
 
     if (!banners || banners.length === 0) return null;
     
-    const isMobile = window.innerWidth < 640;
     const currentBanner = banners[currentIndex];
     
     if (!currentBanner) return null;
@@ -15247,7 +15255,8 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
 
     return (
         <section 
-            className="relative h-[55vh] sm:h-[70vh] w-full overflow-hidden group bg-black"
+            // CORREÇÃO: Removemos a altura fixa (h-[55vh]). Agora a altura é definida pela proporção da imagem.
+            className="relative w-full overflow-hidden group bg-gray-100"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -15255,21 +15264,30 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
             <AnimatePresence mode="wait">
                 <motion.div
                     key={currentBanner.id || currentIndex}
-                    className="absolute inset-0 cursor-pointer"
+                    className="relative w-full cursor-pointer flex items-center justify-center"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 1, ease: "easeInOut" }}
+                    transition={{ duration: 0.8, ease: "easeInOut" }}
                     onClick={() => onNavigate(currentBanner.link_url.replace(/^#/, ''))}
                 >
-                    <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${imageUrl})` }} />
+                    {/* CORREÇÃO: Uso da tag img com w-full e h-auto.
+                        Isso garante que a imagem ocupe a largura da tela e ajuste a altura
+                        automaticamente sem NENHUM corte. 
+                    */}
+                    <img 
+                        src={imageUrl} 
+                        alt={currentBanner.title || 'Banner'} 
+                        className="w-full h-auto block object-cover"
+                        style={{ minHeight: isMobile ? '300px' : '400px' }} // Altura mínima apenas durante o carregamento
+                    />
                     
-                    {/* AQUI ESTÁ A CORREÇÃO: Utilizando a cor sólida HEX para não sofrer interferência das variáveis do tema claro */}
-                    <div className="absolute inset-0 bg-[#000000]/40" />
+                    {/* Sobreposição escura mais suave (20%) para não apagar o brilho da imagem real */}
+                    <div className="absolute inset-0 bg-[#000000]/20 transition-opacity" />
                     
                     {(currentBanner.title || currentBanner.subtitle || currentBanner.cta_enabled) && (
                          <motion.div 
-                            className="relative z-10 h-full flex flex-col items-center justify-center text-center text-[#ffffff] p-4"
+                            className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center text-[#ffffff] p-4 pointer-events-none"
                             variants={bannerVariants}
                             initial="hidden"
                             animate="visible"
@@ -15279,7 +15297,7 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
                             {currentBanner.title && (
                                 <motion.h1 
                                     variants={itemVariants}
-                                    className="text-3xl sm:text-5xl md:text-7xl font-extrabold tracking-wider drop-shadow-lg"
+                                    className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-wider drop-shadow-lg"
                                 >
                                     {currentBanner.title}
                                 </motion.h1>
@@ -15287,14 +15305,15 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
                             {currentBanner.subtitle && (
                                 <motion.p 
                                     variants={itemVariants}
-                                    className="text-base md:text-xl mt-2 md:mt-4 max-w-2xl text-[#e5e7eb]"
+                                    className="text-sm sm:text-base md:text-xl mt-2 md:mt-4 max-w-2xl text-[#f8fafc] drop-shadow-md font-medium"
                                 >
                                     {currentBanner.subtitle}
                                 </motion.p>
                             )}
                              {currentBanner.cta_enabled === 1 && currentBanner.cta_text && (
-                                <motion.div variants={itemVariants}>
-                                    <button className="mt-6 md:mt-8 bg-amber-400 text-black px-8 py-3 md:px-12 md:py-4 rounded-md text-base md:text-lg font-bold hover:bg-amber-300 transition-colors shadow-xl active:scale-95">
+                                <motion.div variants={itemVariants} className="pointer-events-auto mt-6 md:mt-8">
+                                    {/* Botão Premium estilo "Renner": Branco, Minimalista e Espaçado */}
+                                    <button className="bg-[#ffffff] text-[#000000] px-8 py-3 md:px-12 md:py-4 text-xs sm:text-sm md:text-base font-bold hover:bg-gray-100 transition-colors shadow-xl uppercase tracking-widest">
                                         {currentBanner.cta_text}
                                     </button>
                                 </motion.div>
@@ -15304,17 +15323,24 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
                 </motion.div>
             </AnimatePresence>
 
+            {/* Setas de Navegação Premium (Aparecem apenas ao passar o mouse no Desktop) */}
             {banners.length > 1 && (
                 <>
-                    <button onClick={(e) => { e.stopPropagation(); goPrev(); }} className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-[#000000]/30 rounded-full text-[#ffffff] md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                    <button onClick={(e) => { e.stopPropagation(); goPrev(); }} className="absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 z-20 p-2 sm:p-3 bg-[#ffffff]/10 hover:bg-[#ffffff]/30 backdrop-blur-sm rounded-full text-[#ffffff] opacity-0 group-hover:opacity-100 transition-all duration-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 sm:h-8 sm:w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); goNext(); }} className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-[#000000]/30 rounded-full text-[#ffffff] md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                    <button onClick={(e) => { e.stopPropagation(); goNext(); }} className="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 z-20 p-2 sm:p-3 bg-[#ffffff]/10 hover:bg-[#ffffff]/30 backdrop-blur-sm rounded-full text-[#ffffff] opacity-0 group-hover:opacity-100 transition-all duration-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 sm:h-8 sm:w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                     </button>
-                    <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex space-x-2">
+                    
+                    {/* Dots Premium em formato "Pílula" animada */}
+                    <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-20 flex space-x-2 sm:space-x-3">
                         {banners.map((_, index) => (
-                            <button key={index} onClick={(e) => { e.stopPropagation(); setCurrentIndex(index); }} className={`w-3 h-3 rounded-full transition-colors ${currentIndex === index ? 'bg-amber-400' : 'bg-[#ffffff]/50'}`} />
+                            <button 
+                                key={index} 
+                                onClick={(e) => { e.stopPropagation(); setCurrentIndex(index); }} 
+                                className={`h-2 rounded-full transition-all duration-300 shadow-sm ${currentIndex === index ? 'w-8 sm:w-10 bg-[#ffffff]' : 'w-2 sm:w-2.5 bg-[#ffffff]/50 hover:bg-[#ffffff]/80'}`} 
+                            />
                         ))}
                     </div>
                 </>
