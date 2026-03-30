@@ -15255,8 +15255,10 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
 
     return (
         <section 
-            // CORREÇÃO: Removemos a altura fixa (h-[55vh]). Agora a altura é definida pela proporção da imagem.
-            className="relative w-full overflow-hidden group bg-gray-100"
+            // CORREÇÃO CRÍTICA AQUI: Uso de proporções fixas (aspect-ratio)
+            // Mobile (4/5 - mais alto), Tablet (16/9), Desktop Largo (2.5/1 - panorâmico)
+            // Isto IMPEDE a página de saltar, pois a caixa tem sempre a mesma forma!
+            className="relative w-full aspect-[4/5] sm:aspect-[16/9] lg:aspect-[2.5/1] overflow-hidden group bg-gray-900"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -15264,22 +15266,19 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
             <AnimatePresence mode="wait">
                 <motion.div
                     key={currentBanner.id || currentIndex}
-                    className="relative w-full cursor-pointer flex items-center justify-center"
+                    className="absolute inset-0 w-full h-full cursor-pointer flex items-center justify-center"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.8, ease: "easeInOut" }}
                     onClick={() => onNavigate(currentBanner.link_url.replace(/^#/, ''))}
                 >
-                    {/* CORREÇÃO: Uso da tag img com w-full e h-auto.
-                        Isso garante que a imagem ocupe a largura da tela e ajuste a altura
-                        automaticamente sem NENHUM corte. 
-                    */}
+                    {/* A imagem agora preenche os 100% da caixa (w-full h-full object-cover) 
+                        sem deformar e sem alterar o tamanho do banner */}
                     <img 
                         src={imageUrl} 
                         alt={currentBanner.title || 'Banner'} 
-                        className="w-full h-auto block object-cover"
-                        style={{ minHeight: isMobile ? '300px' : '400px' }} // Altura mínima apenas durante o carregamento
+                        className="w-full h-full block object-cover object-center"
                     />
                     
                     {/* Sobreposição escura mais suave (20%) para não apagar o brilho da imagem real */}
