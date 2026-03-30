@@ -7790,8 +7790,8 @@ const MyAccountPage = ({ onNavigate, path }) => {
     };
 
     return (
-        // CORREÇÃO AQUI: pt-8 pb-28 sm:pt-12 sm:pb-12 para liberar espaço do navbar mobile
-        <div className="bg-black text-white min-h-screen pt-8 pb-28 sm:pt-12 sm:pb-12">
+        // CORREÇÃO: Removido o 'min-h-screen' que criava o buraco preto no desktop
+        <div className="bg-black text-white pt-8 pb-28 sm:pt-12 sm:pb-12">
             <div className="container mx-auto px-4">
                 {!detailId && <h1 className="text-3xl md:text-4xl font-bold mb-8">Minha Conta</h1>}
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
