@@ -3,6 +3,7 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+
 // --- Constante da API ---
 const API_URL = process.env.REACT_APP_API_URL || 'https://love-cestas-e-perfumes.onrender.com/api';
 
@@ -30,7 +31,20 @@ const SearchIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" cl
 const CheckCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const ExclamationIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>;
 const CreditCardIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>;
-const SpinnerIcon = ({ className }) => <svg className={className || "h-5 w-5 animate-spin"} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>;
+const SpinnerIcon = ({ className }) => {
+    // Garante que a classe 'animate-spin' sempre seja aplicada, mesmo quando 
+    // a propriedade className for sobrescrita por outros componentes
+    const finalClassName = className && className.includes('animate-spin') 
+        ? className 
+        : `animate-spin ${className || "h-5 w-5"}`;
+        
+    return (
+        <svg className={finalClassName} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+    );
+};
 const ClockIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const PackageIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>;
 const CheckBadgeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>;
@@ -65,6 +79,7 @@ const PaperAirplaneIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/
 const CurrencyDollarArrowIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-11.25a.75.75 0 0 0-1.5 0v2.5h-2.5a.75.75 0 0 0 0 1.5h2.5v2.5a.75.75 0 0 0 1.5 0v-2.5h2.5a.75.75 0 0 0 0-1.5h-2.5v-2.5Z" clipRule="evenodd" /><path d="M8.293 6.293a1 1 0 0 1 1.414 0l2.5 2.5a1 1 0 0 1 0 1.414l-2.5 2.5a1 1 0 0 1-1.414-1.414L9.586 10 8.293 8.707a1 1 0 0 1 0-1.414Z" /></svg>;
 const ArrowUturnLeftIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M15 10a.75.75 0 0 1-.75.75H7.707l2.293 2.293a.75.75 0 1 1-1.06 1.06l-3.5-3.5a.75.75 0 0 1 0-1.06l3.5-3.5a.75.75 0 0 1 1.06 1.06L7.707 9.25H14.25A.75.75 0 0 1 15 10Z" clipRule="evenodd" /></svg>;
 const ShieldCheckIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M10 1a.75.75 0 0 1 .75.75v1.252a1.75 1.75 0 0 1 2.476 1.222l.17.682a.75.75 0 0 1-1.42.354l-.17-.682a.25.25 0 0 0-.353-.175.75.75 0 0 1-.586 0 .25.25 0 0 0-.353.175l-.17.682a.75.75 0 0 1-1.42-.354l.17-.682A1.75 1.75 0 0 1 9.25 3.002V1.75A.75.75 0 0 1 10 1ZM5.113 4.634a.75.75 0 0 1 1.06 0l1.592 1.591a.75.75 0 0 1-1.06 1.06l-1.592-1.59a.75.75 0 0 1 0-1.061Zm8.714 0a.75.75 0 0 1 0 1.06l-1.591 1.591a.75.75 0 1 1-1.06-1.06l1.59-1.591a.75.75 0 0 1 1.061 0ZM10 4.25a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5a.75.75 0 0 1 .75-.75ZM10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm-2.207-6.207a1 1 0 0 1 1.414 0L10 12.586l.793-.793a1 1 0 1 1 1.414 1.414l-1.5 1.5a1 1 0 0 1-1.414 0l-2.5-2.5a1 1 0 0 1 0-1.414Z" clipRule="evenodd" /></svg>;
+const FingerprintIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className || "w-6 h-6"}><path strokeLinecap="round" strokeLinejoin="round" d="M7.864 4.243A7.5 7.5 0 0119.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 004.5 10.5a7.464 7.464 0 01-1.15 3.993m1.989 3.559A11.209 11.209 0 008.25 10.5a3.75 3.75 0 117.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 01-3.6 9.75m6.633-4.596a18.666 18.666 0 01-2.485 5.33" /></svg>;
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
@@ -92,6 +107,19 @@ const maskCPF = (value) => {
         .substring(0, 14);
 };
 
+const maskPhone = (value) => {
+    return value
+        .replace(/\D/g, '')
+        .replace(/^(\d{2})(\d)/g, '($1) $2')
+        .replace(/(\d)(\d{4})$/, '$1-$2')
+        .substring(0, 15);
+};
+
+const validatePhone = (phone) => {
+    const cleanPhone = phone.replace(/\D/g, '');
+    return cleanPhone.length >= 10 && cleanPhone.length <= 11;
+};
+
 const maskCEP = (value) => {
     return value
         .replace(/\D/g, '')
@@ -99,7 +127,6 @@ const maskCEP = (value) => {
         .substring(0, 9);
 };
 
-// --- SERVIÇO DE API (COM ABORTCONTROLLER) ---
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -115,10 +142,18 @@ const processQueue = (error, token = null) => {
 };
 
 async function apiService(endpoint, method = 'GET', body = null, options = {}) {
+    // Pega o token do localStorage para enviar no header (corrige bloqueios de cookies no mobile)
+    const token = localStorage.getItem('accessToken');
+    const headers = { 'Content-Type': 'application/json' };
+    
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const config = {
         method,
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // Essencial para enviar cookies httpOnly
+        headers,
+        credentials: 'include', // Essencial para enviar cookies caso o navegador permita
         signal: options.signal,
     };
 
@@ -149,14 +184,26 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
 
                 isRefreshing = true;
                 return new Promise((resolve, reject) => {
-                    apiService('/refresh-token', 'POST')
-                        .then(() => {
+                    const currentRefreshToken = localStorage.getItem('refreshToken');
+                    // Envia o refreshToken no body como fallback para navegadores restritos
+                    apiService('/refresh-token', 'POST', { refreshToken: currentRefreshToken })
+                        .then((refreshData) => {
+                            // Salva os novos tokens
+                            if (refreshData && refreshData.accessToken) {
+                                localStorage.setItem('accessToken', refreshData.accessToken);
+                                if (refreshData.refreshToken) {
+                                    localStorage.setItem('refreshToken', refreshData.refreshToken);
+                                }
+                            }
                             processQueue(null);
                             resolve(apiService(endpoint, method, body, options));
                         })
                         .catch(err => {
                             processQueue(err);
-                            window.dispatchEvent(new Event('auth-error')); // Falha na renovação, desloga o usuário
+                            // Apenas dispara evento se não estiver suprimido
+                            if (!options.suppressAuthError) {
+                                window.dispatchEvent(new Event('auth-error'));
+                            }
                             reject(err);
                         })
                         .finally(() => {
@@ -164,8 +211,11 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
                         });
                 });
             }
+             
              if (response.status === 401 || response.status === 403) {
-                 window.dispatchEvent(new Event('auth-error'));
+                 if (!options.suppressAuthError) {
+                    window.dispatchEvent(new Event('auth-error'));
+                 }
              }
 
             const errorMessage = (typeof data === 'object' && data.message) ? data.message : (data || `Erro ${response.status}`);
@@ -192,9 +242,17 @@ async function apiUploadService(endpoint, file) {
     const formData = new FormData();
     formData.append('file', file);
 
+    // ATUALIZAÇÃO: Injeção do token no header para garantir autenticação em requisições Multipart
+    const token = localStorage.getItem('accessToken');
+    const headers = {};
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const config = {
         method: 'POST',
-        credentials: 'include', // Adicionado para enviar cookies de autenticação
+        credentials: 'include', // Essencial para cookies
+        headers, // Headers adicionados aqui
         body: formData,
     };
 
@@ -218,9 +276,17 @@ async function apiImageUploadService(endpoint, file) {
     const formData = new FormData();
     formData.append('image', file);
 
+    // ATUALIZAÇÃO: Injeção do token no header para garantir autenticação em requisições Multipart
+    const token = localStorage.getItem('accessToken');
+    const headers = {};
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const config = {
         method: 'POST',
-        credentials: 'include', // Adicionado para enviar cookies de autenticação
+        credentials: 'include', // Essencial para cookies
+        headers, // Headers adicionados aqui
         body: formData,
     };
 
@@ -252,9 +318,21 @@ const parseJsonString = (jsonString, fallbackValue) => {
     }
 };
 
+// --- OTIMIZAÇÃO AUTOMÁTICA CLOUDINARY ---
+// Transforma URLs do Cloudinary para entregar WebP e qualidade automática
+const optimizeCloudinaryUrl = (url, width = 'auto') => {
+    if (!url || typeof url !== 'string') return url;
+    if (url.includes('res.cloudinary.com')) {
+        // Insere parâmetros de otimização após '/upload/'
+        return url.replace('/upload/', `/upload/f_auto,q_auto,w_${width}/`);
+    }
+    return url;
+};
+
 const getFirstImage = (imagesJsonString, placeholder = 'https://placehold.co/600x400/222/fff?text=Produto') => {
     const images = parseJsonString(imagesJsonString, []);
-    return (Array.isArray(images) && images.length > 0) ? images[0] : placeholder;
+    const rawUrl = (Array.isArray(images) && images.length > 0) ? images[0] : placeholder;
+    return optimizeCloudinaryUrl(rawUrl);
 };
 
 // --- CONTEXTOS GLOBAIS ---
@@ -276,52 +354,59 @@ const AuthProvider = ({ children }) => {
         try {
             await apiService('/logout', 'POST');
         } catch (error) {
-            console.error("Erro na API de logout, limpando localmente de qualquer maneira.", error);
+            console.error("Erro na API de logout.", error);
         } finally {
-            localStorage.removeItem('user');
             setUser(null);
-            // Redireciona para o login após garantir que tudo foi limpo
-            window.location.hash = '#login';
+            // Limpa os tokens do localStorage no logout
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            
+            // CORREÇÃO: Limpa o cache de localização para não vazar o endereço/alias do usuário que acabou de deslogar
+            localStorage.removeItem('lovecestas_cached_location');
+            
+            if (window.location.hash !== '#home' && window.location.hash !== '') {
+                 window.location.hash = '#login';
+            }
+        }
+    }, []);
+
+    const fetchUserProfile = useCallback(async () => {
+        try {
+            const userData = await apiService('/users/me', 'GET', null, { suppressAuthError: true });
+            setUser(userData);
+        } catch (error) {
+            setUser(null);
+        } finally {
+            setIsLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            try {
-                setUser(JSON.parse(storedUser));
-            } catch (e) {
-                localStorage.removeItem('user');
-            }
-        }
-        setIsLoading(false);
-    }, []);
+        fetchUserProfile();
+    }, [fetchUserProfile]);
 
     useEffect(() => {
         const handleAuthError = () => {
-            console.log("Erro de autenticação detectado. Deslogando usuário.");
+            console.log("Sessão expirada. Logout.");
             logout();
         };
-
         window.addEventListener('auth-error', handleAuthError);
-
-        return () => {
-            window.removeEventListener('auth-error', handleAuthError);
-        };
+        return () => window.removeEventListener('auth-error', handleAuthError);
     }, [logout]);
 
     const login = async (email, password) => {
-        // A resposta agora não contém mais o token diretamente
         const response = await apiService('/login', 'POST', { email, password });
         if (response && response.user) {
-            localStorage.setItem('user', JSON.stringify(response.user));
             setUser(response.user);
+            // Salva os tokens no localStorage para navegadores mobile restritos
+            if (response.accessToken) localStorage.setItem('accessToken', response.accessToken);
+            if (response.refreshToken) localStorage.setItem('refreshToken', response.refreshToken);
         }
-        return response; // Retorna a resposta completa para a página de login
+        return response;
     };
     
-    const register = async (name, email, password, cpf) => {
-        return await apiService('/register', 'POST', { name, email, password, cpf });
+    const register = async (name, email, password, cpf, phone) => {
+        return await apiService('/register', 'POST', { name, email, password, cpf, phone });
     };
 
     return <AuthContext.Provider value={{ user, login, register, logout, isAuthenticated: !!user, isLoading, setUser }}>{children}</AuthContext.Provider>;
@@ -331,10 +416,8 @@ const ShopProvider = ({ children }) => {
     const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
     const [cart, setCart] = useState([]);
     const [wishlist, setWishlist] = useState([]);
-    
     const [addresses, setAddresses] = useState([]);
     const [shippingLocation, setShippingLocation] = useState({ cep: '', city: '', state: '', alias: '' });
-    
     const [autoCalculatedShipping, setAutoCalculatedShipping] = useState(null);
     const [shippingOptions, setShippingOptions] = useState([]);
     const [isLoadingShipping, setIsLoadingShipping] = useState(false);
@@ -342,18 +425,159 @@ const ShopProvider = ({ children }) => {
     const [previewShippingItem, setPreviewShippingItem] = useState(null);
     const [selectedShippingName, setSelectedShippingName] = useState(null);
     const [isGeolocating, setIsGeolocating] = useState(false);
-
     const [couponCode, setCouponCode] = useState("");
     const [couponMessage, setCouponMessage] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState(null);
+
+    const [localShippingConfig, setLocalShippingConfig] = useState({ base_price: 20, rules: [] });
+    // NOVO ESTADO: Configurações de Retirada na Loja
+    const [pickupConfig, setPickupConfig] = useState(null);
+
+    const [orderNotificationCount, setOrderNotificationCount] = useState(0);
+
+    const normalize = (str) => str ? String(str).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+    const safeParse = (val) => {
+        if (!val) return [];
+        if (Array.isArray(val)) return val;
+        try { return JSON.parse(val) || []; } catch { return []; }
+    };
+
+    const checkNotifications = useCallback(async () => {
+        if (!isAuthenticated) { setOrderNotificationCount(0); return; }
+        try {
+            const data = await apiService('/notifications/orders/count', 'GET', null, { suppressAuthError: true });
+            if (data && typeof data.count === 'number') setOrderNotificationCount(data.count);
+        } catch (error) {}
+    }, [isAuthenticated]);
+
+    const markOrderAsSeen = useCallback(async (orderId) => {
+        if (!isAuthenticated) return;
+        try { await apiService(`/orders/${orderId}/mark-seen`, 'PUT'); checkNotifications(); } 
+        catch (error) { console.error("Erro ao marcar pedido como visto:", error); }
+    }, [isAuthenticated, checkNotifications]);
+
+    useEffect(() => {
+        checkNotifications();
+        const interval = setInterval(checkNotifications, 5000);
+        return () => clearInterval(interval);
+    }, [checkNotifications]);
+
+    const calculateDeliveryDate = useCallback((daysToAdd) => {
+        const date = new Date();
+        let added = 0;
+        const holidays = ["01/01", "21/04", "01/05", "24/06", "07/09", "12/10", "02/11", "15/11", "25/12"];
+        while (added < daysToAdd) {
+            date.setDate(date.getDate() + 1);
+            const dayOfWeek = date.getDay();
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const dateString = `${day}/${month}`;
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; 
+            const isHoliday = holidays.includes(dateString);
+            if (!isWeekend && !isHoliday) added++;
+        }
+        return date;
+    }, []);
+    
+    // NOVA FUNÇÃO: Busca as configs de retirada na loja
+    const fetchPickupConfig = useCallback(() => {
+        apiService('/settings/pickup')
+            .then(data => {
+                setPickupConfig(prev => JSON.stringify(prev) !== JSON.stringify(data) ? data : prev);
+            })
+            .catch(err => console.error("Falha ao buscar config de retirada:", err));
+    }, []);
+
+    const fetchShippingConfig = useCallback(() => {
+        apiService('/settings/shipping-local')
+            .then(data => {
+                setLocalShippingConfig(prev => JSON.stringify(prev) !== JSON.stringify(data) ? data : prev);
+            })
+            .catch(err => console.error("Falha ao buscar config de frete local:", err));
+    }, []);
+
+    useEffect(() => {
+        fetchShippingConfig(); 
+        fetchPickupConfig();
+        const intervalId = setInterval(() => {
+            fetchShippingConfig();
+            fetchPickupConfig();
+        }, 30000); // 30 segundos
+        return () => clearInterval(intervalId);
+    }, [fetchShippingConfig, fetchPickupConfig]);
+
+    const calculateLocalDeliveryPrice = useCallback((items) => {
+        const defaultBasePrice = parseFloat(localShippingConfig.base_price) || 20;
+        if (!items || items.length === 0) return defaultBasePrice;
+        let highestBasePriceFound = 0;
+        let totalSurcharges = 0;
+        let totalDiscounts = 0;
+        for (const item of items) {
+            const itemCategory = normalize(item.category || "");
+            const itemBrand = normalize(item.brand || "");
+            let itemEffectiveBasePrice = defaultBasePrice; 
+            if (localShippingConfig.rules && localShippingConfig.rules.length > 0) {
+                for (const rule of localShippingConfig.rules) {
+                    const ruleValue = normalize(rule.value);
+                    const ruleAmount = parseFloat(rule.amount) || 0;
+                    if (!ruleValue) continue;
+                    let match = false;
+                    if (rule.type === 'category' && (itemCategory === ruleValue || itemCategory.includes(ruleValue))) match = true;
+                    if (rule.type === 'brand' && (itemBrand === ruleValue || itemBrand.includes(ruleValue))) match = true;
+                    if (match) {
+                        switch (rule.action) {
+                            case 'free_shipping': itemEffectiveBasePrice = 0; break;
+                            case 'surcharge': totalSurcharges += ruleAmount; break;
+                            case 'discount': totalDiscounts += ruleAmount; break;
+                            default: break;
+                        }
+                    }
+                }
+            }
+            if (itemEffectiveBasePrice > highestBasePriceFound) highestBasePriceFound = itemEffectiveBasePrice;
+        }
+        let finalPrice = highestBasePriceFound + totalSurcharges - totalDiscounts;
+        return Math.max(0, finalPrice); 
+    }, [localShippingConfig]);
 
     const fetchPersistentCart = useCallback(async () => {
         if (!isAuthenticated) return;
         try {
             const dbCart = await apiService('/cart');
-            setCart(dbCart || []);
-        } catch (err) { console.error("Falha ao buscar carrinho persistente:", err); setCart([]); }
+            const localCartStr = localStorage.getItem('lovecestas_cart');
+            let localCart = [];
+            try { localCart = JSON.parse(localCartStr) || []; } catch(e){}
+            const mergedCart = (dbCart || []).map(dbItem => {
+                if (dbItem.variation && dbItem.variation.color && dbItem.variation.size) {
+                    return { ...dbItem, cartItemId: `${dbItem.id}-${dbItem.variation.color}-${dbItem.variation.size}` };
+                }
+                if (dbItem.product_type === 'clothing') {
+                    const localItem = localCart.find(li => li.id === dbItem.id && li.variation);
+                    if (localItem && localItem.variation) {
+                        return { ...dbItem, variation: localItem.variation, cartItemId: `${dbItem.id}-${localItem.variation.color}-${localItem.variation.size}` };
+                    }
+                }
+                return { ...dbItem, cartItemId: dbItem.cartItemId || String(dbItem.id) };
+            });
+            setCart(mergedCart);
+            localStorage.setItem('lovecestas_cart', JSON.stringify(mergedCart));
+        } catch (err) { console.error("Falha ao buscar carrinho:", err); }
     }, [isAuthenticated]);
+
+    const syncGuestCartToDB = useCallback(async () => {
+        const localCartStr = localStorage.getItem('lovecestas_cart');
+        if (!localCartStr) return;
+        try {
+            const localItems = JSON.parse(localCartStr);
+            if (Array.isArray(localItems) && localItems.length > 0) {
+                const promises = localItems.map(item => {
+                    const payload = { productId: item.id, quantity: item.qty, variationId: item.variation?.id, variation: item.variation, variation_details: item.variation ? JSON.stringify(item.variation) : null };
+                    return apiService('/cart', 'POST', payload).catch(err => console.warn("Item duplicado/erro sync:", err));
+                });
+                await Promise.all(promises);
+            }
+        } catch (e) { console.error("Erro sync carrinho:", e); }
+    }, []);
 
     const fetchAddresses = useCallback(async () => {
         if (!isAuthenticated) return [];
@@ -361,7 +585,7 @@ const ShopProvider = ({ children }) => {
             const userAddresses = await apiService('/addresses');
             setAddresses(userAddresses || []);
             return userAddresses || [];
-        } catch (error) { console.error("Falha ao buscar endereços:", error); setAddresses([]); return []; }
+        } catch (error) { setAddresses([]); return []; }
     }, [isAuthenticated]);
 
     const updateDefaultShippingLocation = useCallback((addrs) => {
@@ -381,46 +605,119 @@ const ShopProvider = ({ children }) => {
                 locationDetermined = updateDefaultShippingLocation(userAddresses);
             }
         }
-        if (!locationDetermined && navigator.geolocation) {
-            setIsGeolocating(true);
-            navigator.geolocation.getCurrentPosition(
-                async (position) => {
-                    const { latitude, longitude } = position.coords;
-                    try {
-                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-                        const data = await response.json();
-                        if (data.address && data.address.postcode) {
-                            const cep = data.address.postcode.replace(/\D/g, '');
-                            setShippingLocation({ cep, city: data.address.city || data.address.town || '', state: data.address.state || '', alias: 'Localização Atual' });
+        if (!locationDetermined) {
+            try {
+                const cachedLocStr = localStorage.getItem('lovecestas_cached_location');
+                if (cachedLocStr) {
+                    const cachedLoc = JSON.parse(cachedLocStr);
+                    if (cachedLoc && cachedLoc.cep && cachedLoc.cep.replace(/\D/g, '').length === 8) {
+                        if (!isAuthenticated && cachedLoc.alias && cachedLoc.alias !== 'Localização Atual' && !cachedLoc.alias.startsWith('CEP')) {
+                            cachedLoc.alias = `CEP ${cachedLoc.cep}`;
                         }
-                    } catch (error) { console.warn("Não foi possível obter CEP da geolocalização.", error); } 
-                    finally { setIsGeolocating(false); }
-                }, 
-                (error) => { 
-                    console.warn("Geolocalização negada ou indisponível.", error.message);
-                    setIsGeolocating(false);
-                },
-                { timeout: 10000 }
-            );
+                        setShippingLocation(cachedLoc);
+                        locationDetermined = true;
+                    }
+                }
+            } catch (e) {}
+        }
+        if (!locationDetermined) {
+            setIsGeolocating(true);
+            const saveAndSetLocation = (cep, city, state) => {
+                let finalCep = cep ? String(cep).replace(/\D/g, '') : '';
+                if (finalCep.length !== 8) {
+                    const cityLower = (city || '').toLowerCase();
+                    if (cityLower.includes('joão pessoa') || cityLower.includes('joao pessoa')) finalCep = '58030000';
+                    else if (cityLower.includes('cabedelo')) finalCep = '58100000';
+                }
+                if (finalCep.length === 8) {
+                    setShippingLocation({ cep: finalCep, city: city || '', state: state || '', alias: 'Localização Atual' });
+                    return true;
+                }
+                return false;
+            };
+            const fetchGeoIP = async () => {
+                try {
+                    const ipRes = await fetch('https://ipapi.co/json/');
+                    if (!ipRes.ok) throw new Error('API Rate Limited'); 
+                    const ipData = await ipRes.json();
+                    if (ipData && ipData.postal) saveAndSetLocation(ipData.postal, ipData.city, ipData.region_code);
+                } catch (e) {} finally { setIsGeolocating(false); }
+            };
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    async (position) => {
+                        try {
+                            const lat = position.coords.latitude; const lon = position.coords.longitude;
+                            const bdcResponse = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=pt`);
+                            const bdcData = await bdcResponse.json();
+                            let cepFound = bdcData.postcode || ''; let cityFound = bdcData.city || bdcData.locality || ''; let stateFound = bdcData.principalSubdivision || '';
+                            if (!cepFound || String(cepFound).replace(/\D/g, '').length !== 8) {
+                                const osmResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&email=loja@lovecestaseperfumes.com.br`);
+                                const osmData = await osmResponse.json();
+                                if (osmData && osmData.address) {
+                                    cepFound = osmData.address.postcode || cepFound; cityFound = osmData.address.city || osmData.address.town || cityFound; stateFound = osmData.address.state || stateFound;
+                                }
+                            }
+                            const success = saveAndSetLocation(cepFound, cityFound, stateFound);
+                            if (!success) fetchGeoIP(); else setIsGeolocating(false);
+                        } catch (error) { fetchGeoIP(); } 
+                    }, 
+                    (error) => { fetchGeoIP(); }, 
+                    { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+                );
+            } else {
+                fetchGeoIP(); 
+            }
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
 
     useEffect(() => {
-        if (isAuthLoading) return;
-        if (isAuthenticated) {
-            fetchPersistentCart();
-            determineShippingLocation();
-            apiService('/wishlist').then(setWishlist).catch(console.error);
-        } else {
-            setCart([]); setWishlist([]); setAddresses([]); setShippingLocation({ cep: '', city: '', state: '', alias: '' });
-            setAutoCalculatedShipping(null); setCouponCode(''); setAppliedCoupon(null); setCouponMessage('');
-            determineShippingLocation();
+        if (shippingLocation && shippingLocation.cep && shippingLocation.cep.replace(/\D/g, '').length === 8) {
+            const locationToCache = { ...shippingLocation };
+            if (!isAuthenticated && locationToCache.alias && locationToCache.alias !== 'Localização Atual' && !locationToCache.alias.startsWith('CEP')) {
+                locationToCache.alias = `CEP ${locationToCache.cep}`;
+            }
+            localStorage.setItem('lovecestas_cached_location', JSON.stringify(locationToCache));
         }
-    }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
+    }, [shippingLocation, isAuthenticated]);
+
+    useEffect(() => {
+        if (!isAuthLoading) {
+            if (cart.length > 0) localStorage.setItem('lovecestas_cart', JSON.stringify(cart));
+            else if (cart.length === 0 && !isAuthenticated) localStorage.setItem('lovecestas_cart', JSON.stringify([]));
+        }
+    }, [cart, isAuthLoading, isAuthenticated]);
+
+    useEffect(() => {
+        if (isAuthLoading) return;
+        const initializeShop = async () => {
+            if (isAuthenticated) {
+                await syncGuestCartToDB();
+                await fetchPersistentCart();
+                determineShippingLocation();
+                apiService('/wishlist').then(setWishlist).catch(console.error);
+                checkNotifications(); 
+            } else {
+                const localCart = localStorage.getItem('lovecestas_cart');
+                if (localCart) { try { const parsed = JSON.parse(localCart); if (Array.isArray(parsed)) setCart(parsed); } catch (e) { setCart([]); } }
+                setWishlist([]); setAddresses([]); setShippingLocation({ cep: '', city: '', state: '', alias: '' }); setAutoCalculatedShipping(null); setCouponCode(''); setAppliedCoupon(null); setCouponMessage(''); 
+                determineShippingLocation(); 
+                setOrderNotificationCount(0);
+            }
+        };
+        initializeShop();
+    }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation, syncGuestCartToDB, checkNotifications]);
     
     useEffect(() => {
-        const itemsToCalculate = cart.length > 0 ? cart : previewShippingItem;
+        if (cart.length > 0 && isAuthenticated) {
+            const missingData = cart.some(item => !item.hasOwnProperty('category') || !item.hasOwnProperty('brand'));
+            if (missingData) fetchPersistentCart();
+        }
+    }, [cart.length, isAuthenticated, fetchPersistentCart]);
 
+    useEffect(() => {
+        const itemsToCalculate = previewShippingItem && previewShippingItem.length > 0 ? previewShippingItem : cart;
         const debounceTimer = setTimeout(() => {
             if (itemsToCalculate && itemsToCalculate.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
                 setIsLoadingShipping(true);
@@ -428,83 +725,68 @@ const ShopProvider = ({ children }) => {
                 
                 const calculateShipping = async () => {
                     try {
-                        const productsPayload = itemsToCalculate.map(item => ({
-                            id: String(item.id),
-                            price: item.is_on_sale && item.sale_price ? item.sale_price : item.price,
-                            quantity: item.qty || 1,
-                        }));
-                        
-                        const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload });
-                        
-                        const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
-                        const sedexOption = apiOptions.find(opt => opt.name.toLowerCase().includes('sedex'));
+                        const cleanCep = shippingLocation.cep.replace(/\D/g, '');
+                        const cepPrefix = parseInt(cleanCep.substring(0, 5));
+                        const isJoaoPessoa = cepPrefix >= 58000 && cepPrefix <= 58099;
 
-                        const shippingApiOptions = [];
-                        if (pacOptionRaw) {
-                            shippingApiOptions.push({ ...pacOptionRaw, name: 'PAC' });
-                        } else if (sedexOption) {
-                            shippingApiOptions.push(sedexOption);
+                        const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada', isPickup: true };
+                        let finalOptions = [];
+
+                        if (isJoaoPessoa) {
+                            const localPrice = calculateLocalDeliveryPrice(itemsToCalculate);
+                            const date = calculateDeliveryDate(1);
+                            const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
+                            const deliveryString = `Receba até ${formattedDate}`;
+
+                            const localDeliveryOption = { name: "Entrega local (Motoboy / Uber)", price: localPrice, delivery_time: deliveryString, isLocal: true };
+                            finalOptions = [localDeliveryOption, pickupOption];
+                        } else {
+                            const productsPayload = itemsToCalculate.map(item => ({ id: String(item.id), price: item.is_on_sale && item.sale_price ? item.sale_price : item.price, quantity: item.qty || 1 }));
+                            const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload });
+                            const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
+                            if (pacOptionRaw) finalOptions.push({ ...pacOptionRaw, name: 'PAC' });
+                            finalOptions.push(pickupOption);
                         }
 
-                        const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
-                        
-                        const finalOptions = [...shippingApiOptions, pickupOption];
                         setShippingOptions(finalOptions);
-                        
                         const desiredOption = finalOptions.find(opt => opt.name === selectedShippingName);
-                        const primaryShippingOption = shippingApiOptions[0];
-                        
-                        setAutoCalculatedShipping(desiredOption || primaryShippingOption || pickupOption || null);
+                        setAutoCalculatedShipping(desiredOption || finalOptions[0] || null);
 
                     } catch (error) {
                         setShippingError(error.message || 'Não foi possível calcular o frete.');
-                        const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
+                        const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada', isPickup: true };
                         setShippingOptions([pickupOption]);
-                        const desiredOption = pickupOption.name === selectedShippingName ? pickupOption : null;
-                        setAutoCalculatedShipping(desiredOption || pickupOption);
-                    } finally {
-                        setIsLoadingShipping(false);
-                    }
+                        setAutoCalculatedShipping(pickupOption);
+                    } finally { setIsLoadingShipping(false); }
                 };
                 calculateShipping();
             } else {
-                setShippingOptions([]);
-                setAutoCalculatedShipping(null);
+                setShippingOptions([]); setAutoCalculatedShipping(null);
             }
         }, 500);
         return () => clearTimeout(debounceTimer);
-    }, [cart, shippingLocation, previewShippingItem, selectedShippingName]);
+    }, [cart, shippingLocation, previewShippingItem, selectedShippingName, calculateLocalDeliveryPrice, calculateDeliveryDate]);
 
-    
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
         setPreviewShippingItem(null);
         const cartItemId = productToAdd.product_type === 'clothing' && variation ? `${productToAdd.id}-${variation.color}-${variation.size}` : productToAdd.id;
         const existing = cart.find(item => item.cartItemId === cartItemId);
         const availableStock = variation ? variation.stock : productToAdd.stock;
         const currentQtyInCart = existing ? existing.qty : 0;
-        
-        if (currentQtyInCart + qty > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
-
+        if (currentQtyInCart + qty > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unid.`);
         setCart(currentCart => {
-            let updatedCart;
-            if (existing) {
-                updatedCart = currentCart.map(item => item.cartItemId === cartItemId ? { ...item, qty: item.qty + qty } : item);
-            } else {
-                updatedCart = [...currentCart, { ...productToAdd, qty, variation, cartItemId }];
-            }
-
-            if (isAuthenticated) {
-                apiService('/cart', 'POST', { productId: productToAdd.id, quantity: existing ? existing.qty + qty : qty, variationId: variation?.id }).catch(console.error);
-            }
-            return updatedCart;
+            if (existing) return currentCart.map(item => item.cartItemId === cartItemId ? { ...item, qty: item.qty + qty } : item);
+            return [...currentCart, { ...productToAdd, qty, variation, cartItemId }];
         });
+        if (isAuthenticated) {
+            apiService('/cart', 'POST', { productId: productToAdd.id, quantity: existing ? existing.qty + qty : qty, variationId: variation?.id, variation: variation, variation_details: variation ? JSON.stringify(variation) : null }).catch(console.error);
+        }
     }, [cart, isAuthenticated]);
-    
+
     const removeFromCart = useCallback(async (cartItemId) => {
         const itemToRemove = cart.find(item => item.cartItemId === cartItemId);
         if (!itemToRemove) return;
-        const updatedCart = cart.filter(item => item.cartItemId !== cartItemId);
-        setCart(updatedCart);
+        setCart(current => current.filter(item => item.cartItemId !== cartItemId));
         if (isAuthenticated) await apiService(`/cart/${itemToRemove.id}`, 'DELETE', { variation: itemToRemove.variation });
     }, [cart, isAuthenticated]);
 
@@ -513,124 +795,91 @@ const ShopProvider = ({ children }) => {
         const itemToUpdate = cart.find(item => item.cartItemId === cartItemId);
         if (!itemToUpdate) return;
         const availableStock = itemToUpdate.variation ? itemToUpdate.variation.stock : itemToUpdate.stock;
-        if (newQuantity > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
-
-        const updatedCart = cart.map(item => item.cartItemId === cartItemId ? {...item, qty: newQuantity } : item);
-        setCart(updatedCart);
-        if (isAuthenticated) await apiService('/cart', 'POST', { productId: itemToUpdate.id, quantity: newQuantity, variation: itemToUpdate.variation });
+        if (newQuantity > availableStock) throw new Error(`Estoque insuficiente.`);
+        setCart(current => current.map(item => item.cartItemId === cartItemId ? {...item, qty: newQuantity } : item));
+        if (isAuthenticated) apiService('/cart', 'POST', { productId: itemToUpdate.id, quantity: newQuantity, variationId: itemToUpdate.variation?.id, variation: itemToUpdate.variation });
     }, [cart, isAuthenticated, removeFromCart]);
-    
-    const clearCart = useCallback(async () => { setCart([]); if (isAuthenticated) await apiService('/cart', 'DELETE'); }, [isAuthenticated]);
 
-    const addToWishlist = useCallback(async (productToAdd) => {
-        if (!isAuthenticated) return; 
-        if (wishlist.some(p => p.id === productToAdd.id)) return;
-        try {
-            const addedProduct = await apiService('/wishlist', 'POST', { productId: productToAdd.id });
-            setWishlist(current => [...current, addedProduct]);
-            return { success: true, message: `${productToAdd.name} adicionado à lista de desejos!` };
-        } catch (error) { console.error(error); return { success: false, message: `Não foi possível adicionar o item: ${error.message}` }; }
-    }, [isAuthenticated, wishlist]);
-
-    const removeFromWishlist = useCallback(async (productId) => {
-        if (!isAuthenticated) return;
-        try {
-            await apiService(`/wishlist/${productId}`, 'DELETE');
-            setWishlist(current => current.filter(p => p.id !== productId));
-        } catch (error) { console.error(error); }
-    }, [isAuthenticated]);
-    
+    const clearCart = useCallback(async () => { setCart([]); localStorage.removeItem('lovecestas_cart'); if (isAuthenticated) await apiService('/cart', 'DELETE'); }, [isAuthenticated]);
+    const addToWishlist = useCallback(async (productToAdd) => { if (!isAuthenticated) return; if (wishlist.some(p => p.id === productToAdd.id)) return; try { const addedProduct = await apiService('/wishlist', 'POST', { productId: productToAdd.id }); setWishlist(current => [...current, addedProduct]); return { success: true, message: `${productToAdd.name} adicionado à lista!` }; } catch (error) { return { success: false, message: `Erro: ${error.message}` }; } }, [isAuthenticated, wishlist]);
+    const removeFromWishlist = useCallback(async (productId) => { if (!isAuthenticated) return; try { await apiService(`/wishlist/${productId}`, 'DELETE'); setWishlist(current => current.filter(p => p.id !== productId)); } catch (error) { console.error(error); } }, [isAuthenticated]);
     const removeCoupon = useCallback(() => { setAppliedCoupon(null); setCouponCode(''); setCouponMessage(''); }, []);
-
+    
     const applyCoupon = useCallback(async (code) => {
-        setCouponCode(code);
+        setCouponCode(code); setCouponMessage(""); 
         try {
             const response = await apiService('/coupons/validate', 'POST', { code });
-            setAppliedCoupon(response.coupon);
-            // Mensagem de sucesso será setada pelo useEffect abaixo após cálculo
-        } catch (error) { removeCoupon(); setCouponMessage(error.message || "Não foi possível aplicar o cupom."); }
-    }, [removeCoupon]);
-    
-    // --- Lógica de Desconto Atualizada (Suporte a Regras Globais/Restritas) ---
+            const coupon = response.coupon;
+            if (coupon.type !== 'free_shipping') {
+                const rawAllowedCats = safeParse(coupon.allowed_categories);
+                const rawAllowedBrands = safeParse(coupon.allowed_brands);
+                const safeAllowedCats = rawAllowedCats.map(normalize).filter(s => s.length > 0);
+                const safeAllowedBrands = rawAllowedBrands.map(normalize).filter(s => s.length > 0);
+                const hasRestrictions = safeAllowedCats.length > 0 || safeAllowedBrands.length > 0;
+                const isGlobal = !hasRestrictions;
+                let eligibleCount = 0;
+                if (isGlobal) eligibleCount = cart.length;
+                else {
+                    cart.forEach(item => {
+                        const itemCat = normalize(item.category || "");
+                        const itemBrand = normalize(item.brand || "");
+                        const catMatch = safeAllowedCats.some(allowed => itemCat === allowed || itemCat.includes(allowed));
+                        const brandMatch = safeAllowedBrands.some(allowed => itemBrand === allowed || itemBrand.includes(allowed));
+                        if (catMatch || brandMatch) eligibleCount++;
+                    });
+                }
+                if (eligibleCount === 0) { setAppliedCoupon(null); setCouponMessage("Nenhum produto elegível."); return; }
+            }
+            setAppliedCoupon(coupon);
+        } catch (error) { setAppliedCoupon(null); setCouponMessage(error.message || "Erro no cupom."); }
+    }, [cart]);
+
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
-        
-        // Se for frete grátis, o desconto no subtotal é 0 (será aplicado no shippingCost visualmente ou no total final)
-        if (appliedCoupon.type === 'free_shipping') return 0;
-
+        if (appliedCoupon.type === 'free_shipping') return autoCalculatedShipping ? autoCalculatedShipping.price : 0;
         let eligibleTotal = 0;
-        
-        // Parsing seguro das regras
-        const isGlobal = appliedCoupon.is_global === 1 || appliedCoupon.is_global === true;
-        const allowedCats = typeof appliedCoupon.allowed_categories === 'string' ? JSON.parse(appliedCoupon.allowed_categories) : (appliedCoupon.allowed_categories || []);
-        const allowedBrands = typeof appliedCoupon.allowed_brands === 'string' ? JSON.parse(appliedCoupon.allowed_brands) : (appliedCoupon.allowed_brands || []);
+        const rawAllowedCats = safeParse(appliedCoupon.allowed_categories);
+        const rawAllowedBrands = safeParse(appliedCoupon.allowed_brands);
+        const safeAllowedCats = rawAllowedCats.map(normalize).filter(s => s.length > 0);
+        const safeAllowedBrands = rawAllowedBrands.map(normalize).filter(s => s.length > 0);
+        const hasRestrictions = safeAllowedCats.length > 0 || safeAllowedBrands.length > 0;
+        const isGlobal = !hasRestrictions;
 
         cart.forEach(item => {
             let isEligible = false;
-            
-            if (isGlobal) {
-                isEligible = true;
-            } else {
-                // Lógica de "OU": Se bater categoria OU marca, é elegível
-                const itemCategory = item.category || "";
-                const itemBrand = item.brand || "";
-                
-                const catMatch = allowedCats.includes(itemCategory);
-                const brandMatch = allowedBrands.includes(itemBrand);
-                
+            if (isGlobal) isEligible = true;
+            else {
+                const itemCat = normalize(item.category || "");
+                const itemBrand = normalize(item.brand || "");
+                const catMatch = safeAllowedCats.some(allowed => itemCat === allowed || itemCat.includes(allowed));
+                const brandMatch = safeAllowedBrands.some(allowed => itemBrand === allowed || itemBrand.includes(allowed));
                 if (catMatch || brandMatch) isEligible = true;
             }
-
             if (isEligible) {
                 const price = (item.is_on_sale && item.sale_price) ? parseFloat(item.sale_price) : parseFloat(item.price);
                 eligibleTotal += price * item.qty;
             }
         });
-
         if (eligibleTotal === 0) return 0;
-
-        let discountValue = 0;
-        if (appliedCoupon.type === 'percentage') {
-            discountValue = eligibleTotal * (parseFloat(appliedCoupon.value) / 100);
-        } else if (appliedCoupon.type === 'fixed') {
-            // Valor fixo não pode exceder o total dos itens elegíveis
-            discountValue = Math.min(parseFloat(appliedCoupon.value), eligibleTotal);
-        }
-
-        return discountValue;
-    }, [appliedCoupon, cart]);
-
-    // Mensagem de Feedback Atualizada
-    useEffect(() => {
-        if (appliedCoupon) {
-            if (discount === 0 && appliedCoupon.type !== 'free_shipping') {
-                setCouponMessage("Este cupom não se aplica aos itens do seu carrinho.");
-            } else {
-                setCouponMessage(`Cupom "${appliedCoupon.code}" aplicado!`);
-            }
-        }
-    }, [discount, appliedCoupon]);
+        let finalDiscount = 0;
+        if (appliedCoupon.type === 'percentage') finalDiscount = eligibleTotal * (parseFloat(appliedCoupon.value) / 100);
+        else if (appliedCoupon.type === 'fixed') finalDiscount = Math.min(parseFloat(appliedCoupon.value), eligibleTotal);
+        return Math.min(finalDiscount, eligibleTotal);
+    }, [appliedCoupon, cart, autoCalculatedShipping]);
 
     const clearOrderState = useCallback(() => { clearCart(); removeCoupon(); determineShippingLocation(); }, [clearCart, removeCoupon, determineShippingLocation]);
 
+    // O pickConfig FOI ADICIONADO AQUI NO PROVIDER VALUE
     return (
         <ShopContext.Provider value={{
-            cart, setCart, clearOrderState,
-            wishlist, addToCart, 
-            addToWishlist, removeFromWishlist,
-            updateQuantity, removeFromCart,
-            userName: user?.name,
-            addresses, fetchAddresses,
-            shippingLocation, setShippingLocation,
-            autoCalculatedShipping, setAutoCalculatedShipping,
-            shippingOptions, isLoadingShipping, shippingError,
-            updateDefaultShippingLocation, determineShippingLocation,
-            setPreviewShippingItem, 
-            setSelectedShippingName,
-            isGeolocating,
-            couponCode, setCouponCode,
-            couponMessage, applyCoupon, appliedCoupon, removeCoupon,
-            discount // Disponibiliza o valor calculado do desconto
+            cart, setCart, clearOrderState, wishlist, addToCart, addToWishlist, removeFromWishlist, updateQuantity, removeFromCart, 
+            userName: user?.name, addresses, fetchAddresses, shippingLocation, setShippingLocation, 
+            autoCalculatedShipping, setAutoCalculatedShipping, shippingOptions, isLoadingShipping, shippingError, 
+            updateDefaultShippingLocation, determineShippingLocation, setPreviewShippingItem, setSelectedShippingName, isGeolocating, 
+            couponCode, setCouponCode, couponMessage, applyCoupon, appliedCoupon, removeCoupon, discount,
+            calculateLocalDeliveryPrice, calculateDeliveryDate,
+            orderNotificationCount, markOrderAsSeen, checkNotifications,
+            pickupConfig 
         }}>
             {children}
         </ShopContext.Provider>
@@ -654,8 +903,12 @@ const NotificationProvider = ({ children }) => {
         }
     }, [remove]);
 
+    // CORREÇÃO CRÍTICA: Memoização garante que o contexto não mude a cada notificação, 
+    // evitando que outros componentes recarreguem dados do banco acidentalmente.
+    const contextValue = useMemo(() => ({ show }), [show]);
+
     return (
-        <NotificationContext.Provider value={{ show }}>
+        <NotificationContext.Provider value={contextValue}>
             {children}
             <div className="fixed bottom-5 right-5 z-[100] space-y-3">
                 <AnimatePresence>
@@ -849,6 +1102,7 @@ const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
 });
 
 const TrackingModal = memo(({ isOpen, onClose, order }) => {
+    const { pickupConfig } = useShop(); 
     const [trackingInfo, setTrackingInfo] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -878,31 +1132,27 @@ const TrackingModal = memo(({ isOpen, onClose, order }) => {
         let statusMessage;
         switch (order.status) {
             case 'Pronto para Retirada':
-                statusMessage = (
-                    <p className="flex items-center gap-2 text-green-700 font-semibold"><CheckCircleIcon className="h-5 w-5"/> Seu pedido já está separado e pronto para ser retirado!</p>
-                );
+                statusMessage = <p className="flex items-center gap-2 text-green-700 font-semibold"><CheckCircleIcon className="h-5 w-5"/> Seu pedido já está separado e pronto para ser retirado!</p>;
                 break;
             case 'Entregue':
-                statusMessage = (
-                    <p className="flex items-center gap-2 text-green-700 font-semibold"><CheckBadgeIcon className="h-5 w-5"/> Este pedido já foi retirado.</p>
-                );
+                statusMessage = <p className="flex items-center gap-2 text-green-700 font-semibold"><CheckBadgeIcon className="h-5 w-5"/> Este pedido já foi retirado.</p>;
                 break;
             case 'Reembolsado':
-                statusMessage = (
-                    <p className="flex items-center gap-2 text-gray-700 font-semibold"><CurrencyDollarIcon className="h-5 w-5"/> O pagamento para este pedido foi reembolsado.</p>
-                );
+                statusMessage = <p className="flex items-center gap-2 text-gray-700 font-semibold"><CurrencyDollarIcon className="h-5 w-5"/> O pagamento para este pedido foi reembolsado.</p>;
                 break;
             case 'Cancelado':
             case 'Pagamento Recusado':
-                 statusMessage = (
-                    <p className="flex items-center gap-2 text-red-700 font-semibold"><XCircleIcon className="h-5 w-5"/> Este pedido foi cancelado.</p>
-                );
+                 statusMessage = <p className="flex items-center gap-2 text-red-700 font-semibold"><XCircleIcon className="h-5 w-5"/> Este pedido foi cancelado.</p>;
                 break;
-            default: // Pendente, Pagamento Aprovado, Separando Pedido
-                statusMessage = (
-                    <p className="flex items-center gap-2 text-amber-700 font-semibold"><ClockIcon className="h-5 w-5"/> Estamos preparando seu pedido. Você será notificado assim que estiver pronto.</p>
-                );
+            default:
+                statusMessage = <p className="flex items-center gap-2 text-amber-700 font-semibold"><ClockIcon className="h-5 w-5"/> Estamos preparando seu pedido. Você será notificado assim que estiver pronto.</p>;
         }
+
+        const address = pickupConfig?.address;
+        const isAddressObj = typeof address === 'object' && address !== null;
+        
+        const hours = pickupConfig?.hours || 'Segunda a Sábado, das 9h às 11h30 e das 15h às 17h30';
+        const instructions = pickupConfig?.instructions || 'Apresentar documento com foto (RG/CNH) e número do pedido.';
 
         return (
             <div className="space-y-6 text-gray-800">
@@ -916,13 +1166,41 @@ const TrackingModal = memo(({ isOpen, onClose, order }) => {
                 <div>
                     <h3 className="font-bold text-gray-900 mb-2">Instruções para Retirada</h3>
                     <div className="text-sm bg-gray-100 p-4 rounded-lg border space-y-3">
-                        <p><strong>Endereço:</strong><br/> R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
-                        <p><strong>Horário:</strong><br/> Segunda a Sábado, das 9h às 11h30 e das 15h às 17h30 (exceto feriados).</p>
-                        <p className="font-semibold pt-2 border-t">No momento da retirada, é necessário apresentar:</p>
-                        <ul className="list-disc list-inside">
-                            <li>Documento com foto (RG ou CNH)</li>
-                            <li>O número do pedido: <span className="font-bold">#{order.id}</span></li>
-                        </ul>
+                        <div className="flex items-start gap-2">
+                            <MapPinIcon className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                            <div className="w-full">
+                                <p className="font-bold text-gray-800 mb-1">Endereço:</p>
+                                {isAddressObj ? (
+                                    <div className="space-y-1 bg-white p-3 border rounded-md shadow-sm">
+                                        <div className="flex"><span className="font-bold text-gray-500 w-16">Rua:</span> <span className="text-gray-800 font-medium">{address.rua}</span></div>
+                                        <div className="flex"><span className="font-bold text-gray-500 w-16">Nº:</span> <span className="text-gray-800">{address.numero}</span></div>
+                                        <div className="flex"><span className="font-bold text-gray-500 w-16">Bairro:</span> <span className="text-gray-800">{address.bairro}</span></div>
+                                        <div className="flex"><span className="font-bold text-gray-500 w-16">Cidade:</span> <span className="text-gray-800">{address.cidade}</span></div>
+                                        <div className="flex"><span className="font-bold text-gray-500 w-16">Estado:</span> <span className="text-gray-800">{address.estado || address.uf}</span></div>
+                                        <div className="flex"><span className="font-bold text-gray-500 w-16">CEP:</span> <span className="text-gray-800 font-mono bg-gray-100 px-1 rounded">{address.cep}</span></div>
+                                    </div>
+                                ) : (
+                                    <p className="text-gray-600">{address || 'R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB'}</p>
+                                )}
+                                
+                                {pickupConfig?.mapsLink && (
+                                    <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 hover:underline text-xs font-bold mt-2 inline-flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-md border border-blue-200">
+                                        Abrir Localização no Google Maps &rarr;
+                                    </a>
+                                )}
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-2 pt-3 border-t border-gray-200">
+                            <ClockIcon className="h-5 w-5 text-gray-500 flex-shrink-0 mt-0.5" />
+                            <p><strong>Horário:</strong><br/> <span className="text-gray-600">{hours}</span></p>
+                        </div>
+                        <div className="flex items-start gap-2 pt-3 border-t border-gray-200">
+                            <ClipboardDocListIcon className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                            <div>
+                                <p><strong>No momento da retirada, é necessário:</strong></p>
+                                <p className="text-gray-600 mt-1">{instructions}</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -961,11 +1239,7 @@ const TrackingModal = memo(({ isOpen, onClose, order }) => {
     return (
         <AnimatePresence>
             {isOpen && order && (
-                <Modal 
-                    isOpen={isOpen} 
-                    onClose={onClose} 
-                    title={isPickupOrder ? `Status da Retirada: Pedido #${order.id}` : `Rastreio do Pedido: ${order.tracking_code}`}
-                >
+                <Modal isOpen={isOpen} onClose={onClose} title={isPickupOrder ? `Status da Retirada: Pedido #${order.id}` : `Rastreio do Pedido: ${order.tracking_code}`}>
                     {isPickupOrder ? renderPickupStatus() : renderShippingTracking()}
                 </Modal>
             )}
@@ -1032,33 +1306,291 @@ const BackToTopButton = ({ scrollableRef }) => {
     );
 };
 
+// --- ILUSTRAÇÃO COM FOTO 3D ---
+const MeasurementIllustration = ({ highlightedPart }) => {
+    const normalize = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+    const part = normalize(highlightedPart);
+
+    // Mapeamento de imagens para cada parte do corpo
+    const images = {
+        default: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1768960483/nqnr0xsv9efkbdf6cnox.jpg",
+        busto: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1769136284/pa8anzq4wjiiqhrzabwv.png",
+        cintura: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1769136317/n2eqa8eapljs2hiwcncq.png",
+        quadril: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1769136334/igo6ctd9lyu9kppyvavg.png"
+    };
+
+    // Seleciona a imagem ativa baseada na parte destacada ou usa a padrão
+    const activeImage = images[part] || images.default;
+    
+    // Só exibe os desenhos SVG de overlay se estivermos usando a imagem padrão.
+    // Para as novas imagens de busto/cintura/quadril, a própria imagem já serve de guia.
+    const showOverlay = activeImage === images.default;
+
+    return (
+        <div className="relative w-full max-w-[200px] mx-auto transition-all duration-300 select-none rounded-lg overflow-hidden shadow-md bg-white aspect-[2/3]">
+            {/* FOTO DO BONECO (Dinâmica) */}
+            <img 
+                key={activeImage} // Key força re-render suave ao trocar imagem
+                src={activeImage} 
+                alt={`Guia de Medidas - ${highlightedPart || 'Geral'}`}
+                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+            />
+
+            {/* CAMADA DE DESTAQUE (SVG Overlay) */}
+            <svg 
+                viewBox="0 0 500 750" 
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                preserveAspectRatio="none"
+            >
+                <defs>
+                    <marker id="arrow" markerWidth="4" markerHeight="4" refX="2" refY="2" orient="auto">
+                        <path d="M0,0 L0,4 L4,2 z" fill="#ef4444" />
+                    </marker>
+                </defs>
+
+                {/* Só desenha as linhas de Busto/Cintura/Quadril se estiver na imagem padrão */}
+                {showOverlay && (
+                    <>
+                        {/* BUSTO (Altura ajustada) */}
+                        <g className={`transition-opacity duration-300 ease-in-out ${part === 'busto' ? 'opacity-100' : 'opacity-0'}`}>
+                            <ellipse cx="250" cy="210" rx="100" ry="25" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
+                            <line x1="100" y1="210" x2="400" y2="210" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
+                            <text x="250" y="200" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>BUSTO</text>
+                        </g>
+
+                        {/* CINTURA (Parte mais fina) */}
+                        <g className={`transition-opacity duration-300 ease-in-out ${part === 'cintura' ? 'opacity-100' : 'opacity-0'}`}>
+                            <ellipse cx="250" cy="315" rx="85" ry="20" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
+                            <line x1="120" y1="315" x2="380" y2="315" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
+                            <text x="250" y="305" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>CINTURA</text>
+                        </g>
+
+                        {/* QUADRIL (Parte mais larga) */}
+                        <g className={`transition-opacity duration-300 ease-in-out ${part === 'quadril' ? 'opacity-100' : 'opacity-0'}`}>
+                            <ellipse cx="250" cy="410" rx="110" ry="28" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
+                            <line x1="100" y1="410" x2="400" y2="410" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
+                            <text x="250" y="400" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>QUADRIL</text>
+                        </g>
+                    </>
+                )}
+
+                {/* COMPRIMENTO (Lateral Vertical) - Mantém visível sempre que solicitado */}
+                <g className={`transition-opacity duration-300 ease-in-out ${part && part.includes('comp') ? 'opacity-100' : 'opacity-0'}`}>
+                    {/* Linha vertical com marcadores */}
+                    <line x1="60" y1="150" x2="60" y2="600" stroke="#ef4444" strokeWidth="5" markerEnd="url(#arrow)" markerStart="url(#arrow)" />
+                    {/* Tracinhos horizontais nas pontas */}
+                    <line x1="40" y1="150" x2="80" y2="150" stroke="#ef4444" strokeWidth="3" />
+                    <line x1="40" y1="600" x2="80" y2="600" stroke="#ef4444" strokeWidth="3" />
+                    {/* Texto vertical */}
+                    <text x="85" y="375" fill="#ef4444" fontSize="22" fontWeight="bold" style={{writingMode: "vertical-rl", textOrientation: "upright", textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>COMPRIMENTO</text>
+                </g>
+            </svg>
+            
+            {/* LEGENDA FLUTUANTE */}
+            <div className={`absolute bottom-3 left-0 right-0 text-center transition-all duration-300 ${part ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>
+                <span className="bg-black/90 backdrop-blur text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg border border-gray-600 uppercase tracking-widest">
+                    {highlightedPart}
+                </span>
+            </div>
+        </div>
+    );
+};
+
+const SizeGuideAdminInput = ({ value, onChange }) => {
+    const safeValue = useMemo(() => {
+        try {
+            const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+            if (parsed && Array.isArray(parsed.rows)) return parsed;
+        } catch(e) {}
+        return {
+            columns: ["Tam.", "Busto", "Cintura", "Quadril", "Comp."],
+            rows: [
+                { size: "P", values: ["", "", "", ""] },
+                { size: "M", values: ["", "", "", ""] },
+                { size: "G", values: ["", "", "", ""] },
+                { size: "GG", values: ["", "", "", ""] },
+            ]
+        };
+    }, [value]);
+
+    const [data, setData] = useState(safeValue);
+
+    useEffect(() => {
+        onChange(JSON.stringify(data));
+    }, [data, onChange]);
+
+    const handleValueChange = (rowIndex, colIndex, val) => {
+        const newRows = [...data.rows];
+        newRows[rowIndex].values[colIndex] = val;
+        setData({ ...data, rows: newRows });
+    };
+
+    return (
+        <div className="border border-gray-200 rounded-lg bg-white shadow-sm w-full max-w-full overflow-hidden">
+            <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
+                <p className="text-sm font-bold text-gray-700">Preencher Medidas (cm)</p>
+            </div>
+            
+            <div className="md:hidden p-3 space-y-3 bg-gray-50/30">
+                {data.rows.map((row, rIndex) => (
+                    <div key={rIndex} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+                        <div className="flex items-center gap-2 mb-3 border-b border-gray-100 pb-2">
+                            <span className="flex items-center justify-center w-8 h-8 font-black text-gray-800 bg-gray-100 rounded-full border border-gray-200 text-sm">
+                                {row.size}
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2">
+                            {row.values.map((val, cIndex) => (
+                                <div key={cIndex} className="flex flex-col gap-1">
+                                    <label className="text-[9px] font-bold text-gray-500 uppercase text-center truncate w-full">
+                                        {data.columns[cIndex + 1]}
+                                    </label>
+                                    <input 
+                                        type="tel" 
+                                        value={val} 
+                                        onChange={(e) => handleValueChange(rIndex, cIndex, e.target.value)}
+                                        className="w-full h-9 border border-gray-300 rounded focus:ring-1 focus:ring-amber-500 focus:border-amber-500 text-center text-sm font-bold bg-white"
+                                        placeholder="0"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <div className="hidden md:block w-full overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                    <thead className="bg-gray-100 text-gray-600 font-bold uppercase">
+                        <tr>
+                            {data.columns.map((col, i) => (
+                                <th key={i} className="px-3 py-2 border-b text-center">{col}</th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                        {data.rows.map((row, rIndex) => (
+                            <tr key={rIndex} className="hover:bg-gray-50">
+                                <td className="px-3 py-2 font-black text-gray-800 bg-gray-50/50 text-center border-r border-gray-100 w-16">
+                                    {row.size}
+                                </td>
+                                {row.values.map((val, cIndex) => (
+                                    <td key={cIndex} className="px-2 py-1">
+                                        <input 
+                                            type="text" 
+                                            value={val} 
+                                            onChange={(e) => handleValueChange(rIndex, cIndex, e.target.value)}
+                                            className="w-full h-8 border border-gray-300 rounded focus:ring-1 focus:ring-amber-500 text-center text-xs font-medium"
+                                            placeholder="-"
+                                        />
+                                    </td>
+                                ))}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
+const SizeGuideDisplay = ({ dataString }) => {
+    const [highlightedPart, setHighlightedPart] = useState(null);
+
+    const data = useMemo(() => {
+        try {
+            return JSON.parse(dataString);
+        } catch (e) {
+            return null;
+        }
+    }, [dataString]);
+
+    if (!data || !data.rows) return null;
+
+    return (
+        <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden w-full">
+            {/* Gap reduzido de md:gap-12 para md:gap-6 para dar mais espaço à tabela */}
+            <div className="p-4 md:p-6 flex flex-col md:flex-row gap-6 items-center md:items-start">
+                <div className="flex-1 w-full min-w-0">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                            <RulerIcon className="h-5 w-5 text-amber-400" />
+                            <h4 className="text-amber-400 font-bold uppercase tracking-wider text-sm">Guia de Tamanhos (cm)</h4>
+                        </div>
+                        <span className="text-[10px] text-gray-400 bg-gray-800 px-2 py-1 rounded hidden md:inline-block border border-gray-700">
+                            Passe o mouse na tabela
+                        </span>
+                    </div>
+                    
+                    <div className="md:hidden space-y-3">
+                        <p className="text-[10px] text-center text-gray-400 mb-2">Toque nas medidas para ver no manequim</p>
+                        {data.rows.map((row, i) => (
+                            <div key={i} className="bg-gray-800/50 rounded p-3 flex items-center justify-between border border-gray-700">
+                                <span className="font-black text-white bg-gray-700 w-8 h-8 flex items-center justify-center rounded-full text-sm border border-gray-600">{row.size}</span>
+                                <div className="flex gap-4 text-xs text-gray-300">
+                                    {row.values.map((val, j) => (
+                                        <div key={j} className="text-center" onClick={() => setHighlightedPart(data.columns[j+1])}>
+                                            <span className={`block text-[9px] uppercase font-bold mb-0.5 ${highlightedPart === data.columns[j+1] ? 'text-amber-400' : 'text-gray-500'}`}>{data.columns[j+1]}</span>
+                                            <span className={`font-bold ${highlightedPart === data.columns[j+1] ? 'text-amber-400' : 'text-white'}`}>{val || '-'}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* overflow-x-auto e min-w-max garantem que a tabela não será cortada */}
+                    <div className="hidden md:block w-full overflow-x-auto rounded-lg border border-gray-700 shadow-inner bg-gray-800/50">
+                        <table className="w-full text-sm text-gray-300 min-w-max">
+                            <thead>
+                                <tr className="bg-gray-800 border-b border-gray-700">
+                                    {data.columns.map((col, i) => (
+                                        <th key={i} className={`px-4 py-3 font-bold text-amber-500 ${i === 0 ? 'text-left pl-6' : 'text-center cursor-help hover:bg-gray-700 transition-colors'}`} onMouseEnter={() => i > 0 && setHighlightedPart(col)} onMouseLeave={() => setHighlightedPart(null)}>{col}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-700/50">
+                                {data.rows.map((row, i) => (
+                                    <tr key={i} className="hover:bg-white/5 transition-colors">
+                                        <td className="px-4 py-3 pl-6 font-bold text-white bg-gray-800/30 border-r border-gray-700/50">{row.size}</td>
+                                        {row.values.map((val, j) => (
+                                            <td key={j} className={`px-4 py-3 text-center font-medium transition-colors ${highlightedPart === data.columns[j+1] ? 'bg-amber-400/20 text-amber-300' : ''}`} onMouseEnter={() => setHighlightedPart(data.columns[j+1])} onMouseLeave={() => setHighlightedPart(null)}>{val || '-'}</td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div className="w-full md:w-auto flex flex-col items-center justify-center bg-white p-4 rounded-xl border-4 border-gray-800 shadow-xl relative min-w-[200px]">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 text-amber-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-gray-700 shadow-md whitespace-nowrap">Como Medir</div>
+                    <MeasurementIllustration highlightedPart={highlightedPart} />
+                </div>
+            </div>
+        </div>
+    );
+};
 const ProductCard = memo(({ product, onNavigate }) => {
-    const { addToCart, shippingLocation } = useShop(); 
+    const { addToCart, shippingLocation, calculateLocalDeliveryPrice } = useShop();
     const notification = useNotification();
     const { user } = useAuth();
     const { wishlist, addToWishlist, removeFromWishlist } = useShop(); 
     const { isAuthenticated } = useAuth();
 
     const [isAddingToCart, setIsAddingToCart] = useState(false);
-    // isBuyingNow não é mais necessário aqui, mas mantive para evitar quebras se usado em outro lugar
-    const [isBuyingNow, setIsBuyingNow] = useState(false); 
     const [cardShippingInfo, setCardShippingInfo] = useState(null); 
     const [isCardShippingLoading, setIsCardShippingLoading] = useState(false); 
     
-    // Novo estado para o tempo restante da promoção
     const [timeLeft, setTimeLeft] = useState('');
-    
-    // NOVO: Estado para controle local da promoção
     const [isPromoActive, setIsPromoActive] = useState(false);
 
     const imageUrl = useMemo(() => getFirstImage(product.images), [product.images]);
 
-    // Atualiza estado local quando product muda
     useEffect(() => {
         setIsPromoActive(!!product.is_on_sale && product.sale_price > 0);
     }, [product]);
 
-    // Lógica baseada no estado local
     const currentPrice = isPromoActive ? product.sale_price : product.price;
 
     const discountPercent = useMemo(() => {
@@ -1068,14 +1600,12 @@ const ProductCard = memo(({ product, onNavigate }) => {
         return 0;
     }, [isPromoActive, product]);
 
-    // --- LÓGICA DO CONTADOR REGRESSIVO COM EXPIRAÇÃO AUTOMÁTICA ---
     useEffect(() => {
         if (!product?.sale_end_date) {
             setTimeLeft('');
             return;
         }
 
-        // Se a promoção já foi desativada localmente, não roda o timer
         if (!isPromoActive) return;
 
         const calculateTimeLeft = () => {
@@ -1092,14 +1622,13 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 timeString += `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
                 setTimeLeft(timeString);
             } else {
-                // TEMPO ACABOU: Desativa promoção localmente
                 setTimeLeft('Expirada');
                 setIsPromoActive(false);
             }
         };
 
-        calculateTimeLeft(); // Executa imediatamente
-        const timer = setInterval(calculateTimeLeft, 1000); // Atualiza a cada segundo
+        calculateTimeLeft();
+        const timer = setInterval(calculateTimeLeft, 1000);
 
         return () => clearInterval(timer);
     }, [isPromoActive, product.sale_end_date]);
@@ -1118,14 +1647,36 @@ const ProductCard = memo(({ product, onNavigate }) => {
     const isVariationOutOfStock = product.product_type === 'clothing' && productVariations.length > 0 && productVariations.every(v => v.stock <= 0);
     const isOutOfStock = isProductOutOfStock || isVariationOutOfStock;
 
-    // --- Efeito de Frete ---
     useEffect(() => {
         const controller = new AbortController();
         const signal = controller.signal;
          const debounceTimer = setTimeout(() => {
-            if (product && shippingLocation.cep.replace(/\D/g, '').length === 8) {
+            const cleanCep = shippingLocation.cep.replace(/\D/g, '');
+            
+            if (product && cleanCep.length === 8) {
                 setIsCardShippingLoading(true);
                 setCardShippingInfo(null);
+
+                const cepPrefix = parseInt(cleanCep.substring(0, 5));
+                const isJoaoPessoa = cepPrefix >= 58000 && cepPrefix <= 58099;
+
+                if (isJoaoPessoa) {
+                    const date = new Date();
+                    let addedDays = 0;
+                    while (addedDays < 1) { 
+                        date.setDate(date.getDate() + 1);
+                        if (date.getDay() !== 0 && date.getDay() !== 6) { addedDays++; }
+                    }
+                    const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
+                    
+                    const localPrice = calculateLocalDeliveryPrice ? calculateLocalDeliveryPrice([product]) : 20;
+                    
+                    const priceDisplay = localPrice === 0 ? "Grátis" : `R$ ${localPrice.toFixed(2).replace('.', ',')}`;
+                    
+                    setCardShippingInfo(`Frete ${priceDisplay} - Receba até ${formattedDate}.`);
+                    setIsCardShippingLoading(false);
+                    return; 
+                }
 
                 const calculateShipping = async () => {
                     try {
@@ -1169,7 +1720,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
             clearTimeout(debounceTimer);
             controller.abort();
         };
-    }, [product, shippingLocation.cep, currentPrice]); 
+    }, [product, shippingLocation.cep, currentPrice, calculateLocalDeliveryPrice]); 
 
     const installmentInfo = useMemo(() => {
         if (currentPrice >= 100) {
@@ -1179,13 +1730,11 @@ const ProductCard = memo(({ product, onNavigate }) => {
         return null;
     }, [currentPrice]);
 
-    // Função para ver detalhes (substitui o Comprar direto)
     const handleViewDetails = (e) => {
         e.stopPropagation();
         onNavigate(`product/${product.id}`);
     };
 
-    // Função de Adicionar ao Carrinho (MANTIDA)
     const handleAddToCartInternal = async (e) => { 
         e.stopPropagation();
         if (product.product_type === 'clothing') {
@@ -1223,7 +1772,8 @@ const ProductCard = memo(({ product, onNavigate }) => {
         return (
             <button
                 onClick={handleWishlistToggle}
-                className={`absolute top-2 right-2 bg-black/40 hover:bg-black/60 backdrop-blur-sm p-1.5 rounded-full text-white transition-colors duration-200 z-10 ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-300'}`}
+                // AQUI ESTÁ A CORREÇÃO: Fundo isolado para não esbranquiçar no tema claro
+                className={`absolute top-2 right-2 bg-[#000000]/40 hover:bg-[#000000]/60 backdrop-blur-sm p-1.5 rounded-full text-[#ffffff] transition-colors duration-200 z-10 ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-300'}`}
                 aria-label="Adicionar à Lista de Desejos"
             >
                 <HeartIcon className="h-5 w-5" filled={isWishlisted} />
@@ -1247,65 +1797,63 @@ const ProductCard = memo(({ product, onNavigate }) => {
             className={`bg-black border ${isPromoActive ? (timeLeft && timeLeft !== 'Expirada' ? 'border-red-600 shadow-lg shadow-red-900/30' : 'border-green-600 shadow-lg shadow-green-900/30') : 'border-gray-800'} rounded-lg overflow-hidden flex flex-col text-white h-full transition-shadow duration-300 ${isOutOfStock ? 'opacity-60 grayscale-[50%]' : ''}`} 
             onClick={() => onNavigate(`product/${product.id}`)} 
         >
-            {/* --- Seção da Imagem --- */}
             <div className="relative h-64 bg-white overflow-hidden group">
                 <img
                     src={imageUrl} 
                     alt={product.name}
+                    loading="lazy" 
                     className="w-full h-full object-contain cursor-pointer transition-transform duration-300 group-hover:scale-105 p-2"
                 />
                 <WishlistButton product={product} /> 
 
-                {/* --- Badges/Selos --- */}
                 <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
                     {isOutOfStock ? (
-                        <div className="bg-gray-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow">ESGOTADO</div>
+                        <div className="bg-gray-700 text-[#ffffff] text-[10px] font-bold px-2.5 py-1 rounded-full shadow">ESGOTADO</div>
                     ) : isPromoActive ? (
-                         <div className={`bg-gradient-to-r ${timeLeft && timeLeft !== 'Expirada' ? 'from-red-600 to-orange-500' : 'from-green-600 to-teal-500'} text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5`}> 
+                         <div className={`bg-gradient-to-r ${timeLeft && timeLeft !== 'Expirada' ? 'from-red-600 to-orange-500' : 'from-green-600 to-teal-500'} text-[#ffffff] text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5`}> 
                             <SaleIcon className="h-4 w-4"/>
                             <span>PROMOÇÃO {discountPercent}%</span>
                         </div>
                     ) : isNew ? (
-                        <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
+                        <div className="bg-blue-500 text-[#ffffff] text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
                     ) : null}
                 </div>
 
-                {/* --- CONTADOR REGRESSIVO (OFERTA RELÂMPAGO) --- */}
+                {/* AQUI ESTÁ A CORREÇÃO: Fundos e Textos blindados para não sofrerem interferência do tema claro nas fotos */}
                 {isPromoActive && timeLeft && timeLeft !== 'Expirada' && !isOutOfStock && (
                     <div className="absolute bottom-0 left-0 w-full bg-gradient-to-r from-red-700 to-red-500/90 backdrop-blur-md py-1.5 px-3 flex items-center justify-between z-20 shadow-inner border-t border-red-400">
-                        <div className="flex items-center gap-1.5 text-white font-bold text-[10px] uppercase tracking-wide">
+                        <div className="flex items-center gap-1.5 text-[#ffffff] font-bold text-[10px] uppercase tracking-wide">
                             <SparklesIcon className="h-3 w-3 text-yellow-300 animate-pulse"/>
                             <span>Oferta Relâmpago</span>
                         </div>
-                        <div className="flex items-center gap-1 bg-black/30 rounded px-1.5 py-0.5">
-                            <ClockIcon className="h-3 w-3 text-white"/>
-                            <span className="text-white font-mono font-bold text-xs">{timeLeft}</span>
+                        <div className="flex items-center gap-1 bg-[#000000]/30 rounded px-1.5 py-0.5">
+                            <ClockIcon className="h-3 w-3 text-[#ffffff]"/>
+                            <span className="text-[#ffffff] font-mono font-bold text-xs">{timeLeft}</span>
                         </div>
                     </div>
                 )}
 
-                {/* --- BARRA DE DESTAQUE (PROMOÇÃO PADRÃO) --- */}
                 {isPromoActive && (!timeLeft || timeLeft === 'Expirada') && !isOutOfStock && (
                     <div className="absolute bottom-0 left-0 w-full bg-gradient-to-r from-emerald-600 to-green-500/95 backdrop-blur-md py-1.5 px-3 flex items-center justify-between z-20 shadow-inner border-t border-emerald-400/50">
-                        <div className="flex items-center gap-1.5 text-white font-bold text-[10px] uppercase tracking-wide">
-                            <TagIcon className="h-3 w-3 text-white fill-white"/>
+                        <div className="flex items-center gap-1.5 text-[#ffffff] font-bold text-[10px] uppercase tracking-wide">
+                            <TagIcon className="h-3 w-3 text-[#ffffff] fill-white"/>
                             <span>Preço Especial</span>
                         </div>
-                        <div className="flex items-center gap-1 bg-black/20 rounded px-2 py-0.5">
-                            <span className="text-white font-bold text-[9px]">Aproveite</span>
+                        <div className="flex items-center gap-1 bg-[#000000]/20 rounded px-2 py-0.5">
+                            <span className="text-[#ffffff] font-bold text-[9px]">Aproveite</span>
                         </div>
                     </div>
                 )}
 
                  {product.product_type === 'clothing' && !isPromoActive && !isOutOfStock && (
-                    <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300"> 
+                    <div className="absolute bottom-0 left-0 w-full bg-[#000000]/70 text-center text-xs py-1 text-amber-300"> 
                         Ver Cores e Tamanhos
                     </div>
                  )}
                  {user && user.role === 'admin' && (
                     <div className="absolute top-2 right-10 z-10"> 
                         <button onClick={(e) => { e.stopPropagation(); onNavigate(`admin/products?search=${encodeURIComponent(product.name)}`); }}
-                                className="bg-gray-700/50 hover:bg-gray-600/70 backdrop-blur-sm text-white p-1.5 rounded-full shadow-md transition-colors" 
+                                className="bg-[#000000]/50 hover:bg-[#000000]/70 backdrop-blur-sm text-[#ffffff] p-1.5 rounded-full shadow-md transition-colors" 
                                 title="Editar Produto">
                             <EditIcon className="h-4 w-4" />
                         </button>
@@ -1313,7 +1861,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 )}
             </div>
 
-            {/* --- Seção de Informações --- */}
             <div className="p-4 flex flex-col flex-grow">
                 <div>
                     <p className="text-xs font-semibold text-amber-400 mb-1">{product.brand.toUpperCase()}</p>
@@ -1329,7 +1876,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     </div>
                 </div>
 
-                {/* --- Preço e Parcelas --- */}
                 <div className="mt-auto pt-3">
                     {isPromoActive ? (
                          <div className="flex flex-col">
@@ -1343,14 +1889,12 @@ const ProductCard = memo(({ product, onNavigate }) => {
 
                     {installmentInfo && ( <p className="text-[11px] text-gray-400 mt-0.5">{installmentInfo}</p> )}
 
-                    {/* --- Botões de Ação --- */}
                     {isOutOfStock ? (
                         <div className="mt-3">
                             <div className="w-full bg-gray-700 text-gray-400 py-2 px-3 rounded-md font-bold text-center text-sm">Esgotado</div>
                         </div>
                     ) : (
                         <div className="mt-3 flex items-stretch space-x-2">
-                            {/* Botão Ver Detalhes (Substitui o Comprar Direto) */}
                             <button
                                 onClick={handleViewDetails}
                                 className="flex-grow bg-amber-400 text-black py-2 px-3 rounded-md hover:bg-amber-300 transition font-bold text-sm text-center flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
@@ -1358,7 +1902,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
                                 <EyeIcon className="h-4 w-4"/>
                                 Ver Detalhes
                             </button>
-                            {/* Botão Adicionar ao Carrinho (Mantido) */}
                             <button
                                 onClick={handleAddToCartInternal}
                                 disabled={isAddingToCart}
@@ -1372,7 +1915,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 </div>
             </div>
 
-            {/* --- Informação de Frete --- */}
             {(isCardShippingLoading || cardShippingInfo) && (
                 <div className="p-2 text-[10px] text-center border-t border-gray-800 bg-gray-900/50 flex items-center justify-center gap-1.5">
                     {isCardShippingLoading ? (
@@ -1499,9 +2041,9 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
 });
 
 
-const Header = memo(({ onNavigate }) => {
+const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortName = "Love Cestas", appLogoText = "LovecestasePerfumes" }) => {
     const { isAuthenticated, user, logout } = useAuth();
-    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses } = useShop();
+    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses, orderNotificationCount } = useShop(); 
     const [searchTerm, setSearchTerm] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [searchSuggestions, setSearchSuggestions] = useState([]);
@@ -1511,7 +2053,6 @@ const Header = memo(({ onNavigate }) => {
     const [dynamicMenuItems, setDynamicMenuItems] = useState([]);
     const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
 
-    // Estado para visibilidade da BottomNavBar
     const [isBottomNavVisible, setIsBottomNavVisible] = useState(true);
     const lastScrollY = useRef(0);
     const isScrollingDown = useRef(false);
@@ -1525,10 +2066,7 @@ const Header = memo(({ onNavigate }) => {
         return () => window.removeEventListener('hashchange', handleHashChange);
      }, []);
 
-    // Efeito para controlar a visibilidade da BottomNavBar no scroll (APENAS IPHONE)
     useEffect(() => {
-        // --- INÍCIO DA MODIFICAÇÃO ---
-        // Função para verificar se é iPhone
         const isIOS = () => {
             return [
                 'iPad Simulator',
@@ -1538,20 +2076,17 @@ const Header = memo(({ onNavigate }) => {
                 'iPhone',
                 'iPod'
             ].includes(navigator.platform)
-            // iPad on iOS 13 detection
             || (navigator.userAgent.includes("Mac") && "ontouchend" in document)
         }
 
         const controlNavbar = () => {
-            // Se NÃO for iOS, mantém a barra visível e sai da função
             if (!isIOS()) {
                  setIsBottomNavVisible(true);
-                 isScrollingDown.current = false; // Garante que a lógica de scroll não interfira
-                 lastScrollY.current = window.scrollY; // Atualiza a posição para evitar saltos se mudar de OS
+                 isScrollingDown.current = false;
+                 lastScrollY.current = window.scrollY;
                  return;
             }
 
-            // Lógica original, agora executada APENAS se for iOS
             const currentScrollY = window.scrollY;
             const threshold = 5;
 
@@ -1570,13 +2105,12 @@ const Header = memo(({ onNavigate }) => {
 
             lastScrollY.current = currentScrollY;
         };
-        // --- FIM DA MODIFICAÇÃO ---
 
         window.addEventListener('scroll', controlNavbar);
         return () => {
             window.removeEventListener('scroll', controlNavbar);
         };
-    }, []); // Dependência vazia, executa apenas uma vez
+    }, []);
 
     const fetchAndBuildMenu = useCallback(() => {
         apiService('/collections')
@@ -1611,7 +2145,6 @@ const Header = memo(({ onNavigate }) => {
 
     useEffect(() => {
         if (isMobileMenuOpen && dynamicMenuItems.length === 0) {
-            console.log("Menu móvel aberto, mas sem itens. Tentando buscar categorias novamente...");
             fetchAndBuildMenu();
         }
     }, [isMobileMenuOpen, dynamicMenuItems, fetchAndBuildMenu]);
@@ -1728,7 +2261,7 @@ const Header = memo(({ onNavigate }) => {
             }
         }
     }
-// Componente da Barra de Navegação Inferior (Mobile Only)
+
     const BottomNavBar = () => {
         const wishlistCount = wishlist.length;
 
@@ -1739,25 +2272,22 @@ const Header = memo(({ onNavigate }) => {
 
         return (
             <motion.div
-                className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-50 md:hidden pb-safe" // Adicionado pb-safe para iOS
+                className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-50 md:hidden pb-safe"
                 initial={false}
                 animate={isBottomNavVisible ? "visible" : "hidden"}
                 variants={navVariants}
             >
-                {/* 1. Início */}
                 <button onClick={() => onNavigate('home')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'home' || currentPath === '' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <HomeIcon className="h-6 w-6 mb-1"/>
                     <span className="text-[10px]">Início</span>
                 </button>
                 
-                {/* 2. Lista de Desejos */}
                 <button onClick={() => onNavigate('wishlist')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'wishlist' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <HeartIcon className="h-6 w-6 mb-1"/>
                     <span className="text-[10px]">Lista</span>
                     {wishlistCount > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlistCount}</span>}
                 </button>
 
-                {/* 3. Carrinho */}
                 <button onClick={() => onNavigate('cart')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <motion.div animate={cartAnimationControls}>
                         <CartIcon className="h-6 w-6 mb-1"/>
@@ -1766,15 +2296,18 @@ const Header = memo(({ onNavigate }) => {
                     {totalCartItems > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
                 </button>
                 
-                {/* 4. Conta */}
                 <button onClick={() => isAuthenticated ? onNavigate('account') : onNavigate('login')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath.startsWith('account') || currentPath === 'login' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <UserIcon className="h-6 w-6 mb-1"/>
                     <span className="text-[10px]">Conta</span>
                 </button>
 
-                {/* 5. Menu (Categorias) - Agora na posição final */}
-                <button onClick={() => onNavigate('categories')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'categories' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
-                    <BarsGripIcon className="h-6 w-6 mb-1"/>
+                <button onClick={() => onNavigate('categories')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'categories' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                    <div className="relative">
+                        <BarsGripIcon className="h-6 w-6 mb-1"/>
+                        {isAuthenticated && orderNotificationCount > 0 && (
+                            <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-600 rounded-full border-2 border-black animate-pulse"></span>
+                        )}
+                    </div>
                     <span className="text-[10px]">Menu</span>
                 </button>
             </motion.div>
@@ -1816,10 +2349,16 @@ const Header = memo(({ onNavigate }) => {
         </AnimatePresence>
 
         <header className="bg-black/80 backdrop-blur-md text-white shadow-lg sticky top-0 z-40">
-            {/* Top Bar - Desktop */}
             <div className="hidden md:block px-4 sm:px-6">
                 <div className="flex justify-between items-center py-3">
-                    <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
+                    <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="flex items-center gap-2 text-xl font-bold tracking-wide text-amber-400 group">
+                        <div className="relative">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-7 w-7 text-amber-500 group-hover:scale-110 transition-transform">
+                                <path d="M9.375 3a1.875 1.875 0 000 3.75h1.875v4.5H3.375A1.875 1.875 0 011.5 9.375v-.75c0-1.036.84-1.875 1.875-1.875h3.193A3.375 3.375 0 0112 2.753a3.375 3.375 0 015.432 3.997h3.943c1.035 0 1.875.84 1.875 1.875v.75c0 1.036-.84 1.875-1.875 1.875H12.75v-4.5h1.875a1.875 1.875 0 10-1.875-1.875V6.75h-1.5V4.875C11.25 3.839 10.41 3 9.375 3zM11.25 12.75H3v6.75a2.25 2.25 0 002.25 2.25h6v-9zM12.75 12.75v9h6a2.25 2.25 0 002.25-2.25v-6.75h-8.25z" />
+                            </svg>
+                        </div>
+                        <span>{appLogoText}</span>
+                    </a>
                     <div className="hidden lg:block flex-1 max-w-2xl mx-8">
                          <form onSubmit={handleSearchSubmit} className="relative">
                            <input
@@ -1827,7 +2366,7 @@ const Header = memo(({ onNavigate }) => {
                                 onChange={e => setSearchTerm(e.target.value)}
                                 onFocus={() => setIsSearchFocused(true)}
                                 onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
-                                placeholder="O que você procura?"
+                                placeholder={`O que você procura em ${appShortName}?`}
                                 className="w-full bg-gray-800 text-white px-5 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500"/>
                            <button type="submit" className="absolute right-0 top-0 h-full px-4 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
                             <AnimatePresence>
@@ -1860,7 +2399,17 @@ const Header = memo(({ onNavigate }) => {
                         </form>
                     </div>
                     <div className="flex items-center space-x-2 sm:space-x-4">
-                        {isAuthenticated && ( <button onClick={() => onNavigate('account/orders')} className="hidden sm:flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <PackageIcon className="h-6 w-6"/> <div className="flex flex-col items-start text-xs leading-tight"> <span>Devoluções</span> <span className="font-bold">& Pedidos</span> </div> </button> )}
+                        {isAuthenticated && ( 
+                            <button onClick={() => onNavigate('account/orders')} className="hidden sm:flex items-center gap-1 hover:text-amber-400 transition px-2 py-1 relative"> 
+                                <PackageIcon className="h-6 w-6"/> 
+                                {orderNotificationCount > 0 && (
+                                    <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white border-2 border-black transform translate-x-1/2 -translate-y-1/2 animate-bounce">
+                                        {orderNotificationCount}
+                                    </span>
+                                )}
+                                <div className="flex flex-col items-start text-xs leading-tight"> <span>Devoluções</span> <span className="font-bold">& Pedidos</span> </div> 
+                            </button> 
+                        )}
                         <button onClick={() => onNavigate('wishlist')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <HeartIcon className="h-6 w-6"/> <span className="hidden sm:inline text-sm font-medium">Lista</span> {wishlist.length > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlist.length}</span>} </button>
                         <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <CartIcon className="h-6 w-6"/> <span className="hidden sm:inline text-sm font-medium">Carrinho</span> {totalCartItems > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>} </motion.button>
                         <div className="hidden sm:block">
@@ -1876,9 +2425,16 @@ const Header = memo(({ onNavigate }) => {
             </div>
 
              <div className="block md:hidden px-4 pt-3">
-                <div className="text-center mb-2"> <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a> </div>
+                <div className="flex justify-center items-center mb-3">
+                    <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="flex items-center gap-2 text-xl font-bold tracking-wide text-amber-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 text-amber-500">
+                            <path d="M9.375 3a1.875 1.875 0 000 3.75h1.875v4.5H3.375A1.875 1.875 0 011.5 9.375v-.75c0-1.036.84-1.875 1.875-1.875h3.193A3.375 3.375 0 0112 2.753a3.375 3.375 0 015.432 3.997h3.943c1.035 0 1.875.84 1.875 1.875v.75c0 1.036-.84 1.875-1.875 1.875H12.75v-4.5h1.875a1.875 1.875 0 10-1.875-1.875V6.75h-1.5V4.875C11.25 3.839 10.41 3 9.375 3zM11.25 12.75H3v6.75a2.25 2.25 0 002.25 2.25h6v-9zM12.75 12.75v9h6a2.25 2.25 0 002.25-2.25v-6.75h-8.25z" />
+                        </svg>
+                        {appLogoText}
+                    </a>
+                </div>
                 <form onSubmit={handleSearchSubmit} className="relative mb-2">
-                    <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onFocus={() => setIsSearchFocused(true)} onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)} placeholder="Pesquisar em LovecestasePerfumes" className="w-full bg-gray-800 text-white px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm" />
+                    <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onFocus={() => setIsSearchFocused(true)} onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)} placeholder={`Pesquisar em ${appShortName}`} className="w-full bg-gray-800 text-white px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm" />
                     <button type="submit" className="absolute right-0 top-0 h-full px-3 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
                     <AnimatePresence>
                         {isSearchFocused && searchTerm.length > 0 && (
@@ -1926,7 +2482,17 @@ const Header = memo(({ onNavigate }) => {
                                 <div className="border-b border-gray-800"> <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ver Tudo</a> </div>
                                 <div className="border-b border-gray-800"> <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ajuda</a> </div>
                                 <div className="pt-4 space-y-3">
-                                    {isAuthenticated ? ( <> <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Minha Conta</a> <a href="#account/orders" onClick={(e) => { e.preventDefault(); onNavigate('account/orders'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Devoluções e Pedidos</a> {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMobileMenuOpen(false);}} className="block text-amber-400 hover:text-amber-300">Painel Admin</a>} <button onClick={() => { logout(); onNavigate('home'); setIsMobileMenuOpen(false); }} className="w-full text-left text-white hover:text-amber-400">Sair</button> </> ) : ( <button onClick={() => { onNavigate('login'); setIsMobileMenuOpen(false); }} className="w-full text-left bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button> )}
+                                    {isAuthenticated ? ( 
+                                        <> 
+                                            <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Minha Conta</a> 
+                                            <a href="#account/orders" onClick={(e) => { e.preventDefault(); onNavigate('account/orders'); setIsMobileMenuOpen(false); }} className="flex items-center justify-between text-white hover:text-amber-400">
+                                                <span>Devoluções e Pedidos</span>
+                                                {orderNotificationCount > 0 && <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full ml-2 animate-pulse">{orderNotificationCount}</span>}
+                                            </a> 
+                                            {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMobileMenuOpen(false);}} className="block text-amber-400 hover:text-amber-300">Painel Admin</a>} 
+                                            <button onClick={() => { logout(); onNavigate('home'); setIsMobileMenuOpen(false); }} className="w-full text-left text-white hover:text-amber-400">Sair</button> 
+                                        </> 
+                                    ) : ( <button onClick={() => { onNavigate('login'); setIsMobileMenuOpen(false); }} className="w-full text-left bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button> )}
                                 </div>
                             </div>
                         </motion.div>
@@ -1935,7 +2501,6 @@ const Header = memo(({ onNavigate }) => {
             </AnimatePresence>
         </header>
 
-        {/* Renderiza a BottomNavBar */}
         <BottomNavBar />
         </>
     );
@@ -1953,7 +2518,7 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
     useEffect(() => {
         setIsLoading(true);
         apiService('/collections')
-            .then(data => setCategories(data)) // Apenas define os dados na ordem recebida
+            .then(data => setCategories(data)) 
             .catch(err => console.error("Falha ao buscar coleções:", err))
             .finally(() => setIsLoading(false));
     }, []);
@@ -2013,7 +2578,7 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
         <section className="bg-black text-white py-12 md:py-16">
             <div className="container mx-auto px-4">
                 {title && <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">{title}</h2>}
-                <div className="relative">
+                <div className="relative group">
                     <div 
                         className="overflow-hidden"
                         onTouchStart={handleTouchStart}
@@ -2031,23 +2596,26 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
                                     className="flex-shrink-0 px-2"
                                     style={{ width: `${100 / itemsPerPage}%` }}
                                 >
-                                    <div className="relative rounded-lg overflow-hidden aspect-[4/5] group cursor-pointer" onClick={() => onNavigate(`products?category=${cat.filter}`)}>
-                                        <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
-                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-2 transition-all group-hover:bg-black/60">
-                                            <h3 className="text-xl font-semibold text-white text-center tracking-wide" style={{ textShadow: '2px 2px 6px rgba(0,0,0,0.9)' }}>{cat.name}</h3>
+                                    {/* CORREÇÃO: Adicionado group/card para isolar o hover do card do hover do carrossel inteiro */}
+                                    <div className="relative rounded-lg overflow-hidden aspect-[4/5] group/card cursor-pointer" onClick={() => onNavigate(`products?category=${cat.filter}`)}>
+                                        <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover/card:scale-110 transition-transform duration-500"/>
+                                        
+                                        <div className="absolute inset-0 bg-[#000000]/40 flex items-center justify-center p-2 transition-all group-hover/card:bg-[#000000]/60">
+                                            <h3 className="text-xl font-semibold text-[#ffffff] text-center tracking-wide" style={{ textShadow: '2px 2px 6px rgba(0,0,0,0.9)' }}>{cat.name}</h3>
                                         </div>
                                     </div>
                                 </div>
                             ))}
                         </motion.div>
                     </div>
+                    {/* Botões de Navegação (ocultos por padrão, visíveis no hover do carrossel) */}
                     {canGoPrev && (
-                        <button onClick={goPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg z-10 hidden md:flex">
+                        <button onClick={goPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-[#ffffff]/50 hover:bg-[#ffffff] text-black p-2 rounded-full shadow-lg z-10 transition-opacity opacity-0 group-hover:opacity-100">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                         </button>
                     )}
                     {canGoNext && (
-                         <button onClick={goNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg z-10 hidden md:flex">
+                         <button onClick={goNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-[#ffffff]/50 hover:bg-[#ffffff] text-black p-2 rounded-full shadow-lg z-10 transition-opacity opacity-0 group-hover:opacity-100">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                         </button>
                     )}
@@ -2185,7 +2753,6 @@ const NewsletterSection = () => {
 const PromoBannerSection = ({ customBanners, onNavigate }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     
-    // Dados Padrão (Fallback visual se o banco estiver vazio)
     const defaultBanner = [{
         image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop",
         title: "Semana do Consumidor",
@@ -2196,20 +2763,17 @@ const PromoBannerSection = ({ customBanners, onNavigate }) => {
         id: 'default'
     }];
 
-    // Usa os banners do banco se existirem, senão usa o padrão
     const activeBanners = customBanners && customBanners.length > 0 ? customBanners : defaultBanner;
     
-    // Lógica de Rotação Automática
     useEffect(() => {
         if (activeBanners.length > 1) {
             const timer = setTimeout(() => {
                 setCurrentIndex(prev => (prev === activeBanners.length - 1 ? 0 : prev + 1));
-            }, 5000); // 5 segundos por slide
+            }, 5000);
             return () => clearTimeout(timer);
         }
     }, [currentIndex, activeBanners.length]);
 
-    // Garante que o índice não estoure se a lista mudar
     const safeIndex = currentIndex >= activeBanners.length ? 0 : currentIndex;
     const currentBanner = activeBanners[safeIndex];
     
@@ -2242,18 +2806,22 @@ const PromoBannerSection = ({ customBanners, onNavigate }) => {
                     <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/95 via-black/40 to-transparent transition-all duration-500"></div>
                     <div className="relative z-10 w-full px-6 md:px-16 pb-8 md:pb-0 flex flex-col items-center md:items-start justify-end md:justify-center h-full text-center md:text-left">
                         {isFlashOffer && (
-                            <motion.span initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-red-600 text-white text-xs md:text-sm font-bold px-3 py-1 md:px-4 md:py-1.5 rounded-full uppercase tracking-wider mb-3 md:mb-6 inline-flex items-center gap-2 shadow-lg">
+                            <motion.span initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-red-600 text-[#ffffff] text-xs md:text-sm font-bold px-3 py-1 md:px-4 md:py-1.5 rounded-full uppercase tracking-wider mb-3 md:mb-6 inline-flex items-center gap-2 shadow-lg">
                                 <ClockIcon className="h-3 w-3 md:h-4 md:w-4" /> Oferta Relâmpago
                             </motion.span>
                         )}
-                        <motion.h2 initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="text-4xl md:text-7xl font-extrabold mb-3 md:mb-6 text-white drop-shadow-lg leading-tight">
+                        
+                        {/* AQUI ESTÁ A CORREÇÃO: Protegendo o texto contra temas que o tornam escuro */}
+                        <motion.h2 initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="text-4xl md:text-7xl font-extrabold mb-3 md:mb-6 text-[#ffffff] drop-shadow-lg leading-tight">
                             {renderTitle()}
                         </motion.h2>
+                        
                         {currentBanner.subtitle && (
-                            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="text-base md:text-xl text-gray-200 mb-6 md:mb-10 max-w-xs md:max-w-lg font-light leading-snug">
+                            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="text-base md:text-xl text-[#e5e7eb] mb-6 md:mb-10 max-w-xs md:max-w-lg font-light leading-snug">
                                 {currentBanner.subtitle}
                             </motion.p>
                         )}
+                        
                         {currentBanner.cta_enabled !== 0 && (
                             <motion.button whileTap={{ scale: 0.95 }} className="bg-white text-black px-8 py-3 md:px-12 md:py-4 rounded-full font-bold text-sm md:text-lg hover:bg-amber-400 transition-all shadow-xl flex items-center gap-2 md:gap-3">
                                 {currentBanner.cta_text || 'Ver Ofertas'} <ArrowUturnLeftIcon className="h-4 w-4 md:h-5 md:w-5 rotate-180"/>
@@ -2263,7 +2831,6 @@ const PromoBannerSection = ({ customBanners, onNavigate }) => {
                 </motion.div>
             </AnimatePresence>
             
-            {/* Indicadores de Slide (Dots) se houver mais de 1 banner */}
             {activeBanners.length > 1 && (
                 <div className="flex justify-center mt-4 gap-2">
                     {activeBanners.map((_, idx) => (
@@ -2310,9 +2877,10 @@ const CategoryCardsSection = ({ customCards, onNavigate }) => {
                     >
                         <img src={card.image_url} alt={card.title} className="w-full h-full object-cover"/>
                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-6 md:p-10">
-                            <h3 className="text-2xl md:text-4xl font-bold text-white mb-1 md:mb-3">{card.title}</h3>
-                            <p className="text-gray-300 text-sm md:text-lg mb-3 md:mb-6 line-clamp-1 md:line-clamp-none">{card.subtitle}</p>
-                            <span className="inline-flex items-center gap-2 text-white text-xs md:text-sm font-bold underline decoration-amber-500 underline-offset-4">
+                            {/* AQUI ESTÁ A CORREÇÃO: Protegendo o texto para não ficar escuro no tema claro e sumir no gradiente */}
+                            <h3 className="text-2xl md:text-4xl font-bold text-[#ffffff] mb-1 md:mb-3">{card.title}</h3>
+                            <p className="text-[#d1d5db] text-sm md:text-lg mb-3 md:mb-6 line-clamp-1 md:line-clamp-none">{card.subtitle}</p>
+                            <span className="inline-flex items-center gap-2 text-[#ffffff] text-xs md:text-sm font-bold underline decoration-amber-500 underline-offset-4">
                                 {card.cta_text || 'Ver Mais'} &rarr;
                             </span>
                         </div>
@@ -2327,7 +2895,8 @@ const CategoriesPage = ({ onNavigate }) => {
     const [categories, setCategories] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedGroup, setSelectedGroup] = useState(null);
-    const { user, isAuthenticated, logout } = useAuth(); // Acesso ao logout
+    const { user, isAuthenticated, logout } = useAuth(); 
+    const { orderNotificationCount } = useShop(); 
 
     const groupedCategories = useMemo(() => {
         const groups = {};
@@ -2372,18 +2941,22 @@ const CategoriesPage = ({ onNavigate }) => {
         return () => controller.abort();
     }, []);
 
-    // Sub-tela (Nível 2) - Estilo Dark
+    // Sub-tela (Nível 2)
     const SubCategoryView = ({ group, onBack }) => (
         <motion.div 
             initial={{ x: '100%' }} 
             animate={{ x: 0 }} 
             exit={{ x: '100%' }} 
             transition={{ type: 'tween', ease: 'easeInOut', duration: 0.3 }}
-            className="fixed inset-0 bg-black z-50 overflow-y-auto pb-24" // Fundo Preto
+            className="fixed inset-0 bg-gray-900 z-[100] overflow-y-auto pb-24"
         >
-            <div className="sticky top-0 bg-black/95 backdrop-blur-md border-b border-gray-800 z-10 px-4 py-4 flex items-center shadow-md">
+            {/* Cabeçalho restaurado para o design original (Foto 1) com z-index alto */}
+            <div className="sticky top-0 bg-gray-900 border-b border-gray-800 z-20 px-4 py-4 flex items-center shadow-md">
                 <button onClick={onBack} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-colors mr-3">
-                    <ArrowUturnLeftIcon className="h-6 w-6" />
+                    {/* Ícone de Seta Simples idêntico ao da primeira foto */}
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
                 </button>
                 <h2 className="text-lg font-bold text-white tracking-wide">{group.title}</h2>
             </div>
@@ -2398,7 +2971,7 @@ const CategoriesPage = ({ onNavigate }) => {
                         <div 
                             key={item.id}
                             onClick={() => onNavigate(`products?category=${item.filter}`)}
-                            className="bg-gray-900 rounded-lg overflow-hidden shadow-sm border border-gray-800 cursor-pointer active:scale-95 transition-transform flex flex-col group"
+                            className="bg-gray-800 rounded-lg overflow-hidden shadow-sm border border-gray-700 cursor-pointer active:scale-95 transition-transform flex flex-col group"
                         >
                             <div className="aspect-square bg-white relative p-2 overflow-hidden">
                                 <img 
@@ -2408,7 +2981,7 @@ const CategoriesPage = ({ onNavigate }) => {
                                     loading="lazy"
                                 />
                             </div>
-                            <div className="p-3 bg-gray-900 flex-grow flex items-center justify-center text-center border-t border-gray-800">
+                            <div className="p-3 bg-gray-800 flex-grow flex items-center justify-center text-center border-t border-gray-700">
                                 <span className="text-sm font-medium text-gray-200 leading-tight line-clamp-2 group-hover:text-amber-400 transition-colors">
                                     {item.name}
                                 </span>
@@ -2419,9 +2992,12 @@ const CategoriesPage = ({ onNavigate }) => {
                 
                 <button 
                     onClick={() => onNavigate(`products?search=${group.title}`)}
-                    className="w-full mt-8 py-3.5 bg-gray-800 border border-gray-700 text-white font-bold rounded-lg shadow-md hover:bg-gray-700 hover:border-amber-500/50 transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wide"
+                    className="w-full mt-8 py-3.5 bg-gray-800 border border-gray-700 text-white font-bold rounded-lg shadow-md hover:bg-gray-700 transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wide"
                 >
-                    Ver todos em {group.title} <ArrowUturnLeftIcon className="h-4 w-4 rotate-180 text-amber-500"/>
+                    Ver todos em {group.title} 
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
                 </button>
             </div>
         </motion.div>
@@ -2429,48 +3005,62 @@ const CategoriesPage = ({ onNavigate }) => {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-black pt-20 flex justify-center">
-                <SpinnerIcon className="h-8 w-8 text-amber-400" />
+            <div className="bg-black min-h-[80vh] flex flex-col items-center justify-center pt-20 pb-32 px-4 gap-6">
+                <div className="relative">
+                    <div className="absolute inset-0 bg-amber-500 blur-xl opacity-20 rounded-full animate-pulse"></div>
+                    <SpinnerIcon className="h-12 w-12 text-amber-400 relative z-10" />
+                </div>
+                <div className="text-center space-y-2">
+                    <h2 className="text-xl font-bold text-white tracking-wide">Organizando os Departamentos</h2>
+                    <p className="text-sm text-gray-500">Preparando nossas coleções exclusivas para você...</p>
+                </div>
             </div>
         );
     }
 
-    // Atalhos Rápidos (Estilo Amazon)
     const QuickShortcuts = () => (
         <div className="bg-gray-900 p-4 rounded-xl mb-6 shadow-lg border border-gray-800 grid grid-cols-2 gap-4">
             {isAuthenticated ? (
                 <>
-                    <button onClick={() => onNavigate('account/orders')} className="bg-black border border-gray-700 p-4 rounded-lg flex flex-col items-center justify-center text-center hover:bg-gray-800 active:scale-95 transition-all">
-                        <PackageIcon className="h-6 w-6 text-amber-400 mb-2"/>
-                        <span className="text-sm font-bold text-gray-200">Meus Pedidos</span>
+                    <button onClick={() => onNavigate('account/orders')} className="bg-gray-800 border border-gray-700 p-4 rounded-lg flex flex-col items-center justify-center text-center hover:bg-gray-700 active:scale-95 transition-all relative">
+                        <div className="relative">
+                            <PackageIcon className="h-6 w-6 text-amber-400 mb-2"/>
+                            {orderNotificationCount > 0 && (
+                                <span className="absolute -top-1 -right-2 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-black animate-pulse">
+                                    {orderNotificationCount}
+                                </span>
+                            )}
+                        </div>
+                        <span className="text-sm font-bold text-white">Meus Pedidos</span>
                     </button>
-                    <button onClick={() => onNavigate('account')} className="bg-black border border-gray-700 p-4 rounded-lg flex flex-col items-center justify-center text-center hover:bg-gray-800 active:scale-95 transition-all">
+
+                    <button onClick={() => onNavigate('account')} className="bg-gray-800 border border-gray-700 p-4 rounded-lg flex flex-col items-center justify-center text-center hover:bg-gray-700 active:scale-95 transition-all">
                         <UserIcon className="h-6 w-6 text-amber-400 mb-2"/>
-                        <span className="text-sm font-bold text-gray-200">Minha Conta</span>
+                        <span className="text-sm font-bold text-white">Minha Conta</span>
                     </button>
+                    
                     {user?.role === 'admin' && (
-                        <button onClick={() => onNavigate('admin/dashboard')} className="col-span-2 bg-gradient-to-r from-gray-800 to-gray-700 border border-gray-600 p-3 rounded-lg flex items-center justify-center gap-3 hover:from-gray-700 hover:to-gray-600 active:scale-95 transition-all shadow-md">
+                        <button onClick={() => onNavigate('admin/dashboard')} className="col-span-2 bg-gray-800 border border-gray-700 p-3 rounded-lg flex items-center justify-center gap-3 hover:bg-gray-700 active:scale-95 transition-all shadow-md">
                             <AdminIcon className="h-5 w-5 text-amber-400"/>
                             <span className="text-sm font-bold text-white uppercase tracking-wide">Acessar Painel Admin</span>
                         </button>
                     )}
                 </>
             ) : (
-                <div className="col-span-2 bg-black border border-gray-700 p-4 rounded-lg flex flex-col items-center text-center">
+                <div className="col-span-2 bg-gray-800 border border-gray-700 p-4 rounded-lg flex flex-col items-center text-center">
                     <p className="text-sm text-gray-400 mb-3">Faça login para ver seus pedidos e conta.</p>
                     <button onClick={() => onNavigate('login')} className="w-full bg-amber-500 text-black font-bold py-2 rounded hover:bg-amber-400 transition-colors">
                         Fazer Login / Criar Conta
                     </button>
                 </div>
             )}
-             <button onClick={() => onNavigate('ajuda')} className="col-span-2 bg-black border border-gray-700 p-3 rounded-lg flex items-center justify-between px-4 hover:bg-gray-800 active:scale-95 transition-all">
-                <span className="text-sm font-bold text-gray-200 flex items-center gap-2"><SparklesIcon className="h-4 w-4 text-amber-400"/> Central de Ajuda e Atendimento</span>
+             <button onClick={() => onNavigate('ajuda')} className="col-span-2 bg-gray-800 border border-gray-700 p-3 rounded-lg flex items-center justify-between px-4 hover:bg-gray-700 active:scale-95 transition-all">
+                <span className="text-sm font-bold text-white flex items-center gap-2"><SparklesIcon className="h-4 w-4 text-amber-400"/> Central de Ajuda e Atendimento</span>
                 <ArrowUturnLeftIcon className="h-4 w-4 text-gray-500 rotate-180"/>
             </button>
             
-            {/* Botão de Logout adicionado */}
             {isAuthenticated && (
-                <button onClick={() => { logout(); onNavigate('home'); }} className="col-span-2 bg-red-900/20 border border-red-900/50 p-3 rounded-lg flex items-center justify-center gap-2 hover:bg-red-900/30 active:scale-95 transition-all text-red-400 font-bold text-sm">
+                <button onClick={() => { logout(); onNavigate('home'); }} className="col-span-2 bg-red-900/20 border border-red-900/50 p-3 rounded-lg flex items-center justify-center gap-2 hover:bg-red-900/30 active:scale-95 transition-all text-red-500 font-bold text-sm">
                     Sair da Conta
                 </button>
             )}
@@ -2478,7 +3068,7 @@ const CategoriesPage = ({ onNavigate }) => {
     );
 
     return (
-        <div className="bg-black min-h-screen pt-2 pb-24 text-white"> {/* Fundo Preto Global */}
+        <div className="bg-black min-h-screen pt-2 pb-24 text-white">
             <AnimatePresence>
                 {selectedGroup && (
                     <SubCategoryView 
@@ -2489,21 +3079,18 @@ const CategoriesPage = ({ onNavigate }) => {
             </AnimatePresence>
 
             <div className="container mx-auto px-4">
-                {/* Atalhos Rápidos no Topo */}
                 <h1 className="text-xl font-bold text-white mb-3 px-1 mt-4">Acesso Rápido</h1>
                 <QuickShortcuts />
 
                 <h1 className="text-xl font-bold text-white mb-4 px-1 mt-2 border-l-4 border-amber-500 pl-3">Departamentos</h1>
                 
-                {/* Grade Principal (Nível 1) - Dark Mode */}
                 <div className="grid grid-cols-2 gap-3"> 
-                    {/* Card Especial: Promoções (Antigo Ofertas do Dia) */}
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0 }}
                         onClick={() => onNavigate('products?promo=true')}
-                        className="col-span-2 bg-gradient-to-r from-red-900 via-red-800 to-black rounded-lg shadow-lg border border-red-900/50 overflow-hidden cursor-pointer active:scale-95 transition-transform flex flex-row items-center justify-between p-4 relative group mb-2"
+                        className="col-span-2 bg-gray-900 rounded-lg shadow-lg border border-gray-800 overflow-hidden cursor-pointer active:scale-95 transition-transform flex flex-row items-center justify-between p-4 relative group mb-2"
                     >
                         <div className="flex items-center gap-4 relative z-10">
                             <div className="w-12 h-12 bg-red-600/20 rounded-full flex items-center justify-center border border-red-500/30 group-hover:bg-red-600/40 transition-colors">
@@ -2511,11 +3098,10 @@ const CategoriesPage = ({ onNavigate }) => {
                             </div>
                             <div className="text-left">
                                 <h3 className="text-white font-bold text-lg uppercase tracking-wide">Promoções</h3>
-                                <p className="text-red-300 text-xs font-medium">Ver todos os produtos em oferta</p>
+                                <p className="text-red-400 text-xs font-medium">Ver todos os produtos em oferta</p>
                             </div>
                         </div>
                         <ArrowUturnLeftIcon className="h-5 w-5 text-red-500 rotate-180 relative z-10"/>
-                         {/* Padrão de fundo sutil */}
                         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
                     </motion.div>
 
@@ -2535,11 +3121,10 @@ const CategoriesPage = ({ onNavigate }) => {
                                     className="w-full h-full object-contain mix-blend-multiply transition-transform duration-500 group-hover:scale-105"
                                     loading="lazy"
                                 />
-                                {/* Gradiente sutil para profundidade */}
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none"></div>
                             </div>
                             <div className="p-3 border-t border-gray-800 bg-gray-900">
-                                <h3 className="text-gray-100 font-bold text-sm leading-tight mb-0.5 group-hover:text-amber-400 transition-colors">
+                                <h3 className="text-white font-bold text-sm leading-tight mb-0.5 group-hover:text-amber-400 transition-colors">
                                     {group.title}
                                 </h3>
                                 <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">
@@ -2623,7 +3208,8 @@ const HomePage = ({ onNavigate }) => {
       <div className="bg-black min-h-screen pb-0 overflow-x-hidden">
         {/* Banner Principal Rotativo */}
         {isLoadingBanners ? (
-            <div className="relative h-[90vh] sm:h-[70vh] bg-gray-900 flex items-center justify-center">
+            // ATUALIZAÇÃO: Altura do loading ajustada para h-[55vh] no mobile para coincidir com o banner real
+            <div className="relative h-[55vh] sm:h-[70vh] bg-gray-900 flex items-center justify-center">
                 <SpinnerIcon className="h-10 w-10 text-amber-400" />
             </div>
         ) : (
@@ -2679,9 +3265,14 @@ const HomePage = ({ onNavigate }) => {
         {/* Vitrine Roupas */}
         <section className="bg-black text-white py-8 md:py-10 border-t border-gray-800">
           <div className="container mx-auto px-4">
-              <div className="flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
-                  <div className="bg-gray-800 p-2 md:p-3 rounded-full"><ShirtIcon className="h-5 w-5 md:h-6 md:w-6 text-amber-400"/></div>
-                  <h2 className="text-xl md:text-3xl font-bold">Roupas em Destaque</h2>
+              <div className="flex items-end justify-between mb-6 md:mb-8">
+                  <div className="flex items-center gap-3 md:gap-4">
+                      <div className="bg-gray-800 p-2 md:p-3 rounded-full"><ShirtIcon className="h-5 w-5 md:h-6 md:w-6 text-amber-400"/></div>
+                      <h2 className="text-xl md:text-3xl font-bold">Roupas em Destaque</h2>
+                  </div>
+                  <button onClick={() => onNavigate('products?category=Roupas')} className="text-amber-400 hover:text-white transition-colors text-xs md:text-sm font-bold flex items-center gap-1 md:gap-2 group px-2 py-1 md:px-4 md:py-2 rounded-lg hover:bg-gray-900">
+                      Ver tudo <ArrowUturnLeftIcon className="h-3 w-3 md:h-4 md:w-4 rotate-180 group-hover:translate-x-1 transition-transform"/>
+                  </button>
               </div>
               <ProductCarousel products={products.clothing} onNavigate={onNavigate} />
           </div>
@@ -2690,9 +3281,14 @@ const HomePage = ({ onNavigate }) => {
         {products.perfumes.length > 0 && (
             <section className="bg-black text-white py-8 md:py-12 border-t border-gray-800">
                 <div className="container mx-auto px-4">
-                    <div className="flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
-                        <div className="bg-gray-800 p-2 md:p-3 rounded-full"><SparklesIcon className="h-5 w-5 md:h-6 md:w-6 text-amber-400"/></div>
-                        <h2 className="text-xl md:text-3xl font-bold">Perfumaria Selecionada</h2>
+                    <div className="flex items-end justify-between mb-6 md:mb-8">
+                        <div className="flex items-center gap-3 md:gap-4">
+                            <div className="bg-gray-800 p-2 md:p-3 rounded-full"><SparklesIcon className="h-5 w-5 md:h-6 md:w-6 text-amber-400"/></div>
+                            <h2 className="text-xl md:text-3xl font-bold">Perfumaria Selecionada</h2>
+                        </div>
+                        <button onClick={() => onNavigate('products?category=Perfumes')} className="text-amber-400 hover:text-white transition-colors text-xs md:text-sm font-bold flex items-center gap-1 md:gap-2 group px-2 py-1 md:px-4 md:py-2 rounded-lg hover:bg-gray-900">
+                            Ver tudo <ArrowUturnLeftIcon className="h-3 w-3 md:h-4 md:w-4 rotate-180 group-hover:translate-x-1 transition-transform"/>
+                        </button>
                     </div>
                     <ProductCarousel products={products.perfumes} onNavigate={onNavigate} />
                 </div>
@@ -2756,7 +3352,15 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
             result = result.filter(p => p.brand === filters.brand);
         }
         if (filters.category) {
-            result = result.filter(p => p.category === filters.category);
+            // CORREÇÃO: Lógica para mapear categorias genéricas dos banners para tipos de produto
+            if (filters.category === 'Roupas') {
+                result = result.filter(p => p.product_type === 'clothing');
+            } else if (filters.category === 'Perfumes') {
+                result = result.filter(p => p.product_type === 'perfume');
+            } else {
+                // Filtro padrão exato para categorias específicas (ex: "Blusas")
+                result = result.filter(p => p.category === filters.category);
+            }
         }
         setFilteredProducts(result);
         setCurrentPage(1);
@@ -2809,6 +3413,8 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
                             </select>
                             <select value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})} className="w-full p-2 bg-gray-800 border border-gray-700 rounded">
                                 <option value="">Todas as Categorias</option>
+                                <option value="Roupas">Roupas (Geral)</option>
+                                <option value="Perfumes">Perfumes (Geral)</option>
                                 {uniqueCategories.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                         </div>
@@ -2881,7 +3487,7 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
         setAutoCalculatedShipping,
         setPreviewShippingItem,
         setSelectedShippingName,
-        isGeolocating // <-- NOVO ESTADO
+        isGeolocating 
     } = useShop();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -2889,16 +3495,16 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
     const [apiError, setApiError] = useState('');
 
     useEffect(() => {
-        const isProductPage = cart.length === 0 && itemsFromProp && itemsFromProp.length > 0;
-        if (isProductPage) {
+        if (itemsFromProp && itemsFromProp.length > 0) {
             setPreviewShippingItem(itemsFromProp);
         }
+        
         return () => {
-            if (isProductPage) {
+            if (itemsFromProp && itemsFromProp.length > 0) {
                 setPreviewShippingItem(null);
             }
         };
-    }, [itemsFromProp, cart.length, setPreviewShippingItem]);
+    }, [itemsFromProp, setPreviewShippingItem]);
     
     const handleSelectShipping = (option) => {
         setAutoCalculatedShipping(option);
@@ -2932,7 +3538,13 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
     };
 
     const getDeliveryDate = (deliveryTime) => {
+        // Correção: Se já for uma string formatada pelo ShopProvider para Motoboy
+        if (typeof deliveryTime === 'string' && deliveryTime.includes('Receba até')) {
+             return `${deliveryTime} (1 dia útil)`;
+        }
+
         if (!deliveryTime || isNaN(deliveryTime)) return 'Prazo indisponível';
+        
         const date = new Date();
         let addedDays = 0;
         while (addedDays < deliveryTime) {
@@ -2941,6 +3553,11 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
         }
         return `Previsão de entrega para ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
     };
+
+    // Correção: Mostra o nome do endereço salvo (Alias) se ele existir e for válido
+    const locationTitle = shippingLocation.alias && shippingLocation.alias !== 'Localização Atual' && !shippingLocation.alias.startsWith('CEP') 
+        ? `Opções para ${shippingLocation.alias} (${shippingLocation.cep})` 
+        : `Opções para ${shippingLocation.cep}`;
 
     return (
         <>
@@ -2972,7 +3589,8 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
                             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-4">
                                 <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-gray-300">
                                     <MapPinIcon className="h-5 w-5 flex-shrink-0 text-amber-400" />
-                                    <span className="truncate">Opções para {shippingLocation.cep}</span>
+                                    {/* Aplicando a formatação corrigida aqui */}
+                                    <span className="truncate">{locationTitle}</span>
                                 </div>
                                 <button onClick={() => setIsModalOpen(true)} className="text-amber-400 hover:underline flex-shrink-0 text-sm font-semibold">
                                     Alterar
@@ -3029,23 +3647,28 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
         </>
     );
 });
-const VariationSelector = ({ product, variations, onSelectionChange }) => {
-    const [selectedColor, setSelectedColor] = useState('');
-    const [selectedSize, setSelectedSize] = useState('');
-
+const VariationSelector = ({ product, variations, selectedColor, setSelectedColor, selectedSize, setSelectedSize, error }) => {
+    
     const uniqueColors = useMemo(() => {
-        const colors = new Map();
+        const colorsMap = new Map();
         if (!variations || !product) return [];
 
         variations.forEach(v => {
-            if (v.color && !colors.has(v.color)) {
-                const primaryImage = (v.images && v.images.length > 0) 
-                    ? v.images[0] 
-                    : getFirstImage(product.images);
-                colors.set(v.color, primaryImage);
+            if (v.color) {
+                if (!colorsMap.has(v.color)) {
+                    const primaryImage = (v.images && v.images.length > 0) 
+                        ? v.images[0] 
+                        : getFirstImage(product.images);
+                    colorsMap.set(v.color, { image: primaryImage, hasStock: false });
+                }
+                
+                if (v.stock > 0) {
+                    const info = colorsMap.get(v.color);
+                    info.hasStock = true;
+                }
             }
         });
-        return Array.from(colors, ([name, image]) => ({ name, image }));
+        return Array.from(colorsMap, ([name, info]) => ({ name, image: info.image, hasStock: info.hasStock }));
     }, [variations, product]);
 
     const allSizesForColor = useMemo(() => {
@@ -3060,14 +3683,9 @@ const VariationSelector = ({ product, variations, onSelectionChange }) => {
         return Array.from(sizeMap.values());
     }, [variations, selectedColor]);
 
-    useEffect(() => {
-        const fullSelection = (selectedColor && selectedSize)
-            ? variations.find(v => v.color === selectedColor && v.size === selectedSize)
-            : null;
-        onSelectionChange(fullSelection, selectedColor);
-    }, [selectedColor, selectedSize, variations, onSelectionChange]);
+    const handleColorChange = (color, hasStock) => {
+        if (!hasStock) return; 
 
-    const handleColorChange = (color) => {
         setSelectedColor(color);
         const sizesForNewColor = variations
             .filter(v => v.color === color && v.stock > 0)
@@ -3076,64 +3694,99 @@ const VariationSelector = ({ product, variations, onSelectionChange }) => {
         if (sizesForNewColor.length === 1) {
             setSelectedSize(sizesForNewColor[0]);
         } else {
-            setSelectedSize('');
+            setSelectedSize(''); 
         }
     };
+
+    const showError = error && !selectedSize;
     
     return (
         <div className="space-y-6">
+            {/* Seção de Cores */}
             <div>
-                 <h3 className="text-lg font-semibold text-gray-300 mb-3">Cor: <span className="font-normal">{selectedColor || 'Selecione uma cor'}</span></h3>
-                <div className="flex flex-wrap gap-2">
-                    {uniqueColors.map(colorInfo => (
-                         <div key={colorInfo.name}
-                            onClick={() => handleColorChange(colorInfo.name)}
-                            className={`p-1 border-2 bg-white rounded-md cursor-pointer transition-all ${selectedColor === colorInfo.name ? 'border-amber-400 scale-105 shadow-lg' : 'border-transparent hover:border-gray-400'}`}
-                            title={colorInfo.name}
-                        >
-                             <img src={colorInfo.image} alt={colorInfo.name} className="w-16 h-16 object-contain"/>
-                         </div>
-                    ))}
+                 <h3 className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider flex items-center gap-2">
+                    Cor: <span className="text-white font-normal capitalize">{selectedColor || 'Selecione'}</span>
+                 </h3>
+                <div className="flex flex-wrap gap-4">
+                    {uniqueColors.map(colorInfo => {
+                         const isOutOfStock = !colorInfo.hasStock;
+                         return (
+                             <div key={colorInfo.name}
+                                onClick={() => handleColorChange(colorInfo.name, colorInfo.hasStock)}
+                                className={`group relative w-16 h-16 rounded-full transition-all duration-300 p-0.5 
+                                    ${selectedColor === colorInfo.name 
+                                        ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-gray-900 scale-110 cursor-default' 
+                                        : isOutOfStock 
+                                            ? 'opacity-40 cursor-not-allowed grayscale filter' 
+                                            : 'cursor-pointer hover:ring-2 hover:ring-gray-600 hover:ring-offset-1 hover:ring-offset-gray-900 opacity-90 hover:opacity-100 hover:scale-105'}`}
+                                title={colorInfo.name + (isOutOfStock ? " (Esgotado)" : "")}
+                            >
+                                 <img src={colorInfo.image} alt={colorInfo.name} className="w-full h-full object-cover rounded-full bg-gray-800 shadow-sm"/>
+                                 
+                                 {isOutOfStock && (
+                                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                         <div className="w-full h-0.5 bg-red-500/80 rotate-45 absolute"></div>
+                                         <div className="w-full h-0.5 bg-red-500/80 -rotate-45 absolute"></div>
+                                     </div>
+                                 )}
+                             </div>
+                         );
+                    })}
                 </div>
             </div>
-            {selectedColor && (
-                 <div>
-                    <h3 className="text-lg font-semibold text-gray-300 mb-3">Tamanho:</h3>
-                    <div className="flex flex-wrap gap-3">
-                        {allSizesForColor.length > 0 ? (
-                            allSizesForColor.map(({ size, stock }) => (
-                                <div key={size} className="relative">
+
+            {/* Seção de Tamanhos - LIMPA DE ESTILOS INLINE (Usa apenas as classes puras do Tailwind) */}
+            <AnimatePresence>
+                {selectedColor && (
+                     <motion.div 
+                        initial={{ opacity: 0, height: 0 }} 
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className={`transition-colors duration-300 ${showError ? 'p-3 -m-3 bg-red-900/10 border border-red-500/30 rounded-lg' : ''}`}
+                     >
+                        <h3 className={`text-xs font-bold mb-3 uppercase tracking-wider flex items-center gap-2 ${showError ? 'text-red-400' : 'text-gray-400'}`}>
+                            Tamanho: 
+                            <span className={showError ? 'text-red-400 font-bold animate-pulse' : 'text-white font-normal'}>
+                                {selectedSize || (showError ? 'SELECIONE UM TAMANHO' : 'Selecione')}
+                            </span>
+                            {showError && <ExclamationCircleIcon className="h-4 w-4 text-red-500 inline ml-1" />}
+                        </h3>
+                        
+                        <div className="flex flex-wrap gap-2.5">
+                            {allSizesForColor.length > 0 ? (
+                                allSizesForColor.map(({ size, stock }) => (
                                     <button
                                         key={size}
                                         onClick={() => setSelectedSize(size)}
                                         disabled={stock === 0}
-                                        className={`px-5 py-2 border-2 rounded-md font-bold transition-colors duration-200 
-                                            ${selectedSize === size ? 'bg-amber-400 text-black border-amber-400' : 'border-gray-600 hover:bg-gray-800 hover:border-gray-500'}
-                                            ${stock === 0 ? 'opacity-40 bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed' : ''}`
+                                        className={`min-w-[3.5rem] h-11 px-3 border rounded-md font-bold text-sm transition-all duration-200 flex items-center justify-center relative overflow-hidden
+                                            ${selectedSize === size 
+                                                ? 'bg-amber-400 text-black border-amber-400 shadow-lg scale-105' 
+                                                : 'bg-transparent border-gray-600 text-gray-300 hover:border-gray-400 hover:bg-gray-800'
+                                            }
+                                            ${stock === 0 ? 'opacity-40 cursor-not-allowed bg-gray-900 border-gray-800 text-gray-600 decoration-slice line-through' : ''}
+                                            ${showError && !selectedSize ? 'border-red-500 text-red-100 bg-red-900/20' : ''}`
                                         }
                                     >
                                         {size}
+                                        {stock > 0 && stock <= 2 && selectedSize !== size && (
+                                            <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
+                                        )}
                                     </button>
-                                    {stock === 0 && (
-                                        <div className="absolute -top-2 -right-2 bg-gray-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold border-2 border-black">
-                                            X
-                                        </div>
-                                    )}
-                                </div>
-                            ))
-                        ) : (
-                             <p className="text-gray-500">Nenhum tamanho disponível para esta cor.</p>
-                        )}
-                    </div>
-                </div>
-            )}
+                                ))
+                            ) : (
+                                 <p className="text-gray-500 text-sm italic py-2">Indisponível nesta cor.</p>
+                            )}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };
 
 const ProductDetailPage = ({ productId, onNavigate }) => {
     const { user } = useAuth();
-    const { addToCart } = useShop();
+    const { addToCart, calculateLocalDeliveryPrice, shippingLocation } = useShop(); 
     const notification = useNotification();
     const confirmation = useConfirmation();
     const [isLoading, setIsLoading] = useState(true);
@@ -3149,40 +3802,91 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [installments, setInstallments] = useState([]);
     const [isLoadingInstallments, setIsLoadingInstallments] = useState(true);
     const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
-    const [selectedVariation, setSelectedVariation] = useState(null);
+    
+    // --- ESTADOS DE SELEÇÃO E MODAL ---
+    const [selectedColor, setSelectedColor] = useState('');
+    const [selectedSize, setSelectedSize] = useState('');
+    const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
+    
+    // --- ESTADO DO MODAL DE MEDIDAS ---
+    const [isSizeGuideModalOpen, setIsSizeGuideModalOpen] = useState(false);
+    
+    const [pendingAction, setPendingAction] = useState(null); 
+    const [selectionError, setSelectionError] = useState(false); 
+
+    const [selectedVariation, setSelectedVariation] = useState(null); 
     const [galleryImages, setGalleryImages] = useState([]);
     
     const [timeLeft, setTimeLeft] = useState('');
-    
-    // Estado para controlar se a promoção está ativa visualmente
     const [isPromoActive, setIsPromoActive] = useState(false);
+
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
     const galleryRef = useRef(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
+    const [canScrollUp, setCanScrollUp] = useState(false);
+    const [canScrollDown, setCanScrollDown] = useState(false);
 
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
 
-    // LÓGICA ATUALIZADA: Verifica se a promoção está ativa considerando a variação selecionada
+    useEffect(() => {
+        if (galleryImages.length > 0 && galleryImages[currentImageIndex]) {
+            setMainImage(galleryImages[currentImageIndex]);
+        }
+    }, [currentImageIndex, galleryImages]);
+
+    useEffect(() => {
+        if (product && product.product_type === 'clothing' && productVariations.length > 0 && !selectedColor) {
+            const firstVar = productVariations.find(v => v.stock > 0) || productVariations[0];
+            if (firstVar && firstVar.color) {
+                setSelectedColor(firstVar.color);
+            }
+        }
+    }, [product, productVariations, selectedColor]);
+
+    useEffect(() => {
+        if (selectedColor && selectedSize) {
+            const found = productVariations.find(v => v.color === selectedColor && v.size === selectedSize);
+            setSelectedVariation(found || null);
+            setSelectionError(false); 
+        } else {
+            setSelectedVariation(null);
+        }
+        
+        if (selectedColor) {
+             const allImagesForColor = productVariations
+                .filter(v => v.color === selectedColor && v.images && v.images.length > 0)
+                .flatMap(v => v.images)
+                .filter((value, index, self) => self.indexOf(value) === index);
+
+            if (allImagesForColor.length > 0) {
+                setGalleryImages(allImagesForColor);
+                setCurrentImageIndex(0);
+            } else {
+                setGalleryImages(productImages);
+            }
+        } else {
+             setGalleryImages(productImages);
+        }
+
+    }, [selectedColor, selectedSize, productVariations, productImages]);
+
+
     useEffect(() => {
         if (product) {
             let active = !!product.is_on_sale && product.sale_price > 0;
-
-            // Se for roupa e tiver uma variação selecionada, verifica a regra específica da variação
             if (product.product_type === 'clothing' && selectedVariation) {
-                // Se is_promo for explicitamente false, a promoção não se aplica a esta cor
                 if (selectedVariation.is_promo === false) {
                     active = false;
                 }
             }
-
             setIsPromoActive(active);
         }
     }, [product, selectedVariation]);
 
-    // Usa o estado local isPromoActive para definir preço e desconto
-    const currentPrice = isPromoActive ? product.sale_price : product?.price;
+    const currentPrice = isPromoActive ? product?.sale_price : product?.price;
 
     const discountPercent = useMemo(() => {
         if (isPromoActive && product) {
@@ -3191,18 +3895,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return 0;
     }, [isPromoActive, product]);
 
-    // --- Lógica do Contador Regressivo e Expiração Automática ---
     useEffect(() => {
-        // Se não houver data fim, mas estiver em promoção, mantém como promoção normal (limpa o timer)
-        if (!product?.sale_end_date) {
+        if (!product?.sale_end_date || !isPromoActive) {
             setTimeLeft(null);
             return;
-        }
-        
-        // Se a promoção já foi desativada localmente (por ex: cor sem desconto), não roda o timer
-        if (!isPromoActive) {
-             setTimeLeft(null);
-             return;
         }
 
         const calculateTimeLeft = () => {
@@ -3215,18 +3911,13 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                 const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
                 const seconds = Math.floor((difference % (1000 * 60)) / 1000);
-
                 setTimeLeft({ days, hours, minutes, seconds });
             } else {
-                // TEMPO ACABOU: Desativa a promoção localmente na hora!
                 setTimeLeft('Expirada');
-                setIsPromoActive(false); 
             }
         };
-
         calculateTimeLeft();
         const timer = setInterval(calculateTimeLeft, 1000);
-
         return () => clearInterval(timer);
     }, [isPromoActive, product?.sale_end_date]);
 
@@ -3235,7 +3926,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         return new Date(product.created_at) > thirtyDaysAgo;
     }, [product]);
-
 
     const avgRating = useMemo(() => {
         return reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
@@ -3248,41 +3938,36 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
     const isClothing = product?.product_type === 'clothing';
     const isPerfume = product?.product_type === 'perfume';
-    const isProductOutOfStock = product?.stock <= 0;
-    const stockLimit = isClothing ? selectedVariation?.stock : product?.stock;
-    const isQtyAtMax = stockLimit !== undefined ? quantity >= stockLimit : false;
 
-    const getYouTubeEmbedUrl = (url) => {
-        if (!url) return null;
-        let videoId;
-        try {
-            const urlObj = new URL(url);
-            if (urlObj.hostname === 'youtu.be') {
-                videoId = urlObj.pathname.slice(1);
-            } else if (urlObj.hostname.includes('youtube.com') && urlObj.searchParams.has('v')) {
-                videoId = urlObj.searchParams.get('v');
-            } else { return null; }
-            return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
-        } catch (e) {
-            console.error("URL do YouTube inválida:", e);
-            return null;
+    // --- CORREÇÃO: LÓGICA DE ESTOQUE ---
+    // Garante que Number seja usado para evitar strings "0" passarem batido.
+    const globalStock = Number(product?.stock) || 0;
+    let productOrVariationOutOfStock = false;
+    let stockLimit = 0;
+
+    if (isClothing) {
+        if (globalStock <= 0) {
+            // Se o produto de roupa zerou por completo o estoque global
+            productOrVariationOutOfStock = true;
+        } else if (selectedVariation) {
+            // Se selecionou uma cor e tamanho específicos
+            productOrVariationOutOfStock = Number(selectedVariation.stock) <= 0;
+            stockLimit = Number(selectedVariation.stock);
+        } else {
+            // Se ainda não selecionou tamanho, usa o global para o input provisório
+            stockLimit = globalStock;
         }
-    };
+    } else {
+        // Para perfumes e outros itens sem variação
+        productOrVariationOutOfStock = globalStock <= 0;
+        stockLimit = globalStock;
+    }
 
-    const parseTextToList = (text) => {
-        if (!text || text.trim() === '') return null;
-        return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>;
-    };
+    const isQtyAtMax = stockLimit > 0 ? quantity >= stockLimit : false;
 
-    const getInstallmentSummary = () => {
-        if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; }
-        if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; }
-        const noInterest = [...installments].reverse().find(p => p.installment_rate === 0);
-        if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; }
-        const lastInstallment = installments[installments.length - 1];
-        if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; }
-        return null;
-    };
+    const getYouTubeEmbedUrl = (url) => { if (!url) return null; try { let videoId = ''; const urlObj = new URL(url); if (urlObj.hostname === 'youtu.be') { videoId = urlObj.pathname.slice(1); } else if (urlObj.hostname.includes('youtube.com')) { if (urlObj.searchParams.has('v')) { videoId = urlObj.searchParams.get('v'); } else if (urlObj.pathname.includes('/embed/')) { videoId = urlObj.pathname.split('/embed/')[1]; } else if (urlObj.pathname.includes('/shorts/')) { videoId = urlObj.pathname.split('/shorts/')[1]; } } if (!videoId) return null; videoId = videoId.split('?')[0].split('&')[0]; return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`; } catch (e) { if (url && url.includes('youtu.be/')) { const simpleId = url.split('youtu.be/')[1]?.split('?')[0]; return simpleId ? `https://www.youtube.com/embed/${simpleId}?autoplay=1&rel=0` : null; } return null; } };
+    const parseTextToList = (text) => { if (!text || text.trim() === '') return null; return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>; };
+    const getInstallmentSummary = () => { if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; } const noInterest = [...installments].reverse().find(p => p.installment_rate === 0); if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } const lastInstallment = installments[installments.length - 1]; if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } return null; };
 
     const fetchProductData = useCallback(async (id) => {
         const controller = new AbortController();
@@ -3299,8 +3984,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             if (signal.aborted) return;
 
             const images = parseJsonString(productData.images, ['https://placehold.co/600x400/222/fff?text=Produto']);
-            setMainImage(images[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
             setGalleryImages(images);
+            setCurrentImageIndex(0);
+            setMainImage(images[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
             setProduct(productData);
             setReviews(Array.isArray(reviewsData) ? reviewsData : []);
             setCrossSellProducts(Array.isArray(crossSellData) ? crossSellData : []);
@@ -3311,7 +3997,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             }
         } catch (err) {
             if (err.name !== 'AbortError') {
-                 console.error("Falha ao buscar dados do produto:", err);
                  setProduct({ error: true, message: "Produto não encontrado ou ocorreu um erro." });
                  notification.show(err.message || "Produto não encontrado", 'error');
             }
@@ -3347,19 +4032,40 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         setQuantity(prev => {
             const newQty = prev + amount;
             if (newQty < 1) return 1;
-            const currentStockLimit = isClothing ? selectedVariation?.stock : product?.stock;
-            if (currentStockLimit !== undefined && newQty > currentStockLimit) {
-                 notification.show(`Apenas ${currentStockLimit} unidades disponíveis.`, 'error');
-                 return currentStockLimit;
+            if (stockLimit !== undefined && newQty > stockLimit) {
+                 notification.show(`Apenas ${stockLimit} unidades disponíveis.`, 'error');
+                 return stockLimit;
             }
             return newQty;
         });
     };
 
-
-    const handleAction = async (action) => {
+    const handleAction = (action) => {
         if (!product) return;
-        if (isClothing && !selectedVariation) { notification.show("Por favor, selecione uma cor e um tamanho.", "error"); return; }
+        if (isClothing) {
+            setPendingAction(action);
+            setIsSelectionModalOpen(true);
+            setSelectionError(false);
+        } else {
+            processAddToCart(action);
+        }
+    };
+
+    const handleConfirmSelection = () => {
+        if (isClothing && (!selectedColor || !selectedSize)) {
+            setSelectionError(true);
+            if (navigator.vibrate) navigator.vibrate(200);
+            return;
+        }
+        if (isClothing && !selectedVariation) {
+             notification.show("Esta combinação não está disponível.", "error");
+             return;
+        }
+        processAddToCart(pendingAction);
+        setIsSelectionModalOpen(false);
+    };
+
+    const processAddToCart = async (action) => {
         try {
             await addToCart(product, quantity, selectedVariation);
             notification.show(`${quantity}x ${product.name} adicionado(s) ao carrinho!`);
@@ -3367,125 +4073,186 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         } catch (error) { notification.show(error.message, 'error'); }
     };
 
-    const handleVariationSelection = useCallback((variation, color) => {
-        setQuantity(1);
-        setSelectedVariation(variation);
-        if (color && productVariations.length > 0) {
-            const allImagesForColor = productVariations
-                .filter(v => v.color === color && v.images && v.images.length > 0)
-                .flatMap(v => v.images)
-                .filter((value, index, self) => self.indexOf(value) === index);
+    const handleNextImage = (e) => {
+        e.stopPropagation();
+        if (galleryImages.length <= 1) return;
+        setCurrentImageIndex(prev => (prev + 1) % galleryImages.length);
+    };
 
-            if (allImagesForColor.length > 0) {
-                setGalleryImages(allImagesForColor);
-                setMainImage(allImagesForColor[0]);
-                return;
-            }
-        }
-        setGalleryImages(productImages);
-        setMainImage(productImages[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
+    const handlePrevImage = (e) => {
+        e.stopPropagation();
+        if (galleryImages.length <= 1) return;
+        setCurrentImageIndex(prev => (prev === 0 ? galleryImages.length - 1 : prev - 1));
+    };
 
-    }, [productVariations, productImages]);
-
-    useEffect(() => {
-        fetchProductData(productId);
-        window.scrollTo(0, 0);
-    }, [productId, fetchProductData]);
-
-    useEffect(() => {
-        const fetchInstallments = async (price) => {
-            if (!price || price <= 0) {
-                setInstallments([]);
-                setIsLoadingInstallments(false);
-                return;
-            }
-            setIsLoadingInstallments(true);
-            setInstallments([]);
-            try {
-                const installmentData = await apiService(`/mercadopago/installments?amount=${price}`);
-                setInstallments(installmentData || []);
-            } catch (error) {
-                console.warn("Não foi possível carregar as opções de parcelamento.", error);
-                setInstallments([]);
-            } finally {
-                setIsLoadingInstallments(false);
-            }
-        };
-        if (product && !product.error && currentPrice > 0) {
-            fetchInstallments(currentPrice);
-        } else if (!product || product.error || !(currentPrice > 0)) {
-             setInstallments([]);
-             setIsLoadingInstallments(false);
-        }
-    }, [product, currentPrice]);
-
-    // Efeito e Funções para Galeria
-    const checkScrollButtons = useCallback(() => {
-        const gallery = galleryRef.current;
-        if (gallery) {
-            setCanScrollLeft(gallery.scrollLeft > 0);
+    useEffect(() => { fetchProductData(productId); window.scrollTo(0, 0); }, [productId, fetchProductData]);
+    useEffect(() => { const fetchInstallments = async (price) => { if (!price || price <= 0) { setInstallments([]); setIsLoadingInstallments(false); return; } setIsLoadingInstallments(true); setInstallments([]); try { const installmentData = await apiService(`/mercadopago/installments?amount=${price}`); setInstallments(installmentData || []); } catch (error) { console.warn("Erro parcelas", error); setInstallments([]); } finally { setIsLoadingInstallments(false); } }; if (product && !product.error && currentPrice > 0) { fetchInstallments(currentPrice); } else if (!product || product.error || !(currentPrice > 0)) { setInstallments([]); setIsLoadingInstallments(false); } }, [product, currentPrice]);
+    
+    const checkScrollButtons = useCallback(() => { 
+        const gallery = galleryRef.current; 
+        if (gallery) { 
+            setCanScrollLeft(gallery.scrollLeft > 0); 
             setCanScrollRight(gallery.scrollWidth > gallery.clientWidth + gallery.scrollLeft + 1);
-        }
+            setCanScrollUp(gallery.scrollTop > 0);
+            setCanScrollDown(gallery.scrollHeight > gallery.clientHeight + gallery.scrollTop + 1);
+        } 
     }, []);
 
-    useEffect(() => {
-        checkScrollButtons();
-        const gallery = galleryRef.current;
-        if (gallery) {
-            gallery.addEventListener('scroll', checkScrollButtons);
-            window.addEventListener('resize', checkScrollButtons);
-            return () => {
-                gallery.removeEventListener('scroll', checkScrollButtons);
-                window.removeEventListener('resize', checkScrollButtons);
-            };
-        }
+    useEffect(() => { 
+        checkScrollButtons(); 
+        const gallery = galleryRef.current; 
+        if (gallery) { 
+            gallery.addEventListener('scroll', checkScrollButtons); 
+            window.addEventListener('resize', checkScrollButtons); 
+            return () => { 
+                gallery.removeEventListener('scroll', checkScrollButtons); 
+                window.removeEventListener('resize', checkScrollButtons); 
+            }; 
+        } 
     }, [galleryImages, checkScrollButtons]);
 
-    const scrollGallery = (direction) => {
-        const gallery = galleryRef.current;
-        if (gallery) {
-            const scrollAmount = gallery.clientWidth * 0.7;
-            gallery.scrollBy({
-                left: direction === 'left' ? -scrollAmount : scrollAmount,
-                behavior: 'smooth'
-            });
-        }
+    const scrollGallery = (direction) => { 
+        const gallery = galleryRef.current; 
+        if (gallery) { 
+            if (direction === 'left' || direction === 'right') {
+                const scrollAmount = gallery.clientWidth * 0.7; 
+                gallery.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' }); 
+            } else {
+                const scrollAmount = gallery.clientHeight * 0.7;
+                gallery.scrollBy({ top: direction === 'up' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+            }
+        } 
     };
 
-    const TabButton = ({ label, tabName, isVisible = true }) => {
-        if (!isVisible) return null;
+    const TabButton = ({ label, tabName, isVisible = true }) => { if (!isVisible) return null; return ( <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-amber-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'}`} > {label} </button> ); };
+    const Lightbox = ({ mainImage, onClose }) => ( <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}> <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">&times;</button> <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div> </div> );
+
+    if (isLoading) {
         return (
-            <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-amber-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'}`} > {label} </button>
+            <div className="bg-black min-h-screen flex flex-col items-center justify-center pt-20 pb-32 px-4 gap-6">
+                <div className="relative">
+                    <div className="absolute inset-0 bg-amber-500 blur-xl opacity-20 rounded-full animate-pulse"></div>
+                    <SpinnerIcon className="h-12 w-12 text-amber-400 relative z-10" />
+                </div>
+                <div className="text-center space-y-2">
+                    <h2 className="text-xl font-bold text-white tracking-wide">Carregando Detalhes</h2>
+                    <p className="text-sm text-gray-500">Buscando as melhores imagens e informações para você...</p>
+                </div>
+            </div>
         );
-    };
-
-    const Lightbox = ({ mainImage, onClose }) => (
-        <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}>
-            <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">&times;</button>
-            <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div>
-        </div>
-    );
-
-    if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
+    }
+    
     if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
     if (!product) return <div className="bg-black min-h-screen"></div>;
 
-    const currentStockStatus = isClothing ? selectedVariation?.stock : product?.stock;
-    const productOrVariationOutOfStock = currentStockStatus <= 0;
-
-    const showGalleryArrows = galleryImages.length + (product.video_url ? 1 : 0) > 4;
+    const showGalleryArrows = galleryImages.length > 1;
 
     return (
         <div className="bg-black text-white min-h-screen">
+            <style>{`
+                .scrollbar-hide::-webkit-scrollbar {
+                    display: none;
+                }
+                .scrollbar-hide {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                }
+                .custom-scrollbar::-webkit-scrollbar {
+                    height: 6px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: rgba(31, 41, 55, 0.5); 
+                    border-radius: 4px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: rgba(251, 191, 36, 0.5); 
+                    border-radius: 4px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: rgba(251, 191, 36, 0.8); 
+                }
+            `}</style>
+            
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
+            
             <AnimatePresence>
-                {isVideoModalOpen && product.video_url && (
-                     <Modal isOpen={true} onClose={() => setIsVideoModalOpen(false)} title="Vídeo do Produto" size="2xl">
-                        <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, backgroundColor: 'black' }}>
-                            <iframe src={getYouTubeEmbedUrl(product.video_url)} title={product.name} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}></iframe>
-                        </div>
+                {isSizeGuideModalOpen && product.size_guide && (
+                    <Modal isOpen={true} onClose={() => setIsSizeGuideModalOpen(false)} title="Guia de Medidas" size="3xl">
+                        <SizeGuideDisplay dataString={product.size_guide} />
                     </Modal>
+                )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {isSelectionModalOpen && (
+                    <>
+                        <motion.div 
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/80 z-[100] backdrop-blur-sm"
+                            onClick={() => setIsSelectionModalOpen(false)}
+                        />
+                        <div className="fixed inset-0 z-[110] flex items-end md:items-center justify-center pointer-events-none p-0 md:p-4">
+                            <motion.div
+                                initial={{ y: "100%" }} 
+                                animate={{ y: 0 }} 
+                                exit={{ y: "100%" }}
+                                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                                className="pointer-events-auto bg-gray-900 border border-gray-700 w-full max-w-lg rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden"
+                            >
+                                <div className="p-6 pb-0 flex justify-between items-start">
+                                    <div className="pr-4">
+                                        <h3 className="font-bold text-lg text-white leading-snug">{product.name}</h3>
+                                        <div className="flex items-center gap-2 mt-1.5">
+                                            <p className="text-amber-400 font-bold text-2xl">R$ {Number(currentPrice).toFixed(2).replace('.', ',')}</p>
+                                            {isPromoActive && <span className="bg-red-600/20 text-red-400 text-xs font-bold px-2 py-0.5 rounded-md">-{discountPercent}%</span>}
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={() => setIsSelectionModalOpen(false)} 
+                                        className="bg-gray-800 p-2 rounded-full text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+                                    >
+                                        <XMarkIcon className="h-6 w-6"/>
+                                    </button>
+                                </div>
+                                <div className="p-6">
+                                    <div className="py-4 border-t border-gray-800 border-b border-gray-800 mb-6">
+                                        <div className="flex items-center mb-5">
+                                            <div className="flex items-center gap-2">
+                                                <div className="bg-blue-500/20 text-blue-400 p-2 rounded-lg">
+                                                    <ShirtIcon className="h-5 w-5" />
+                                                </div>
+                                                <p className="text-sm text-gray-200 font-medium">Personalize sua escolha</p>
+                                            </div>
+                                        </div>
+                                        <VariationSelector 
+                                            product={product} 
+                                            variations={productVariations} 
+                                            selectedColor={selectedColor} 
+                                            setSelectedColor={setSelectedColor} 
+                                            selectedSize={selectedSize} 
+                                            setSelectedSize={setSelectedSize} 
+                                            error={selectionError} 
+                                        />
+                                    </div>
+                                    <button 
+                                        onClick={handleConfirmSelection}
+                                        className={`w-full font-bold py-4 rounded-xl text-base shadow-lg transition-all transform active:scale-[0.98] uppercase tracking-wide flex items-center justify-center gap-3
+                                            ${selectionError && !selectedSize 
+                                                ? 'bg-red-600 text-white animate-pulse' 
+                                                : 'bg-amber-400 hover:bg-amber-300 text-black'}`
+                                        }
+                                    >
+                                        {selectionError && !selectedSize ? '⚠️ Escolha um Tamanho' : (pendingAction === 'buyNow' ? 'Confirmar Compra' : 'Adicionar à Sacola')}
+                                        {!selectionError && <CheckIcon className="h-5 w-5" />}
+                                    </button>
+                                    <p className="text-center text-[10px] text-gray-500 mt-4 flex items-center justify-center gap-1.5 opacity-80">
+                                        <ShieldCheckIcon className="h-3.5 w-3.5" /> Compra 100% Segura e Garantida
+                                    </p>
+                                </div>
+                            </motion.div>
+                        </div>
+                    </>
                 )}
             </AnimatePresence>
 
@@ -3494,123 +4261,189 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     <button onClick={() => onNavigate('products')} className="text-sm text-amber-400 hover:underline flex items-center w-fit transition-colors"> <ArrowUturnLeftIcon className="h-4 w-4 mr-1.5"/> Voltar para todos os produtos </button>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
-                    <div className="lg:sticky lg:top-24 self-start">
-                        <div onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} className={`aspect-square bg-white rounded-lg flex items-center justify-center relative mb-4 shadow-lg overflow-hidden group ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}>
-                             {!productOrVariationOutOfStock && ( <div className="absolute top-3 left-3 flex flex-col gap-2 z-10"> {isPromoActive ? ( <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> <SaleIcon className="h-4 w-4"/> <span>PROMOÇÃO {discountPercent}%</span> </div> ) : isNew ? ( <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> ) : null} </div> )}
-                             {productOrVariationOutOfStock && ( <div className="absolute top-3 left-3 bg-gray-700 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10">ESGOTADO</div> )}
-                            <img src={mainImage} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105" />
-                        </div>
-
-                        {/* Galeria com Setas */}
-                        <div className="relative group">
-                            <div
-                                ref={galleryRef}
-                                className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide"
-                                style={{
-                                    msOverflowStyle: 'none', 
-                                    scrollbarWidth: 'none' 
-                                }}
-                            >
-                                <style>{` .scrollbar-hide::-webkit-scrollbar { display: none; } `}</style>
-
-                               {product.video_url && (
-                                    <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center transition-colors">
-                                        <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo do produto" className="w-full h-full object-contain filter blur-sm opacity-50"/>
-                                        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
-                                            <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12">
+                    {/* COLUNA GALERIA */}
+                    <div className="lg:col-span-7 lg:sticky lg:top-24 self-start">
+                        <div className="flex flex-col lg:flex-row gap-4 align-stretch h-full">
+                            
+                            {/* Lista de Miniaturas */}
+                            <div className="relative flex-shrink-0 order-2 lg:order-1 flex flex-col justify-center">
+                                {/* Botão Scroll Cima (Desktop) */}
+                                {canScrollUp && (
+                                    <button 
+                                        onClick={() => scrollGallery('up')} 
+                                        className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 bg-black/50 text-white rounded-full p-1 hidden lg:block hover:bg-amber-500 transition-colors shadow-lg border border-gray-700"
+                                    >
+                                        <ChevronDownIcon className="h-4 w-4 rotate-180" />
+                                    </button>
+                                )}
+                                
+                                {/* Container Scrollável */}
+                                <div 
+                                    ref={galleryRef}
+                                    className="flex flex-row lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:w-24 max-h-[80vh] scrollbar-hide py-2 lg:py-4"
+                                    style={{ maxHeight: '80vh' }}
+                                >
+                                    {product.video_url && (
+                                        <div 
+                                            onClick={() => setIsVideoModalOpen(true)} 
+                                            className="relative w-16 h-16 lg:w-24 lg:h-24 flex-shrink-0 bg-black rounded-lg cursor-pointer border-2 border-gray-800 hover:border-gray-500 overflow-hidden group/video transition-all shadow-md"
+                                        >
+                                            <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo" className="w-full h-full object-contain filter blur-[2px] opacity-60 group-hover/video:opacity-80 transition-opacity"/>
+                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                <div className="bg-red-600 rounded-full p-1.5 shadow-md group-hover/video:scale-110 transition-transform">
+                                                    <svg className="w-4 h-4 text-white fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                                </div>
+                                            </div>
                                         </div>
+                                    )}
+                                    {galleryImages.map((img, index) => (
+                                        <div 
+                                            key={index} 
+                                            onClick={() => setCurrentImageIndex(index)} 
+                                            onMouseEnter={() => setCurrentImageIndex(index)} 
+                                            className={`relative w-16 h-16 lg:w-24 lg:h-32 flex-shrink-0 bg-white rounded-lg cursor-pointer border-2 overflow-hidden transition-all duration-200 shadow-sm
+                                                ${currentImageIndex === index 
+                                                    ? 'border-amber-400 opacity-100 ring-2 ring-amber-400/50' 
+                                                    : 'border-transparent hover:border-gray-400 opacity-70 hover:opacity-100'}`}
+                                        >
+                                            <img src={img} alt={`Thumb ${index}`} className="w-full h-full object-contain p-1" />
+                                        </div>
+                                    ))}
+                                </div>
+                                
+                                {/* Botão Scroll Baixo (Desktop) */}
+                                {canScrollDown && (
+                                    <button 
+                                        onClick={() => scrollGallery('down')} 
+                                        className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-10 bg-black/50 text-white rounded-full p-1 hidden lg:block hover:bg-amber-500 transition-colors shadow-lg border border-gray-700"
+                                    >
+                                        <ChevronDownIcon className="h-4 w-4" />
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Imagem Principal */}
+                            <div className="w-full relative bg-white rounded-xl overflow-hidden shadow-xl border border-gray-800 order-1 lg:order-2 group flex justify-center items-center aspect-square lg:aspect-[3/4]">
+                                {/* Badges */}
+                                {!productOrVariationOutOfStock && (
+                                    <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 pointer-events-none">
+                                        {isPromoActive ? ( 
+                                            <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> 
+                                                <SaleIcon className="h-4 w-4"/> 
+                                                <span>PROMOÇÃO {discountPercent}%</span> 
+                                            </div> 
+                                        ) : isNew ? ( 
+                                            <div className="bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
+                                        ) : null}
                                     </div>
                                 )}
-                                {galleryImages.map((img, index) => (
-                                    <div
-                                        key={index}
-                                        onClick={() => setMainImage(img)}
-                                        onMouseEnter={() => setMainImage(img)}
-                                        className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all duration-150 ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-400'}`}
-                                    >
-                                        <img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-contain" />
-                                    </div>
-                                ))}
+                                {productOrVariationOutOfStock && ( 
+                                    <div className="absolute top-4 left-4 bg-gray-800 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg z-10 border border-gray-600">ESGOTADO</div> 
+                                )}
+
+                                {/* Container de Imagem */}
+                                <div className="absolute inset-0 flex items-center justify-center p-4 lg:p-8">
+                                    <img 
+                                        src={mainImage} 
+                                        alt={product.name} 
+                                        onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} 
+                                        className={`max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105 ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}
+                                    />
+                                </div>
+                                
+                                {/* Botões de Navegação da Imagem Principal */}
+                                {showGalleryArrows && (
+                                    <>
+                                        <button 
+                                            onClick={handlePrevImage} 
+                                            className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-3 rounded-full shadow-lg border border-gray-200 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-300 z-20"
+                                            aria-label="Imagem anterior"
+                                        >
+                                            <ChevronDownIcon className="h-6 w-6 rotate-90" />
+                                        </button>
+                                        <button 
+                                            onClick={handleNextImage} 
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-3 rounded-full shadow-lg border border-gray-200 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-300 z-20"
+                                            aria-label="Próxima imagem"
+                                        >
+                                            <ChevronDownIcon className="h-6 w-6 -rotate-90" />
+                                        </button>
+                                    </>
+                                )}
+
+                                {/* Dica de Zoom (Desktop) */}
+                                <div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-sm p-2 rounded-full text-white/80 opacity-0 group-hover:opacity-100 transition-opacity duration-300 hidden lg:flex items-center justify-center pointer-events-none">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2" /></svg>
+                                </div>
                             </div>
-                            {showGalleryArrows && (
-                                <>
-                                    <button onClick={() => scrollGallery('left')} disabled={!canScrollLeft} className={`absolute top-1/2 left-0 transform -translate-y-1/2 -ml-3 z-10 p-2 bg-gray-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-gray-700 disabled:opacity-0 disabled:cursor-default`} aria-label="Scroll Left">
-                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg>
-                                    </button>
-                                     <button onClick={() => scrollGallery('right')} disabled={!canScrollRight} className={`absolute top-1/2 right-0 transform -translate-y-1/2 -mr-3 z-10 p-2 bg-gray-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-gray-700 disabled:opacity-0 disabled:cursor-default`} aria-label="Scroll Right">
-                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
-                                    </button>
-                                </>
-                            )}
                         </div>
                     </div>
 
-                    <div className="space-y-6">
+                    {/* COLUNA DETALHES (Direita) */}
+                    <div className="lg:col-span-5 space-y-6">
                         <div>
                             <p className="text-sm text-amber-400 font-semibold tracking-wider mb-1">{product.brand.toUpperCase()}</p>
-                            <h1 className="text-2xl lg:text-3xl font-bold mb-1.5">{product.name}</h1>
-                            {isPerfume && product.volume && <h2 className="text-base font-light text-gray-400">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
-                            <div className="flex items-center mt-2 justify-between">
-                                <div className="flex items-center gap-1.5">
-                                    <div className="flex items-center gap-0.5">{[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-4 w-4 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}</div>
-                                    {reviews.length > 0 && <span className="text-xs text-gray-500">({reviews.length} avaliações)</span>}
-                                    {reviews.length === 0 && <span className="text-xs text-gray-500">Seja o primeiro a avaliar</span>}
+                            <h1 className="text-2xl lg:text-4xl font-bold mb-2 leading-tight">{product.name}</h1>
+                            {isPerfume && product.volume && <h2 className="text-base font-medium text-gray-400">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
+                            <div className="flex items-center mt-3 justify-between">
+                                <div className="flex items-center gap-2">
+                                    <div className="flex items-center text-amber-400 gap-0.5">
+                                        {[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-4 w-4 ${i < Math.round(avgRating) ? 'fill-current' : 'text-gray-700'}`} isFilled={i < Math.round(avgRating)} />)}
+                                    </div>
+                                    <span className="text-xs text-gray-400 font-medium">({reviews.length > 0 ? `${reviews.length} avaliações` : 'Novo'})</span>
                                 </div>
-                                <button onClick={handleShare} className="flex items-center gap-1.5 text-gray-400 hover:text-amber-400 transition-colors p-1 rounded-md text-sm"> <ShareIcon className="h-4 w-4"/> <span className="hidden sm:inline">Compartilhar</span> </button>
+                                <button onClick={handleShare} className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors bg-gray-800/50 hover:bg-gray-800 px-3 py-1.5 rounded-full text-xs font-bold"> <ShareIcon className="h-3.5 w-3.5"/> Compartilhar </button>
                             </div>
                         </div>
 
-                        {/* --- ÁREA DE PROMOÇÃO AVANÇADA (MOBILE AJUSTADO) --- */}
+                        {/* --- ÁREA DE PREÇO E PROMOÇÃO --- */}
                         {isPromoActive && timeLeft && timeLeft !== 'Expirada' && (
-                            <div className="bg-gradient-to-br from-red-900/40 to-black border border-red-800 rounded-lg p-4 mb-4 relative overflow-hidden">
+                            <div className="bg-gradient-to-br from-red-900/40 to-black border border-red-800 rounded-lg p-4 mb-4 relative overflow-hidden shadow-lg shadow-red-900/20">
                                 <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
                                     <ClockIcon className="h-24 w-24 text-red-500" />
                                 </div>
                                 <div className="flex items-center justify-center sm:justify-start gap-2 mb-3 text-red-400 font-bold uppercase tracking-wide text-xs sm:text-sm">
-                                    <SparklesIcon className="h-4 w-4 animate-pulse" />
+                                    <SparklesIcon className="h-4 w-4 animate-pulse text-yellow-400" />
                                     Oferta por Tempo Limitado
                                 </div>
                                 
                                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 w-full">
-                                    {/* Contador - Centralizado e Responsivo */}
                                     <div className="text-white font-mono text-lg sm:text-2xl font-bold flex justify-center gap-2 w-full sm:w-auto">
                                         <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
                                             <span>{String(timeLeft.days).padStart(2, '0')}</span>
                                             <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">DIAS</span>
                                         </div>
-                                        <span className="self-center text-red-500">:</span>
+                                        <span className="self-center text-red-500 animate-pulse">:</span>
                                         <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
                                             <span>{String(timeLeft.hours).padStart(2, '0')}</span>
                                             <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">HORAS</span>
                                         </div>
-                                        <span className="self-center text-red-500">:</span>
+                                        <span className="self-center text-red-500 animate-pulse">:</span>
                                         <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
                                             <span>{String(timeLeft.minutes).padStart(2, '0')}</span>
                                             <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">MIN</span>
                                         </div>
-                                        <span className="self-center text-red-500">:</span>
+                                        <span className="self-center text-red-500 animate-pulse">:</span>
                                         <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
-                                            <span>{String(timeLeft.seconds).padStart(2, '0')}</span>
+                                            <span className="text-red-500">{String(timeLeft.seconds).padStart(2, '0')}</span>
                                             <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">SEG</span>
                                         </div>
                                     </div>
 
-                                    {/* Preços - Empilhados e centralizados no mobile */}
                                     <div className="flex flex-col items-center sm:items-end w-full sm:w-auto border-t sm:border-t-0 border-red-900/30 pt-3 sm:pt-0 mt-1 sm:mt-0">
                                         <p className="text-gray-400 text-sm">De: <span className="line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</span></p>
                                         <div className="flex items-center justify-center sm:justify-end gap-2">
                                             <p className="text-white font-bold text-xl">Por: <span className="text-amber-400">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</span></p>
                                         </div>
-                                        <p className="text-xs text-green-400 font-semibold mt-1 bg-green-900/20 px-3 py-0.5 rounded-full inline-block">Economize {discountPercent}%</p>
+                                        <p className="text-xs text-green-400 font-semibold mt-1 bg-green-900/20 px-3 py-0.5 rounded-full inline-block border border-green-900/30">Economize {discountPercent}%</p>
                                     </div>
                                 </div>
                             </div>
                         )}
 
-                        {/* --- ÁREA DE PROMOÇÃO PADRÃO (SEM TEMPO LIMITADO) --- */}
                         {isPromoActive && (!timeLeft || timeLeft === 'Expirada') && (
-                             <div className="bg-gradient-to-br from-green-900/40 to-black border border-green-800 rounded-lg p-4 mb-4 relative overflow-hidden">
+                             <div className="bg-gradient-to-br from-green-900/40 to-black border border-green-800 rounded-lg p-4 mb-4 relative overflow-hidden shadow-lg shadow-green-900/20">
                                 <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
                                     <TagIcon className="h-24 w-24 text-green-500" />
                                 </div>
@@ -3646,8 +4479,33 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         </div>
 
-                        {isClothing && ( <VariationSelector product={product} variations={productVariations} onSelectionChange={handleVariationSelection} /> )}
+                        {/* Seletor na página principal (também controlado pelo estado da página) */}
+                        {isClothing && ( 
+                            <div className="mb-2">
+                                <VariationSelector 
+                                    product={product} 
+                                    variations={productVariations} 
+                                    selectedColor={selectedColor} 
+                                    setSelectedColor={setSelectedColor} 
+                                    selectedSize={selectedSize} 
+                                    setSelectedSize={setSelectedSize} 
+                                    error={selectionError} 
+                                /> 
+                                {/* --- BOTÃO DE GUIA DE MEDIDAS (DESKTOP E MOBILE PRINCIPAL) --- */}
+                                {product.size_guide && (
+                                    <div className="flex justify-end mt-4">
+                                        <button 
+                                            onClick={() => setIsSizeGuideModalOpen(true)}
+                                            className="text-xs font-bold text-amber-400 hover:text-white flex items-center gap-1.5 transition-colors border border-amber-400/30 px-3 py-1.5 rounded hover:bg-amber-400/10"
+                                        >
+                                            <RulerIcon className="h-4 w-4"/> Tabela de Medidas
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
+                        {/* --- BLOCO DO BOTÃO "COMPRAR" / "ESGOTADO" --- */}
                         {!productOrVariationOutOfStock && (
                             <div className="flex items-center space-x-4">
                                 <p className="font-semibold text-sm">Quantidade:</p>
@@ -3662,28 +4520,47 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                         )}
 
                         <div className="space-y-3 pt-2">
-                            {productOrVariationOutOfStock ? ( <div className="w-full bg-gray-700 text-gray-400 py-3 rounded-md text-base text-center font-bold"> {isClothing && selectedVariation ? 'Variação Esgotada' : 'Produto Esgotado'} </div> ) : ( <> <button onClick={() => handleAction('buyNow')} className="w-full bg-amber-400 text-black py-3.5 rounded-md text-base hover:bg-amber-300 transition font-bold disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md hover:shadow-lg" disabled={isClothing && !selectedVariation} > Comprar Agora </button> <button onClick={() => handleAction('addToCart')} className="w-full bg-gray-800 border border-gray-700 text-white py-3 rounded-md text-base hover:bg-gray-700 transition font-bold disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow hover:shadow-md" disabled={isClothing && !selectedVariation} > <CartIcon className="h-5 w-5" /> Adicionar ao Carrinho </button> </> )}
+                            {productOrVariationOutOfStock ? ( 
+                                <div className="w-full bg-gray-800 border border-gray-700 text-gray-400 py-3.5 rounded-md text-base text-center font-bold"> 
+                                    {isClothing && selectedVariation ? 'Tamanho Esgotado' : 'Produto Esgotado'} 
+                                </div> 
+                            ) : ( 
+                                <> 
+                                    <button onClick={() => handleAction('buyNow')} className="w-full bg-amber-400 text-black py-3.5 rounded-md text-base hover:bg-amber-300 transition font-bold shadow-md hover:shadow-lg flex items-center justify-center gap-2"> 
+                                        Comprar Agora 
+                                    </button> 
+                                    <button onClick={() => handleAction('addToCart')} className="w-full bg-gray-800 border border-gray-700 text-white py-3 rounded-md text-base hover:bg-gray-700 transition font-bold shadow hover:shadow-md flex items-center justify-center gap-2"> 
+                                        <CartIcon className="h-5 w-5" /> Adicionar ao Carrinho 
+                                    </button> 
+                                </> 
+                            )}
                         </div>
 
                         <ShippingCalculator items={itemsForShipping} />
                     </div>
                 </div>
-
+                
                 <div className="mt-16 lg:mt-24 pt-10 border-t border-gray-800">
                     <div className="flex justify-center border-b border-gray-800 mb-8 flex-wrap -mt-3">
                         <TabButton label="Descrição" tabName="description" />
+                        <TabButton label="Tabela de Medidas" tabName="size_guide" isVisible={isClothing} />
                         <TabButton label="Notas Olfativas" tabName="notes" isVisible={isPerfume} />
                         <TabButton label="Como Usar" tabName="how_to_use" isVisible={isPerfume} />
                         <TabButton label="Ideal Para" tabName="ideal_for" isVisible={isPerfume} />
-                        <TabButton label="Guia de Medidas" tabName="size_guide" isVisible={isClothing} />
                         <TabButton label="Cuidados com a Peça" tabName="care" isVisible={isClothing} />
                     </div>
-                    <div className="text-gray-300 leading-relaxed max-w-3xl mx-auto min-h-[100px] prose prose-invert prose-sm sm:prose-base prose-li:my-1 prose-p:my-2">
+                    <div className="text-gray-300 leading-relaxed max-w-3xl mx-auto min-h-[100px] prose prose-invert prose-sm sm:prose-base">
                         {activeTab === 'description' && <p>{product.description || 'Descrição não disponível.'}</p>}
+                        
+                        {isClothing && activeTab === 'size_guide' && (
+                            product.size_guide 
+                            ? <SizeGuideDisplay dataString={product.size_guide} /> 
+                            : <p className="text-center text-gray-500 italic">Guia de medidas não disponível para este produto.</p>
+                        )}
+                        
                         {isPerfume && activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas olfativas não disponíveis.</p>)}
                         {isPerfume && activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções de uso não disponíveis.'}</p>}
                         {isPerfume && activeTab === 'ideal_for' && (product.ideal_for ? parseTextToList(product.ideal_for) : <p>Informação não disponível.</p>)}
-                        {isClothing && activeTab === 'size_guide' && (product.size_guide ? <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: product.size_guide }}/> : <p>Guia de medidas não disponível.</p>)}
                         {isClothing && activeTab === 'care' && (product.care_instructions ? parseTextToList(product.care_instructions) : <p>Instruções de cuidado não disponíveis.</p>)}
                     </div>
                 </div>
@@ -3735,7 +4612,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     );
 };
 
-const LoginPage = ({ onNavigate }) => {
+const LoginPage = ({ onNavigate, redirectPath }) => { 
     const { login, setUser } = useAuth();
     const notification = useNotification();
 
@@ -3746,30 +4623,98 @@ const LoginPage = ({ onNavigate }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
+    // Estado para "Lembrar meu e-mail"
+    const [rememberEmail, setRememberEmail] = useState(false);
+
     // Estados para o fluxo 2FA
     const [isTwoFactorStep, setIsTwoFactorStep] = useState(false);
     const [twoFactorCode, setTwoFactorCode] = useState('');
     const [tempAuthToken, setTempAuthToken] = useState('');
 
+    // Estado para controle de exibição do botão de Biometria
+    const [hasBiometrics, setHasBiometrics] = useState(false);
+
+    // ATUALIZAÇÃO: Inicializa a logo buscando da memória local (localStorage) primeiro
+    const [appLogo, setAppLogo] = useState(() => {
+        return localStorage.getItem('lovecestas_app_logo') || 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
+    });
+
     const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
-    const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } };
+    
+    // Carrega o e-mail salvo e a Logo
+    useEffect(() => {
+        const savedEmail = localStorage.getItem('lovecestas_saved_email');
+        if (savedEmail) {
+            setEmail(savedEmail);
+            setRememberEmail(true);
+        }
+
+        // Puxa a logo do sistema para exibir no login
+        apiService('/settings/app-icons')
+            .then(data => {
+                if (data && data.pwa_icon && data.pwa_icon.current) {
+                    setAppLogo(data.pwa_icon.current);
+                    // ATUALIZAÇÃO: Atualiza a memória local para não piscar no próximo recarregamento
+                    localStorage.setItem('lovecestas_app_logo', data.pwa_icon.current);
+                }
+            })
+            .catch(() => {}); // Ignora silenciosamente se der erro
+    }, []);
+
+    // Efeito que verifica se o e-mail digitado possui biometria cadastrada
+    useEffect(() => {
+        const checkBiometrics = async () => {
+            if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                try {
+                    const response = await apiService('/webauthn/check', 'POST', { email });
+                    setHasBiometrics(response.hasBiometrics);
+                } catch (err) {
+                    setHasBiometrics(false);
+                }
+            } else {
+                setHasBiometrics(false);
+            }
+        };
+
+        const timeoutId = setTimeout(() => {
+            checkBiometrics();
+        }, 500);
+
+        return () => clearTimeout(timeoutId);
+    }, [email]);
+
+    const handleSaveEmailChoice = () => {
+        if (rememberEmail && email) {
+            localStorage.setItem('lovecestas_saved_email', email);
+        } else {
+            localStorage.removeItem('lovecestas_saved_email');
+        }
+    };
+
+    const handleSuccessRedirect = () => {
+        if (redirectPath) {
+            onNavigate(redirectPath);
+        } else {
+            onNavigate('home');
+        }
+    };
 
    const handleLogin = async (e) => {
         e.preventDefault();
         setError('');
         setIsLoading(true);
         try {
-            // Usa a função centralizada do AuthContext
             const response = await login(email, password);
 
+            // Grava a decisão de lembrar o e-mail
+            handleSaveEmailChoice();
+
             if (response.twoFactorEnabled) {
-                // Se 2FA for necessário, muda para a próxima etapa
                 setTempAuthToken(response.token);
                 setIsTwoFactorStep(true);
             } else {
-                // Login normal bem-sucedido
                 notification.show('Login bem-sucedido!');
-                onNavigate('home'); // Usa a navegação controlada pelo App
+                handleSuccessRedirect();
             }
         } catch (err) {
             setError(err.message || "Ocorreu um erro desconhecido.");
@@ -3785,14 +4730,15 @@ const LoginPage = ({ onNavigate }) => {
         setIsLoading(true);
         try {
             const response = await apiService('/login/2fa/verify', 'POST', { token: twoFactorCode, tempAuthToken });
-            const { user } = response;
+            const { user, accessToken, refreshToken } = response;
 
-            // Define manualmente o usuário no contexto e no localStorage
             setUser(user);
             localStorage.setItem('user', JSON.stringify(user));
+            if (accessToken) localStorage.setItem('accessToken', accessToken);
+            if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
 
             notification.show('Login bem-sucedido!');
-            onNavigate('home'); // Usa a navegação controlada pelo App
+            handleSuccessRedirect();
 
         } catch (err) {
             setError(err.message || "Código 2FA inválido ou expirado.");
@@ -3802,33 +4748,91 @@ const LoginPage = ({ onNavigate }) => {
         }
     };
 
+    const handleBiometricLogin = async () => {
+        try {
+            const startAuth = window.SimpleWebAuthnBrowser ? window.SimpleWebAuthnBrowser.startAuthentication : null;
+            
+            if (!startAuth) {
+                notification.show("A biblioteca de biometria não está carregada.", "error");
+                return;
+            }
+
+            setIsLoading(true);
+            setError('');
+
+            const optionsResp = await apiService('/webauthn/generate-authentication-options');
+            
+            let authResponse;
+            try {
+                authResponse = await startAuth(optionsResp.options);
+            } catch (err) {
+                console.log("Biometria cancelada ou falhou localmente:", err);
+                setIsLoading(false);
+                return; 
+            }
+
+            const verificationResp = await apiService('/webauthn/verify-authentication', 'POST', {
+                body: authResponse,
+                sessionId: optionsResp.sessionId
+            });
+
+            // Grava a decisão de lembrar o e-mail
+            handleSaveEmailChoice();
+
+            if (verificationResp.twoFactorEnabled) {
+                setTempAuthToken(verificationResp.token);
+                setIsTwoFactorStep(true);
+            } else {
+                const { user, accessToken, refreshToken } = verificationResp;
+                setUser(user);
+                localStorage.setItem('user', JSON.stringify(user));
+                if (accessToken) localStorage.setItem('accessToken', accessToken);
+                if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+                
+                notification.show('Login biométrico bem-sucedido!');
+                handleSuccessRedirect();
+            }
+
+        } catch (err) {
+            console.error("Erro no login biométrico:", err);
+            setError(err.message || "Falha na autenticação biométrica.");
+            notification.show("Falha na autenticação biométrica.", "error");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
-        // --- MODIFICAÇÃO: Estilo do container principal e padding ---
-        <div className="min-h-screen flex items-center justify-center bg-black p-4 sm:p-6"> {/* Fundo preto sólido, padding ajustado */}
+        <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-black p-4 sm:p-6"> 
             <motion.div
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
-                // --- MODIFICAÇÃO: Estilo do card de login, cores e responsividade ---
-                className="w-full max-w-sm sm:max-w-md bg-gray-900 text-white p-6 sm:p-8 rounded-lg shadow-lg border border-gray-800" // Fundo mais escuro, padding ajustado, tamanho máximo ajustado para mobile
+                className="w-full max-w-sm sm:max-w-md bg-gray-900 text-white p-6 sm:p-8 rounded-lg shadow-lg border border-gray-800" 
             >
                 {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md text-sm">{error}</p>}
+                
+                {redirectPath && !isTwoFactorStep && (
+                    <div className="mb-6 p-3 bg-amber-900/40 border border-amber-600 rounded-md flex items-center gap-3">
+                        <ExclamationCircleIcon className="h-5 w-5 text-amber-500 flex-shrink-0" />
+                        <p className="text-xs text-amber-200">
+                            Faça login para acessar os detalhes do pedido ou a página solicitada.
+                        </p>
+                    </div>
+                )}
 
                 <AnimatePresence mode="wait">
                     {!isTwoFactorStep ? (
                         <motion.div key="login-form" initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 50 }}>
                             <div className="text-center mb-6">
-                                {/* --- MODIFICAÇÃO: Tamanho da imagem e margem --- */}
-                                <div className="mx-auto mb-3 inline-block w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center"> {/* Tamanho menor no mobile */}
-                                  <img src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png" alt="Logo" className="w-full h-full object-contain" />
+                                <div className="mx-auto mb-3 inline-block w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center"> 
+                                  <img src={appLogo} alt="Logo" className="w-full h-full object-contain" />
                                 </div>
-                                {/* --- MODIFICAÇÃO: Tamanho do título --- */}
                                 <h2 className="text-2xl sm:text-3xl font-bold text-amber-400">Bem-vindo de Volta</h2>
                             </div>
-                            <form onSubmit={handleLogin} className="space-y-5"> {/* Espaçamento ligeiramente menor */}
+                            <form onSubmit={handleLogin} className="space-y-4"> 
                                 <div>
                                     <label className="text-xs sm:text-sm font-medium text-gray-400 mb-1 block">Email</label>
-                                    {/* --- MODIFICAÇÃO: Padding e tamanho de texto dos inputs --- */}
                                     <input type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-sm sm:text-base" />
                                 </div>
                                 <div>
@@ -3840,18 +4844,52 @@ const LoginPage = ({ onNavigate }) => {
                                         </button>
                                     </div>
                                 </div>
-                                {/* --- MODIFICAÇÃO: Padding e tamanho de texto do botão --- */}
-                                <button type="submit" disabled={isLoading} className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-base sm:text-lg">
-                                     {isLoading ? <SpinnerIcon /> : 'Entrar'}
+
+                                <div className="flex items-center mb-2">
+                                    <input 
+                                        type="checkbox" 
+                                        id="remember-email"
+                                        checked={rememberEmail} 
+                                        onChange={(e) => setRememberEmail(e.target.checked)} 
+                                        className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-amber-500 focus:ring-amber-500 focus:ring-offset-gray-900 cursor-pointer"
+                                    />
+                                    <label htmlFor="remember-email" className="ml-2 block text-sm text-gray-400 cursor-pointer hover:text-white transition-colors select-none">
+                                        Lembrar meu e-mail
+                                    </label>
+                                </div>
+
+                                <button type="submit" disabled={isLoading} className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-base sm:text-lg mt-2">
+                                     {isLoading ? <SpinnerIcon /> : 'Entrar com Senha'}
                                 </button>
                             </form>
-                             {/* --- MODIFICAÇÃO: Tamanho de texto dos links --- */}
+
+                            <AnimatePresence>
+                                {hasBiometrics && (
+                                    <motion.div 
+                                        initial={{ opacity: 0, height: 0 }} 
+                                        animate={{ opacity: 1, height: 'auto' }} 
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="mt-4 pt-4 border-t border-gray-800 overflow-hidden"
+                                    >
+                                        <button 
+                                            type="button" 
+                                            onClick={handleBiometricLogin} 
+                                            disabled={isLoading}
+                                            className="w-full py-2.5 sm:py-3 px-4 bg-gray-800 border border-gray-700 text-white font-bold rounded-md hover:bg-gray-700 transition flex justify-center items-center gap-2 disabled:opacity-60 text-base sm:text-lg"
+                                        >
+                                            <FingerprintIcon className="h-5 w-5 text-amber-400" /> 
+                                            Entrar com Biometria / Face ID
+                                        </button>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
                              <div className="text-center mt-5 text-xs sm:text-sm">
                                 <p className="text-gray-400">Não tem uma conta?{' '}<a href="#register" onClick={(e) => {e.preventDefault(); onNavigate('register')}} className="font-semibold text-amber-400 hover:underline">Registre-se</a></p>
                                 <a href="#forgot-password" onClick={(e) => {e.preventDefault(); onNavigate('forgot-password')}} className="text-gray-500 hover:underline mt-2 inline-block">Esqueceu sua senha?</a>
                             </div>
                         </motion.div>
-                    ) : ( // Formulário 2FA (estilos mantidos, pois já eram adequados)
+                    ) : ( 
                         <motion.div key="2fa-form" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
                             <div className="text-center mb-6">
                                 <div className="mx-auto mb-4 inline-block rounded-full bg-gray-800 p-4 border border-gray-700"><CheckBadgeIcon className="h-8 w-8 text-amber-400" /></div>
@@ -3870,7 +4908,7 @@ const LoginPage = ({ onNavigate }) => {
                                         value={twoFactorCode}
                                         onChange={e => setTwoFactorCode(e.target.value)}
                                         required
-                                        className="w-full text-center tracking-[0.5em] sm:tracking-[1em] px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-xl sm:text-2xl font-mono" /> {/* Ajuste no tracking para mobile */}
+                                        className="w-full text-center tracking-[0.5em] sm:tracking-[1em] px-4 py-3 bg-gray-800 text-white border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-xl sm:text-2xl font-mono" />
                                 </div>
                                 <button type="submit" disabled={isLoading} className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-base sm:text-lg">
                                      {isLoading ? <SpinnerIcon /> : 'Verificar'}
@@ -3886,17 +4924,19 @@ const LoginPage = ({ onNavigate }) => {
         </div>
     );
 };
-
 const RegisterPage = ({ onNavigate }) => {
     const { register } = useAuth();
     const notification = useNotification();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState(''); 
     const [cpf, setCpf] = useState('');
+    const [phone, setPhone] = useState(''); 
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+    const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -3911,21 +4951,44 @@ const RegisterPage = ({ onNavigate }) => {
         visible: { opacity: 1, y: 0 }
     };
 
+    // Helper para calcular força da senha
+    const getPasswordStrength = (pass) => {
+        if (!pass) return { label: '', color: '' };
+        if (pass.length < 6) return { label: 'Fraca (mín. 6)', color: 'text-red-500' };
+        if (pass.length < 8) return { label: 'Média', color: 'text-yellow-500' };
+        return { label: 'Forte', color: 'text-green-500' };
+    };
+
+    const passStrength = getPasswordStrength(password);
+    const passwordsMatch = password === confirmPassword;
+    const showMismatch = confirmPassword.length > 0 && !passwordsMatch;
+
     const handleRegister = async (e) => {
         e.preventDefault();
         setError('');
+        
         if (password.length < 6) {
-             setError("A senha deve ter pelo menos 6 caracteres.");
+             setError("A senha é muito fraca. Deve ter pelo menos 6 caracteres.");
              return;
         }
+        
+        if (!passwordsMatch) {
+             setError("As senhas não coincidem. Por favor, verifique.");
+             return;
+        }
+
         if (!validateCPF(cpf)) {
             setError("O CPF informado é inválido.");
+            return;
+        }
+        if (!validatePhone(phone)) {
+            setError("O número de celular informado é inválido.");
             return;
         }
 
         setIsLoading(true);
         try {
-            await register(name, email, password, cpf);
+            await register(name, email, password, cpf, phone); 
             notification.show("Usuário registrado com sucesso! Você já pode fazer o login.");
             setTimeout(() => onNavigate('login'), 2000);
         } catch (err) {
@@ -3940,28 +5003,42 @@ const RegisterPage = ({ onNavigate }) => {
         setCpf(maskCPF(e.target.value));
     };
 
+    const handlePhoneChange = (e) => {
+        setPhone(maskPhone(e.target.value));
+    };
+
     return (
-        // --- MODIFICAÇÃO: Estilo do container principal e padding ---
-        <div className="min-h-screen flex items-center justify-center bg-black p-4 sm:p-6"> {/* Fundo preto sólido, padding ajustado */}
+        <div className="min-h-screen flex items-center justify-center bg-black p-4 sm:p-6">
             <motion.div
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
-                 // --- MODIFICAÇÃO: Estilo do card de registro, cores e responsividade ---
-                className="w-full max-w-sm sm:max-w-md bg-gray-900 text-white p-6 sm:p-8 rounded-lg shadow-lg border border-gray-800" // Fundo mais escuro, padding ajustado, tamanho máximo ajustado para mobile
+                className="w-full max-w-sm sm:max-w-md bg-gray-900 text-white p-6 sm:p-8 rounded-lg shadow-lg border border-gray-800"
             >
                 <motion.div variants={itemVariants} className="text-center mb-6">
-                    {/* --- MODIFICAÇÃO: Tamanho do título --- */}
                     <h2 className="text-2xl sm:text-3xl font-bold text-amber-400">Crie Sua Conta</h2>
                     <p className="text-gray-400 mt-2 text-sm sm:text-base">É rápido e fácil.</p>
                 </motion.div>
 
-                {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md text-sm">{error}</p>}
-                <motion.form variants={itemVariants} onSubmit={handleRegister} className="space-y-4"> {/* Reduzido space-y */}
-                    {/* --- MODIFICAÇÃO: Padding e tamanho de texto dos inputs --- */}
+                {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md text-sm font-bold border border-red-800">{error}</p>}
+                
+                <motion.form variants={itemVariants} onSubmit={handleRegister} className="space-y-4">
                     <input type="text" placeholder="Nome Completo" value={name} onChange={e => setName(e.target.value)} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 transition-all text-sm sm:text-base" />
                     <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 transition-all text-sm sm:text-base" />
                     <input type="text" placeholder="CPF" value={cpf} onChange={handleCpfChange} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 transition-all text-sm sm:text-base" />
+                    
+                    <div className="relative">
+                        <input 
+                            type="text" 
+                            placeholder="Celular / WhatsApp" 
+                            value={phone} 
+                            onChange={handlePhoneChange} 
+                            required 
+                            className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 transition-all pl-10 text-sm sm:text-base" 
+                        />
+                        <WhatsappIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    </div>
+
                     <div className="relative">
                         <input
                             type={isPasswordVisible ? 'text' : 'password'}
@@ -3979,12 +5056,53 @@ const RegisterPage = ({ onNavigate }) => {
                             {isPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
                         </button>
                     </div>
-                     {/* --- MODIFICAÇÃO: Padding e tamanho de texto do botão --- */}
+
+                    {/* Campo Repetir Senha + Feedbacks */}
+                    <div>
+                        <div className="relative">
+                            <input
+                                type={isConfirmPasswordVisible ? 'text' : 'password'}
+                                placeholder="Repita a Senha"
+                                value={confirmPassword}
+                                onChange={e => setConfirmPassword(e.target.value)}
+                                required
+                                className={`w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border rounded-md focus:outline-none focus:ring-1 transition-all pr-10 text-sm sm:text-base ${showMismatch ? 'border-red-500 focus:ring-red-500' : 'border-gray-700 focus:ring-amber-400'}`}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)}
+                                className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-amber-400"
+                            >
+                                {isConfirmPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
+                            </button>
+                        </div>
+                        
+                        {/* Container Unificado para Feedback de Senha */}
+                        <div className="flex justify-between items-center mt-1.5 px-1 min-h-[20px]">
+                            {/* Aviso de Senhas Diferentes (Esquerda) */}
+                            <div className="flex-1">
+                                {showMismatch && (
+                                    <p className="text-red-500 text-xs font-bold flex items-center gap-1 animate-pulse">
+                                        <ExclamationCircleIcon className="h-3 w-3 inline"/> As senhas não coincidem.
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Indicador de Força da Senha (Direita) */}
+                            {password && (
+                                <div className="text-right text-xs font-medium ml-2">
+                                    <span className="text-gray-400 mr-1">Força:</span>
+                                    <span className={`${passStrength.color} font-bold`}>{passStrength.label}</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    
                     <button type="submit" disabled={isLoading} className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-base sm:text-lg">
                         {isLoading ? <SpinnerIcon /> : 'Registrar'}
                     </button>
                 </motion.form>
-                {/* --- MODIFICAÇÃO: Tamanho de texto do link --- */}
+                
                  <motion.div variants={itemVariants} className="text-center mt-5 text-xs sm:text-sm">
                      <p className="text-gray-400">
                         Já tem uma conta?{' '}
@@ -4146,16 +5264,20 @@ const ForgotPasswordPage = ({ onNavigate }) => {
 const CartPage = ({ onNavigate }) => {
     const {
         cart,
+        setCart, // Necessário para atualização otimista
         updateQuantity,
         removeFromCart,
+        addToCart, // Necessário para trocar a variação (remove old, add new)
         autoCalculatedShipping,
         isLoadingShipping,
         shippingError,
         couponCode, setCouponCode,
         applyCoupon, removeCoupon,
-        couponMessage, appliedCoupon
+        couponMessage, appliedCoupon,
+        discount
     } = useShop();
     const notification = useNotification();
+    const { isAuthenticated } = useAuth(); // Necessário para sincronização API
 
     const subtotal = useMemo(() => cart.reduce((sum, item) => {
         const price = item.is_on_sale && item.sale_price ? item.sale_price : item.price;
@@ -4163,24 +5285,6 @@ const CartPage = ({ onNavigate }) => {
     }, 0), [cart]);
 
     const shippingCost = useMemo(() => autoCalculatedShipping ? autoCalculatedShipping.price : 0, [autoCalculatedShipping]);
-
-    const discount = useMemo(() => {
-        if (!appliedCoupon) return 0;
-        let discountValue = 0;
-        if (appliedCoupon.type === 'percentage') {
-            discountValue = subtotal * (parseFloat(appliedCoupon.value) / 100);
-        } else if (appliedCoupon.type === 'fixed') {
-            discountValue = parseFloat(appliedCoupon.value);
-        } else if (appliedCoupon.type === 'free_shipping') {
-            discountValue = shippingCost;
-        }
-        // Garante que o desconto não seja maior que o subtotal + frete (exceto frete grátis)
-        if (appliedCoupon.type !== 'free_shipping' && discountValue > subtotal + shippingCost) {
-            return subtotal + shippingCost;
-        }
-        return discountValue;
-    }, [appliedCoupon, subtotal, shippingCost]);
-
 
     const handleApplyCoupon = (e) => {
         e.preventDefault();
@@ -4191,7 +5295,7 @@ const CartPage = ({ onNavigate }) => {
 
     const total = useMemo(() => {
         const calculatedTotal = subtotal - discount + shippingCost;
-        return calculatedTotal < 0 ? 0 : calculatedTotal; // Evita total negativo
+        return calculatedTotal < 0 ? 0 : calculatedTotal; 
     }, [subtotal, discount, shippingCost]);
 
 
@@ -4203,10 +5307,77 @@ const CartPage = ({ onNavigate }) => {
         }
     };
 
+    // --- NOVA FUNÇÃO: Trocar Tamanho no Carrinho ---
+    const handleSizeChange = async (item, newSize) => {
+        if (!item.variation || item.variation.size === newSize) return;
+
+        // 1. Encontrar a variação completa correspondente ao novo tamanho
+        const allVariations = parseJsonString(item.variations, []);
+        const newVariation = allVariations.find(v => v.color === item.variation.color && v.size === newSize);
+
+        if (!newVariation) {
+            notification.show("Tamanho indisponível.", "error");
+            return;
+        }
+
+        if (newVariation.stock < item.qty) {
+            notification.show(`Estoque insuficiente para o tamanho ${newSize}.`, "error");
+            return;
+        }
+
+        // 2. Criar o ID do novo item
+        const newCartItemId = `${item.id}-${newVariation.color}-${newVariation.size}`;
+        
+        // 3. Verificar se já existe esse item no carrinho (para mesclar)
+        const existingItemIndex = cart.findIndex(i => i.cartItemId === newCartItemId);
+        
+        let newCart = [...cart];
+
+        if (existingItemIndex > -1) {
+            // Se já existe, soma a quantidade e remove o item antigo que estava sendo editado
+            newCart[existingItemIndex].qty += item.qty;
+            // Remove o item "antigo" (que tinha o tamanho anterior)
+            newCart = newCart.filter(i => i.cartItemId !== item.cartItemId);
+        } else {
+            // Se não existe, atualiza o item atual com a nova variação e ID
+            newCart = newCart.map(i => {
+                if (i.cartItemId === item.cartItemId) {
+                    return { ...i, variation: newVariation, cartItemId: newCartItemId };
+                }
+                return i;
+            });
+        }
+
+        // 4. Atualiza Estado Local (UI Instantânea)
+        setCart(newCart);
+        notification.show(`Tamanho alterado para ${newSize}`);
+
+        // 5. Sincroniza com Backend (se logado)
+        if (isAuthenticated) {
+            try {
+                // Remove o antigo
+                await apiService(`/cart/${item.id}`, 'DELETE', { variation: item.variation });
+                // Adiciona o novo (ou atualiza se mesclou)
+                // Para simplificar, o backend trata adição como "insert or update qty"
+                await apiService('/cart', 'POST', { 
+                    productId: item.id, 
+                    quantity: item.qty, // Quantidade que estava no item sendo movido
+                    variationId: newVariation.id, 
+                    variation: newVariation,
+                    variation_details: JSON.stringify(newVariation)
+                });
+            } catch (error) {
+                console.error("Erro ao sincronizar troca de tamanho:", error);
+            }
+        }
+    };
+
+    const itemsForShipping = useMemo(() => cart, [cart]);
+
     return (
         <div className="bg-black text-white min-h-screen">
-            <div className="container mx-auto px-4 py-12"> {/* Aumentado padding vertical */}
-                <h1 className="text-3xl md:text-4xl font-bold mb-10 text-center">Meu Carrinho</h1> {/* Centralizado e margem aumentada */}
+            <div className="container mx-auto px-4 py-12"> 
+                <h1 className="text-3xl md:text-4xl font-bold mb-10 text-center">Meu Carrinho</h1> 
                 {cart.length === 0 ? (
                     <EmptyState
                         icon={<CartIcon className="h-12 w-12"/>}
@@ -4216,9 +5387,9 @@ const CartPage = ({ onNavigate }) => {
                         onButtonClick={() => onNavigate('products')}
                     />
                 ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-10"> {/* Aumentado gap */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-10"> 
                         {/* Coluna de Itens e Frete */}
-                        <div className="lg:col-span-2 space-y-8"> {/* Aumentado space-y */}
+                        <div className="lg:col-span-2 space-y-8"> 
                             {/* Card de Itens */}
                             <div className="bg-gray-900 rounded-lg border border-gray-800 shadow-lg">
                                 <h2 className="text-xl font-semibold p-5 border-b border-gray-700 text-amber-400">Itens no Carrinho ({cart.length})</h2>
@@ -4227,10 +5398,20 @@ const CartPage = ({ onNavigate }) => {
                                         const isOnSale = item.is_on_sale && item.sale_price > 0;
                                         const currentPrice = isOnSale ? item.sale_price : item.price;
                                         const itemSubtotal = currentPrice * item.qty;
+                                        
+                                        // Preparar opções de tamanho se for roupa
+                                        let availableSizes = [];
+                                        if (item.product_type === 'clothing' && item.variation) {
+                                            const allVars = parseJsonString(item.variations, []);
+                                            availableSizes = allVars
+                                                .filter(v => v.color === item.variation.color && v.stock > 0)
+                                                .map(v => v.size);
+                                        }
+
                                         return (
                                         <motion.div
                                             key={item.cartItemId}
-                                            layout // Anima a remoção
+                                            layout 
                                             initial={{ opacity: 0 }}
                                             animate={{ opacity: 1 }}
                                             exit={{ opacity: 0, x: -50 }}
@@ -4239,25 +5420,45 @@ const CartPage = ({ onNavigate }) => {
                                         >
                                             <div className="flex items-center w-full md:w-auto flex-grow">
                                                 <div
-                                                    className="w-24 h-24 bg-white rounded-md flex-shrink-0 cursor-pointer p-1 border border-gray-700" // Aumentado tamanho
+                                                    className="w-24 h-24 bg-white rounded-md flex-shrink-0 cursor-pointer p-1 border border-gray-700" 
                                                     onClick={() => onNavigate(`product/${item.id}`)}
                                                 >
                                                     <img src={getFirstImage(item.images, 'https://placehold.co/96x96/222/fff?text=Img')} alt={item.name} className="w-full h-full object-contain"/>
                                                 </div>
                                                 <div className="flex-grow px-4">
                                                     <h3 className="font-bold text-lg cursor-pointer hover:text-amber-400 transition line-clamp-2" onClick={() => onNavigate(`product/${item.id}`)}>{item.name}</h3>
+                                                    
+                                                    {/* SEÇÃO DE VARIAÇÃO (COR E TAMANHO) */}
                                                     {item.variation && (
-                                                        <p className="text-xs text-gray-400 mt-1">
-                                                            {item.variation.color} / {item.variation.size}
-                                                        </p>
+                                                        <div className="flex flex-wrap items-center gap-3 mt-2">
+                                                            <div className="flex items-center gap-1 text-xs text-gray-300 bg-gray-800 px-2 py-1 rounded border border-gray-700">
+                                                                <span className="text-gray-500">Cor:</span>
+                                                                <span className="font-bold text-white">{item.variation.color}</span>
+                                                            </div>
+
+                                                            {/* SELETOR DE TAMANHO NO CARRINHO */}
+                                                            <div className="flex items-center gap-2">
+                                                                <label className="text-xs text-gray-500">Tam:</label>
+                                                                <select 
+                                                                    value={item.variation.size} 
+                                                                    onChange={(e) => handleSizeChange(item, e.target.value)}
+                                                                    className="bg-gray-800 text-white text-xs font-bold border border-gray-600 rounded px-2 py-1 focus:ring-1 focus:ring-amber-400 outline-none cursor-pointer"
+                                                                >
+                                                                    {availableSizes.map(size => (
+                                                                        <option key={size} value={size}>{size}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                        </div>
                                                     )}
+
                                                     {isOnSale ? (
-                                                        <div className="flex items-baseline gap-2 mt-1">
+                                                        <div className="flex items-baseline gap-2 mt-2">
                                                             <p className="text-base text-red-500 font-bold">R$&nbsp;{Number(currentPrice).toFixed(2)}</p>
                                                             <p className="text-xs text-gray-500 line-through">R$&nbsp;{Number(item.price).toFixed(2)}</p>
                                                         </div>
                                                     ) : (
-                                                        <p className="text-base text-amber-400 mt-1">R$&nbsp;{Number(item.price).toFixed(2)}</p>
+                                                        <p className="text-base text-amber-400 mt-2">R$&nbsp;{Number(item.price).toFixed(2)}</p>
                                                     )}
                                                 </div>
                                             </div>
@@ -4285,8 +5486,7 @@ const CartPage = ({ onNavigate }) => {
                                     </button>
                                 </div>
                             </div>
-                            {/* Calculadora de Frete (mantém componente externo) */}
-                            <ShippingCalculator items={cart} />
+                            <ShippingCalculator items={itemsForShipping} />
                         </div>
 
                         {/* Coluna de Resumo */}
@@ -4645,23 +5845,24 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
     );
 };
 
-// Componente PickupPersonForm REMOVIDO. Inputs voltam a ser nativos.
+const CheckoutSection = ({ title, step, children, icon: Icon }) => (
+     <div className="bg-gray-900 rounded-lg border border-gray-800 shadow-md">
+        <div className="flex items-center gap-3 p-4 border-b border-gray-700">
+            {Icon && <Icon className="h-6 w-6 text-amber-400 flex-shrink-0"/>}
+            <h2 className="text-xl font-bold text-amber-400 tracking-wide">{step ? `${step}. ` : ''}{title}</h2>
+        </div>
+        <div className="p-5">
+            {children}
+        </div>
+    </div>
+);
 
 const CheckoutPage = ({ onNavigate }) => {
-    // console.log(`%c--- Rendering CheckoutPage ---`, 'color: yellow; font-weight: bold;'); // Log opcional
     const { user } = useAuth();
     const {
-        cart,
-        autoCalculatedShipping,
-        appliedCoupon,
-        clearOrderState,
-        addresses,
-        fetchAddresses,
-        shippingLocation,
-        setShippingLocation,
-        shippingOptions,
-        setAutoCalculatedShipping,
-        setSelectedShippingName
+        cart, autoCalculatedShipping, appliedCoupon, clearOrderState, addresses,
+        fetchAddresses, shippingLocation, setShippingLocation, shippingOptions,
+        setAutoCalculatedShipping, setSelectedShippingName, pickupConfig
     } = useShop();
     const notification = useNotification();
 
@@ -4672,75 +5873,55 @@ const CheckoutPage = ({ onNavigate }) => {
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [isNewAddressModalOpen, setIsNewAddressModalOpen] = useState(false);
     const [isSomeoneElsePickingUp, setIsSomeoneElsePickingUp] = useState(false);
-
-    // Estados que armazenam o valor FINAL (atualizado no onBlur)
     const [pickupPersonName, setPickupPersonName] = useState('');
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
+    const [whatsapp, setWhatsapp] = useState(''); 
 
-    // --- REMOVIDO: Estado visual 'displayPickupCpf' não é mais necessário ---
+    useEffect(() => {
+        const pendingOrderId = localStorage.getItem('pendingOrderId');
+        if (pendingOrderId) {
+            onNavigate(`order-success/${pendingOrderId}`);
+        }
+    }, [onNavigate]);
 
-    // --- Efeito para buscar e definir endereço inicial ---
-    // (Lógica mantida)
     useEffect(() => {
         setIsAddressLoading(true);
+        if (user && user.phone) setWhatsapp(maskPhone(user.phone));
+
         fetchAddresses().then(userAddresses => {
             let addressToSet = null;
             if (shippingLocation && shippingLocation.cep) {
                 const matchingSavedAddress = userAddresses.find(addr =>
-                    addr.cep === shippingLocation.cep &&
-                    (shippingLocation.alias && !shippingLocation.alias.startsWith('CEP ') && shippingLocation.alias !== 'Localização Atual' ? addr.alias === shippingLocation.alias : true)
+                    addr.cep === shippingLocation.cep && addr.logradouro && addr.numero && addr.bairro 
                 );
-                if (matchingSavedAddress) {
-                    addressToSet = matchingSavedAddress;
-                } else {
-                    addressToSet = {
-                        cep: shippingLocation.cep, localidade: shippingLocation.city, uf: shippingLocation.state, alias: shippingLocation.alias,
-                        logradouro: '', numero: '', bairro: '', is_default: false, id: Date.now()
-                    };
-                }
+                if (matchingSavedAddress) addressToSet = matchingSavedAddress;
+                else addressToSet = { cep: shippingLocation.cep, localidade: shippingLocation.city, uf: shippingLocation.state, alias: 'Endereço Incompleto (Preencha os dados)', logradouro: '', numero: '', bairro: '', is_incomplete: true };
             }
-            if (!addressToSet) {
-                addressToSet = userAddresses.find(addr => addr.is_default) || userAddresses[0] || null;
-            }
+            if (!addressToSet) addressToSet = userAddresses.find(addr => addr.is_default) || userAddresses[0] || null;
             setDisplayAddress(addressToSet);
-
-            if (addressToSet && addressToSet.cep !== shippingLocation?.cep) {
-                 setShippingLocation({
-                    cep: addressToSet.cep, city: addressToSet.localidade, state: addressToSet.uf, alias: addressToSet.alias
-                 });
+            if (addressToSet && addressToSet.cep && addressToSet.cep !== shippingLocation?.cep) {
+                 setShippingLocation({ cep: addressToSet.cep, city: addressToSet.localidade, state: addressToSet.uf, alias: addressToSet.alias });
             }
-        }).finally(() => {
-            setIsAddressLoading(false);
-        });
-    }, [fetchAddresses, shippingLocation, setShippingLocation]);
+        }).finally(() => setIsAddressLoading(false));
+    }, [fetchAddresses, shippingLocation, setShippingLocation, user]);
 
-    // --- Efeito para definir os VALORES INICIAIS (para defaultValue) ---
-    // (Aplica máscara no CPF aqui para valor inicial)
     useEffect(() => {
         if (user && !isSomeoneElsePickingUp) {
-            setPickupPersonName(user.name || '');
-            setPickupPersonCpf(maskCPF(user.cpf || '')); // Define o valor principal já mascarado
+            setPickupPersonName(user.name || ''); setPickupPersonCpf(maskCPF(user.cpf || '')); 
         } else {
-            // Limpa o estado principal
-            setPickupPersonName('');
-            setPickupPersonCpf('');
+            setPickupPersonName(''); setPickupPersonCpf('');
         }
     }, [user, isSomeoneElsePickingUp]);
 
-
-    // --- Funções de seleção de frete/endereço ---
     const handleSelectShipping = (option) => {
         setAutoCalculatedShipping(option);
         setSelectedShippingName(option.name);
         if(option.isPickup) {
             setDisplayAddress(null);
-            // Redefine valores iniciais ao selecionar Retirada
             if (!isSomeoneElsePickingUp && user) {
-                setPickupPersonName(user.name || '');
-                setPickupPersonCpf(maskCPF(user.cpf || '')); // Define estado principal
+                setPickupPersonName(user.name || ''); setPickupPersonCpf(maskCPF(user.cpf || '')); 
             } else {
-                 setPickupPersonName('');
-                 setPickupPersonCpf('');
+                 setPickupPersonName(''); setPickupPersonCpf('');
             }
         } else if (!displayAddress && addresses.length > 0) {
              const defaultOrFirst = addresses.find(addr => addr.is_default) || addresses[0];
@@ -4750,15 +5931,15 @@ const CheckoutPage = ({ onNavigate }) => {
              }
         }
     };
+
     const handleAddressSelection = (address) => {
         setDisplayAddress(address);
         setShippingLocation({ cep: address.cep, city: address.localidade, state: address.uf, alias: address.alias });
         setIsAddressModalOpen(false);
     };
-    const handleAddNewAddress = () => {
-        setIsAddressModalOpen(false);
-        setIsNewAddressModalOpen(true);
-    };
+    
+    const handleAddNewAddress = () => { setIsAddressModalOpen(false); setIsNewAddressModalOpen(true); };
+    
     const handleSaveNewAddress = async (formData) => {
         try {
             const savedAddress = await apiService('/addresses', 'POST', formData);
@@ -4768,57 +5949,72 @@ const CheckoutPage = ({ onNavigate }) => {
             setDisplayAddress(newAddress);
             setShippingLocation({ cep: newAddress.cep, city: newAddress.localidade, state: newAddress.uf, alias: newAddress.alias });
             setIsNewAddressModalOpen(false);
-        } catch (error) {
-            notification.show(`Erro ao salvar endereço: ${error.message}`, 'error');
-        }
+        } catch (error) { notification.show(`Erro ao salvar endereço: ${error.message}`, 'error'); }
     };
 
-    // --- Cálculos de Valores (COM CORREÇÃO NaN) ---
-    const subtotal = useMemo(() => {
-        return cart.reduce((sum, item) => {
-            const price = Number(item.is_on_sale && item.sale_price ? item.sale_price : item.price) || 0;
-            const quantity = Number(item.qty) || 0;
-            return sum + (price * quantity);
-        }, 0);
-    }, [cart]);
-    const shippingCost = useMemo(() => {
-        return Number(autoCalculatedShipping?.price) || 0;
-    }, [autoCalculatedShipping]);
+    const handleWhatsappChange = (e) => setWhatsapp(maskPhone(e.target.value));
+
+    const subtotal = useMemo(() => cart.reduce((sum, item) => sum + ((Number(item.is_on_sale && item.sale_price ? item.sale_price : item.price) || 0) * (Number(item.qty) || 0)), 0), [cart]);
+    const shippingCost = useMemo(() => Number(autoCalculatedShipping?.price) || 0, [autoCalculatedShipping]);
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
         let val = 0;
         const couponValue = Number(appliedCoupon.value) || 0;
         const currentSubtotal = Number(subtotal) || 0;
         const currentShippingCost = Number(shippingCost) || 0;
-        if (appliedCoupon.type === 'percentage') {
-            val = currentSubtotal * (couponValue / 100);
-        } else if (appliedCoupon.type === 'fixed') {
-            val = couponValue;
-        } else if (appliedCoupon.type === 'free_shipping') {
-            val = currentShippingCost;
-        }
+        if (appliedCoupon.type === 'percentage') val = currentSubtotal * (couponValue / 100);
+        else if (appliedCoupon.type === 'fixed') val = couponValue;
+        else if (appliedCoupon.type === 'free_shipping') val = currentShippingCost;
         const currentTotalBeforeDiscount = currentSubtotal + currentShippingCost;
         return Math.max(0, (appliedCoupon.type !== 'free_shipping' && val > currentTotalBeforeDiscount) ? currentTotalBeforeDiscount : val);
     }, [appliedCoupon, subtotal, shippingCost]);
-    const total = useMemo(() => {
-        const finalTotal = (Number(subtotal) || 0) - (Number(discount) || 0) + (Number(shippingCost) || 0);
-        return Math.max(0, finalTotal);
-    }, [subtotal, discount, shippingCost]);
+    
+    const total = useMemo(() => Math.max(0, (Number(subtotal) || 0) - (Number(discount) || 0) + (Number(shippingCost) || 0)), [subtotal, discount, shippingCost]);
 
-    // --- Finalizar Pedido (usa pickupPersonCpf) ---
+    const getShippingName = (name) => name?.toLowerCase().includes('pac') ? 'PAC' : (name || 'N/A');
+    
+    const getDeliveryDateText = (deliveryTime) => {
+        if (typeof deliveryTime === 'string' && deliveryTime.includes('Receba até')) return `${deliveryTime} (1 dia útil)`;
+        const timeInDays = Number(deliveryTime);
+        if (isNaN(timeInDays) || timeInDays <= 0) return 'Prazo indisponível';
+        const date = new Date();
+        let addedBusinessDays = 0;
+        date.setDate(date.getDate() + 1);
+        if (date.getDay() === 0) date.setDate(date.getDate() + 1);
+        else if (date.getDay() === 6) date.setDate(date.getDate() + 2);
+        while (addedBusinessDays < timeInDays) {
+            date.setDate(date.getDate() + 1);
+            if (date.getDay() !== 0 && date.getDay() !== 6) addedBusinessDays++;
+        }
+        return `Previsão: ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
+    };
+
+    const handlePickupNameBlur = (e) => setPickupPersonName(e.target.value);
+    const handleCpfInputChangeMask = (e) => e.target.value = maskCPF(e.target.value);
+    const handlePickupCpfBlur = (e) => setPickupPersonCpf(maskCPF(e.target.value));
+
+    const canPlaceOrder = useMemo(() => {
+        if (autoCalculatedShipping?.isPickup) return isSomeoneElsePickingUp ? pickupPersonName.length > 3 && pickupPersonCpf.length >= 11 : true;
+        if (!displayAddress) return false;
+        return displayAddress.logradouro && displayAddress.logradouro !== 'N/A' && displayAddress.logradouro.trim() !== '' &&
+               displayAddress.numero && displayAddress.numero !== 'N/A' && displayAddress.numero.trim() !== '' &&
+               displayAddress.bairro && displayAddress.bairro !== 'N/A' && displayAddress.bairro.trim() !== '' &&
+               !displayAddress.is_incomplete;
+    }, [displayAddress, autoCalculatedShipping, isSomeoneElsePickingUp, pickupPersonName, pickupPersonCpf]);
+
     const handlePlaceOrderAndPay = async () => {
         const isPickup = autoCalculatedShipping?.isPickup;
-        if ((!displayAddress && !isPickup) || !paymentMethod || !autoCalculatedShipping) {
-            notification.show("Selecione a forma de entrega e o endereço (se aplicável).", 'error'); return;
+        if (!canPlaceOrder && !isPickup) {
+             notification.show("Por favor, complete o endereço de entrega (Rua, Número e Bairro) para continuar.", 'error');
+             setIsNewAddressModalOpen(true); return;
         }
+        if (!whatsapp || !validatePhone(whatsapp)) { notification.show("Por favor, informe um número de WhatsApp válido para contato.", 'error'); return; }
         const nameToCheck = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
         const cpfToCheck = isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf;
+        
         if (isPickup && (!nameToCheck || !validateCPF(cpfToCheck))) {
-            if(!isSomeoneElsePickingUp && !user) {
-                 notification.show("Faça login ou marque 'Outra pessoa vai retirar?' e preencha os dados.", 'error');
-            } else {
-                notification.show("Preencha nome e CPF válidos para quem vai retirar.", 'error');
-            }
+            if(!isSomeoneElsePickingUp && !user) notification.show("Faça login ou marque 'Outra pessoa vai retirar?' e preencha os dados.", 'error');
+            else notification.show("Preencha nome e CPF válidos para quem vai retirar.", 'error');
             return;
         }
 
@@ -4830,17 +6026,17 @@ const CheckoutPage = ({ onNavigate }) => {
 
             const orderPayload = {
                 items: cart.map(item => ({ id: item.id, qty: item.qty, price: (item.is_on_sale && item.sale_price ? item.sale_price : item.price), variation: item.variation })),
-                total, shippingAddress: finalShippingAddress, paymentMethod,
-                shipping_method: autoCalculatedShipping.name, shipping_cost: shippingCost,
-                coupon_code: appliedCoupon?.code || null, discount_amount: discount,
-                pickup_details: isPickup ? JSON.stringify({ personName: nameToSend, personCpf: cpfToSend }) : null,
+                total, shippingAddress: finalShippingAddress, paymentMethod, shipping_method: autoCalculatedShipping.name, shipping_cost: shippingCost,
+                coupon_code: appliedCoupon?.code || null, discount_amount: discount, pickup_details: isPickup ? JSON.stringify({ personName: nameToSend, personCpf: cpfToSend }) : null,
+                phone: whatsapp.replace(/\D/g, '')
             };
+            
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
 
             if (paymentMethod === 'mercadopago') {
-                sessionStorage.setItem('pendingOrderId', orderId);
+                localStorage.setItem('pendingOrderId', orderId);
                 const { init_point } = await apiService('/create-mercadopago-payment', 'POST', { orderId });
-                if (init_point) window.location.href = init_point;
+                if (init_point) window.location.assign(init_point);
                 else throw new Error("Link de pagamento não obtido.");
             } else {
                 clearOrderState();
@@ -4852,67 +6048,29 @@ const CheckoutPage = ({ onNavigate }) => {
         }
     };
 
-    // --- Funções Auxiliares ---
-    const getShippingName = (name) => name?.toLowerCase().includes('pac') ? 'PAC' : (name || 'N/A');
-    // CORREÇÃO: Função getDeliveryDateText (mantida da correção anterior)
-    const getDeliveryDateText = (deliveryTime) => {
-        const timeInDays = Number(deliveryTime);
-        if (isNaN(timeInDays) || timeInDays <= 0) return 'Prazo indisponível';
-
-        const date = new Date();
-        let addedBusinessDays = 0;
-        date.setDate(date.getDate() + 1);
-        if (date.getDay() === 0) date.setDate(date.getDate() + 1);
-        else if (date.getDay() === 6) date.setDate(date.getDate() + 2);
-
-        while (addedBusinessDays < timeInDays) {
-            date.setDate(date.getDate() + 1);
-            if (date.getDay() !== 0 && date.getDay() !== 6) {
-                addedBusinessDays++;
-            }
-        }
-        return `Previsão: ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
-    };
-
-    // --- Componente de Seção ---
-    const CheckoutSection = ({ title, step, children, icon: Icon }) => (
-         <div className="bg-gray-900 rounded-lg border border-gray-800 shadow-md">
-            <div className="flex items-center gap-3 p-4 border-b border-gray-700">
-                {Icon && <Icon className="h-6 w-6 text-amber-400 flex-shrink-0"/>}
-                <h2 className="text-xl font-bold text-amber-400 tracking-wide">{step ? `${step}. ` : ''}{title}</h2>
-            </div>
-            <div className="p-5">
-                {children}
-            </div>
-        </div>
-    );
-
-    // --- Handlers para os inputs de retirada (AMBOS com onBlur) ---
-    const handlePickupNameBlur = (e) => {
-        setPickupPersonName(e.target.value); // Atualiza o estado principal no blur
-    };
-
-    // Handler para aplicar máscara VISUALMENTE no CPF a cada digitação (onInput)
-    const handleCpfInputChangeMask = (e) => {
-        e.target.value = maskCPF(e.target.value); // Manipula o DOM
-    };
-
-    // Handler para atualizar o estado PRINCIPAL do CPF no blur
-    const handlePickupCpfBlur = (e) => {
-        setPickupPersonCpf(maskCPF(e.target.value)); // Atualiza estado principal
-    };
-
+    const pAddress = pickupConfig?.address;
+    const isPAddressObj = typeof pAddress === 'object' && pAddress !== null;
 
     return (
         <>
-            {/* Modais */}
+            <AnimatePresence>
+                {isLoading && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/80 backdrop-blur-md">
+                        <div className="bg-gray-900 border border-gray-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center transform transition-all ring-1 ring-amber-500/30">
+                            <SpinnerIcon className="h-16 w-16 text-amber-400 mb-6 animate-spin" />
+                            <h3 className="text-2xl font-extrabold text-white mb-2">Processando Pedido</h3>
+                            <p className="text-sm font-medium text-gray-300">Estamos gerando seu link de pagamento seguro no Mercado Pago...</p>
+                            <p className="text-xs text-red-400 mt-5 font-bold uppercase tracking-widest animate-pulse">Por favor, não feche esta janela</p>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             <AddressSelectionModal isOpen={isAddressModalOpen} onClose={() => setIsAddressModalOpen(false)} addresses={addresses} onSelectAddress={handleAddressSelection} onAddNewAddress={handleAddNewAddress} />
             <Modal isOpen={isNewAddressModalOpen} onClose={() => setIsNewAddressModalOpen(false)} title="Adicionar Novo Endereço"><AddressForm onSave={handleSaveNewAddress} onCancel={() => setIsNewAddressModalOpen(false)} /></Modal>
 
-            {/* Conteúdo da Página */}
             <div className="bg-black text-white min-h-screen py-8 sm:py-12">
                 <div className="container mx-auto px-4">
-                    {/* Botão Voltar */}
                     <button onClick={() => onNavigate('cart')} className="text-sm text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 mb-6 w-fit bg-gray-800/50 hover:bg-gray-700/50 px-3 py-1.5 rounded-md border border-gray-700">
                         <ArrowUturnLeftIcon className="h-4 w-4"/> Voltar ao Carrinho
                     </button>
@@ -4920,14 +6078,28 @@ const CheckoutPage = ({ onNavigate }) => {
                     <h1 className="text-3xl md:text-4xl font-bold mb-8 text-center sm:text-left">Finalizar Pedido</h1>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12 items-start">
 
-                        {/* Coluna Esquerda */}
                         <div className="lg:col-span-2 space-y-8">
-                            {/* Seção Forma de Entrega */}
-                            <CheckoutSection title="Forma de Entrega" step={1} icon={TruckIcon}>
+                            
+                            <CheckoutSection title="Contato para Status" step={1} icon={WhatsappIcon}>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">WhatsApp para notificações do pedido <span className="text-red-500">*</span></label>
+                                        <div className="relative">
+                                            <input type="text" value={whatsapp} onChange={handleWhatsappChange} placeholder="(00) 00000-0000" className="w-full pl-10 p-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 text-white" />
+                                            <WhatsappIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-green-500" />
+                                        </div>
+                                    </div>
+                                    <div className="bg-blue-900/30 border border-blue-800 p-3 rounded-md flex gap-3 items-start">
+                                        <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                                        <p className="text-sm text-blue-200">Manteremos você informado sobre cada etapa do seu pedido através deste número.<br/><span className="text-xs text-gray-400 mt-1 block">Caso altere o número aqui, seu cadastro será atualizado automaticamente.</span></p>
+                                    </div>
+                                </div>
+                            </CheckoutSection>
+
+                            <CheckoutSection title="Forma de Entrega" step={2} icon={TruckIcon}>
                                 <div className="space-y-3">
                                     {shippingOptions.map(option => (
-                                        <div key={option.name} onClick={() => handleSelectShipping(option)}
-                                             className={`relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center justify-between gap-4 ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-gray-800 shadow-inner' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}>
+                                        <div key={option.name} onClick={() => handleSelectShipping(option)} className={`relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center justify-between gap-4 ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-gray-800 shadow-inner' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}>
                                             <div className="absolute top-3 left-3 w-5 h-5 flex items-center justify-center">
                                                 <div className={`w-4 h-4 rounded-full border-2 ${autoCalculatedShipping?.name === option.name ? 'border-amber-400' : 'border-gray-500'}`}>
                                                     {autoCalculatedShipping?.name === option.name && <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-400"></div></div>}
@@ -4943,86 +6115,95 @@ const CheckoutPage = ({ onNavigate }) => {
                                 </div>
                             </CheckoutSection>
 
-                            {/* Seção Endereço ou Detalhes de Retirada */}
                             {autoCalculatedShipping?.isPickup ? (
                                 <CheckoutSection title="Detalhes da Retirada" icon={BoxIcon}>
-                                     <div className="text-sm bg-gray-800 p-4 rounded-md space-y-2 border border-gray-700">
-                                        <p className="font-bold">Endereço:</p>
-                                        <p>R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
-                                        <p className="font-bold mt-2">Horário:</p>
-                                        <p>Seg a Sáb: 09h-11h30 e 15h-17h30 (exceto feriados)</p>
-                                        <p className="text-amber-300 text-xs mt-2 font-semibold">Aguarde a notificação "Pronto para Retirada".</p>
+                                     <div className="text-sm bg-gray-800 p-4 rounded-md space-y-4 border border-gray-700">
+                                        <div className="flex items-start gap-2">
+                                            <MapPinIcon className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                                            <div className="w-full">
+                                                <p className="font-bold text-white mb-2">Endereço de Retirada:</p>
+                                                {isPAddressObj ? (
+                                                    <div className="space-y-1 bg-gray-900 p-3 rounded-md border border-gray-700">
+                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">Rua:</span> <span className="text-gray-200">{pAddress.rua}</span></div>
+                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">Nº:</span> <span className="text-gray-200">{pAddress.numero}</span></div>
+                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">Bairro:</span> <span className="text-gray-200">{pAddress.bairro}</span></div>
+                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">Cidade:</span> <span className="text-gray-200">{pAddress.cidade}</span></div>
+                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">Estado:</span> <span className="text-gray-200">{pAddress.estado || pAddress.uf}</span></div>
+                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">CEP:</span> <span className="text-gray-200 font-mono">{pAddress.cep}</span></div>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-gray-300">{pAddress || 'Endereço não configurado'}</p>
+                                                )}
+
+                                                {pickupConfig?.mapsLink && (
+                                                    <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 hover:underline text-xs font-bold mt-2 inline-flex items-center gap-1 bg-amber-400/10 px-3 py-1.5 rounded-md border border-amber-400/30 transition-all">
+                                                        Ver localização no mapa <ArrowUturnLeftIcon className="h-3 w-3 rotate-180" />
+                                                    </a>
+                                                )}
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="flex items-start gap-2 pt-3 border-t border-gray-700">
+                                            <ClockIcon className="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                                            <div>
+                                                <p className="font-bold text-white">Horário de Funcionamento:</p>
+                                                <p className="text-gray-300 mt-1">{pickupConfig?.hours || 'Seg a Sáb: 09h-11h30 e 15h-17h30 (exceto feriados)'}</p>
+                                            </div>
+                                        </div>
+
+                                        <p className="text-amber-300 text-xs mt-3 font-semibold bg-amber-900/30 p-2 rounded border border-amber-800 flex items-center gap-1.5">
+                                            <ExclamationCircleIcon className="h-4 w-4" />
+                                            Aguarde a notificação "Pronto para Retirada" antes de se dirigir ao local.
+                                        </p>
                                     </div>
                                     <div className="mt-5 space-y-3">
                                         <div className="flex items-center">
                                             <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
                                             <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
                                         </div>
-                                        {/* --- CORREÇÃO: Usando defaultValue + onBlur para AMBOS --- */}
                                         {isSomeoneElsePickingUp && (
-                                            <div
-                                                // Key para forçar remonte com defaultValue correto
-                                                key={isSomeoneElsePickingUp ? "pickup-form-on" : "pickup-form-off"}
-                                                className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700"
-                                            >
-                                                {/* Input de Nome NÃO CONTROLADO (como funcionava) */}
-                                                <input
-                                                    type="text"
-                                                    defaultValue={pickupPersonName} // Valor inicial
-                                                    onBlur={handlePickupNameBlur} // Atualiza estado no blur
-                                                    placeholder="Nome completo de quem vai retirar"
-                                                    className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
-                                                />
-                                                {/* Input de CPF NÃO CONTROLADO (mesma lógica do Nome) */}
-                                                <input
-                                                    type="text"
-                                                    defaultValue={pickupPersonCpf} // Valor inicial (já mascarado)
-                                                    onInput={handleCpfInputChangeMask} // Aplica máscara VISUALMENTE
-                                                    onBlur={handlePickupCpfBlur} // Atualiza estado PRINCIPAL no blur
-                                                    placeholder="CPF de quem vai retirar"
-                                                    maxLength="14" // Limite visual
-                                                    className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
-                                                />
+                                            <div key={isSomeoneElsePickingUp ? "pickup-form-on" : "pickup-form-off"} className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
+                                                <input type="text" defaultValue={pickupPersonName} onBlur={handlePickupNameBlur} placeholder="Nome completo de quem vai retirar" className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"/>
+                                                <input type="text" defaultValue={pickupPersonCpf} onInput={handleCpfInputChangeMask} onBlur={handlePickupCpfBlur} placeholder="CPF de quem vai retirar" maxLength="14" className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"/>
                                             </div>
                                         )}
-                                        {/* --- FIM DA CORREÇÃO --- */}
                                     </div>
                                 </CheckoutSection>
                             ) : (
                                 <CheckoutSection title="Endereço de Entrega" icon={MapPinIcon}>
                                      {isAddressLoading ? (
                                         <div className="flex justify-center items-center h-24"><SpinnerIcon className="h-6 w-6 text-amber-400"/></div>
-                                    ) : displayAddress ? (
-                                        <div className="p-4 bg-gray-800 rounded-md border border-gray-700">
+                                    ) : displayAddress && !displayAddress.is_incomplete ? (
+                                        <div className="p-4 bg-gray-800 rounded-md border border-gray-700 relative">
                                             <div className="flex justify-between items-start">
                                                 <p className="font-bold text-lg mb-2 text-white">{displayAddress.alias}</p>
-                                                {displayAddress.is_default && <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full font-semibold">Padrão</span>}
+                                                {!!displayAddress.is_default && <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full font-semibold">Padrão</span>}
                                             </div>
                                             <div className="space-y-1 text-gray-300 text-sm">
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Rua:</span> {displayAddress.logradouro || 'N/A'}</p>
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Nº:</span> {displayAddress.numero || 'N/A'} {displayAddress.complemento && `- ${displayAddress.complemento}`}</p>
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Bairro:</span> {displayAddress.bairro || 'N/A'}</p>
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Cidade:</span> {displayAddress.localidade || 'N/A'} - {displayAddress.uf || 'N/A'}</p>
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">CEP:</span> {displayAddress.cep || 'N/A'}</p>
+                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Rua:</span> {displayAddress.logradouro}</p>
+                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Nº:</span> {displayAddress.numero} {displayAddress.complemento && `- ${displayAddress.complemento}`}</p>
+                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Bairro:</span> {displayAddress.bairro}</p>
+                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Cidade:</span> {displayAddress.localidade} - {displayAddress.uf}</p>
+                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">CEP:</span> {displayAddress.cep}</p>
                                             </div>
                                             <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:text-amber-300 mt-4 font-semibold text-sm flex items-center gap-1">
                                                 <EditIcon className="h-4 w-4"/> Alterar Endereço
                                             </button>
                                         </div>
                                     ) : (
-                                        <div className="text-center p-6 bg-gray-800 rounded-md border border-gray-700">
-                                            <MapPinIcon className="h-10 w-10 mx-auto text-gray-500 mb-3"/>
-                                            <p className="text-gray-400 mb-4 text-sm">Nenhum endereço selecionado ou cadastrado.</p>
-                                            <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-5 py-2 rounded-md hover:bg-amber-400 font-bold text-sm flex items-center gap-2 mx-auto">
-                                                <PlusIcon className="h-4 w-4"/> Adicionar Endereço
+                                        <div className="text-center p-6 bg-red-900/20 rounded-md border border-red-800">
+                                            <MapPinIcon className="h-10 w-10 mx-auto text-red-500 mb-3"/>
+                                            <p className="text-red-200 font-bold mb-2 text-sm">Endereço Incompleto</p>
+                                            <p className="text-gray-400 mb-4 text-xs">Precisamos do nome da rua e número para entregar.</p>
+                                            <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-5 py-2 rounded-md hover:bg-amber-400 font-bold text-sm flex items-center gap-2 mx-auto animate-pulse">
+                                                <PlusIcon className="h-4 w-4"/> Preencher Endereço
                                             </button>
                                         </div>
                                     )}
                                 </CheckoutSection>
                             )}
 
-                            {/* Seção Forma de Pagamento */}
-                            <CheckoutSection title="Forma de Pagamento" step={2} icon={CreditCardIcon}>
+                            <CheckoutSection title="Forma de Pagamento" step={3} icon={CreditCardIcon}>
                                 <div className="space-y-3">
                                     <div onClick={() => setPaymentMethod('mercadopago')}
                                          className={`relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center gap-4 ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-gray-800 shadow-inner' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}>
@@ -5040,16 +6221,23 @@ const CheckoutPage = ({ onNavigate }) => {
                             </CheckoutSection>
                         </div> 
 
-                        {/* Coluna Direita: Resumo */}
                         <div className="lg:col-span-1">
                              <div className="bg-gray-900 rounded-lg border border-gray-800 p-5 lg:p-6 shadow-lg h-fit lg:sticky lg:top-24">
                                 <h2 className="text-xl font-bold mb-5 text-amber-400 border-b border-gray-700 pb-3">Resumo do Pedido</h2>
-                                <div className="space-y-2 mb-4 max-h-60 overflow-y-auto pr-2">
+                                <div className="space-y-2 mb-4 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                                     {cart.map(item => (
-                                        <div key={item.cartItemId} className="flex justify-between items-center text-gray-300 text-sm py-1 gap-2">
-                                            <div className="flex items-center gap-2 overflow-hidden">
+                                        <div key={item.cartItemId} className="flex justify-between items-start text-gray-300 text-sm py-2 gap-2 border-b border-gray-800 last:border-0">
+                                            <div className="flex items-start gap-3 overflow-hidden">
                                                  <img src={getFirstImage(item.images)} alt={item.name} className="w-10 h-10 object-contain bg-white rounded flex-shrink-0"/>
-                                                <span className="truncate flex-grow">{item.qty}x {item.name} {item.variation ? `(${item.variation.size})` : ''}</span>
+                                                <div>
+                                                    <span className="block font-semibold text-white truncate max-w-[150px]">{item.qty}x {item.name}</span>
+                                                    {item.variation && (
+                                                        <div className="text-xs text-gray-400 mt-0.5 flex flex-col">
+                                                            <span>Cor: {item.variation.color}</span>
+                                                            <span>Tam: {item.variation.size}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                             <span className="font-medium flex-shrink-0">R$&nbsp;{( (Number(item.is_on_sale && item.sale_price ? item.sale_price : item.price) || 0) * (Number(item.qty) || 0) ).toFixed(2)}</span>
                                         </div>
@@ -5079,12 +6267,21 @@ const CheckoutPage = ({ onNavigate }) => {
 
                                 <button
                                     onClick={handlePlaceOrderAndPay}
-                                    disabled={(!displayAddress && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading}
-                                    className="w-full mt-6 bg-gradient-to-r from-amber-400 to-amber-500 text-black py-3 rounded-md hover:from-amber-300 hover:to-amber-400 font-bold text-lg shadow-md hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:bg-gray-600 flex items-center justify-center gap-2"
+                                    disabled={(!canPlaceOrder && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading}
+                                    className={`w-full mt-6 py-3 rounded-md font-bold text-lg shadow-md transition-all duration-300 flex items-center justify-center gap-2
+                                        ${(!canPlaceOrder && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading 
+                                            ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
+                                            : 'bg-gradient-to-r from-amber-400 to-amber-500 text-black hover:from-amber-300 hover:to-amber-400 hover:shadow-lg'
+                                        }`}
                                 >
-                                    {isLoading ? <SpinnerIcon className="h-6 w-6"/> : <CheckBadgeIcon className="h-6 w-6"/>}
-                                    {isLoading ? 'Processando...' : 'Finalizar e Pagar'}
+                                    <CheckBadgeIcon className="h-5 w-5" />
+                                    Finalizar Compra
                                 </button>
+                                {(!canPlaceOrder && !autoCalculatedShipping?.isPickup && !isLoading) && (
+                                    <p className="text-center text-xs text-red-400 mt-3 font-semibold">
+                                        ⚠️ Complete o endereço de entrega para continuar.
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -5094,40 +6291,136 @@ const CheckoutPage = ({ onNavigate }) => {
     );
 };
 
-const OrderSuccessPage = ({ orderId, onNavigate }) => {
+const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
     const { clearOrderState } = useShop();
-    const [pageStatus, setPageStatus] = useState('processing');
+    const notification = useNotification();
+    const [pageStatus, setPageStatus] = useState('processing'); // 'processing', 'success', 'timeout', 'pending_action'
     const [finalOrderStatus, setFinalOrderStatus] = useState('');
+    const [isRetryingPayment, setIsRetryingPayment] = useState(false);
+    const [isCheckingManual, setIsCheckingManual] = useState(false); // Novo estado para o botão "Já Paguei"
 
     const statusRef = useRef(pageStatus);
+    const pollsCount = useRef(0);
+
+    // Detecta se está no navegador padrão ou dentro do PWA (Standalone)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
     useEffect(() => {
         statusRef.current = pageStatus;
     }, [pageStatus]);
 
-    const pollStatus = useCallback(async () => {
-        console.log(`Verificando status do pedido #${orderId}...`);
+    const pollStatus = useCallback(async (isManualCheck = false) => {
+        console.log(`Verificando status do pedido #${orderId}... (Manual: ${isManualCheck})`);
+        
+        // 1. Verificação via URL (Lê apenas se NÃO for uma checagem manual pelo botão)
+        const hashParts = window.location.hash.split('?');
+        if (hashParts.length > 1 && !isManualCheck) {
+            const params = new URLSearchParams(hashParts[1]);
+            const mpStatus = params.get('status') || params.get('collection_status');
+            
+            if (mpStatus === 'approved') {
+                setFinalOrderStatus('Pagamento Aprovado');
+                setPageStatus('success');
+                window.location.hash = hashParts[0]; // Limpa a URL para não prender em loops
+                return true; 
+            } else if (mpStatus === 'rejected' || mpStatus === 'null' || mpStatus === 'cancelled') {
+                setFinalOrderStatus('Pagamento Recusado');
+                setPageStatus('pending_action');
+                window.location.hash = hashParts[0]; // Limpa a URL
+                return true;
+            }
+        }
+
+        // 2. Verificação Real via API (Anti-Cache)
         try {
-            const response = await apiService(`/orders/${orderId}/status`);
+            const response = await apiService(`/orders/${orderId}/status?_t=${Date.now()}`);
             if (response.status && response.status !== 'Pendente') {
                 setFinalOrderStatus(response.status);
+                
+                if (response.status === 'Pagamento Recusado' || response.status === 'Cancelado') {
+                    setPageStatus('pending_action');
+                    return true;
+                }
+                
                 setPageStatus('success');
                 return true; 
             }
         } catch (err) {
-            console.error("Erro ao verificar status, continuando a verificação.", err);
+            console.error("Erro ao verificar status na API.", err);
         }
         return false; 
     }, [orderId]);
 
+    const handleRetryPayment = async () => {
+        setIsRetryingPayment(true);
+        try {
+            const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
+            if (paymentResult && paymentResult.init_point) {
+                localStorage.setItem('pendingOrderId', orderId);
+                window.location.assign(paymentResult.init_point);
+            } else {
+                throw new Error("Não foi possível obter o link de pagamento.");
+            }
+        } catch (error) {
+            notification.show(`Erro ao tentar abrir o pagamento: ${error.message}`, 'error');
+            setIsRetryingPayment(false);
+        }
+    };
+
+    const handleManualCheck = async () => {
+        setIsCheckingManual(true);
+        
+        try {
+            // true indica que o usuário clicou no botão (ignora URL antiga)
+            const isFinished = await pollStatus(true);
+            
+            // Trava um tempo mínimo de UX para o usuário ver que a ação foi realizada
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            if (!isFinished) {
+                 if (statusRef.current !== 'success') {
+                    setPageStatus('pending_action');
+                    notification.show("Ainda não confirmado. Boleto/Pix podem levar alguns instantes.", "error");
+                 }
+            }
+        } finally {
+            setIsCheckingManual(false);
+        }
+    };
+
     useEffect(() => {
-        clearOrderState();
+        const resetPaymentState = () => {
+            if (document.visibilityState === 'visible') {
+                setIsRetryingPayment(false);
+            }
+        };
+
+        window.addEventListener('focus', resetPaymentState);
+        window.addEventListener('pageshow', resetPaymentState);
+        document.addEventListener('visibilitychange', resetPaymentState);
+
+        return () => {
+            window.removeEventListener('focus', resetPaymentState);
+            window.removeEventListener('pageshow', resetPaymentState);
+            document.removeEventListener('visibilitychange', resetPaymentState);
+        };
+    }, []);
+
+    useEffect(() => {
+        clearOrderState(); 
+        localStorage.removeItem('pendingOrderId');
+
         let pollInterval;
         let timeout;
 
         const forceCheck = () => {
-            if (statusRef.current === 'processing') {
-                console.log("Forçando verificação de status (evento de visibilidade/foco)");
-                pollStatus();
+            if (statusRef.current === 'processing' || statusRef.current === 'pending_action') {
+                // Ao voltar para a tela, não reseta a visualização se já estiver pendente, apenas checa silenciosamente
+                pollStatus().then(isFinished => {
+                    if (!isFinished && pollsCount.current > 2 && statusRef.current === 'processing') {
+                         setPageStatus('pending_action');
+                    }
+                });
             }
         };
 
@@ -5136,10 +6429,13 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
             if (isFinished) return; 
 
             pollInterval = setInterval(async () => {
+                 pollsCount.current += 1;
                  const finished = await pollStatus();
                  if (finished) {
                      clearInterval(pollInterval);
                      clearTimeout(timeout);
+                 } else if (pollsCount.current >= 3 && statusRef.current === 'processing') {
+                     setPageStatus('pending_action');
                  }
             }, 5000);
             
@@ -5148,7 +6444,7 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
                 if (statusRef.current === 'processing') {
                     setPageStatus('timeout');
                 }
-            }, 60000);
+            }, 45000);
         };
 
         startPolling();
@@ -5166,49 +6462,139 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         };
     }, [orderId, clearOrderState, pollStatus]); 
 
-
+    // --- DESIGN PREMIUM ---
     const renderContent = () => {
         switch (pageStatus) {
             case 'success':
                 return {
-                    icon: <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto mb-4" />,
+                    icon: (
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_40px_rgba(34,197,94,0.3)]">
+                            <CheckCircleIcon className="h-10 w-10 sm:h-12 sm:w-12 text-green-500" />
+                        </div>
+                    ),
                     title: "Pagamento Aprovado!",
-                    message: `Seu pedido #${orderId} foi confirmado e está com o status "${finalOrderStatus}". Já estamos preparando tudo para o envio!`
+                    subtitle: "Tudo certo com o seu pedido 🎉",
+                    message: `O pedido #${orderId} foi confirmado em nosso sistema. Já estamos preparando seus produtos para envio com muito carinho!`,
+                    actions: (
+                        <button onClick={() => onNavigate('account')} className="bg-gradient-to-r from-amber-400 to-amber-500 text-black px-8 py-3.5 rounded-xl font-extrabold text-base sm:text-lg hover:from-amber-300 hover:to-amber-400 w-full shadow-lg hover:shadow-amber-500/25 transition-all transform active:scale-95">
+                            Acompanhar Pedido
+                        </button>
+                    ),
+                    borderColor: "border-green-500/30"
+                };
+            case 'pending_action':
+                return {
+                    icon: (
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_40px_rgba(245,158,11,0.2)]">
+                            <ExclamationCircleIcon className="h-10 w-10 sm:h-12 sm:w-12 text-amber-500" />
+                        </div>
+                    ),
+                    title: "Aguardando Pagamento",
+                    subtitle: "FINALIZE A COMPRA PARA GARANTIRMOS O ESTOQUE.",
+                    message: `Ainda não recebemos a confirmação do pagamento para o pedido #${orderId}. Se você fechou a janela do Mercado Pago ou precisa gerar o Pix/Boleto novamente, clique abaixo.`,
+                    actions: (
+                        <div className="flex flex-col gap-4 w-full">
+                             <button 
+                                onClick={handleRetryPayment} 
+                                disabled={isRetryingPayment}
+                                className={`px-6 py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2 w-full transition-all shadow-lg ${isRetryingPayment ? 'bg-green-800/50 text-gray-300 cursor-not-allowed' : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-green-500/30 active:scale-95'}`}
+                            >
+                                {isRetryingPayment ? <SpinnerIcon className="h-5 w-5"/> : <CreditCardIcon className="h-5 w-5"/>}
+                                {isRetryingPayment ? 'Abrindo...' : 'Realizar Pagamento'}
+                            </button>
+                            <button 
+                                onClick={handleManualCheck}
+                                disabled={isCheckingManual}
+                                className="bg-gray-800/80 backdrop-blur text-white border border-gray-600 px-6 py-3.5 rounded-xl font-bold hover:bg-gray-700 w-full transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95"
+                            >
+                                {isCheckingManual ? <SpinnerIcon className="h-5 w-5"/> : <ArrowUturnLeftIcon className="h-5 w-5" />} 
+                                {isCheckingManual ? 'Verificando...' : 'Já Paguei (Atualizar)'}
+                            </button>
+                        </div>
+                    ),
+                    borderColor: "border-amber-500/30"
                 };
             case 'timeout':
                 return {
-                    icon: <ClockIcon className="h-16 w-16 text-amber-500 mx-auto mb-4" />,
-                    title: "Processando seu Pedido!",
-                    message: `Seu pedido #${orderId} foi recebido e estamos aguardando a confirmação final do pagamento. Isso é normal para alguns métodos de pagamento. Você pode acompanhar o status atualizado na sua área de "Meus Pedidos".`
+                    icon: (
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <ClockIcon className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400" />
+                        </div>
+                    ),
+                    title: "Processando Pagamento...",
+                    subtitle: "Isso pode levar alguns minutos.",
+                    message: `O pedido #${orderId} foi registrado. Estamos aguardando a confirmação da operadora. Assim que for processado, atualizaremos automaticamente a seção Meus Pedidos.`,
+                    actions: (
+                        <button onClick={() => onNavigate('account')} className="bg-gray-800 border border-gray-700 text-white px-8 py-3.5 rounded-xl font-bold text-base sm:text-lg hover:bg-gray-700 w-full shadow-lg transition-all active:scale-95">
+                            Ir para Meus Pedidos
+                        </button>
+                    ),
+                    borderColor: "border-gray-600/30"
                 };
-     case 'processing':
+            case 'processing':
             default:
                 return {
                     icon: (
-                        <div className="relative mb-6">
-                            <SpinnerIcon className="h-16 w-16 text-amber-500 mx-auto animate-spin" />
-                            <ClockIcon className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-8 w-8 text-white" />
+                        <div className="relative mb-8 w-20 h-20 sm:w-24 sm:h-24 mx-auto flex items-center justify-center">
+                            <div className="absolute inset-0 bg-amber-500/20 rounded-full animate-ping"></div>
+                            <div className="absolute inset-2 bg-amber-500/30 rounded-full animate-pulse"></div>
+                            <SpinnerIcon className="h-10 w-10 sm:h-12 sm:w-12 text-amber-400 relative z-10 animate-spin" />
                         </div>
                     ),
-                    title: "Confirmando Pagamento...",
-                    message: "Aguarde um instante, estamos confirmando seu pagamento com a operadora."
+                    title: "Confirmando Pagamento",
+                    subtitle: "POR FAVOR, NÃO FECHE ESTA JANELA.",
+                    message: "Estamos verificando com o Mercado Pago a situação do seu pedido. Isso leva apenas alguns segundos.",
+                    actions: null,
+                    borderColor: "border-amber-500/30"
                 };
         }
     };
 
-    const { icon, title, message } = renderContent();
+    const { icon, title, subtitle, message, actions, borderColor } = renderContent();
+    const displayName = appName || 'Love Cestas';
 
     return (
-        <div className="bg-black text-white min-h-screen flex items-center justify-center p-4">
-            <div className="text-center p-8 bg-gray-900 rounded-lg shadow-lg border border-gray-800 max-w-lg w-full">
+        <div className="bg-black text-white min-h-[100dvh] flex flex-col justify-start md:justify-center items-center p-4 pt-10 pb-28 md:py-8 relative overflow-x-hidden overflow-y-auto">
+            
+            {/* Efeitos de Luz de Fundo (Atrás de tudo) */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+                <div className="absolute top-0 md:top-1/4 left-0 md:left-1/4 w-72 h-72 md:w-96 md:h-96 bg-amber-600/20 rounded-full blur-3xl"></div>
+                <div className="absolute bottom-0 md:bottom-1/4 right-0 md:right-1/4 w-72 h-72 md:w-96 md:h-96 bg-indigo-600/20 rounded-full blur-3xl"></div>
+            </div>
+
+            {/* Cartão de Confirmação Premium */}
+            <div className={`relative z-10 text-center p-6 sm:p-10 bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-2xl border ${borderColor} max-w-lg w-full transition-all duration-500 my-auto`}>
+                
                 {icon}
-                <h1 className="text-2xl sm:text-3xl font-bold text-amber-400 mb-2">{title}</h1>
-                <p className="text-gray-300 mb-6">{message}</p>
-                <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
-                    <button onClick={() => onNavigate('account')} className="bg-amber-500 text-black px-6 py-2 rounded-md font-bold hover:bg-amber-400">Ver Meus Pedidos</button>
-                    <button onClick={() => onNavigate('home')} className="bg-gray-700 text-white px-6 py-2 rounded-md font-bold hover:bg-gray-600">Voltar à Página Inicial</button>
+                
+                <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-2 tracking-tight">{title}</h1>
+                <p className="text-amber-400 font-bold mb-6 uppercase tracking-widest text-[10px] sm:text-xs">{subtitle}</p>
+                
+                <div className="bg-black/50 rounded-2xl p-5 mb-8 border border-gray-800/50 shadow-inner">
+                    <p className="text-gray-300 leading-relaxed text-sm sm:text-base">
+                        {message}
+                    </p>
+                </div>
+                
+                <div className="flex flex-col items-center gap-4 w-full">
+                    {actions}
+                    
+                    {pageStatus !== 'processing' && (
+                        <button onClick={() => onNavigate('home')} className="text-gray-500 hover:text-white transition-colors text-sm mt-2 font-medium flex items-center justify-center gap-1.5 w-full py-2">
+                            <HomeIcon className="h-4 w-4" /> Voltar à Página Inicial
+                        </button>
+                    )}
                 </div>
             </div>
+
+            {/* Aviso Inteligente: Se abriu no navegador mas o usuário tem o PWA */}
+            {!isStandalone && pageStatus !== 'processing' && (
+                <div className="mt-8 p-4 bg-blue-900/30 border border-blue-800/50 rounded-xl max-w-lg w-full text-center relative z-10 backdrop-blur-md animate-fade-in">
+                    <p className="text-xs sm:text-sm text-blue-200">
+                        <strong className="text-blue-400">Dica de Acesso:</strong> Parece que você está no navegador do celular. Se você já instalou o nosso aplicativo, recomendamos fechar esta janela e voltar a abrir o app <strong>{displayName}</strong> para a melhor experiência!
+                    </p>
+                </div>
+            )}
         </div>
     );
 };
@@ -5545,7 +6931,8 @@ const ProductReviewForm = ({ productId, orderId, onReviewSubmitted }) => {
 };
 
 const OrderDetailPage = ({ onNavigate, orderId }) => {
-    const { addToCart } = useShop();
+    const { user, logout } = useAuth(); 
+    const { addToCart, markOrderAsSeen, pickupConfig } = useShop(); 
     const notification = useNotification();
     const [order, setOrder] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -5557,25 +6944,31 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const [selectedStatusDetails, setSelectedStatusDetails] = useState(null);
     
     const [reviewingItem, setReviewingItem] = useState(null);
-    
-    // --- Estados para o Modal de Reembolso/Cancelamento do Cliente ---
     const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
     const [refundReason, setRefundReason] = useState('');
     const [isProcessingRefund, setIsProcessingRefund] = useState(false);
 
+    useEffect(() => {
+        if (orderId) {
+            markOrderAsSeen(orderId);
+        }
+    }, [orderId, markOrderAsSeen]);
+
     const fetchOrderDetails = useCallback(() => {
         setIsLoading(true);
-        return apiService(`/orders/my-orders?id=${orderId}`)
+        return apiService(`/orders/my-orders?id=${orderId}&t=${new Date().getTime()}`)
             .then(data => {
                 if (data && data.length > 0) {
                     setOrder(data[0]);
                 } else {
-                    throw new Error("Pedido não encontrado.");
+                    setOrder(null);
                 }
             })
-            .catch(err => notification.show(err.message, 'error'))
+            .catch(err => {
+                console.error(err);
+            })
             .finally(() => setIsLoading(false));
-    }, [orderId, notification]);
+    }, [orderId]);
 
     useEffect(() => {
         fetchOrderDetails();
@@ -5596,7 +6989,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         try {
             const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
             if (paymentResult && paymentResult.init_point) {
-                sessionStorage.setItem('pendingOrderId', orderId);
+                localStorage.setItem('pendingOrderId', orderId);
                 window.location.href = paymentResult.init_point;
             } else { throw new Error("Não foi possível obter o link de pagamento."); }
         } catch (error) {
@@ -5643,7 +7036,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             notification.show(result.message);
             setIsRefundModalOpen(false);
             setRefundReason('');
-            fetchOrderDetails(); // Recarrega os dados do pedido
+            fetchOrderDetails(); 
         } catch (error) {
             notification.show(`Erro ao solicitar: ${error.message}`, 'error');
         } finally {
@@ -5669,8 +7062,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             'denied': { text: 'Solicitação Negada', class: 'text-red-400 bg-red-900/50', icon: <XCircleIcon className="h-4 w-4"/> },
             'failed': { text: 'Falha no Reembolso', class: 'text-red-400 bg-red-900/50', icon: <ExclamationCircleIcon className="h-4 w-4"/> }
         };
-        // Ajuste para pedidos entregues
-        if (order.status === 'Entregue' && status === 'pending_approval') {
+        if (order && order.status === 'Entregue' && status === 'pending_approval') {
             statuses['pending_approval'].text = 'Reembolso em análise';
         }
         return statuses[status] || { text: `Status: ${status}`, class: 'text-gray-400 bg-gray-700', icon: null };
@@ -5725,7 +7117,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             }
         }
 
-        // Fallback
         return (
             <div className="flex items-center gap-3">
                 <CreditCardIcon className="h-7 w-7 text-gray-300 flex-shrink-0" />
@@ -5738,34 +7129,187 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     };
 
     if (isLoading) return <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin"/></div>;
-    if (!order) return <p className="text-center text-gray-400 py-20">Pedido não encontrado.</p>;
+    
+    if (!order) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 px-4 text-center min-h-[60vh]">
+                <div className="bg-gray-900 p-6 rounded-full mb-6 border-2 border-gray-800 shadow-xl">
+                    <ExclamationCircleIcon className="h-16 w-16 text-gray-500" />
+                </div>
+                <h2 className="text-2xl font-bold text-white mb-3">Pedido não encontrado</h2>
+                <p className="text-gray-400 mb-8 max-w-md leading-relaxed">
+                    Não conseguimos localizar este pedido. Isso pode acontecer se você estiver logado em uma conta diferente da que realizou a compra.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
+                    <button 
+                        onClick={() => { logout(); onNavigate('login'); }} 
+                        className="flex-1 px-6 py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition-colors shadow-lg flex items-center justify-center gap-2"
+                    >
+                        <UserIcon className="h-5 w-5"/>
+                        Sair e Trocar de Conta
+                    </button>
+                    <button 
+                        onClick={() => onNavigate('home')} 
+                        className="flex-1 px-6 py-3 bg-gray-800 text-white font-bold rounded-lg hover:bg-gray-700 transition-colors border border-gray-700"
+                    >
+                        Voltar ao Início
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     const isPickupOrder = order.shipping_method === 'Retirar na loja';
+    const isLocalDelivery = order.shipping_method && order.shipping_method.includes('Motoboy'); 
     const pickupDetails = isPickupOrder && order.pickup_details ? JSON.parse(order.pickup_details) : null;
     const safeHistory = Array.isArray(order.history) ? order.history : [];
     const shippingAddress = !isPickupOrder && order.shipping_address ? JSON.parse(order.shipping_address) : null;
     const subtotal = (Number(order.total) || 0) - (Number(order.shipping_cost) || 0) + (Number(order.discount_amount) || 0);
     
     const cancellableStatuses = ['Pagamento Aprovado', 'Separando Pedido', 'Entregue'];
-    const isOrderDelivered = order.status === 'Entregue';
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const isWithinRefundPeriod = new Date(order.date) > thirtyDaysAgo;
     
-    // A condição agora verifica o status do pagamento do gateway
+    const refundStatus = order.refund_status;
+    const isRefundDenied = refundStatus === 'denied';
+    const refundDeniedReason = order.refund_notes || "Motivo não informado pelo administrador."; 
+
     const canRequest = 
-        order.payment_status === 'approved' && // <-- VERIFICAÇÃO ADICIONADA
+        order.payment_status === 'approved' && 
         cancellableStatuses.includes(order.status) && 
-        !order.refund_id && 
+        (!order.refund_id || isRefundDenied) && 
         (order.status !== 'Entregue' || isWithinRefundPeriod);
-    const actionText = isOrderDelivered ? 'Reembolso' : 'Cancelamento';
-    
+        
+    const actionText = order.status === 'Entregue' ? 'Reembolso' : 'Cancelamento';
     const refundInfo = order.refund_id ? getRefundStatusInfo(order.refund_status) : null;
+    const isOrderInactive = ['Cancelado', 'Reembolsado', 'Pagamento Recusado'].includes(order.status);
+
+    const pAddress = pickupConfig?.address;
+    const isPAddressObj = typeof pAddress === 'object' && pAddress !== null;
+
+    const LocalDeliveryTimeline = ({ history, currentStatus, onStatusClick }) => {
+        const displayLabels = {
+            'Pendente': 'Pedido Pendente',
+            'Pagamento Aprovado': 'Pagamento Aprovado',
+            'Separando Pedido': 'Preparado o pedido para envio',
+            'Saiu para Entrega': 'Saiu para entrega (Motoboy)',
+            'Entregue': 'Pedido entregue',
+            'Reembolsado': 'Pedido Reembolsado',
+            'Cancelado': 'Pedido Cancelado',
+            'Pagamento Recusado': 'Pagamento Recusado'
+        };
+
+        const STATUS_DEFINITIONS = {
+            'Pendente': { icon: <ClockIcon className="h-6 w-6" />, color: 'amber', title: displayLabels['Pendente'], description: 'Aguardando confirmação do pagamento.' },
+            'Pagamento Aprovado': { icon: <CheckBadgeIcon className="h-6 w-6" />, color: 'green', title: displayLabels['Pagamento Aprovado'], description: 'Recebemos seu pagamento! Agora, estamos preparando seu pedido.' },
+            'Separando Pedido': { icon: <PackageIcon className="h-6 w-6" />, color: 'blue', title: displayLabels['Separando Pedido'], description: 'Seu pedido está sendo separado e embalado.' },
+            'Saiu para Entrega': { icon: <TruckIcon className="h-6 w-6" />, color: 'blue', title: displayLabels['Saiu para Entrega'], description: 'O motoboy/Uber saiu com seu pedido.' },
+            'Entregue': { icon: <HomeIcon className="h-6 w-6" />, color: 'green', title: displayLabels['Entregue'], description: 'Pedido entregue com sucesso!' },
+            'Reembolsado': { icon: <CurrencyDollarIcon className="h-6 w-6" />, color: 'gray', title: displayLabels['Reembolsado'], description: 'O valor foi estornado.' },
+            'Cancelado': { icon: <XCircleIcon className="h-6 w-6" />, color: 'red', title: displayLabels['Cancelado'], description: 'Pedido cancelado.' },
+            'Pagamento Recusado': { icon: <XCircleIcon className="h-6 w-6" />, color: 'red', title: displayLabels['Pagamento Recusado'], description: 'Pagamento não autorizado.' }
+        };
+
+        const colorClasses = {
+            amber: { bg: 'bg-amber-500', text: 'text-amber-400', border: 'border-amber-500' },
+            green: { bg: 'bg-green-500', text: 'text-green-400', border: 'border-green-500' },
+            blue:  { bg: 'bg-blue-500', text: 'text-blue-400', border: 'border-blue-500' },
+            red:   { bg: 'bg-red-500', text: 'text-red-400', border: 'border-red-500' },
+            gray:  { bg: 'bg-gray-700', text: 'text-gray-500', border: 'border-gray-600' }
+        };
+
+        if (['Cancelado', 'Pagamento Recusado', 'Reembolsado'].includes(currentStatus)) {
+            const specialStatus = STATUS_DEFINITIONS[currentStatus];
+            const specialClasses = colorClasses[specialStatus.color] || colorClasses.gray;
+            
+            return (
+                <div className="p-4 bg-gray-800 rounded-lg">
+                    <div onClick={() => onStatusClick && onStatusClick(specialStatus)} className="flex items-center gap-4 cursor-pointer">
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center ${specialClasses.bg} text-white`}>
+                            {React.cloneElement(specialStatus.icon, { className: 'h-7 w-7'})}
+                        </div>
+                        <div>
+                            <h4 className={`font-bold text-lg ${specialClasses.text}`}>{specialStatus.title}</h4>
+                            <p className="text-sm text-gray-400">Clique para ver mais detalhes</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const timelineOrder = [
+            'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Saiu para Entrega', 'Entregue'
+        ];
+
+        const historyMap = new Map((Array.isArray(history) ? history : []).filter(h => h.status).map(h => [h.status, h]));
+        const currentStatusIndex = timelineOrder.indexOf(currentStatus);
+
+        return (
+            <div className="w-full">
+                <div className="hidden md:flex justify-between items-center flex-wrap gap-2">
+                    {timelineOrder.map((statusKey, index) => {
+                        const statusInfo = historyMap.get(statusKey);
+                        const isStepActive = index <= currentStatusIndex;
+                        const definition = STATUS_DEFINITIONS[statusKey];
+                        if (!definition) return null;
+                        const currentClasses = isStepActive ? colorClasses[definition.color] : colorClasses.gray;
+                        
+                        return (
+                            <React.Fragment key={statusKey}>
+                                <div 
+                                    className={`flex flex-col items-center ${isStepActive && statusInfo ? 'cursor-pointer group' : 'cursor-default'}`} 
+                                    onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
+                                    <div className={`relative w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isStepActive ? 'animate-pulse' : ''}`}>
+                                        {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
+                                    </div>
+                                    <p className={`mt-2 text-xs text-center font-semibold transition-all ${currentClasses.text}`}>{displayLabels[statusKey]}</p>
+                                    {statusInfo && isStepActive && (<p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleDateString('pt-BR')}</p>)}
+                                </div>
+                                {index < timelineOrder.length - 1 && <div className={`flex-1 h-1 transition-colors ${isStepActive ? currentClasses.bg : colorClasses.gray.bg}`}></div>}
+                            </React.Fragment>
+                        );
+                    })}
+                </div>
+                <div className="md:hidden flex flex-col">
+                    {timelineOrder.map((statusKey, index) => {
+                        const statusInfo = historyMap.get(statusKey);
+                        const isStepActive = index <= currentStatusIndex;
+                        const definition = STATUS_DEFINITIONS[statusKey];
+                        if (!definition) return null;
+                        const currentClasses = isStepActive ? colorClasses[definition.color] : colorClasses.gray;
+
+                        return (
+                            <div key={statusKey} className="flex">
+                                <div className="flex flex-col items-center mr-4">
+                                    <div 
+                                        className={`relative w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isStepActive && statusInfo ? 'cursor-pointer' : 'cursor-default'}`}
+                                        onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
+                                        {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
+                                    </div>
+                                    {index < timelineOrder.length - 1 && <div className={`w-px flex-grow transition-colors my-1 ${index < currentStatusIndex ? currentClasses.bg : colorClasses.gray.bg}`}></div>}
+                                </div>
+                                <div 
+                                    className={`pt-1.5 pb-8 ${isStepActive && statusInfo ? 'cursor-pointer' : 'cursor-default'}`}
+                                    onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
+                                    <p className={`font-semibold transition-all ${currentClasses.text}`}>{displayLabels[statusKey]}</p>
+                                    {statusInfo && isStepActive && (<p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleString('pt-BR')}</p>)}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    };
 
     return (
         <>
+            {/* TODOS OS MODAIS RESTAURADOS AQUI NO TOPO */}
             <TrackingModal isOpen={isTrackingModalOpen} onClose={() => setIsTrackingModalOpen(false)} order={order} />
+            
             <StatusDescriptionModal isOpen={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} details={selectedStatusDetails} />
+            
             <AnimatePresence>
                 {reviewingItem && (
                     <Modal isOpen={true} onClose={() => setReviewingItem(null)} title={`Avaliar: ${reviewingItem.name}`}>
@@ -5777,6 +7321,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                     </Modal>
                 )}
             </AnimatePresence>
+
             <AnimatePresence>
                 {isRefundModalOpen && (
                     <Modal isOpen={true} onClose={() => setIsRefundModalOpen(false)} title={`Solicitar ${actionText} do Pedido #${order.id}`}>
@@ -5800,8 +7345,9 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                     </Modal>
                 )}
             </AnimatePresence>
+            
             <div>
-                <button onClick={() => onNavigate('account/orders')} className="text-sm text-amber-400 hover:underline flex items-center mb-6 w-fit">
+                <button onClick={() => onNavigate('account/orders')} className="text-sm text-amber-400 hover:underline flex items-center mb-6 w-fit transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                     Voltar para todos os pedidos
                 </button>
@@ -5821,13 +7367,36 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                             </button>
                         </div>
                     )}
+                    
+                    {isRefundDenied && (
+                        <div className="my-6 p-5 bg-red-950/60 border border-red-600 rounded-lg animate-fade-in shadow-lg shadow-red-900/30">
+                            <div className="flex items-start gap-3">
+                                <ExclamationCircleIcon className="h-7 w-7 text-red-500 flex-shrink-0 mt-0.5 animate-pulse" />
+                                <div className="flex-1">
+                                    <h4 className="font-bold text-red-200 text-lg mb-2">Solicitação de Reembolso Negada</h4>
+                                    <p className="text-sm text-gray-300 mb-3 leading-relaxed">
+                                        Nossa equipe analisou sua solicitação e, infelizmente, ela não pôde ser aprovada no momento.
+                                    </p>
+                                    <div className="bg-black/40 p-4 rounded-md text-sm text-white border border-red-500/30 mb-3">
+                                        <strong className="text-red-400 block mb-1">Motivo da recusa:</strong>
+                                        <span className="italic">"{refundDeniedReason}"</span>
+                                    </div>
+                                    <p className="text-xs text-gray-400">
+                                        Se você acredita que houve um erro ou deseja enviar novas informações, por favor, clique em <strong>"Nova Solicitação"</strong> abaixo e forneça mais detalhes.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="my-6">
-                        {isPickupOrder ? 
+                        {isLocalDelivery ? (
+                            <LocalDeliveryTimeline history={safeHistory} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
+                        ) : isPickupOrder ? (
                             <PickupOrderStatusTimeline history={safeHistory} currentStatus={order.status} onStatusClick={handleOpenStatusModal} /> 
-                            : 
+                        ) : (
                             <OrderStatusTimeline history={safeHistory} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
-                        }
+                        )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
@@ -5861,12 +7430,34 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                     </div>
 
                     {isPickupOrder ? (
-                        <div className="my-4 p-3 bg-gray-800 rounded-md text-sm space-y-2">
-                            <p><strong>Informações para Retirada:</strong></p>
-                            <p><strong>Endereço:</strong> R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB</p>
-                            <p><strong>Horário:</strong> Seg a Sáb, 09h-11h30 e 15h-17h30</p>
+                        <div className="my-4 p-4 bg-gray-800 rounded-md text-sm space-y-3">
+                            <div className="flex items-center gap-2 mb-1">
+                                <MapPinIcon className="h-5 w-5 text-amber-500" />
+                                <strong>Informações para Retirada:</strong>
+                            </div>
+                            
+                            {isPAddressObj ? (
+                                <div className="space-y-1 bg-gray-900 p-3 rounded-md border border-gray-700 mt-2">
+                                    <div className="flex"><span className="font-semibold text-gray-500 w-16">Rua:</span> <span className="text-gray-200">{pAddress.rua}</span></div>
+                                    <div className="flex"><span className="font-semibold text-gray-500 w-16">Nº:</span> <span className="text-gray-200">{pAddress.numero}</span></div>
+                                    <div className="flex"><span className="font-semibold text-gray-500 w-16">Bairro:</span> <span className="text-gray-200">{pAddress.bairro}</span></div>
+                                    <div className="flex"><span className="font-semibold text-gray-500 w-16">Cidade:</span> <span className="text-gray-200">{pAddress.cidade}</span></div>
+                                    <div className="flex"><span className="font-semibold text-gray-500 w-16">Estado:</span> <span className="text-gray-200">{pAddress.estado || pAddress.uf}</span></div>
+                                    <div className="flex"><span className="font-semibold text-gray-500 w-16">CEP:</span> <span className="text-gray-200 font-mono">{pAddress.cep}</span></div>
+                                </div>
+                            ) : (
+                                <p className="text-gray-300 mt-2">{pAddress || 'Endereço não configurado'}</p>
+                            )}
+
+                            {pickupConfig?.mapsLink && (
+                                <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 hover:underline text-xs font-bold mt-1 inline-flex items-center gap-1 bg-amber-400/10 px-3 py-1.5 rounded-md border border-amber-400/30 transition-all">
+                                    Ver localização no mapa <ArrowUturnLeftIcon className="h-3 w-3 rotate-180" />
+                                </a>
+                            )}
+                            
+                            <p className="pt-2 border-t border-gray-700 mt-3"><strong>Horário:</strong> {pickupConfig?.hours || 'Seg a Sáb, 09h-11h30 e 15h-17h30'}</p>
                             {pickupDetails?.personName && <p><strong>Pessoa autorizada:</strong> {pickupDetails.personName}</p>}
-                            <p className="text-amber-300 text-xs mt-2">Apresente um documento com foto e o número do pedido no momento da retirada.</p>
+                            <p className="text-amber-300 text-xs mt-2 font-semibold bg-amber-900/20 p-2 rounded">Aguarde a notificação "Pronto para Retirada" e apresente documento com foto.</p>
                         </div>
                     ) : (
                         <div className="my-4 p-3 bg-gray-800 rounded-md text-sm space-y-2">
@@ -5880,7 +7471,23 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                                     <p><span className="font-semibold text-gray-400">CEP:</span> {shippingAddress.cep}</p>
                                 </div>
                             ) : <p>Endereço não informado.</p>}
-                            {order.tracking_code && <p className="mt-2 pt-2 border-t border-gray-700"><strong>Cód. Rastreio:</strong> {order.tracking_code}</p>}
+                            
+                            {order.tracking_code && !isOrderInactive && (
+                                <div className="mt-4 pt-3 border-t border-gray-700">
+                                    {isLocalDelivery ? (
+                                        <a 
+                                            href={order.tracking_code} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer" 
+                                            className="block w-full text-center bg-black text-white font-bold py-3 rounded-md hover:bg-gray-900 border border-gray-600 transition-colors animate-pulse"
+                                        >
+                                            🚗 Acompanhar entrega em tempo real
+                                        </a>
+                                    ) : (
+                                        <p className="font-mono text-amber-400"><strong>Cód. Rastreio:</strong> {order.tracking_code}</p>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -5932,14 +7539,16 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
 
                     <div className="pt-4 mt-4 border-t border-gray-800 space-y-4 sm:space-y-0 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-2">
                         <div className="flex flex-wrap items-center gap-2">
-                            <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-700 text-white text-sm px-4 py-1.5 rounded-md hover:bg-gray-600">Repetir Pedido</button>
+                            <button onClick={() => handleRepeatOrder(order.items)} className="bg-amber-500 text-black text-sm font-bold px-4 py-1.5 rounded-md hover:bg-amber-400 shadow-sm transition-colors">Repetir Pedido</button>
                             {isPickupOrder ? (
-                                <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Ver Status da Retirada</button>
+                                <button onClick={() => setIsTrackingModalOpen(true)} className="bg-gray-800 text-white text-sm font-bold px-4 py-1.5 rounded-md hover:bg-gray-700 transition-colors">Ver Status da Retirada</button>
                             ) : (
-                                order.tracking_code && <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Rastrear Pedido</button>
+                                order.tracking_code && !isLocalDelivery && !isOrderInactive && <button onClick={() => setIsTrackingModalOpen(true)} className="bg-gray-800 text-white text-sm font-bold px-4 py-1.5 rounded-md hover:bg-gray-700 transition-colors">Rastrear Pedido</button>
                             )}
                              {canRequest && (
-                                <button onClick={() => setIsRefundModalOpen(true)} className="bg-amber-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-amber-700">Solicitar {actionText}</button>
+                                <button onClick={() => setIsRefundModalOpen(true)} className="bg-red-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-red-700 font-bold shadow-lg transform hover:-translate-y-0.5 transition-transform">
+                                    {isRefundDenied ? 'Nova Solicitação' : `Solicitar ${actionText}`}
+                                </button>
                             )}
                             {refundInfo && (
                                 <div className={`flex items-center gap-2 text-sm font-semibold px-3 py-1.5 rounded-md ${refundInfo.class}`}>
@@ -5959,7 +7568,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         </>
     );
 };
-
 const MyOrdersListPage = ({ onNavigate }) => {
     const [orders, setOrders] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -6005,9 +7613,9 @@ const MyOrdersListPage = ({ onNavigate }) => {
 
     const getStatusChipClass = (status) => {
         const lowerStatus = status.toLowerCase();
-        if (lowerStatus.includes('entregue')) return 'bg-green-200 text-green-800';
+        if (lowerStatus.includes('entregue')) return 'bg-[#86efac] text-green-900'; 
         if (lowerStatus.includes('cancelado') || lowerStatus.includes('recusado')) return 'bg-red-200 text-red-800';
-        if (lowerStatus.includes('pendente')) return 'bg-yellow-200 text-yellow-800';
+        if (lowerStatus.includes('pendente')) return 'bg-[#fde047] text-yellow-900'; // Cor fiel à imagem
         return 'bg-blue-200 text-blue-800';
     };
 
@@ -6055,42 +7663,83 @@ const MyOrdersListPage = ({ onNavigate }) => {
                 <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin" /></div>
             ) : orders.length > 0 ? (
                 <div className="space-y-4">
-                    {orders.map(order => {
+                    {orders.map((order, idx) => {
                         const firstItem = order.items && order.items.length > 0 ? order.items[0] : null;
                         const canReviewOrder = order.status === 'Entregue' && order.items?.some(item => !item.is_reviewed);
+                        const hasNotification = !!order.has_unseen_update;
 
                         return (
                             <motion.div
                                 key={order.id}
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.1 * orders.indexOf(order) }}
-                                className="bg-gray-800 p-4 rounded-lg border border-gray-700"
+                                transition={{ delay: 0.1 * idx }}
+                                className={`bg-gray-800 p-5 rounded-lg border relative transition-all ${hasNotification ? 'border-amber-500 shadow-lg shadow-amber-900/20' : 'border-gray-700'}`}
                             >
+                                {hasNotification && (
+                                    <div className="absolute -top-2.5 -right-2.5 bg-red-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full border-2 border-gray-900 z-10 flex items-center gap-1.5 animate-bounce">
+                                        <span className="h-1.5 w-1.5 bg-white rounded-full inline-block"></span>
+                                        Nova Atualização
+                                    </div>
+                                )}
+
+                                {/* SEÇÃO DO PRODUTO: COM A LINHA DIVISÓRIA RESTAURADA E VISÍVEL (border-gray-600) */}
                                 {firstItem && (
-                                    <div className="flex items-center gap-4 border-b border-gray-700 pb-4 mb-4">
+                                    <div className="flex items-center gap-4 border-b border-gray-600 pb-4 mb-4">
                                         <div onClick={() => onNavigate(`product/${firstItem.product_id}`)} className="cursor-pointer flex-shrink-0">
-                                            <img src={getFirstImage(firstItem.images)} alt={firstItem.name} className="w-16 h-16 object-contain bg-white rounded-md"/>
+                                            <img src={getFirstImage(firstItem.images)} alt={firstItem.name} className="w-14 h-14 object-contain bg-white rounded p-1"/>
                                         </div>
                                         <div className="flex-grow overflow-hidden">
-                                            <p onClick={() => onNavigate(`product/${firstItem.product_id}`)} className="font-semibold text-white truncate cursor-pointer hover:text-amber-400 transition-colors">
+                                            <p onClick={() => onNavigate(`product/${firstItem.product_id}`)} className="font-bold text-gray-200 text-sm truncate cursor-pointer hover:text-amber-400 transition-colors">
                                                 {firstItem.name}
                                             </p>
-                                            {order.items.length > 1 && ( <p className="text-sm text-gray-400 mt-1">+ {order.items.length - 1} outro(s) item(ns)</p> )}
+                                            {order.items.length > 1 && ( <p className="text-xs text-gray-400 mt-1">+ {order.items.length - 1} outro(s) item(ns)</p> )}
                                         </div>
                                     </div>
                                 )}
-                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center sm:text-left">
-                                        <div><p className="text-xs text-gray-400">Pedido</p><p className="font-bold text-white">#{order.id}</p></div>
-                                        <div><p className="text-xs text-gray-400">Data</p><p className="font-semibold text-gray-300">{new Date(order.date).toLocaleDateString('pt-BR')}</p></div>
-                                        <div><p className="text-xs text-gray-400">Status</p><span className={`px-2 py-1 text-xs font-semibold rounded-full inline-block ${getStatusChipClass(order.status)}`}>{order.status}</span></div>
-                                        <div><p className="text-xs text-gray-400">Total</p><p className="font-bold text-amber-400">R$ {Number(order.total).toFixed(2)}</p></div>
+                                
+                                {/* SEÇÃO DO RESUMO DO PEDIDO: GRID ALINHADO RESTAURADO */}
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 text-left">
+                                        <div className="flex flex-col">
+                                            <span className="text-[11px] text-gray-400 mb-1">Pedido</span>
+                                            <span className="font-bold text-white text-sm">#{order.id}</span>
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-[11px] text-gray-400 mb-1">Data</span>
+                                            <span className="font-bold text-white text-sm">{new Date(order.date).toLocaleDateString('pt-BR')}</span>
+                                        </div>
+                                        <div className="flex flex-col items-start">
+                                            <span className="text-[11px] text-gray-400 mb-1">Status</span>
+                                            <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full w-fit ${getStatusChipClass(order.status)}`}>
+                                                {order.status}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-[11px] text-gray-400 mb-1">Total</span>
+                                            <span className="font-bold text-amber-400 text-sm">R$ {Number(order.total).toFixed(2)}</span>
+                                        </div>
                                     </div>
-                                    <div className="flex-shrink-0 w-full sm:w-auto flex flex-col items-stretch gap-2">
-                                        <button onClick={() => onNavigate(`account/orders/${order.id}`)} className="w-full bg-gray-700 text-white font-bold px-4 py-2 rounded-md hover:bg-gray-600 transition">Ver Detalhes</button>
+
+                                    {/* BOTÕES ALINHADOS À DIREITA RESTAURADOS */}
+                                    <div className="flex-shrink-0 w-full sm:w-auto flex flex-col items-stretch gap-2 mt-2 sm:mt-0">
+                                        <button 
+                                            onClick={() => onNavigate(`account/orders/${order.id}`)} 
+                                            className={`w-full sm:w-auto font-bold px-4 py-2 rounded-md transition shadow-md active:scale-95 text-xs sm:text-sm border ${
+                                                hasNotification 
+                                                    ? 'bg-amber-400 text-black border-amber-400 hover:bg-amber-300' 
+                                                    : 'bg-[#374151] text-gray-200 border-gray-600 hover:bg-gray-600 hover:text-white'
+                                            }`}
+                                        >
+                                            {hasNotification ? 'Ver Atualização' : 'Ver Detalhes'}
+                                        </button>
                                         {canReviewOrder && (
-                                             <button onClick={() => setOrderToReview(order)} className="w-full bg-amber-600 text-white font-bold px-4 py-2 rounded-md hover:bg-amber-700 transition">Avaliar Pedido</button>
+                                             <button 
+                                                onClick={() => setOrderToReview(order)} 
+                                                className="w-full sm:w-auto bg-amber-600 text-white font-bold px-4 py-2 rounded-md border border-amber-600 hover:bg-amber-500 transition shadow-md active:scale-95 text-xs sm:text-sm"
+                                             >
+                                                Avaliar Pedido
+                                             </button>
                                         )}
                                     </div>
                                 </div>
@@ -6104,6 +7753,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
 };
 const MyAccountPage = ({ onNavigate, path }) => {
     const { user, logout } = useAuth();
+    const { orderNotificationCount } = useShop(); // Hook para pegar a contagem
     
     // A lógica agora extrai a aba principal e o ID do detalhe
     const pathParts = (path || 'orders').split('/');
@@ -6115,7 +7765,13 @@ const MyAccountPage = ({ onNavigate, path }) => {
     };
 
     const tabs = [
-        { key: 'orders', label: 'Meus Pedidos', icon: <PackageIcon className="h-5 w-5"/> },
+        { 
+            key: 'orders', 
+            label: 'Meus Pedidos', 
+            icon: <PackageIcon className="h-5 w-5"/>,
+            // Adiciona a contagem apenas nesta aba
+            notification: orderNotificationCount 
+        },
         { key: 'addresses', label: 'Meus Endereços', icon: <MapPinIcon className="h-5 w-5"/> },
         { key: 'profile', label: 'Meus Dados', icon: <UserIcon className="h-5 w-5"/> },
     ];
@@ -6146,9 +7802,21 @@ const MyAccountPage = ({ onNavigate, path }) => {
                     <aside className="lg:col-span-1">
                         <div className="bg-gray-900 p-4 rounded-lg border border-gray-800 space-y-2">
                             {tabs.map(tab => (
-                                <button key={tab.key} onClick={() => handleNavigation(tab.key)} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-md text-left transition-colors ${activeTab === tab.key ? 'bg-amber-500 text-black font-bold' : 'hover:bg-gray-800'}`}>
-                                    {tab.icon}
-                                    <span>{tab.label}</span>
+                                <button 
+                                    key={tab.key} 
+                                    onClick={() => handleNavigation(tab.key)} 
+                                    className={`w-full flex items-center justify-between px-4 py-3 rounded-md text-left transition-colors ${activeTab === tab.key ? 'bg-amber-500 text-black font-bold' : 'hover:bg-gray-800'}`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        {tab.icon}
+                                        <span>{tab.label}</span>
+                                    </div>
+                                    {/* Exibe o badge se houver notificações */}
+                                    {tab.notification > 0 && (
+                                        <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
+                                            {tab.notification}
+                                        </span>
+                                    )}
                                 </button>
                             ))}
                             <button onClick={() => { logout(); onNavigate('home'); }} className="w-full flex items-center space-x-3 px-4 py-3 rounded-md text-left transition-colors hover:bg-gray-800">
@@ -6204,6 +7872,8 @@ const MyOrdersSection = ({ onNavigate }) => {
         try {
             const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
             if (paymentResult && paymentResult.init_point) {
+                // --- CORREÇÃO: localStorage em vez de sessionStorage ---
+                localStorage.setItem('pendingOrderId', orderId);
                 window.location.href = paymentResult.init_point;
             } else {
                 throw new Error("Não foi possível obter o link de pagamento.");
@@ -6500,8 +8170,11 @@ const MyProfileSection = () => {
     const [twoFactorSecret, setTwoFactorSecret] = useState('');
     const [verificationCode, setVerificationCode] = useState('');
     const [disablePassword, setDisablePassword] = useState('');
-    const [disableVerificationCode, setDisableVerificationCode] = useState(''); // NOVO ESTADO
+    const [disableVerificationCode, setDisableVerificationCode] = useState(''); 
     const [is2faLoading, setIs2faLoading] = useState(false);
+
+    // Estado para Biometria
+    const [isBiometricLoading, setIsBiometricLoading] = useState(false);
 
     const handlePasswordChange = async (e) => {
         e.preventDefault();
@@ -6519,6 +8192,66 @@ const MyProfileSection = () => {
             notification.show(`Erro: ${error.message}`, 'error');
         } finally {
             setIsPasswordLoading(false);
+        }
+    };
+
+    // --- LÓGICA DE CADASTRO BIOMÉTRICO ---
+    const handleRegisterBiometrics = async () => {
+        try {
+            const startReg = window.SimpleWebAuthnBrowser ? window.SimpleWebAuthnBrowser.startRegistration : null;
+            if (!startReg) {
+                notification.show("A biblioteca de biometria não está carregada.", "error");
+                return;
+            }
+
+            setIsBiometricLoading(true);
+
+            const options = await apiService('/webauthn/generate-registration-options');
+
+            let attResp;
+            try {
+                attResp = await startReg(options);
+            } catch (err) {
+                if (err.name === 'InvalidStateError') {
+                    notification.show("Esta biometria já está cadastrada.", "error");
+                } else {
+                    console.log("Biometria cancelada:", err);
+                }
+                setIsBiometricLoading(false);
+                return;
+            }
+
+            const verification = await apiService('/webauthn/verify-registration', 'POST', attResp);
+
+            if (verification && verification.verified) {
+                notification.show("Biometria cadastrada com sucesso! Você já pode usar no próximo login.");
+                const updatedUser = { ...user, has_biometrics: true };
+                setUser(updatedUser);
+                localStorage.setItem('user', JSON.stringify(updatedUser));
+            } else {
+                notification.show("Não foi possível salvar a biometria.", "error");
+            }
+        } catch (err) {
+            console.error("Erro ao registrar biometria:", err);
+            notification.show(err.message || "Erro ao configurar biometria.", "error");
+        } finally {
+            setIsBiometricLoading(false);
+        }
+    };
+
+    // --- LÓGICA PARA REMOVER BIOMETRIA ---
+    const handleRemoveBiometrics = async () => {
+        setIsBiometricLoading(true);
+        try {
+            await apiService('/webauthn/remove', 'DELETE');
+            notification.show('Biometria desativada com sucesso.');
+            const updatedUser = { ...user, has_biometrics: false };
+            setUser(updatedUser);
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+        } catch (err) {
+            notification.show('Erro ao remover biometria.', 'error');
+        } finally {
+            setIsBiometricLoading(false);
         }
     };
 
@@ -6559,7 +8292,7 @@ const MyProfileSection = () => {
         try {
             await apiService('/2fa/disable', 'POST', { 
                 password: disablePassword,
-                token: disableVerificationCode // ENVIA O TOKEN
+                token: disableVerificationCode 
             });
             notification.show('Autenticação de Dois Fatores desativada.');
             const updatedUser = { ...user, is_two_factor_enabled: 0 };
@@ -6567,7 +8300,7 @@ const MyProfileSection = () => {
             localStorage.setItem('user', JSON.stringify(updatedUser));
             setIs2faDisableModalOpen(false);
             setDisablePassword('');
-            setDisableVerificationCode(''); // LIMPA O ESTADO
+            setDisableVerificationCode(''); 
         } catch (error) {
             notification.show(`Erro ao desativar: ${error.message}`, 'error');
         } finally {
@@ -6583,7 +8316,8 @@ const MyProfileSection = () => {
                         <form onSubmit={handlePasswordChange} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
-                                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md" />
+                                {/* CORREÇÃO: text-gray-900 adicionado */}
+                                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="w-full p-2 bg-gray-100 text-gray-900 border border-gray-300 rounded-md" />
                             </div>
                             <button type="submit" disabled={isPasswordLoading} className="w-full bg-amber-500 text-black font-bold py-2 rounded-md hover:bg-amber-400 flex justify-center items-center disabled:opacity-50">
                                 {isPasswordLoading ? <SpinnerIcon/> : "Confirmar Alteração"}
@@ -6603,13 +8337,14 @@ const MyProfileSection = () => {
                             <p className="font-mono bg-gray-200 p-2 rounded-md text-gray-800 break-all">{twoFactorSecret}</p>
                             <form onSubmit={handleVerifyAndEnable2FA} className="space-y-3 pt-4 border-t">
                                 <label className="block text-sm font-medium text-gray-700">2. Insira o código de 6 dígitos gerado:</label>
+                                {/* CORREÇÃO: text-gray-900 adicionado */}
                                 <input 
                                     type="text" 
                                     value={verificationCode}
                                     onChange={e => setVerificationCode(e.target.value)}
                                     maxLength="6"
                                     placeholder="123456"
-                                    className="w-full max-w-xs mx-auto text-center tracking-[0.5em] p-2 bg-gray-100 border border-gray-300 rounded-md text-xl font-mono"
+                                    className="w-full max-w-xs mx-auto text-center tracking-[0.5em] p-2 bg-gray-100 text-gray-900 border border-gray-300 rounded-md text-xl font-mono"
                                 />
                                 <button type="submit" disabled={is2faLoading} className="w-full max-w-xs mx-auto bg-green-600 text-white font-bold py-2 rounded-md hover:bg-green-700 flex justify-center items-center disabled:opacity-50">
                                     {is2faLoading ? <SpinnerIcon/> : "Ativar e Verificar"}
@@ -6627,10 +8362,12 @@ const MyProfileSection = () => {
                             <p className="text-red-700 bg-red-100 p-3 rounded-md text-sm">Atenção: Para desativar o 2FA, por segurança, você deve fornecer sua **senha** e um **código de autenticação** válido.</p>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Sua Senha</label>
-                                <input type="password" value={disablePassword} onChange={e => setDisablePassword(e.target.value)} required className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md" />
+                                {/* CORREÇÃO: text-gray-900 adicionado */}
+                                <input type="password" value={disablePassword} onChange={e => setDisablePassword(e.target.value)} required className="w-full p-2 bg-gray-100 text-gray-900 border border-gray-300 rounded-md" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Código de Autenticação (2FA)</label>
+                                {/* CORREÇÃO: text-gray-900 adicionado */}
                                 <input 
                                     type="text" 
                                     value={disableVerificationCode} 
@@ -6638,7 +8375,7 @@ const MyProfileSection = () => {
                                     maxLength="6"
                                     placeholder="123456"
                                     required 
-                                    className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md text-center font-mono tracking-widest"
+                                    className="w-full p-2 bg-gray-100 text-gray-900 border border-gray-300 rounded-md text-center font-mono tracking-widest"
                                 />
                             </div>
                             <button type="submit" disabled={is2faLoading} className="w-full bg-red-600 text-white font-bold py-2 rounded-md hover:bg-red-700 flex justify-center items-center disabled:opacity-50">
@@ -6654,34 +8391,69 @@ const MyProfileSection = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center"><strong className="w-24 text-gray-400 flex-shrink-0">Nome:</strong><span className="text-white">{user?.name}</span></div>
                 <div className="flex flex-col sm:flex-row sm:items-center"><strong className="w-24 text-gray-400 flex-shrink-0">Email:</strong><span className="text-white">{user?.email}</span></div>
             </div>
-            <button onClick={() => setIsPasswordModalOpen(true)} className="mt-6 bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600">Alterar Senha</button>
 
-            {user?.role === 'admin' && (
-                <div className="mt-8 pt-6 border-t border-gray-800">
-                    <h3 className="text-xl font-bold text-amber-400 mb-4">Segurança (Admin)</h3>
+            {/* --- SEÇÃO DE SEGURANÇA E ACESSO RÁPIDO --- */}
+            <div className="mt-8 pt-6 border-t border-gray-800">
+                <h3 className="text-xl font-bold text-amber-400 mb-4">Segurança e Acesso</h3>
+                
+                <div className="grid grid-cols-1 gap-4">
+                    {/* Alterar Senha Tradicional */}
                     <div className="bg-gray-800 p-6 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div>
-                            <h4 className="font-bold flex items-center gap-2"><ShieldCheckIcon className="h-5 w-5 text-amber-400"/> Autenticação de Dois Fatores (2FA)</h4>
-                            <p className="text-sm text-gray-400 mt-1">Aumente a segurança da sua conta exigindo um código de verificação ao fazer login.</p>
+                            <h4 className="font-bold flex items-center gap-2">Senha de Acesso</h4>
+                            <p className="text-sm text-gray-400 mt-1">Atualize sua senha periodicamente para manter a conta segura.</p>
                         </div>
-                        {user.is_two_factor_enabled ? (
+                        <button onClick={() => setIsPasswordModalOpen(true)} className="bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600 flex-shrink-0">Alterar Senha</button>
+                    </div>
+
+                    {/* Cadastrar Biometria (Para Todos) */}
+                    <div className="bg-gray-800 p-6 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <h4 className="font-bold flex items-center gap-2"><FingerprintIcon className="h-5 w-5 text-amber-400"/> Login Biométrico / Face ID</h4>
+                            <p className="text-sm text-gray-400 mt-1">Acesse mais rápido e com segurança usando reconhecimento biométrico (Passkeys).</p>
+                        </div>
+                        
+                        {user?.has_biometrics ? (
                             <div className="text-center flex-shrink-0">
                                 <p className="text-sm font-semibold text-green-400 bg-green-900/50 px-3 py-1 rounded-full mb-2">Ativo</p>
-                                <button onClick={() => setIs2faDisableModalOpen(true)} className="text-xs text-red-400 hover:underline">Desativar</button>
+                                <button onClick={handleRemoveBiometrics} disabled={isBiometricLoading} className="text-xs text-red-400 hover:underline">Remover</button>
                             </div>
                         ) : (
-                            <button onClick={handleGenerate2FA} disabled={is2faLoading} className="bg-amber-500 text-black font-bold py-2 px-4 rounded-md hover:bg-amber-400 flex items-center justify-center disabled:opacity-50 flex-shrink-0">
-                                {is2faLoading ? <SpinnerIcon/> : "Ativar 2FA"}
+                            <button 
+                                onClick={handleRegisterBiometrics} 
+                                disabled={isBiometricLoading}
+                                className="bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600 flex items-center justify-center disabled:opacity-50 flex-shrink-0 gap-2"
+                            >
+                                {isBiometricLoading ? <SpinnerIcon/> : <FingerprintIcon className="h-5 w-5" />}
+                                Ativar Biometria
                             </button>
                         )}
                     </div>
+
+                    {/* 2FA Apenas para Admins */}
+                    {user?.role === 'admin' && (
+                        <div className="bg-gray-800 p-6 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border border-indigo-900/50">
+                            <div>
+                                <h4 className="font-bold flex items-center gap-2"><ShieldCheckIcon className="h-5 w-5 text-indigo-400"/> Autenticação de Dois Fatores (Admin)</h4>
+                                <p className="text-sm text-gray-400 mt-1">Exija um código de verificação via app ao fazer login no painel administrativo.</p>
+                            </div>
+                            {user.is_two_factor_enabled ? (
+                                <div className="text-center flex-shrink-0">
+                                    <p className="text-sm font-semibold text-green-400 bg-green-900/50 px-3 py-1 rounded-full mb-2">Ativo</p>
+                                    <button onClick={() => setIs2faDisableModalOpen(true)} className="text-xs text-red-400 hover:underline">Desativar</button>
+                                </div>
+                            ) : (
+                                <button onClick={handleGenerate2FA} disabled={is2faLoading} className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700 flex items-center justify-center disabled:opacity-50 flex-shrink-0">
+                                    {is2faLoading ? <SpinnerIcon/> : "Ativar 2FA"}
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
-            )}
+            </div>
         </>
     );
 };
-
-
 const AjudaPage = ({ onNavigate }) => {
     const faqData = [
         {
@@ -6787,7 +8559,7 @@ const AjudaPage = ({ onNavigate }) => {
     );
 };
 
-const AboutPage = () => {
+const AboutPage = ({ appName }) => {
     return (
         <div className="bg-black text-white min-h-screen py-16">
             <div className="container mx-auto px-4 max-w-4xl">
@@ -6799,7 +8571,7 @@ const AboutPage = () => {
                 <div className="bg-gray-900 p-8 rounded-lg border border-gray-800 space-y-8 text-lg text-gray-300 leading-relaxed">
                     <section>
                         <h2 className="text-2xl font-bold text-white mb-4">Nossa História</h2>
-                        <p>A Love Cestas e Perfumes nasceu de uma paixão por aromas marcantes e pela moda que expressa identidade. Fundada em João Pessoa, Paraíba, nossa missão sempre foi oferecer mais do que produtos; oferecemos uma experiência de autoestima e bem-estar. Cada peça de roupa é selecionada com um olhar atento às tendências e à qualidade, e cada perfume é escolhido por sua capacidade de criar memórias inesquecíveis.</p>
+                        <p>A {appName || 'loja'} nasceu de uma paixão por aromas marcantes e pela moda que expressa identidade. Fundada em João Pessoa, Paraíba, nossa missão sempre foi oferecer mais do que produtos; oferecemos uma experiência de autoestima e bem-estar. Cada peça de roupa é selecionada com um olhar atento às tendências e à qualidade, e cada perfume é escolhido por sua capacidade de criar memórias inesquecíveis.</p>
                     </section>
 
                     <section>
@@ -6822,7 +8594,8 @@ const AboutPage = () => {
     );
 };
 
-const PrivacyPolicyPage = () => {
+const PrivacyPolicyPage = ({ appName, appLogoText }) => {
+    const displayLogo = appLogoText || appName || 'nossa loja';
     return (
         <div className="bg-black text-white min-h-screen py-16">
             <div className="container mx-auto px-4 max-w-4xl">
@@ -6831,7 +8604,7 @@ const PrivacyPolicyPage = () => {
                     <p className="text-gray-400">Última atualização: 16 de Outubro de 2025</p>
                 </div>
                 <div className="bg-gray-900 p-8 rounded-lg border border-gray-800 space-y-6 text-gray-300 leading-relaxed">
-                    <p>Sua privacidade é importante para nós. É política da LovecestasePerfumes respeitar a sua privacidade em relação a qualquer informação sua que possamos coletar em nosso site.</p>
+                    <p>Sua privacidade é importante para nós. É política da {displayLogo} respeitar a sua privacidade em relação a qualquer informação sua que possamos coletar em nosso site.</p>
                     
                     <h3 className="text-xl font-bold text-white pt-4">1. Coleta de Dados</h3>
                     <p>Solicitamos informações pessoais apenas quando realmente precisamos delas para lhe fornecer um serviço. Fazemo-lo por meios justos e legais, com o seu conhecimento e consentimento. Também informamos por que estamos coletando e como será usado.</p>
@@ -6856,7 +8629,8 @@ const PrivacyPolicyPage = () => {
     );
 };
 
-const TermsOfServicePage = () => {
+const TermsOfServicePage = ({ appName, appLogoText }) => {
+    const displayLogo = appLogoText || appName || 'nossa loja';
     return (
         <div className="bg-black text-white min-h-screen py-16">
             <div className="container mx-auto px-4 max-w-4xl">
@@ -6866,7 +8640,7 @@ const TermsOfServicePage = () => {
                 </div>
                 <div className="bg-gray-900 p-8 rounded-lg border border-gray-800 space-y-6 text-gray-300 leading-relaxed">
                     <h3 className="text-xl font-bold text-white">1. Aceitação dos Termos</h3>
-                    <p>Ao acessar e usar o site da LovecestasePerfumes, você concorda em cumprir estes Termos de Serviço e todas as leis e regulamentos aplicáveis. Se você não concorda com algum destes termos, está proibido de usar ou acessar este site.</p>
+                    <p>Ao acessar e usar o site da {displayLogo}, você concorda em cumprir estes Termos de Serviço e todas as leis e regulamentos aplicáveis. Se você não concorda com algum destes termos, está proibido de usar ou acessar este site.</p>
 
                     <h3 className="text-xl font-bold text-white pt-4">2. Contas de Usuário</h3>
                     <p>Para acessar certas funcionalidades, você pode ser solicitado a criar uma conta. Você é responsável por manter a confidencialidade de sua senha e por todas as atividades que ocorrem em sua conta. Você concorda em nos notificar imediatamente sobre qualquer uso não autorizado de sua conta.</p>
@@ -6878,14 +8652,14 @@ const TermsOfServicePage = () => {
                     <p>Reservamo-nos o direito de recusar qualquer pedido que você fizer conosco. Podemos, a nosso critério, limitar ou cancelar as quantidades compradas por pessoa, por domicílio ou por pedido. No caso de fazermos uma alteração ou cancelarmos um pedido, podemos tentar notificá-lo entrando em contato com o e-mail e/ou endereço de faturamento/número de telefone fornecido no momento em que o pedido foi feito.</p>
 
                     <h3 className="text-xl font-bold text-white pt-4">5. Limitação de Responsabilidade</h3>
-                    <p>Em nenhuma circunstância a LovecestasePerfumes será responsável por quaisquer danos (incluindo, sem limitação, danos por perda de dados ou lucro, ou devido a interrupção dos negócios) decorrentes do uso ou da incapacidade de usar os materiais no site da LovecestasePerfumes.</p>
+                    <p>Em nenhuma circunstância a {displayLogo} será responsável por quaisquer danos (incluindo, sem limitação, danos por perda de dados ou lucro, ou devido a interrupção dos negócios) decorrentes do uso ou da incapacidade de usar os materiais no site da {displayLogo}.</p>
                 </div>
             </div>
         </div>
     );
 };
 
-const AdminNewsletter = () => {
+const AdminNewsletter = ({ appName }) => {
     const [subscribers, setSubscribers] = useState([]);
     const [products, setProducts] = useState([]); // Lista de produtos para o select
     const [isLoading, setIsLoading] = useState(true);
@@ -7104,6 +8878,9 @@ const AdminNewsletter = () => {
                                 {isSending ? 'Enviando...' : 'Enviar para Todos'}
                             </button>
                         </div>
+                        <p className="text-center text-xs text-gray-500 mt-4">
+                            Você recebeu este e-mail porque se inscreveu no Clube VIP da {appName || 'loja'}.
+                        </p>
                     </form>
                 </div>
             )}
@@ -7146,9 +8923,21 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     const { user, logout } = useAuth();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [newOrdersCount, setNewOrdersCount] = useState(0);
+    const [pendingRefundsCount, setPendingRefundsCount] = useState(0); 
+    const [isMaintenance, setIsMaintenance] = useState(false); 
     const mainContentRef = useRef(null);
 
-    // Busca contagem de novos pedidos para o badge de notificação
+    useEffect(() => {
+        apiService('/settings/maintenance')
+            .then(data => setIsMaintenance(data.status === 'on'))
+            .catch(() => {});
+
+        const handleMaintenanceUpdate = (e) => setIsMaintenance(e.detail === 'on');
+        window.addEventListener('maintenance-changed', handleMaintenanceUpdate);
+        
+        return () => window.removeEventListener('maintenance-changed', handleMaintenanceUpdate);
+    }, []);
+
     useEffect(() => {
         apiService('/orders')
             .then(data => {
@@ -7168,6 +8957,19 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                 console.error("Erro silencioso ao buscar contagem de pedidos:", err);
                 setNewOrdersCount(0);
             });
+
+        apiService('/refunds')
+            .then(data => {
+                if (Array.isArray(data)) {
+                    const pending = data.filter(r => r.status === 'pending_approval');
+                    setPendingRefundsCount(pending.length);
+                }
+            })
+            .catch(err => {
+                console.error("Erro silencioso ao buscar reembolsos:", err);
+                setPendingRefundsCount(0);
+            });
+
     }, [activePage]);
 
     const handleLogout = () => {
@@ -7181,7 +8983,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
             items: [
                 { key: 'dashboard', label: 'Visão Geral', icon: <ChartIcon className="h-5 w-5"/> },
                 { key: 'orders', label: 'Pedidos', icon: <TruckIcon className="h-5 w-5"/>, badge: newOrdersCount },
-                { key: 'refunds', label: 'Reembolsos', icon: <CurrencyDollarArrowIcon className="h-5 w-5"/> },
+                { key: 'refunds', label: 'Reembolsos', icon: <CurrencyDollarArrowIcon className="h-5 w-5"/>, badge: pendingRefundsCount }, 
             ]
         },
         {
@@ -7200,9 +9002,12 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                 { key: 'newsletter', label: 'Newsletter VIP', icon: <SparklesIcon className="h-5 w-5"/> },
             ]
         },
-        {
+       {
             title: "Sistema",
             items: [
+                { key: 'theme', label: 'Tema e Cores', icon: <SparklesIcon className="h-5 w-5"/> }, // NOVO ITEM AQUI
+                { key: 'app-icons', label: 'Ícones e Nomes', icon: <CameraIcon className="h-5 w-5"/> }, 
+                { key: 'shipping', label: 'Frete Local', icon: <TruckIcon className="h-5 w-5"/> }, 
                 { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
                 { key: 'logs', label: 'Logs do Sistema', icon: <ClipboardDocListIcon className="h-5 w-5"/> },
             ]
@@ -7211,12 +9016,9 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
 
     return (
         <div className="h-screen flex overflow-hidden bg-gray-50 text-slate-800 font-sans selection:bg-indigo-100 selection:text-indigo-700">
-            {/* Overlay Mobile */}
             {isSidebarOpen && <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
 
-            {/* Sidebar */}
             <aside className={`bg-white w-72 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 flex flex-col border-r border-gray-200 shadow-xl lg:shadow-none`}>
-                {/* Logo Area */}
                 <div className="h-16 flex items-center px-6 border-b border-gray-100 flex-shrink-0 bg-white">
                     <div className="flex items-center gap-3 text-indigo-600">
                         <div className="p-1.5 bg-indigo-600 rounded-lg">
@@ -7229,7 +9031,6 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                     </button>
                 </div>
 
-                {/* Navigation */}
                 <nav className="flex-grow p-4 space-y-6 overflow-y-auto custom-scrollbar">
                     {menuGroups.map((group, idx) => (
                         <div key={idx}>
@@ -7267,7 +9068,6 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                     ))}
                 </nav>
 
-                {/* User Footer */}
                 <div className="p-4 border-t border-gray-100 bg-gray-50/50">
                     <div className="flex items-center gap-3 mb-3">
                         <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold border border-indigo-200">
@@ -7289,9 +9089,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                 </div>
             </aside>
 
-            {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden relative">
-                {/* Header Topbar */}
                 <header className="bg-white/80 backdrop-blur-md h-16 flex items-center justify-between px-6 sm:px-8 flex-shrink-0 z-20 border-b border-gray-200 sticky top-0">
                      <div className="flex items-center gap-4">
                          <button onClick={() => setIsSidebarOpen(true)} className="p-2 lg:hidden text-slate-500 hover:bg-gray-100 rounded-md">
@@ -7302,13 +9100,23 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                          </h1>
                      </div>
                      <div className="flex items-center gap-4">
-                        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-full border border-green-100 shadow-sm">
-                            <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                            </span>
-                            <span className="text-xs font-bold tracking-wide">SISTEMA ONLINE</span>
-                        </div>
+                        {isMaintenance ? (
+                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full border border-amber-200 shadow-sm">
+                                <span className="relative flex h-2 w-2">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                                </span>
+                                <span className="text-xs font-bold tracking-wide">EM MANUTENÇÃO</span>
+                            </div>
+                        ) : (
+                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-full border border-green-100 shadow-sm">
+                                <span className="relative flex h-2 w-2">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                </span>
+                                <span className="text-xs font-bold tracking-wide">SISTEMA ONLINE</span>
+                            </div>
+                        )}
                      </div>
                 </header>
 
@@ -7322,6 +9130,373 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
         </div>
     );
 });
+const AdminShippingSettings = () => {
+    const [activeTab, setActiveTab] = useState('pickup'); 
+    
+    const [config, setConfig] = useState({ base_price: 20, rules: [] });
+    const [productsData, setProductsData] = useState({ brands: [], categories: [] });
+    const [newRule, setNewRule] = useState({ type: 'category', value: '', action: 'free_shipping', amount: 0 });
+
+    const [pickupConfig, setPickupConfig] = useState({ 
+        address: { rua: '', numero: '', bairro: '', cidade: '', estado: '', cep: '' }, 
+        hours: '', 
+        instructions: '', 
+        mapsLink: '' 
+    });
+
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+    const notification = useNotification();
+    const confirmation = useConfirmation();
+
+    const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+    const [authInput, setAuthInput] = useState('');
+    const [isAuthVerify, setIsAuthVerify] = useState(false);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const [configData, pickupData, products, collections] = await Promise.all([
+                    apiService('/settings/shipping-local'),
+                    apiService('/settings/pickup'),
+                    apiService('/products/all'),
+                    apiService('/collections/admin')
+                ]);
+
+                setConfig({
+                    base_price: parseFloat(configData.base_price) || 20,
+                    rules: Array.isArray(configData.rules) ? configData.rules : []
+                });
+
+                if (pickupData) {
+                    setPickupConfig({
+                        address: typeof pickupData.address === 'object' && pickupData.address !== null 
+                            ? { ...pickupData.address, estado: pickupData.address.estado || pickupData.address.uf || '' }
+                            : { rua: pickupData.address || '', numero: '', bairro: '', cidade: '', estado: '', cep: '' },
+                        hours: pickupData.hours || '',
+                        instructions: pickupData.instructions || '',
+                        mapsLink: pickupData.mapsLink || ''
+                    });
+                }
+
+                const uniqueBrands = [...new Set(products.map(p => p.brand).filter(Boolean))].sort();
+                const uniqueCats = [...new Set([...products.map(p => p.category), ...collections.map(c => c.filter)].filter(Boolean))].sort();
+
+                setProductsData({ brands: uniqueBrands, categories: uniqueCats });
+            } catch (err) {
+                notification.show("Erro ao carregar configurações.", "error");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchData();
+    }, []);
+
+    const handleAddRule = () => {
+        if (!newRule.value) { notification.show("Selecione um valor para a regra.", "error"); return; }
+        setConfig(prev => ({ ...prev, rules: [...prev.rules, { ...newRule, id: Date.now(), amount: parseFloat(newRule.amount) || 0 }] }));
+        setNewRule({ type: 'category', value: '', action: 'free_shipping', amount: 0 });
+    };
+
+    const handleRemoveRule = (id) => {
+        setConfig(prev => ({ ...prev, rules: prev.rules.filter(r => r.id !== id) }));
+    };
+
+    const handlePickupChange = (e) => {
+        const { name, value } = e.target;
+        setPickupConfig(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleAddressChange = (e) => {
+        const { name, value } = e.target;
+        setPickupConfig(prev => ({ 
+            ...prev, 
+            address: { ...prev.address, [name]: value } 
+        }));
+    };
+
+    const handleSave = () => {
+        setIsAuthModalOpen(true);
+    };
+
+    const confirmSaveWithAuth = async (e) => {
+        e.preventDefault();
+        setIsAuthVerify(true);
+        setIsSaving(true);
+        
+        try {
+            if (activeTab === 'motoboy') {
+                const payload = {
+                    base_price: parseFloat(config.base_price),
+                    rules: config.rules.map(r => ({ ...r, amount: parseFloat(r.amount) || 0 })),
+                    password: authInput, 
+                    token: authInput.length === 6 && !isNaN(authInput) ? authInput : null 
+                };
+                await apiService('/settings/shipping-local', 'PUT', payload);
+                notification.show("Configurações de frete salvas com sucesso!");
+            } else {
+                const payload = {
+                    config: pickupConfig,
+                    password: authInput, 
+                    token: authInput.length === 6 && !isNaN(authInput) ? authInput : null 
+                };
+                await apiService('/settings/pickup', 'PUT', payload);
+                notification.show("Configurações de retirada salvas com sucesso!");
+            }
+            
+            setIsAuthModalOpen(false);
+            setAuthInput('');
+        } catch (err) {
+            notification.show(err.message || "Erro ao salvar. Verifique sua senha/token.", "error");
+        } finally {
+            setIsSaving(false);
+            setIsAuthVerify(false);
+        }
+    };
+
+    if (isLoading) return <div className="flex justify-center p-10"><SpinnerIcon className="h-8 w-8 text-indigo-600"/></div>;
+
+    return (
+        <div className="max-w-4xl mx-auto space-y-8">
+            <AnimatePresence>
+                {isAuthModalOpen && (
+                    <Modal isOpen={true} onClose={() => setIsAuthModalOpen(false)} title="Confirmação de Segurança">
+                        <form onSubmit={confirmSaveWithAuth} className="space-y-4">
+                            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                                <p className="text-sm text-yellow-700">
+                                    Esta é uma alteração crítica. Por favor, confirme sua <strong>Senha</strong> ou código <strong>2FA</strong> para continuar.
+                                </p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Senha ou Código 2FA</label>
+                                <input 
+                                    type="password" 
+                                    value={authInput} 
+                                    onChange={(e) => setAuthInput(e.target.value)} 
+                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                                    placeholder="Digite sua senha ou token..."
+                                    required
+                                />
+                            </div>
+                            <div className="flex justify-end gap-3">
+                                <button type="button" onClick={() => setIsAuthModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 text-gray-700">Cancelar</button>
+                                <button type="submit" disabled={isAuthVerify} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center gap-2">
+                                    {isAuthVerify && <SpinnerIcon className="h-4 w-4"/>}
+                                    Confirmar e Salvar
+                                </button>
+                            </div>
+                        </form>
+                    </Modal>
+                )}
+            </AnimatePresence>
+
+            <div>
+                <h1 className="text-3xl font-bold text-slate-800">Métodos de Entrega e Retirada</h1>
+                <p className="text-slate-500">Configure as opções locais oferecidas aos clientes.</p>
+            </div>
+
+            <div className="flex border-b border-gray-200 bg-white rounded-t-lg shadow-sm">
+                <button 
+                    onClick={() => setActiveTab('pickup')} 
+                    className={`flex-1 px-6 py-4 font-bold text-sm transition-all border-b-2 flex justify-center items-center gap-2 ${activeTab === 'pickup' ? 'border-indigo-600 text-indigo-700 bg-indigo-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                >
+                    <BoxIcon className="h-5 w-5"/> Retirada na Loja
+                </button>
+                <button 
+                    onClick={() => setActiveTab('motoboy')} 
+                    className={`flex-1 px-6 py-4 font-bold text-sm transition-all border-b-2 flex justify-center items-center gap-2 ${activeTab === 'motoboy' ? 'border-indigo-600 text-indigo-700 bg-indigo-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                >
+                    <TruckIcon className="h-5 w-5"/> Frete Local (Motoboy)
+                </button>
+            </div>
+
+            <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+            >
+                {activeTab === 'pickup' && (
+                    <div className="space-y-6">
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                            <h3 className="text-lg font-bold text-slate-800 mb-1 flex items-center gap-2">
+                                <MapPinIcon className="h-5 w-5 text-indigo-600"/> Endereço Principal
+                            </h3>
+                            <p className="text-xs text-gray-500 mb-4">Este é o local onde o cliente buscará o pedido.</p>
+                            
+                            <div className="space-y-5">
+                                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <div className="md:col-span-8">
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Rua</label>
+                                        <input type="text" name="rua" value={pickupConfig.address?.rua || ''} onChange={handleAddressChange} className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="Rua / Avenida" />
+                                    </div>
+                                    <div className="md:col-span-4">
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Número</label>
+                                        <input type="text" name="numero" value={pickupConfig.address?.numero || ''} onChange={handleAddressChange} className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="123" />
+                                    </div>
+                                    <div className="md:col-span-4">
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Bairro</label>
+                                        <input type="text" name="bairro" value={pickupConfig.address?.bairro || ''} onChange={handleAddressChange} className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="Bairro" />
+                                    </div>
+                                    <div className="md:col-span-4">
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Cidade</label>
+                                        <input type="text" name="cidade" value={pickupConfig.address?.cidade || ''} onChange={handleAddressChange} className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="Sua Cidade" />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Estado</label>
+                                        <input type="text" name="estado" value={pickupConfig.address?.estado || ''} onChange={handleAddressChange} className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="Paraíba" />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">CEP</label>
+                                        <input type="text" name="cep" value={pickupConfig.address?.cep || ''} onChange={handleAddressChange} className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="00000-000" />
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Link do Google Maps (Opcional, mas recomendado)</label>
+                                    <input 
+                                        type="url" 
+                                        name="mapsLink"
+                                        value={pickupConfig.mapsLink}
+                                        onChange={handlePickupChange}
+                                        placeholder="https://maps.app.goo.gl/..."
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                            <h3 className="text-lg font-bold text-slate-800 mb-1 flex items-center gap-2">
+                                <ClockIcon className="h-5 w-5 text-indigo-600"/> Detalhes do Funcionamento
+                            </h3>
+                            <p className="text-xs text-gray-500 mb-4">Informações importantes exibidas no Checkout e Rastreador.</p>
+                            
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Horário de Atendimento</label>
+                                    <textarea 
+                                        name="hours"
+                                        value={pickupConfig.hours}
+                                        onChange={handlePickupChange}
+                                        rows="2"
+                                        placeholder="Segunda a Sábado, das 9h às 18h."
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Instruções / O que levar</label>
+                                    <textarea 
+                                        name="instructions"
+                                        value={pickupConfig.instructions}
+                                        onChange={handlePickupChange}
+                                        rows="2"
+                                        placeholder="Apresentar documento com foto e número do pedido."
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 text-sm"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'motoboy' && (
+                    <div className="space-y-6">
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                <TruckIcon className="h-5 w-5 text-indigo-600"/> Preço Base
+                            </h3>
+                            <div className="flex items-center gap-4">
+                                <div className="flex-1 max-w-xs">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Valor Padrão (R$)</label>
+                                    <input 
+                                        type="number" 
+                                        step="0.01" 
+                                        value={config.base_price} 
+                                        onChange={(e) => setConfig({...config, base_price: e.target.value})}
+                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                                    />
+                                </div>
+                                <div className="flex-1 text-sm text-gray-500 pt-6">
+                                    Este valor será cobrado se nenhuma regra específica for aplicada.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                <TagIcon className="h-5 w-5 text-indigo-600"/> Regras Específicas
+                            </h3>
+                            
+                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                                <div className="md:col-span-2">
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Se</label>
+                                    <select value={newRule.type} onChange={(e) => setNewRule({...newRule, type: e.target.value, value: ''})} className="w-full p-2 text-sm border rounded-md">
+                                        <option value="category">Categoria</option>
+                                        <option value="brand">Marca</option>
+                                    </select>
+                                </div>
+                                <div className="md:col-span-3">
+                                    <label className="text-xs font-bold text-gray-500 uppercase">For Igual A</label>
+                                    <select value={newRule.value} onChange={(e) => setNewRule({...newRule, value: e.target.value})} className="w-full p-2 text-sm border rounded-md">
+                                        <option value="">Selecione...</option>
+                                        {newRule.type === 'category' 
+                                            ? productsData.categories.map(c => <option key={c} value={c}>{c}</option>)
+                                            : productsData.brands.map(b => <option key={b} value={b}>{b}</option>)
+                                        }
+                                    </select>
+                                </div>
+                                <div className="md:col-span-3">
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Aplicar</label>
+                                    <select value={newRule.action} onChange={(e) => setNewRule({...newRule, action: e.target.value})} className="w-full p-2 text-sm border rounded-md">
+                                        <option value="free_shipping">Frete Grátis</option>
+                                        <option value="surcharge">Acréscimo (+R$)</option>
+                                        <option value="discount">Desconto (-R$)</option>
+                                    </select>
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Valor</label>
+                                    <input type="number" disabled={newRule.action === 'free_shipping'} value={newRule.amount} onChange={(e) => setNewRule({...newRule, amount: e.target.value})} className={`w-full p-2 text-sm border rounded-md ${newRule.action === 'free_shipping' ? 'bg-gray-200 cursor-not-allowed' : 'bg-white'}`} placeholder="0.00" />
+                                </div>
+                                <div className="md:col-span-2">
+                                    <button onClick={handleAddRule} className="w-full bg-indigo-600 text-white p-2 rounded-md font-bold text-sm hover:bg-indigo-700 transition-colors">+ Adicionar</button>
+                                </div>
+                            </div>
+
+                            {config.rules.length === 0 ? (
+                                <p className="text-center text-gray-400 py-4 text-sm">Nenhuma regra configurada.</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {config.rules.map((rule, index) => (
+                                        <div key={rule.id || index} className="flex items-center justify-between p-3 bg-white border rounded-md shadow-sm">
+                                            <div className="flex items-center gap-2 text-sm">
+                                                <span className="font-bold bg-gray-100 px-2 py-1 rounded text-gray-600 capitalize">{rule.type === 'category' ? 'Categoria' : 'Marca'}</span>
+                                                <span className="text-gray-400">é</span>
+                                                <span className="font-bold text-indigo-700">{rule.value}</span>
+                                                <span className="text-gray-400">→</span>
+                                                {rule.action === 'free_shipping' && <span className="text-green-600 font-bold bg-green-50 px-2 py-1 rounded border border-green-200">Frete Grátis</span>}
+                                                {rule.action === 'surcharge' && <span className="text-red-600 font-bold">Acréscimo de R$ {Number(rule.amount).toFixed(2)}</span>}
+                                                {rule.action === 'discount' && <span className="text-blue-600 font-bold">Desconto de R$ {Number(rule.amount).toFixed(2)}</span>}
+                                            </div>
+                                            <button onClick={() => handleRemoveRule(rule.id)} className="text-red-400 hover:text-red-600 p-1"><TrashIcon className="h-4 w-4"/></button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </motion.div>
+
+            <div className="flex justify-end pt-4">
+                <button onClick={handleSave} disabled={isSaving} className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-green-700 shadow-md flex items-center gap-2 disabled:opacity-70 active:scale-95 transition-all">
+                    {isSaving ? <SpinnerIcon className="h-5 w-5"/> : <CheckIcon className="h-5 w-5"/>}
+                    Salvar Alterações
+                </button>
+            </div>
+        </div>
+    );
+};
 
 const AdminDashboard = ({ onNavigate }) => {
     const { user } = useAuth();
@@ -7537,7 +9712,11 @@ const AdminDashboard = ({ onNavigate }) => {
                 </div>
                 <div className="flex-grow overflow-y-auto max-h-[320px] p-2 space-y-1 custom-scrollbar">
                     {filtered.length > 0 ? filtered.map(item => (
-                        <div key={item.id + item.name} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors group border border-transparent hover:border-gray-100">
+                        <div 
+                            key={item.id + item.name} 
+                            onClick={() => { setSelectedStockItem(item); setIsStockModalOpen(true); }}
+                            className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors group border border-transparent hover:border-gray-100 cursor-pointer"
+                        >
                             <div className="flex items-center gap-3 overflow-hidden">
                                 <div className="w-8 h-8 rounded bg-gray-100 flex-shrink-0 border border-gray-200 p-0.5">
                                     <img src={getFirstImage(item.images)} alt={item.name} className="w-full h-full object-contain rounded-sm" />
@@ -7549,12 +9728,11 @@ const AdminDashboard = ({ onNavigate }) => {
                             </div>
                             <div className="text-right flex-shrink-0 flex flex-col items-end">
                                 <span className="text-xs font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">{item.stock} un.</span>
-                                <button 
-                                    onClick={() => { setSelectedStockItem(item); setIsStockModalOpen(true); }}
-                                    className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                <span 
+                                    className="text-[10px] text-indigo-600 font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
                                     Repor
-                                </button>
+                                </span>
                             </div>
                         </div>
                     )) : (
@@ -7745,58 +9923,92 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
     };
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start p-3 bg-gray-50 rounded-md border">
+        <div className="group relative grid grid-cols-1 md:grid-cols-12 gap-4 items-start p-4 bg-white rounded-lg border border-gray-200 shadow-sm transition-all hover:shadow-md hover:border-indigo-200">
+            {/* Número da Variação (Visual) */}
+            <div className="absolute -left-2 -top-2 w-6 h-6 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center text-xs font-bold border border-gray-200 shadow-sm z-10">
+                {index + 1}
+            </div>
+
             <div className="md:col-span-3">
-                <label className="text-xs text-gray-500">Cor</label>
-                <select value={variation.color} onChange={(e) => onVariationChange(index, 'color', e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-white">
-                    <option value="">Selecione a Cor</option>
-                    {availableColors.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Cor</label>
+                <div className="relative">
+                    <select 
+                        value={variation.color} 
+                        onChange={(e) => onVariationChange(index, 'color', e.target.value)} 
+                        className="w-full pl-3 pr-8 py-2 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block transition-colors"
+                    >
+                        <option value="">Selecione...</option>
+                        {availableColors.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    {variation.color && (
+                        <div className="absolute right-8 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border border-gray-300 shadow-sm" style={{ backgroundColor: variation.color === 'Multicolorido' ? 'transparent' : variation.color.toLowerCase() }}></div>
+                    )}
+                </div>
             </div>
+            
             <div className="md:col-span-2">
-                <label className="text-xs text-gray-500">Tamanho</label>
-                <input type="text" list="available-sizes" value={variation.size} onChange={(e) => onVariationChange(index, 'size', e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" placeholder="Ex: M ou 42"/>
-                <datalist id="available-sizes">{availableSizes.map(s => <option key={s} value={s}>{s}</option>)}</datalist>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Tamanho</label>
+                <input 
+                    type="text" 
+                    list={`available-sizes-${index}`} 
+                    value={variation.size} 
+                    onChange={(e) => onVariationChange(index, 'size', e.target.value)} 
+                    className="w-full p-2 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 uppercase transition-colors" 
+                    placeholder="M, 42..."
+                />
+                <datalist id={`available-sizes-${index}`}>{availableSizes.map(s => <option key={s} value={s}>{s}</option>)}</datalist>
             </div>
+            
             <div className="md:col-span-2">
-                <label className="text-xs text-gray-500">Estoque</label>
-                <input type="number" min="0" value={variation.stock} onChange={(e) => onVariationChange(index, 'stock', parseInt(e.target.value, 10) || 0)} className="w-full p-2 border border-gray-300 rounded-md" placeholder="0"/>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Estoque</label>
+                <input 
+                    type="number" 
+                    min="0" 
+                    value={variation.stock} 
+                    onChange={(e) => onVariationChange(index, 'stock', parseInt(e.target.value, 10) || 0)} 
+                    className="w-full p-2 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors" 
+                    placeholder="0"
+                />
             </div>
-            <div className={`md:col-span-4 space-y-2 ${!isFirstOfColor && 'opacity-40'}`}>
+
+            <div className={`md:col-span-4 space-y-2 ${!isFirstOfColor ? 'opacity-50 grayscale' : ''}`}>
                  {isFirstOfColor ? (
                     <>
-                        <label className="text-xs text-gray-500 font-semibold">Imagens para a cor "{variation.color || '...'}"</label>
-                        <div className="p-2 border rounded-md bg-white min-h-[60px]">
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Imagens ({variation.color || 'Geral'})</label>
+                        <div className="p-2 border border-dashed border-gray-300 rounded-lg bg-gray-50 min-h-[64px] flex flex-wrap gap-2 items-center transition-colors hover:bg-gray-100">
                             {variation.images && variation.images.length > 0 ? (
-                                <div className="flex flex-wrap gap-2">
-                                    {variation.images.map((img, imgIndex) => (
-                                        <div key={imgIndex} className="relative group">
-                                            <img src={img} alt="Variação" className="w-12 h-12 object-cover rounded-md border" />
-                                            <button type="button" onClick={() => handleRemoveImage(imgIndex)} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"><XMarkIcon className="h-3 w-3" /></button>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : ( <p className="text-xs text-gray-400 text-center py-2">Nenhuma imagem</p> )}
-                        </div>
-                        <div>
-                            <input type="file" multiple accept="image/*" ref={galleryInputRef} onChange={handleFileChange} className="hidden" />
-                            <input type="file" accept="image/*" capture="environment" ref={cameraInputRef} onChange={handleFileChange} className="hidden" />
-                            <div className="flex gap-2 mt-1">
-                                <button type="button" onClick={() => galleryInputRef.current.click()} className="w-1/2 text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-1 px-2 rounded-md flex items-center justify-center gap-1"><UploadIcon className="h-4 w-4" /> Galeria</button>
-                                <button type="button" onClick={() => cameraInputRef.current.click()} className="w-1/2 text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-1 px-2 rounded-md flex items-center justify-center gap-1"><CameraIcon className="h-4 w-4" /> Câmera</button>
+                                variation.images.map((img, imgIndex) => (
+                                    <div key={imgIndex} className="relative group/img w-10 h-10">
+                                        <img src={img} alt="Var" className="w-full h-full object-cover rounded-md border border-gray-200 shadow-sm" />
+                                        <button type="button" onClick={() => handleRemoveImage(imgIndex)} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover/img:opacity-100 transition-all shadow-sm hover:bg-red-600 transform hover:scale-110">
+                                            <XMarkIcon className="h-3 w-3" />
+                                        </button>
+                                    </div>
+                                ))
+                            ) : ( 
+                                <span className="text-xs text-gray-400 w-full text-center">Sem imagens</span> 
+                            )}
+                            
+                            <div className="flex gap-1 ml-auto">
+                                <input type="file" multiple accept="image/*" ref={galleryInputRef} onChange={handleFileChange} className="hidden" />
+                                <input type="file" accept="image/*" capture="environment" ref={cameraInputRef} onChange={handleFileChange} className="hidden" />
+                                <button type="button" onClick={() => galleryInputRef.current.click()} className="p-1.5 bg-white border border-gray-200 rounded hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors" title="Galeria"><UploadIcon className="h-4 w-4" /></button>
+                                <button type="button" onClick={() => cameraInputRef.current.click()} className="p-1.5 bg-white border border-gray-200 rounded hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors" title="Câmera"><CameraIcon className="h-4 w-4" /></button>
                             </div>
-                            {uploadStatus && <p className={`text-xs mt-1 ${uploadStatus.startsWith('Erro') ? 'text-red-500' : 'text-green-500'}`}>{uploadStatus}</p>}
                         </div>
+                        {uploadStatus && <p className={`text-[10px] font-medium mt-1 ${uploadStatus.startsWith('Erro') ? 'text-red-500' : 'text-green-600 flex items-center gap-1'} animate-pulse`}><CheckCircleIcon className="h-3 w-3 inline"/> {uploadStatus}</p>}
                     </>
                  ) : (
-                    <div>
-                        <label className="text-xs text-gray-500">Imagens</label>
-                        <p className="text-xs text-gray-500 p-2 border rounded-md bg-gray-100">As imagens são definidas na primeira variação desta cor.</p>
+                    <div className="flex items-center h-full pt-4">
+                        <p className="text-xs text-gray-400 italic bg-gray-50 px-2 py-1 rounded border border-gray-100 w-full text-center">Imagens vinculadas à 1ª variação desta cor.</p>
                     </div>
                  )}
             </div>
-            <div className="md:col-span-1 flex items-center justify-center h-full pt-4 md:pt-0">
-                <button type="button" onClick={() => onRemoveVariation(index)} className="bg-red-100 text-red-600 p-2 rounded-md hover:bg-red-200"><TrashIcon className="h-5 w-5 mx-auto"/></button>
+
+            <div className="md:col-span-1 flex items-center justify-end h-full pt-6">
+                <button type="button" onClick={() => onRemoveVariation(index)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-all" title="Remover variação">
+                    <TrashIcon className="h-5 w-5"/>
+                </button>
             </div>
         </div>
     );
@@ -7889,6 +10101,17 @@ const AdminCrudForm = ({ item, onSave, onCancel, fieldsConfig }) => {
     );
 };
 
+// Componente Auxiliar para Seções (Movido para fora para evitar perda de foco)
+const FormSection = ({ title, icon: Icon, children }) => (
+    <div className="bg-white p-5 md:p-6 rounded-xl border border-gray-200 shadow-sm space-y-4">
+        <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2 border-b border-gray-100 pb-3">
+            {Icon && <Icon className="h-5 w-5 text-indigo-600" />}
+            {title}
+        </h3>
+        {children}
+    </div>
+);
+
 const ProductForm = ({ item, onSave, onCancel, productType, setProductType, brands = [], categories = [] }) => {
     const [formData, setFormData] = useState({});
     const [uploadStatus, setUploadStatus] = useState('');
@@ -7914,32 +10137,32 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     const perfumeBrands = ["O Boticário", "Avon", "Natura", "Eudora"];
 
     const perfumeFields = [
-        { name: 'stock', label: 'Estoque', type: 'number', required: true },
-        { name: 'notes', label: 'Notas Olfativas (Ex: Topo: Maçã\\nCorpo: Canela)', type: 'textarea' },
-        { name: 'how_to_use', label: 'Como Usar', type: 'textarea' },
-        { name: 'ideal_for', label: 'Ideal Para', type: 'textarea' },
-        { name: 'volume', label: 'Volume (ex: 100ml)', type: 'text' },
+        { name: 'stock', label: 'Estoque Total', type: 'number', required: true, placeholder: '0' },
+        { name: 'volume', label: 'Volume (ex: 100ml)', type: 'text', placeholder: '100ml' },
+        { name: 'notes', label: 'Notas Olfativas', type: 'textarea', placeholder: 'Topo: ...\nCorpo: ...\nFundo: ...' },
+        { name: 'how_to_use', label: 'Como Usar', type: 'textarea', placeholder: 'Instruções de aplicação...' },
+        { name: 'ideal_for', label: 'Ideal Para', type: 'textarea', placeholder: 'Ocasiões, tipo de pele...' },
     ];
     
+    // --- ATUALIZAÇÃO: Removido size_guide de textarea simples ---
     const clothingFields = [
-        { name: 'variations', label: 'Variações (Cor, Tamanho, Estoque, Imagens)', type: 'variations' },
-        { name: 'size_guide', label: 'Guia de Medidas (HTML permitido)', type: 'textarea' },
-        { name: 'care_instructions', label: 'Cuidados com a Peça (um por linha)', type: 'textarea' },
+        { name: 'variations', label: 'Grade de Variações', type: 'variations' },
+        { name: 'care_instructions', label: 'Cuidados com a Peça', type: 'textarea', placeholder: 'Lavar à mão\nNão usar alvejante...' },
     ];
 
    const commonFields = [
-        { name: 'name', label: 'Nome do Produto', type: 'text', required: true },
-        { name: 'brand', label: 'Marca', type: 'text', required: true },
-        { name: 'category', label: 'Categoria', type: 'text', required: true },
-        { name: 'price', label: 'Preço Original', type: 'number', required: true, step: '0.01' },
-        { name: 'video_url', label: 'Link do Vídeo do YouTube (Opcional)', type: 'url', placeholder: 'https://www.youtube.com/watch?v=...' },
+        { name: 'name', label: 'Nome do Produto', type: 'text', required: true, placeholder: 'Ex: Perfume Floral ou Vestido Longo' },
+        { name: 'brand', label: 'Marca', type: 'text', required: true, placeholder: 'Selecione ou digite...' },
+        { name: 'category', label: 'Categoria', type: 'text', required: true, placeholder: 'Selecione...' },
+        { name: 'price', label: 'Preço Original (R$)', type: 'number', required: true, step: '0.01', placeholder: '0.00' },
+        { name: 'video_url', label: 'Vídeo do YouTube (URL)', type: 'url', placeholder: 'https://www.youtube.com/watch?v=...' },
         { name: 'images_upload', label: 'Upload de Imagens Principais', type: 'file' },
         { name: 'images', label: 'URLs das Imagens Principais', type: 'text_array' },
-        { name: 'description', label: 'Descrição', type: 'textarea' },
-        { name: 'weight', label: 'Peso (kg)', type: 'number', step: '0.01', required: true },
-        { name: 'width', label: 'Largura (cm)', type: 'number', required: true },
-        { name: 'height', label: 'Altura (cm)', type: 'number', required: true },
-        { name: 'length', label: 'Comprimento (cm)', type: 'number', required: true },
+        { name: 'description', label: 'Descrição Detalhada', type: 'textarea', placeholder: 'Descreva os detalhes e benefícios do produto...' },
+        { name: 'weight', label: 'Peso (kg)', type: 'number', step: '0.01', required: true, placeholder: '0.5' },
+        { name: 'width', label: 'Largura (cm)', type: 'number', required: true, placeholder: '10' },
+        { name: 'height', label: 'Altura (cm)', type: 'number', required: true, placeholder: '10' },
+        { name: 'length', label: 'Comprimento (cm)', type: 'number', required: true, placeholder: '10' },
         { name: 'is_active', label: 'Produto Ativo', type: 'checkbox' },
     ];
 
@@ -7970,6 +10193,9 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             initialData.images = parseJsonString(item.images, []);
             initialData.variations = parseJsonString(item.variations, []);
             
+            // --- ATUALIZAÇÃO: Carregar size_guide existente ---
+            initialData.size_guide = item.size_guide || '';
+
             initialData.is_on_sale = !!item.is_on_sale;
             initialData.sale_price = item.sale_price || '';
             
@@ -8005,6 +10231,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             initialData.is_on_sale = false;
             initialData.sale_price = '';
             initialData.sale_end_date = '';
+            initialData.size_guide = ''; // Inicializa vazio
         }
 
         setFormData(initialData);
@@ -8255,152 +10482,124 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     const availableSizes = useMemo(() => [...new Set(categories.filter(c => c.type === 'size').map(c => c.name))], [categories]);
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="p-4 bg-gray-100 rounded-lg">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Produto</label>
-                <div className="flex gap-4">
-                    <button type="button" onClick={() => setProductType('perfume')} className={`flex-1 p-3 rounded-md border-2 font-semibold flex items-center justify-center gap-2 ${productType === 'perfume' ? 'bg-amber-100 border-amber-500 text-amber-800' : 'bg-white border-gray-300 hover:border-amber-400'}`}>
-                        <SparklesIcon className="h-5 w-5" /> Perfume
-                    </button>
-                    <button type="button" onClick={() => setProductType('clothing')} className={`flex-1 p-3 rounded-md border-2 font-semibold flex items-center justify-center gap-2 ${productType === 'clothing' ? 'bg-amber-100 border-amber-500 text-amber-800' : 'bg-white border-gray-300 hover:border-amber-400'}`}>
-                        <ShirtIcon className="h-5 w-5" /> Roupa
-                    </button>
-                </div>
+        <form onSubmit={handleSubmit} className="space-y-6 bg-gray-50/50 p-1">
+            {/* --- SELETOR DE TIPO --- */}
+            <div className="bg-white p-1.5 rounded-xl border border-gray-200 shadow-sm flex relative">
+                <button type="button" onClick={() => setProductType('perfume')} className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300 z-10 ${productType === 'perfume' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}>
+                    <SparklesIcon className="h-5 w-5" /> Perfume
+                </button>
+                <button type="button" onClick={() => setProductType('clothing')} className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300 z-10 ${productType === 'clothing' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}>
+                    <ShirtIcon className="h-5 w-5" /> Roupa
+                </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {commonFields.map(field => {
-                    if (field.type === 'checkbox' || field.name === 'images' || field.name === 'images_upload') return null;
-
-                    if (field.name === 'category') {
-                         return (
-                            <div key={field.name}>
-                                <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                                <select 
-                                    name="category" 
-                                    value={formData.category || ''} 
-                                    onChange={handleChange} 
-                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white" 
-                                    required={field.required}
-                                >
-                                    <option value="">Selecione...</option>
-                                    {availableProductCategories.map(cat => <option key={cat.id} value={cat.filter}>{cat.name}</option>)}
-                                </select>
-                            </div>
-                        );
-                    }
-                    if (field.name === 'brand') {
-                        if (productType === 'perfume') {
-                            return (
-                                <div key={field.name}>
-                                    <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                                    <select
-                                        name="brand"
-                                        value={formData.brand || ''}
-                                        onChange={handleChange}
-                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white"
-                                        required={field.required}
-                                    >
-                                        <option value="">Selecione...</option>
-                                        {perfumeBrands.map(b => <option key={b} value={b}>{b}</option>)}
-                                    </select>
-                                </div>
-                            )
-                        } else {
-                             return (
-                                <div key={field.name}>
-                                    <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                                    <input
-                                        type="text"
-                                        name={field.name}
-                                        value={formData[field.name] || ''}
-                                        onChange={handleChange}
-                                        list="brand-datalist"
-                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                                        required={field.required}
-                                    />
-                                    <datalist id="brand-datalist">
-                                        {brands.map(opt => <option key={opt} value={opt} />)}
-                                    </datalist>
-                                </div>
-                            );
-                        }
-                    }
-                   
-                    if (field.type === 'textarea') {
-                         return (
-                            <div key={field.name} className="lg:col-span-3">
-                                <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                                <textarea name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm h-24" required={field.required}></textarea>
-                            </div>
-                         )
-                    }
-                    
-                    const isNameField = field.name === 'name';
-                    if (field.name === 'sale_price') return null;
-                    
-                    return (
-                        <div key={field.name} className={`${isNameField ? 'lg:col-span-3' : ''}`}>
-                            <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                            <input type={field.type} name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required={field.required} step={field.step} />
-                        </div>
-                    );
-                })}
-
-                {/* --- ÁREA DE DESTAQUE PARA PROMOÇÃO --- */}
-                <div className="lg:col-span-3 bg-yellow-50 border-2 border-yellow-200 rounded-lg p-5 space-y-4 shadow-sm">
-                    <div className="flex items-center">
-                        <input 
-                            type="checkbox" 
-                            name="is_on_sale" 
-                            id="is_on_sale_checkbox" 
-                            checked={!!formData['is_on_sale']} // CORREÇÃO: !! Garante booleano e evita o "0" na tela
-                            onChange={handlePromoToggle} 
-                            className="h-5 w-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500 cursor-pointer" 
-                        />
-                        <label htmlFor="is_on_sale_checkbox" className="ml-2 text-base font-bold text-gray-800 cursor-pointer">Produto em Promoção?</label>
+            {/* --- INFORMAÇÕES BÁSICAS --- */}
+            <FormSection title="Informações Básicas" icon={FileIcon}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div className="md:col-span-2">
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Nome do Produto <span className="text-red-500">*</span></label>
+                        <input type="text" name="name" value={formData.name || ''} onChange={handleChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm font-medium" placeholder="Ex: Perfume Floral ou Vestido Longo" required />
                     </div>
                     
-                    {/* CORREÇÃO: !! Garante que só renderiza se for true, evitando o "0" */}
-                    {!!formData['is_on_sale'] && (
-                        <motion.div 
-                            initial={{ opacity: 0, height: 0 }} 
-                            animate={{ opacity: 1, height: 'auto' }} 
-                            className="space-y-4"
-                        >
-                            <div className="flex gap-4 border-b border-yellow-200 pb-3">
-                                <label className="flex items-center cursor-pointer">
-                                    <input type="radio" name="promoMode" value="fixed" checked={promoMode === 'fixed'} onChange={() => handlePromoModeChange('fixed')} className="h-4 w-4 text-amber-600 focus:ring-amber-500"/>
-                                    <span className="ml-2 text-sm font-medium text-gray-800">Preço Fixo (R$)</span>
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Categoria <span className="text-red-500">*</span></label>
+                        <select name="category" value={formData.category || ''} onChange={handleChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm" required>
+                            <option value="">Selecione...</option>
+                            {availableProductCategories.map(cat => <option key={cat.id} value={cat.filter}>{cat.name}</option>)}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Marca <span className="text-red-500">*</span></label>
+                        {productType === 'perfume' ? (
+                             <select name="brand" value={formData.brand || ''} onChange={handleChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm" required>
+                                <option value="">Selecione...</option>
+                                {perfumeBrands.map(b => <option key={b} value={b}>{b}</option>)}
+                            </select>
+                        ) : (
+                            <>
+                                <input type="text" name="brand" value={formData.brand || ''} onChange={handleChange} list="brand-datalist" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm" required placeholder="Digite ou selecione..." />
+                                <datalist id="brand-datalist">{brands.map(opt => <option key={opt} value={opt} />)}</datalist>
+                            </>
+                        )}
+                    </div>
+                    
+                    <div className="md:col-span-2 flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="relative flex items-start">
+                            <div className="flex items-center h-5">
+                                <input id="is_active" name="is_active" type="checkbox" checked={!!formData.is_active} onChange={handleChange} className="focus:ring-indigo-500 h-5 w-5 text-indigo-600 border-gray-300 rounded cursor-pointer" />
+                            </div>
+                            <div className="ml-3 text-sm">
+                                <label htmlFor="is_active" className="font-bold text-gray-700 cursor-pointer">Produto Ativo</label>
+                                <p className="text-gray-500 text-xs">Se desmarcado, o produto ficará oculto na loja.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </FormSection>
+
+             {/* --- PREÇO E ESTOQUE --- */}
+             <FormSection title="Preço e Promoção" icon={CurrencyDollarIcon}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                     <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Preço Original (R$) <span className="text-red-500">*</span></label>
+                        <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">R$</span>
+                            <input type="number" name="price" value={formData.price || ''} onChange={handleChange} className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-bold text-gray-900" placeholder="0.00" step="0.01" required />
+                        </div>
+                    </div>
+
+                    {/* Lógica de Estoque para Perfumes (Roupas usam variações) */}
+                    {productType === 'perfume' && (
+                        <div>
+                             <label className="block text-sm font-bold text-gray-700 mb-1">Estoque Total <span className="text-red-500">*</span></label>
+                             <input type="number" name="stock" value={formData.stock || ''} onChange={handleChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-bold" placeholder="0" min="0" required />
+                        </div>
+                    )}
+                </div>
+
+                {/* Card de Promoção */}
+                <div className={`mt-4 border-2 rounded-xl p-5 transition-all ${!!formData.is_on_sale ? 'bg-amber-50 border-amber-300 shadow-inner' : 'bg-gray-50 border-dashed border-gray-300'}`}>
+                    <div className="flex items-center mb-4">
+                         <input type="checkbox" id="is_on_sale" name="is_on_sale" checked={!!formData.is_on_sale} onChange={handlePromoToggle} className="h-5 w-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500 cursor-pointer" />
+                         <label htmlFor="is_on_sale" className="ml-3 font-bold text-gray-800 cursor-pointer select-none">Habilitar Promoção</label>
+                    </div>
+
+                    {!!formData.is_on_sale && (
+                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-4">
+                            <div className="flex gap-4 p-2 bg-white rounded-lg border border-amber-100">
+                                <label className="flex items-center cursor-pointer px-2">
+                                    <input type="radio" name="promoMode" value="fixed" checked={promoMode === 'fixed'} onChange={() => handlePromoModeChange('fixed')} className="text-amber-600 focus:ring-amber-500"/>
+                                    <span className="ml-2 text-sm font-medium">Preço Fixo</span>
                                 </label>
-                                <label className="flex items-center cursor-pointer">
-                                    <input type="radio" name="promoMode" value="percentage" checked={promoMode === 'percentage'} onChange={() => handlePromoModeChange('percentage')} className="h-4 w-4 text-amber-600 focus:ring-amber-500"/>
-                                    <span className="ml-2 text-sm font-medium text-gray-800">Porcentagem (%)</span>
+                                <label className="flex items-center cursor-pointer px-2">
+                                    <input type="radio" name="promoMode" value="percentage" checked={promoMode === 'percentage'} onChange={() => handlePromoModeChange('percentage')} className="text-amber-600 focus:ring-amber-500"/>
+                                    <span className="ml-2 text-sm font-medium">Porcentagem (%)</span>
                                 </label>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-800 mb-1">Desconto (%)</label>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Desconto (%)</label>
                                     <div className="relative">
                                         <input type="number" value={promoPercent} onChange={handlePercentChange} disabled={promoMode !== 'percentage'} className={`block w-full pr-8 pl-3 py-2 border rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 ${promoMode !== 'percentage' ? 'bg-gray-200 text-gray-500 border-gray-200 cursor-not-allowed' : 'bg-white border-gray-300'}`} min="0" max="100"/>
-                                        <span className="absolute right-3 top-2 text-gray-500">%</span>
+                                        <span className="absolute right-3 top-2 text-xs text-gray-400">%</span>
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-800 mb-1">Preço Final (R$)</label>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Preço Final</label>
                                     <div className="relative">
-                                        <span className="absolute left-3 top-2 text-gray-500">R$</span>
+                                        <span className="absolute left-3 top-2 text-xs text-gray-500">R$</span>
                                         <input type="number" name="sale_price" value={formData.sale_price || ''} onChange={handleChange} disabled={promoMode !== 'fixed'} className={`block w-full pl-8 pr-3 py-2 border rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 ${promoMode !== 'fixed' ? 'bg-gray-200 text-gray-500 border-gray-200 cursor-not-allowed' : 'bg-white border-gray-300'}`} step="0.01" />
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-red-700 mb-1">Data/Hora Fim (Opcional)</label>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fim da Promoção (Opcional)</label>
                                     <input type="datetime-local" name="sale_end_date" value={formData.sale_end_date || ''} onChange={handleChange} className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 bg-white" />
                                 </div>
                             </div>
-
-                            {/* --- SELEÇÃO DE CORES PARA ROUPAS --- */}
+                            
+                            {/* Seleção de Cores para Promoção (Roupas) */}
                             {productType === 'clothing' && currentVariationColors.length > 0 && (
                                 <div className="mt-4 pt-4 border-t border-yellow-200">
                                     <label className="block text-sm font-bold text-gray-800 mb-2">Aplicar Desconto nas Cores:</label>
@@ -8423,107 +10622,173 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                         </motion.div>
                     )}
                 </div>
+             </FormSection>
 
-                <div className="lg:col-span-3 grid grid-cols-1 gap-4">
-                    <div className="flex items-center pt-2">
-                        <input type="checkbox" name="is_active" id="is_active_checkbox" checked={!!formData['is_active']} onChange={handleChange} className="h-5 w-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500" />
-                        <label htmlFor="is_active_checkbox" className="ml-2 text-sm font-medium text-gray-700">Produto Ativo</label>
+            {/* --- DETALHES ESPECÍFICOS --- */}
+            {productType === 'perfume' && (
+                <FormSection title="Detalhes do Perfume" icon={SparklesIcon}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                         <div className="md:col-span-2">
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Volume</label>
+                            <input type="text" name="volume" value={formData.volume || ''} onChange={handleChange} onBlur={handleVolumeBlur} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="Ex: 100ml" />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Notas Olfativas</label>
+                            <textarea name="notes" value={formData.notes || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-24" placeholder="Topo: ...&#10;Corpo: ...&#10;Fundo: ..."></textarea>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Como Usar</label>
+                            <textarea name="how_to_use" value={formData.how_to_use || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-20"></textarea>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Ideal Para</label>
+                            <textarea name="ideal_for" value={formData.ideal_for || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-20"></textarea>
+                        </div>
+                    </div>
+                </FormSection>
+            )}
+
+            {productType === 'clothing' && (
+                 <FormSection title="Variações e Tamanhos" icon={ShirtIcon}>
+                    {/* Lista de Variações */}
+                    <div className="space-y-4 mb-6">
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="text-sm font-bold text-gray-700">Grade de Cores e Tamanhos</label>
+                            <button type="button" onClick={addVariation} className="text-xs bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100 font-bold border border-indigo-200 transition-colors">
+                                + Adicionar Variação
+                            </button>
+                        </div>
+                        
+                        {(formData.variations || []).length > 0 ? (
+                            (formData.variations || []).map((v, i) => {
+                                const seenColors = new Set();
+                                // Helper simples para identificar primeira ocorrência visualmente
+                                const isFirst = (formData.variations || []).findIndex(va => va.color === v.color) === i;
+                                return (
+                                    <VariationInputRow 
+                                        key={i} 
+                                        variation={v} 
+                                        index={i} 
+                                        onVariationChange={handleVariationChange}
+                                        onRemoveVariation={removeVariation}
+                                        availableColors={allColors}
+                                        availableSizes={availableSizes}
+                                        onImageUpload={(e) => handleVariationImageUpload(i, e)}
+                                        uploadStatus={uploadingStatus[i]}
+                                        isFirstOfColor={isFirst}
+                                    />
+                                );
+                            })
+                        ) : (
+                            <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
+                                <p className="text-gray-500 text-sm mb-2">Nenhuma variação adicionada.</p>
+                                <button type="button" onClick={addVariation} className="text-indigo-600 font-bold text-sm hover:underline">Clique para adicionar cor/tamanho</button>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="space-y-5 pt-4 border-t border-gray-100">
+                        {/* --- ATUALIZAÇÃO DE LAYOUT: Cuidados acima, Tabela abaixo --- */}
+                        <div>
+                             <label className="block text-sm font-bold text-gray-700 mb-1">Cuidados com a Peça</label>
+                            <textarea name="care_instructions" value={formData.care_instructions || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-32"></textarea>
+                        </div>
+
+                        <div>
+                             <label className="block text-sm font-bold text-gray-700 mb-1">Guia de Medidas (Tabela)</label>
+                             <SizeGuideAdminInput 
+                                value={formData.size_guide} 
+                                onChange={(newVal) => setFormData(prev => ({...prev, size_guide: newVal}))} 
+                             />
+                        </div>
+                    </div>
+                 </FormSection>
+            )}
+
+            {/* --- MÍDIA --- */}
+            <FormSection title="Imagens Principais e Vídeo" icon={PhotoIcon}>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-1">
+                        <label className="block text-sm font-bold text-gray-700 mb-2">Upload Rápido</label>
+                         <div className="flex gap-2 mb-2">
+                             <input type="file" multiple accept="image/*" ref={mainGalleryInputRef} onChange={handleImageChange} className="hidden" />
+                             <button type="button" onClick={() => mainGalleryInputRef.current.click()} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-lg flex flex-col items-center justify-center gap-1 border border-gray-300 transition-colors">
+                                <UploadIcon className="h-6 w-6 text-gray-500" />
+                                <span className="text-xs font-bold">Galeria</span>
+                             </button>
+                             <input type="file" accept="image/*" capture="environment" ref={mainCameraInputRef} onChange={handleImageChange} className="hidden" />
+                             <button type="button" onClick={() => mainCameraInputRef.current.click()} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-lg flex flex-col items-center justify-center gap-1 border border-gray-300 transition-colors">
+                                <CameraIcon className="h-6 w-6 text-gray-500" />
+                                <span className="text-xs font-bold">Câmera</span>
+                             </button>
+                         </div>
+                         {uploadStatus && <p className={`text-xs font-bold text-center ${uploadStatus.startsWith('Erro') ? 'text-red-500' : 'text-green-600'} animate-pulse`}>{uploadStatus}</p>}
+                    </div>
+
+                    <div className="lg:col-span-2 space-y-3">
+                        <label className="block text-sm font-bold text-gray-700">URLs das Imagens (Ou gerenciamento)</label>
+                        <div className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+                            {(formData.images || []).map((img, index) => (
+                                <div key={index} className="flex items-center gap-2 group">
+                                    <div className="w-10 h-10 rounded border border-gray-200 bg-gray-100 flex-shrink-0 overflow-hidden">
+                                        <img src={img || 'https://placehold.co/40x40/eee/ccc?text=?'} alt="Thumb" className="w-full h-full object-cover" />
+                                    </div>
+                                    <input type="text" value={img} onChange={(e) => handleImageArrayChange(index, e.target.value)} className="flex-grow px-3 py-2 bg-white border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-indigo-500 text-gray-600" placeholder="https://..." />
+                                    <button type="button" onClick={() => removeImageField(index)} className="p-2 text-gray-400 hover:text-red-500 transition-colors"><TrashIcon className="h-4 w-4"/></button>
+                                </div>
+                            ))}
+                        </div>
+                        <button type="button" onClick={addImageField} className="text-xs font-bold text-indigo-600 hover:underline">+ Adicionar campo de URL</button>
+                    </div>
+
+                    <div className="lg:col-span-3">
+                         <label className="block text-sm font-bold text-gray-700 mb-1">Link do Vídeo (YouTube)</label>
+                         <input type="url" name="video_url" value={formData.video_url || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="https://www.youtube.com/watch?v=..." />
                     </div>
                 </div>
+            </FormSection>
 
-            </div>
-            
-            {/* ... restante do código mantido igual (uploads e variações) ... */}
-            <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
-                <h3 className="font-semibold text-gray-800">Gerenciamento de Imagens Principais</h3>
-                <div>
-                     <label className="block text-sm font-medium text-gray-700 mb-1">Fazer Upload de Novas Imagens</label>
-                     <input type="file" multiple accept="image/*" ref={mainGalleryInputRef} onChange={handleImageChange} className="hidden" />
-                     <input type="file" accept="image/*" capture="environment" ref={mainCameraInputRef} onChange={handleImageChange} className="hidden" />
-                     <div className="flex gap-2">
-                        <button type="button" onClick={() => mainGalleryInputRef.current.click()} className="w-1/2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-md flex items-center justify-center gap-2"><UploadIcon className="h-5 w-5" /> Galeria</button>
-                        <button type="button" onClick={() => mainCameraInputRef.current.click()} className="w-1/2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-md flex items-center justify-center gap-2"><CameraIcon className="h-5 w-5" /> Câmera</button>
-                     </div>
-                     {uploadStatus && <p className={`text-sm mt-2 ${uploadStatus.startsWith('Erro') ? 'text-red-500' : 'text-green-500'}`}>{uploadStatus}</p>}
-                </div>
-                 <div>
-                     <label className="block text-sm font-medium text-gray-700 mt-4">URLs das Imagens</label>
-                     {(formData.images || []).map((img, index) => (
-                        <div key={index} className="flex items-center space-x-2 mt-2">
-                            <img src={img || 'https://placehold.co/40x40/eee/ccc?text=?'} alt="Thumbnail" className="w-10 h-10 object-cover rounded-md border" />
-                            <input type="text" value={img} onChange={(e) => handleImageArrayChange(index, e.target.value)} className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder={`URL da Imagem ${index + 1}`} />
-                            <button type="button" onClick={() => removeImageField(index)} className="p-2 bg-red-100 text-red-600 rounded-md flex-shrink-0 hover:bg-red-200"><TrashIcon className="h-4 w-4"/></button>
+            {/* --- DETALHES GERAIS E DIMENSÕES --- */}
+            <FormSection title="Descrição e Entrega" icon={BoxIcon}>
+                 <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Descrição Completa</label>
+                        <textarea name="description" value={formData.description || ''} onChange={handleChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-32" placeholder="Descreva os detalhes, benefícios e diferenciais do produto..."></textarea>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-100">
+                        <div className="md:col-span-4 mb-1">
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Dimensões para Frete</p>
                         </div>
-                     ))}
-                     <button type="button" onClick={addImageField} className="mt-3 text-sm text-blue-600 hover:text-blue-800">Adicionar URL manualmente</button>
-                </div>
-            </div>
-
-            <AnimatePresence mode="wait">
-                <motion.div
-                    key={productType}
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    transition={{ duration: 0.2 }}
-                    className="space-y-4"
-                >
-                    {productType === 'perfume' && perfumeFields.map(field => (
-                        <div key={field.name}>
-                            <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                            {field.type === 'textarea' ? (
-                                <textarea name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm h-24" required={field.required}></textarea>
-                            ) : (
-                            <input type={field.type} name={field.name} value={formData[field.name] || ''} onChange={handleChange} onBlur={field.name === 'volume' ? handleVolumeBlur : null} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required={field.required} />
-                            )}
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Peso (kg)</label>
+                            <input type="number" name="weight" value={formData.weight || ''} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md text-sm" step="0.01" required />
                         </div>
-                    ))}
-                    {productType === 'clothing' && clothingFields.map(field => {
-                        if (field.name === 'variations') {
-                             const seenColors = new Set();
-                            return (
-                                <div key={field.name} className="p-4 border rounded-lg bg-gray-50 space-y-3">
-                                    <h3 className="font-semibold text-gray-800">{field.label}</h3>
-                                    {(formData.variations || []).map((v, i) => {
-                                        let isFirst = false;
-                                        if (v.color && !seenColors.has(v.color)) {
-                                            seenColors.add(v.color);
-                                            isFirst = true;
-                                        }
-                                        return (
-                                            <VariationInputRow 
-                                                key={i} 
-                                                variation={v} 
-                                                index={i} 
-                                                onVariationChange={handleVariationChange}
-                                                onRemoveVariation={removeVariation}
-                                                availableColors={allColors} // Usa a lista completa de cores padrão
-                                                availableSizes={availableSizes}
-                                                onImageUpload={(e) => handleVariationImageUpload(i, e)}
-                                                uploadStatus={uploadingStatus[i]}
-                                                isFirstOfColor={isFirst}
-                                            />
-                                        )
-                                    })}
-                                    <button type="button" onClick={addVariation} className="w-full text-sm text-blue-600 hover:text-blue-800 border-dashed border-2 p-2 rounded-md hover:border-blue-500">
-                                        + Adicionar Variação
-                                    </button>
-                                </div>
-                            );
-                        }
-                        return (
-                            <div key={field.name}>
-                                <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                                <textarea name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm h-24" required={field.required}></textarea>
-                            </div>
-                        );
-                    })}
-                </motion.div>
-            </AnimatePresence>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Largura (cm)</label>
+                            <input type="number" name="width" value={formData.width || ''} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md text-sm" required />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Altura (cm)</label>
+                            <input type="number" name="height" value={formData.height || ''} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md text-sm" required />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Comp. (cm)</label>
+                            <input type="number" name="length" value={formData.length || ''} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md text-sm" required />
+                        </div>
+                    </div>
+                 </div>
+            </FormSection>
 
-            <div className="flex justify-end space-x-3 pt-4 border-t mt-6">
-                <button type="button" onClick={onCancel} className="px-6 py-2 bg-gray-200 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
-                <button type="submit" className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 font-semibold">Salvar</button>
+            {/* --- AÇÕES FIXAS --- */}
+            <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 -mx-1 flex justify-end gap-3 rounded-b-lg shadow-lg z-20">
+                <button type="button" onClick={onCancel} className="px-6 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-bold hover:bg-gray-50 transition-colors">
+                    Cancelar
+                </button>
+                <button type="submit" className="px-8 py-2.5 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-md transition-all transform active:scale-95 flex items-center gap-2">
+                    <CheckIcon className="h-5 w-5"/>
+                    Salvar Produto
+                </button>
             </div>
         </form>
     );
@@ -8697,6 +10962,10 @@ const AdminProducts = ({ onNavigate }) => {
   const [bulkEndDate, setBulkEndDate] = useState('');
   const [isApplyingBulk, setIsApplyingBulk] = useState(false);
   const [isClearingPromos, setIsClearingPromos] = useState(false); 
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+  // NOVO ESTADO: Controle da tela de carregamento em tela cheia para ações em massa
+  const [bulkProgress, setBulkProgress] = useState({ isRunning: false, text: '' });
 
   const [searchTerm, setSearchTerm] = useState('');
   const [uniqueBrands, setUniqueBrands] = useState([]);
@@ -8812,11 +11081,108 @@ const AdminProducts = ({ onNavigate }) => {
                 await apiService(`/products/${id}`, 'DELETE');
                 fetchProducts();
                 notification.show('Produto deletado com sucesso.');
+                setSearchTerm(''); // Limpa a barra de pesquisa para evitar o bug de tela vazia com autofill
               } catch(error) {
                 notification.show(`Erro ao deletar produto: ${error.message}`, 'error');
               }
           },
           { requiresAuth: true, confirmText: 'Deletar', confirmColor: 'bg-red-600 hover:bg-red-700' }
+      );
+  };
+
+  // --- Exclusão em Massa ---
+  const handleBulkDelete = () => {
+      if (selectedProducts.length === 0) return;
+      
+      confirmation.show(
+          `Tem certeza que deseja EXCLUIR permanentemente os ${selectedProducts.length} produto(s) selecionado(s)?`,
+          async () => {
+              setBulkProgress({ isRunning: true, text: `Excluindo ${selectedProducts.length} produto(s)...` });
+              try {
+                  await apiService('/products', 'DELETE', { ids: selectedProducts });
+                  notification.show(`${selectedProducts.length} produto(s) excluído(s) com sucesso.`);
+                  setSearchTerm('');
+                  setSelectedProducts([]);
+                  fetchProducts();
+              } catch (error) {
+                  notification.show(`Erro ao excluir produtos: ${error.message}`, 'error');
+              } finally {
+                  setBulkProgress({ isRunning: false, text: '' });
+              }
+          },
+          { requiresAuth: true, confirmText: 'Excluir Selecionados', confirmColor: 'bg-red-600 hover:bg-red-700' }
+      );
+  };
+
+  // --- Ativação/Inativação em Massa ---
+  const handleBulkStatusUpdate = async (newStatus) => {
+      if (selectedProducts.length === 0) return;
+      const actionText = newStatus ? 'ATIVAR' : 'INATIVAR';
+
+      confirmation.show(
+          `Tem certeza que deseja ${actionText} os ${selectedProducts.length} produto(s) selecionado(s)?`,
+          async () => {
+              setIsUpdatingStatus(true);
+              setBulkProgress({ isRunning: true, text: `${newStatus ? 'Ativando' : 'Inativando'} ${selectedProducts.length} produto(s)...` });
+              try {
+                  // Processa de forma sequencial para não sobrecarregar o pool de conexões do MySQL
+                  for (const id of selectedProducts) {
+                      const product = products.find(p => p.id === id);
+                      if (!product) continue;
+
+                      // Clona o produto e limpa campos excedentes gerados pelo select de agregação (evita conflito)
+                      const payload = { ...product, is_active: newStatus ? 1 : 0 };
+                      delete payload.avg_rating;
+                      delete payload.review_count;
+                      delete payload.created_at;
+
+                      // Converte null para string vazia em todos os campos de texto opcionais
+                      const textFields = ['description', 'notes', 'how_to_use', 'ideal_for', 'volume', 'size_guide', 'care_instructions', 'video_url'];
+                      textFields.forEach(field => {
+                          if (payload[field] === null || payload[field] === undefined) {
+                              payload[field] = '';
+                          }
+                      });
+
+                      if (payload.sale_end_date && payload.sale_end_date !== '') {
+                          payload.sale_end_date = new Date(payload.sale_end_date).toISOString();
+                      } else {
+                          payload.sale_end_date = null;
+                      }
+
+                      if (!payload.sale_price) payload.sale_price = null;
+                      
+                      // Sanitização de arrays/objetos
+                      if (payload.product_type === 'clothing') {
+                          if (!payload.variations || payload.variations === 'null') {
+                              payload.variations = '[]';
+                          } else if (typeof payload.variations === 'object') {
+                              payload.variations = JSON.stringify(payload.variations);
+                          }
+                      } else {
+                          payload.variations = '[]';
+                      }
+                      
+                      if (typeof payload.images === 'object') {
+                          payload.images = JSON.stringify(payload.images);
+                      } else if (!payload.images || payload.images === 'null') {
+                          payload.images = '[]';
+                      }
+
+                      await apiService(`/products/${id}`, 'PUT', payload);
+                  }
+
+                  notification.show(`${selectedProducts.length} produto(s) atualizado(s) com sucesso!`);
+                  setSelectedProducts([]);
+                  fetchProducts();
+              } catch (error) {
+                  notification.show(`Erro ao atualizar status: ${error.message}`, 'error');
+              } finally {
+                  setIsUpdatingStatus(false);
+                  setBulkProgress({ isRunning: false, text: '' });
+              }
+          },
+          { requiresAuth: true, confirmText: `Sim, ${actionText}`, confirmColor: newStatus ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-700' }
       );
   };
 
@@ -8847,6 +11213,7 @@ const AdminProducts = ({ onNavigate }) => {
       }
       
       setIsApplyingBulk(true);
+      setBulkProgress({ isRunning: true, text: `Aplicando desconto em ${selectedProducts.length} produto(s)...` });
       try {
           const formattedEndDate = isBulkLimitedTime ? new Date(bulkEndDate).toISOString() : null;
 
@@ -8868,10 +11235,10 @@ const AdminProducts = ({ onNavigate }) => {
           notification.show(`Erro ao aplicar promoção: ${error.message}`, 'error');
       } finally {
           setIsApplyingBulk(false);
+          setBulkProgress({ isRunning: false, text: '' });
       }
   };
 
-  // --- NOVA LÓGICA: ENCERRAR PROMOÇÕES APENAS DOS SELECIONADOS ---
   const handleClearSelectedPromotions = () => {
       if (selectedProducts.length === 0) return;
 
@@ -8879,24 +11246,49 @@ const AdminProducts = ({ onNavigate }) => {
           `Tem certeza que deseja ENCERRAR a promoção de ${selectedProducts.length} produtos selecionados?`,
           async () => {
               setIsClearingPromos(true);
+              setBulkProgress({ isRunning: true, text: `Encerrando promoções de ${selectedProducts.length} produto(s)...` });
               try {
                   const result = await apiService('/products/bulk-clear-promo', 'PUT', { productIds: selectedProducts });
                   notification.show(result.message);
                   setSearchTerm(''); 
-                  setSelectedProducts([]); // Limpa a seleção
+                  setSelectedProducts([]); 
                   fetchProducts();
               } catch (error) {
                   notification.show(`Erro ao encerrar promoções: ${error.message}`, 'error');
               } finally {
                   setIsClearingPromos(false);
+                  setBulkProgress({ isRunning: false, text: '' });
               }
           },
           { requiresAuth: true, confirmText: 'Encerrar Promoções', confirmColor: 'bg-red-600 hover:bg-red-700' }
       );
   };
 
+  // Verificações lógicas para exibir botões apropriados na barra de ações em massa
+  const hasInactiveSelected = selectedProducts.some(id => products.find(p => p.id === id)?.is_active === 0);
+  const hasActiveSelected = selectedProducts.some(id => products.find(p => p.id === id)?.is_active === 1);
+
   return (
     <div>
+        {/* OVERLAY DE CARREGAMENTO EM TELA CHEIA */}
+        <AnimatePresence>
+            {bulkProgress.isRunning && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-900/80 backdrop-blur-sm"
+                >
+                    <div className="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center transform transition-all">
+                        <SpinnerIcon className="h-14 w-14 text-indigo-600 mb-5 animate-spin" />
+                        <h3 className="text-xl font-extrabold text-slate-800 mb-2">Processando</h3>
+                        <p className="text-sm font-medium text-slate-600">{bulkProgress.text}</p>
+                        <p className="text-xs text-slate-400 mt-4">Por favor, não feche esta janela.</p>
+                    </div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+
         <AnimatePresence>
             {isBulkPromoModalOpen && (
                 <Modal isOpen={isBulkPromoModalOpen} onClose={() => setIsBulkPromoModalOpen(false)} title={`Aplicar Promoção em ${selectedProducts.length} Produtos`}>
@@ -8945,8 +11337,8 @@ const AdminProducts = ({ onNavigate }) => {
                         )}
 
                         <div className="flex justify-end gap-3 pt-4 border-t">
-                            <button type="button" onClick={() => setIsBulkPromoModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
-                            <button type="submit" disabled={isApplyingBulk} className="px-6 py-2 bg-amber-500 text-black font-bold rounded-md hover:bg-amber-400 flex items-center gap-2">
+                            <button type="button" onClick={() => setIsBulkPromoModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50" disabled={isApplyingBulk}>Cancelar</button>
+                            <button type="submit" disabled={isApplyingBulk} className="px-6 py-2 bg-amber-500 text-black font-bold rounded-md hover:bg-amber-400 flex items-center gap-2 disabled:opacity-50">
                                 {isApplyingBulk ? <SpinnerIcon className="h-5 w-5"/> : <SaleIcon className="h-5 w-5"/>}
                                 Aplicar Desconto
                             </button>
@@ -8980,39 +11372,61 @@ const AdminProducts = ({ onNavigate }) => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
             <h1 className="text-3xl font-bold">Gerenciar Produtos</h1>
             <div className="flex flex-wrap gap-2">
-                
-                {/* --- BOTÃO DE AÇÃO EM MASSA (SÓ APARECE SE TIVER SELEÇÃO) --- */}
-                {selectedProducts.length > 0 && (
-                    <>
-                        <button onClick={() => setIsBulkPromoModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 flex items-center space-x-2 font-bold animate-pulse">
-                            <SaleIcon className="h-5 w-5"/> <span>Aplicar Promoção ({selectedProducts.length})</span>
-                        </button>
-                        
-                        <button 
-                            onClick={handleClearSelectedPromotions} 
-                            disabled={isClearingPromos}
-                            className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center space-x-2 disabled:opacity-50"
-                            title="Remove a promoção apenas dos produtos selecionados"
-                        >
-                            {isClearingPromos ? <SpinnerIcon className="h-5 w-5"/> : <XMarkIcon className="h-5 w-5"/>}
-                            <span>Encerrar ({selectedProducts.length})</span>
-                        </button>
-                    </>
-                )}
-                
-                {/* O botão "Encerrar Todas" foi removido daqui para atender ao seu pedido */}
-
-                <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2">
+                <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2 shadow-sm transition-colors">
                     <PlusIcon className="h-5 w-5"/> <span>Novo Produto</span>
                 </button>
             </div>
         </div>
+
+        {/* --- BARRA DE AÇÕES EM MASSA FLUTUANTE --- */}
+        <AnimatePresence>
+            {selectedProducts.length > 0 && (
+                <motion.div 
+                    initial={{ opacity: 0, y: -10 }} 
+                    animate={{ opacity: 1, y: 0 }} 
+                    exit={{ opacity: 0, y: -10 }}
+                    className="bg-indigo-50 border border-indigo-200 p-3 rounded-lg mb-6 flex flex-wrap items-center justify-between gap-3 sticky top-16 z-20 shadow-md"
+                >
+                    <div className="text-sm font-bold text-indigo-800 flex items-center gap-2">
+                        <span className="bg-indigo-200 text-indigo-900 px-2.5 py-0.5 rounded-full">{selectedProducts.length}</span>
+                        itens selecionados
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {hasInactiveSelected && (
+                            <button onClick={() => handleBulkStatusUpdate(true)} disabled={isUpdatingStatus} className="px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700 flex items-center gap-1 shadow-sm disabled:opacity-50">
+                                <CheckIcon className="h-3 w-3"/> Ativar
+                            </button>
+                        )}
+                        {hasActiveSelected && (
+                            <button onClick={() => handleBulkStatusUpdate(false)} disabled={isUpdatingStatus} className="px-3 py-1.5 bg-gray-600 text-white text-xs font-bold rounded hover:bg-gray-700 flex items-center gap-1 shadow-sm disabled:opacity-50">
+                                <XMarkIcon className="h-3 w-3"/> Inativar
+                            </button>
+                        )}
+                        <button onClick={() => setIsBulkPromoModalOpen(true)} disabled={isApplyingBulk} className="px-3 py-1.5 bg-amber-500 text-black text-xs font-bold rounded hover:bg-amber-400 flex items-center gap-1 shadow-sm disabled:opacity-50">
+                            <SaleIcon className="h-3 w-3"/> Promoção
+                        </button>
+                        <button onClick={handleClearSelectedPromotions} disabled={isClearingPromos} className="px-3 py-1.5 bg-orange-600 text-white text-xs font-bold rounded hover:bg-orange-700 flex items-center gap-1 shadow-sm disabled:opacity-50">
+                            <XMarkIcon className="h-3 w-3"/> Encerrar Promo
+                        </button>
+                        <button onClick={handleBulkDelete} disabled={bulkProgress.isRunning} className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded hover:bg-red-700 flex items-center gap-1 shadow-sm disabled:opacity-50">
+                            <TrashIcon className="h-3 w-3"/> Excluir
+                        </button>
+                        <button onClick={() => setSelectedProducts([])} disabled={bulkProgress.isRunning} className="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 text-xs font-bold rounded hover:bg-gray-100 shadow-sm ml-1 disabled:opacity-50">
+                            Cancelar
+                        </button>
+                    </div>
+                </motion.div>
+            )}
+        </AnimatePresence>
         
         <div className="mb-6">
             <input 
                 type="text" 
-                name="search_products_admin_safe" 
-                autoComplete="off" 
+                name="search_products_no_autofill" 
+                autoComplete="new-password" 
+                spellCheck="false"
+                data-lpignore="true"
+                data-form-type="other"
                 placeholder="Pesquisar por nome, marca ou categoria..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
@@ -9033,6 +11447,7 @@ const AdminProducts = ({ onNavigate }) => {
                             <th className="p-4">Tipo</th>
                             <th className="p-4">Preço</th>
                             <th className="p-4">Promoção</th>
+                            <th className="p-4">Vendas</th>
                             <th className="p-4">Estoque</th>
                             <th className="p-4">Status</th>
                             <th className="p-4">Ações</th>
@@ -9043,8 +11458,8 @@ const AdminProducts = ({ onNavigate }) => {
                             const isTimeLimited = p.is_on_sale && p.sale_end_date && new Date(p.sale_end_date).getTime() > new Date().getTime();
                             
                             return (
-                                <tr key={p.id} className={`border-b ${selectedProducts.includes(p.id) ? 'bg-amber-50' : ''} ${p.stock < LOW_STOCK_THRESHOLD ? 'bg-red-50' : ''}`}>
-                                    <td className="p-4"><input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} /></td>
+                                <tr key={p.id} className={`border-b ${selectedProducts.includes(p.id) ? 'bg-indigo-50' : ''} ${p.stock < LOW_STOCK_THRESHOLD ? 'bg-red-50' : ''}`}>
+                                    <td className="p-4"><input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="h-4 w-4 text-indigo-600 rounded focus:ring-indigo-500" /></td>
                                     <td className="p-4 flex items-center">
                                         <div className="w-10 h-10 mr-4 flex-shrink-0 bg-gray-200 rounded-md flex items-center justify-center">
                                             <img src={getFirstImage(p.images, 'https://placehold.co/40x40/222/fff?text=Img')} className="max-h-full max-w-full object-contain" alt={p.name}/>
@@ -9084,6 +11499,9 @@ const AdminProducts = ({ onNavigate }) => {
                                             <span className="text-gray-400 text-xs">-</span>
                                         )}
                                     </td>
+                                    <td className="p-4 font-semibold text-gray-700">
+                                        {p.sales || 0}
+                                    </td>
                                     <td className={`p-4 font-bold ${p.stock < LOW_STOCK_THRESHOLD ? 'text-red-600' : ''}`}>
                                         {p.stock < LOW_STOCK_THRESHOLD && <ExclamationIcon className="h-4 w-4 inline-block mr-1 text-yellow-500"/>}
                                         {p.stock}
@@ -9099,12 +11517,11 @@ const AdminProducts = ({ onNavigate }) => {
                 </table>
             </div>
             
-            {/* --- VERSÃO MOBILE DO ADMIN (ATUALIZADA) --- */}
+            {/* --- VERSÃO MOBILE DO ADMIN --- */}
             <div className="md:hidden">
-                {/* Cabeçalho Mobile com Selecionar Todos */}
                 <div className="flex items-center justify-between p-4 bg-gray-50 border-b border-gray-200">
                      <label className="flex items-center gap-3 font-bold text-gray-700">
-                        <input type="checkbox" onChange={handleSelectAll} checked={filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length} className="h-5 w-5 rounded border-gray-300 text-amber-500 focus:ring-amber-500" />
+                        <input type="checkbox" onChange={handleSelectAll} checked={filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length} className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
                         Selecionar Todos
                      </label>
                      <span className="text-xs text-gray-500">{filteredProducts.length} itens</span>
@@ -9114,10 +11531,10 @@ const AdminProducts = ({ onNavigate }) => {
                     {filteredProducts.map(p => {
                         const isTimeLimited = p.is_on_sale && p.sale_end_date && new Date(p.sale_end_date).getTime() > new Date().getTime();
                         return (
-                            <div key={p.id} className={`bg-white border rounded-lg p-4 shadow-sm ${selectedProducts.includes(p.id) ? 'border-amber-400 bg-amber-50' : ''}`}>
+                            <div key={p.id} className={`bg-white border rounded-lg p-4 shadow-sm transition-colors ${selectedProducts.includes(p.id) ? 'border-indigo-400 bg-indigo-50 ring-1 ring-indigo-400' : ''}`}>
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-center">
-                                        <input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="mr-4 h-5 w-5 rounded border-gray-300 text-amber-500 focus:ring-amber-500"/>
+                                        <input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="mr-4 h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"/>
                                         <img src={getFirstImage(p.images, 'https://placehold.co/40x40/222/fff?text=Img')} className="h-14 w-14 object-contain mr-3 bg-gray-100 rounded"/>
                                         <div>
                                             <p className="font-bold text-gray-900 line-clamp-1">{p.name}</p>
@@ -9125,16 +11542,21 @@ const AdminProducts = ({ onNavigate }) => {
                                         </div>
                                     </div>
                                     
-                                    {/* Badge de Status Mobile - CORREÇÃO DO 0 */}
+                                    {/* Badge de Status e TIPO DE PRODUTO Mobile */}
                                     <div className="flex flex-col items-end gap-1">
-                                         <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold uppercase ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'}`}>{p.is_active ? 'Ativo' : 'Inativo'}</span>
+                                         <span className="bg-indigo-100 text-indigo-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase whitespace-nowrap">
+                                             {p.product_type === 'clothing' ? 'Roupa' : (p.product_type === 'perfume' ? 'Perfume' : p.product_type)}
+                                         </span>
+                                         <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold uppercase whitespace-nowrap ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'}`}>
+                                             {p.is_active ? 'Ativo' : 'Inativo'}
+                                         </span>
                                          {!!p.is_on_sale && (
-                                             <span className="bg-red-100 text-red-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">Promo</span>
+                                             <span className="bg-red-100 text-red-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase whitespace-nowrap">Promo</span>
                                          )}
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4 mt-4 text-sm border-t pt-4">
+                                <div className="grid grid-cols-3 gap-4 mt-4 text-sm border-t pt-4">
                                     <div>
                                         <strong className="text-gray-500 block text-xs uppercase tracking-wide mb-1">Preço</strong> 
                                         {!!p.is_on_sale && p.sale_price > 0 ? (
@@ -9151,6 +11573,12 @@ const AdminProducts = ({ onNavigate }) => {
                                         ) : (
                                             <span className="font-bold text-gray-800">R$ {Number(p.price).toFixed(2)}</span>
                                         )}
+                                    </div>
+                                    <div>
+                                        <strong className="text-gray-500 block text-xs uppercase tracking-wide mb-1">Vendas</strong> 
+                                        <div className="font-bold text-gray-800">
+                                            {p.sales || 0} un.
+                                        </div>
                                     </div>
                                     <div>
                                         <strong className="text-gray-500 block text-xs uppercase tracking-wide mb-1">Estoque</strong> 
@@ -9332,37 +11760,100 @@ const AdminCoupons = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCoupon, setEditingCoupon] = useState(null);
     const [productsData, setProductsData] = useState({ brands: [], categories: [] });
+    const [searchTerm, setSearchTerm] = useState(''); 
+    const [selectedCoupons, setSelectedCoupons] = useState([]); 
     const notification = useNotification();
     const confirmation = useConfirmation();
 
-    // Busca cupons e dados auxiliares (Marcas/Categorias)
+    // Helper robusto para JSON
+    const tryParse = (data) => {
+        if (Array.isArray(data)) return data;
+        try {
+            const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            return [];
+        }
+    };
+
     useEffect(() => {
         fetchCoupons();
-        apiService('/products/all').then(products => {
-            const brands = [...new Set(products.map(p => p.brand).filter(Boolean))].sort();
-            const categories = [...new Set(products.map(p => p.category).filter(Boolean))].sort();
-            setProductsData({ brands, categories });
-        });
+        
+        Promise.all([
+            apiService('/products/all'),
+            apiService('/collections/admin')
+        ]).then(([products, collections]) => {
+            const productBrands = products.map(p => p.brand).filter(b => b && b.trim() !== "");
+            const productCats = products.map(p => p.category).filter(c => c && c.trim() !== "");
+            const collectionCats = collections.map(c => c.filter || c.name).filter(c => c && c.trim() !== "");
+
+            const uniqueBrands = [...new Set(productBrands)].sort();
+            const uniqueCategories = [...new Set([...productCats, ...collectionCats])].sort();
+
+            setProductsData({ brands: uniqueBrands, categories: uniqueCategories });
+        }).catch(() => {});
     }, []);
 
     const fetchCoupons = () => {
         apiService('/coupons').then(setCoupons).catch(console.error);
     };
 
+    const filteredCoupons = coupons.filter(coupon => {
+        const term = searchTerm.toLowerCase();
+        const codeMatch = coupon.code.toLowerCase().includes(term);
+        return codeMatch;
+    });
+
+    const handleSelectAll = (e) => {
+        if (e.target.checked) setSelectedCoupons(filteredCoupons.map(c => c.id));
+        else setSelectedCoupons([]);
+    };
+
+    const handleSelectCoupon = (id) => {
+        setSelectedCoupons(prev => prev.includes(id) ? prev.filter(cId => cId !== id) : [...prev, id]);
+    };
+
+    const handleBulkAction = (action) => {
+         if (selectedCoupons.length === 0) return;
+         const actionText = action === 'delete' ? 'excluir' : (action === 'deactivate' ? 'desativar' : 'ativar');
+         confirmation.show(`Confirmar ${actionText} ${selectedCoupons.length} cupom(ns)?`, async () => {
+            try {
+                const promises = selectedCoupons.map(id => {
+                    if (action === 'delete') return apiService(`/coupons/${id}`, 'DELETE');
+                    const original = coupons.find(c => c.id === id);
+                    if (!original) return Promise.resolve();
+                    return apiService(`/coupons/${id}`, 'PUT', { ...original, is_active: action === 'activate' ? 1 : 0 });
+                });
+                await Promise.all(promises);
+                notification.show(`Ação concluída!`);
+                setSelectedCoupons([]);
+                fetchCoupons();
+            } catch (e) { notification.show(e.message, 'error'); }
+         });
+    };
+    
     const handleSave = async (formData) => {
         try {
+            const hasRestrictions = (formData.allowed_categories && formData.allowed_categories.length > 0) || 
+                                    (formData.allowed_brands && formData.allowed_brands.length > 0);
+            
+            const payload = {
+                ...formData,
+                is_global: hasRestrictions ? 0 : (formData.is_global ? 1 : 0),
+                allowed_categories: hasRestrictions ? formData.allowed_categories : [],
+                allowed_brands: hasRestrictions ? formData.allowed_brands : []
+            };
+
             if (formData.id) {
-                await apiService(`/coupons/${formData.id}`, 'PUT', formData);
-                notification.show('Cupom atualizado!');
+                await apiService(`/coupons/${formData.id}`, 'PUT', payload);
+                notification.show('Atualizado!');
             } else {
-                await apiService('/coupons', 'POST', formData);
-                notification.show('Cupom criado!');
+                await apiService('/coupons', 'POST', payload);
+                notification.show('Criado!');
             }
             fetchCoupons();
             setIsModalOpen(false);
-        } catch (error) {
-            notification.show(error.message, 'error');
-        }
+        } catch (error) { notification.show(error.message, 'error'); }
     };
 
     const handleDelete = (id) => {
@@ -9370,92 +11861,129 @@ const AdminCoupons = () => {
             try {
                 await apiService(`/coupons/${id}`, 'DELETE');
                 fetchCoupons();
-                notification.show('Cupom excluído.');
+                notification.show('Excluído.');
             } catch(e) { notification.show(e.message, 'error'); }
         });
     };
 
-    // Componente Interno do Formulário
+    const CouponCountdown = ({ createdAt, validityDays }) => {
+        const [timeLeft, setTimeLeft] = useState('');
+        useEffect(() => {
+            if (!validityDays || Number(validityDays) === 0) { setTimeLeft('Permanente'); return; }
+            const calc = () => {
+                const exp = new Date(new Date(createdAt).getTime() + Number(validityDays) * 86400000);
+                const diff = exp - new Date();
+                if (diff <= 0) { setTimeLeft('Expirado'); return; }
+                const d = Math.floor(diff / 86400000);
+                const h = Math.floor((diff % 86400000) / 3600000);
+                const m = Math.floor((diff % 3600000) / 60000);
+                const s = Math.floor((diff % 60000) / 1000);
+                setTimeLeft(`${d}d ${h}h ${m}m ${s}s`);
+            };
+            calc();
+            const i = setInterval(calc, 1000);
+            return () => clearInterval(i);
+        }, [createdAt, validityDays]);
+        
+        let color = 'text-gray-500';
+        if(timeLeft === 'Expirado') color = 'text-red-500 font-bold';
+        else if(timeLeft === 'Permanente') color = 'text-green-600 font-bold';
+        else color = 'text-amber-600 font-mono';
+        return <span className={`text-xs ${color}`}>{timeLeft}</span>;
+    };
+
     const CouponForm = ({ item, onSave, onCancel }) => {
         const [form, setForm] = useState(item || {
             code: '', type: 'percentage', value: '', is_active: 1, is_global: 1,
-            allowed_categories: [], allowed_brands: []
+            allowed_categories: [], allowed_brands: [], validity_days: '',
+            is_first_purchase: 0, is_single_use_per_user: 0
         });
 
         const toggleSelection = (field, value) => {
             setForm(prev => {
                 const list = prev[field] || [];
-                if (list.includes(value)) return { ...prev, [field]: list.filter(v => v !== value) };
-                return { ...prev, [field]: [...list, value] };
+                if (list.includes(value)) {
+                    return { ...prev, [field]: list.filter(v => v !== value) };
+                } else {
+                    return { ...prev, [field]: [...list, value], is_global: 0 };
+                }
             });
         };
 
         return (
-            <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4 max-h-[75vh] overflow-y-auto px-1">
+                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-bold text-gray-700">Código</label>
+                        <label className="block text-sm font-bold">Código</label>
                         <input type="text" value={form.code} onChange={e => setForm({...form, code: e.target.value.toUpperCase()})} className="w-full p-2 border rounded uppercase" required />
                     </div>
                     <div>
-                        <label className="block text-sm font-bold text-gray-700">Tipo</label>
+                        <label className="block text-sm font-bold">Tipo</label>
                         <select value={form.type} onChange={e => setForm({...form, type: e.target.value})} className="w-full p-2 border rounded">
-                            <option value="percentage">Porcentagem (%)</option>
-                            <option value="fixed">Valor Fixo (R$)</option>
+                            <option value="percentage">%</option>
+                            <option value="fixed">R$</option>
                             <option value="free_shipping">Frete Grátis</option>
                         </select>
                     </div>
                 </div>
-                
-                {form.type !== 'free_shipping' && (
+                <div className="grid grid-cols-2 gap-4">
+                     {form.type !== 'free_shipping' && (
+                        <div>
+                            <label className="block text-sm font-bold">Valor</label>
+                            <input type="number" value={form.value} onChange={e => setForm({...form, value: e.target.value})} className="w-full p-2 border rounded" required />
+                        </div>
+                    )}
                     <div>
-                        <label className="block text-sm font-bold text-gray-700">Valor do Desconto</label>
-                        <input type="number" value={form.value} onChange={e => setForm({...form, value: e.target.value})} className="w-full p-2 border rounded" required />
+                        <label className="block text-sm font-bold">Validade (Dias)</label>
+                        <input type="number" value={form.validity_days} onChange={e => setForm({...form, validity_days: e.target.value})} placeholder="Vazio = Eterno" className="w-full p-2 border rounded" />
                     </div>
-                )}
+                </div>
 
-                <div className="border-t pt-4 mt-4">
-                    <label className="flex items-center space-x-2 cursor-pointer mb-4">
-                        <input type="checkbox" checked={!!form.is_global} onChange={e => setForm({...form, is_global: e.target.checked ? 1 : 0})} className="h-5 w-5 text-green-600 rounded" />
-                        <span className="font-bold text-gray-800">Cupom Global (Válido para todo o site)</span>
+                <div className="border-t pt-4">
+                     <label className="flex items-center space-x-2 cursor-pointer mb-2 bg-gray-100 p-2 rounded">
+                        <input 
+                            type="checkbox" 
+                            checked={!!form.is_global} 
+                            onChange={e => {
+                                const checked = e.target.checked;
+                                setForm({...form, is_global: checked ? 1 : 0, allowed_categories: checked ? [] : form.allowed_categories, allowed_brands: checked ? [] : form.allowed_brands});
+                            }} 
+                        />
+                        <span className="font-bold">Cupom Global</span>
                     </label>
 
-                    {!form.is_global && (
-                        <div className="bg-gray-50 p-4 rounded border animate-fade-in">
-                            <p className="text-sm text-red-600 mb-2 font-semibold">Selecione as restrições (pelo menos uma):</p>
-                            
-                            <div className="mb-4">
-                                <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Categorias Permitidas</span>
-                                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                    {(!form.is_global || form.allowed_categories.length > 0 || form.allowed_brands.length > 0) && (
+                        <div className="bg-white p-3 border rounded">
+                             <p className="text-xs text-red-600 font-bold mb-2">*Restrições (Selecione para ativar):</p>
+                             <div className="mb-2">
+                                <span className="block text-xs font-bold uppercase">Categorias</span>
+                                <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
                                     {productsData.categories.map(cat => (
-                                        <button type="button" key={cat} onClick={() => toggleSelection('allowed_categories', cat)}
-                                            className={`px-3 py-1 text-xs rounded-full border ${form.allowed_categories?.includes(cat) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700'}`}
-                                        >
-                                            {cat}
-                                        </button>
+                                        <button type="button" key={cat} onClick={() => toggleSelection('allowed_categories', cat)} className={`px-2 py-0.5 text-[10px] rounded border ${form.allowed_categories?.includes(cat) ? 'bg-blue-600 text-white' : 'bg-gray-50'}`}>{cat}</button>
                                     ))}
                                 </div>
-                            </div>
-
-                            <div>
-                                <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Marcas Permitidas</span>
-                                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                             </div>
+                             <div>
+                                <span className="block text-xs font-bold uppercase">Marcas</span>
+                                <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
                                     {productsData.brands.map(brand => (
-                                        <button type="button" key={brand} onClick={() => toggleSelection('allowed_brands', brand)}
-                                            className={`px-3 py-1 text-xs rounded-full border ${form.allowed_brands?.includes(brand) ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-700'}`}
-                                        >
-                                            {brand}
-                                        </button>
+                                        <button type="button" key={brand} onClick={() => toggleSelection('allowed_brands', brand)} className={`px-2 py-0.5 text-[10px] rounded border ${form.allowed_brands?.includes(brand) ? 'bg-purple-600 text-white' : 'bg-gray-50'}`}>{brand}</button>
                                     ))}
                                 </div>
-                            </div>
+                             </div>
                         </div>
                     )}
                 </div>
+                
+                 <div className="border-t pt-2 space-y-2 bg-yellow-50 p-2 rounded">
+                     <label className="flex items-center space-x-2"><input type="checkbox" checked={!!form.is_first_purchase} onChange={e => setForm({...form, is_first_purchase: e.target.checked ? 1 : 0})}/> <span className="text-xs">Apenas 1ª Compra</span></label>
+                     <label className="flex items-center space-x-2"><input type="checkbox" checked={!!form.is_single_use_per_user} onChange={e => setForm({...form, is_single_use_per_user: e.target.checked ? 1 : 0})}/> <span className="text-xs">Uso Único por Cliente</span></label>
+                </div>
+                <div className="pt-2"><label className="flex items-center space-x-2"><input type="checkbox" checked={!!form.is_active} onChange={e => setForm({...form, is_active: e.target.checked ? 1 : 0})}/> <span className="font-bold">Ativo</span></label></div>
 
-                <div className="flex justify-end gap-3 pt-4">
+                <div className="flex justify-end gap-2 pt-4 border-t">
                     <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-200 rounded">Cancelar</button>
-                    <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded font-bold">Salvar Cupom</button>
+                    <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded font-bold">Salvar</button>
                 </div>
             </form>
         );
@@ -9464,56 +11992,126 @@ const AdminCoupons = () => {
     return (
         <div>
             <AnimatePresence>
-                {isModalOpen && (
-                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingCoupon ? 'Editar Cupom' : 'Novo Cupom'}>
-                        <CouponForm item={editingCoupon} onSave={handleSave} onCancel={() => setIsModalOpen(false)} />
-                    </Modal>
+                {isModalOpen && <Modal isOpen={true} onClose={() => setIsModalOpen(false)} title={editingCoupon ? 'Editar' : 'Novo'}><CouponForm item={editingCoupon} onSave={handleSave} onCancel={() => setIsModalOpen(false)} /></Modal>}
+            </AnimatePresence>
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-2xl font-bold">Gerenciar Cupons</h1>
+                <button onClick={() => { setEditingCoupon(null); setIsModalOpen(true); }} className="bg-gray-800 text-white px-4 py-2 rounded flex items-center gap-2"><PlusIcon className="h-5 w-5"/> Novo</button>
+            </div>
+            
+            {/* Barra de Pesquisa */}
+            <div className="mb-6 relative">
+                <input type="text" placeholder="Pesquisar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-3 pl-10 border rounded shadow-sm" />
+                <div className="absolute top-1/2 left-3 transform -translate-y-1/2 text-gray-400"><SearchIcon className="h-5 w-5" /></div>
+            </div>
+
+            {/* Barra de Ações em Massa (Visível apenas se houver seleção) */}
+            <AnimatePresence>
+                {selectedCoupons.length > 0 && (
+                    <motion.div 
+                        initial={{ opacity: 0, y: -10 }} 
+                        animate={{ opacity: 1, y: 0 }} 
+                        exit={{ opacity: 0, y: -10 }}
+                        className="bg-blue-50 border border-blue-200 p-3 rounded-lg mb-6 flex flex-wrap items-center justify-between gap-3 sticky top-16 z-20 shadow-md"
+                    >
+                        <div className="text-sm font-bold text-blue-800">
+                            {selectedCoupons.length} selecionado(s)
+                        </div>
+                        <div className="flex gap-2">
+                            <button onClick={() => handleBulkAction('activate')} className="px-2 py-1 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700">Ativar</button>
+                            <button onClick={() => handleBulkAction('deactivate')} className="px-2 py-1 bg-yellow-500 text-white text-xs font-bold rounded hover:bg-yellow-600">Desativar</button>
+                            <button onClick={() => handleBulkAction('delete')} className="px-2 py-1 bg-red-600 text-white text-xs font-bold rounded hover:bg-red-700 flex items-center gap-1"><TrashIcon className="h-3 w-3"/> Excluir</button>
+                            <button onClick={() => setSelectedCoupons([])} className="px-2 py-1 bg-white border border-gray-300 text-gray-600 text-xs font-bold rounded hover:bg-gray-100">Cancelar</button>
+                        </div>
+                    </motion.div>
                 )}
             </AnimatePresence>
 
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold">Gerenciar Cupons</h1>
-                <button onClick={() => { setEditingCoupon(null); setIsModalOpen(true); }} className="bg-gray-800 text-white px-4 py-2 rounded-md flex items-center gap-2">
-                    <PlusIcon className="h-5 w-5"/> Novo Cupom
-                </button>
+            {/* Seleção Múltipla Mobile (Apenas Checkbox) */}
+            <div className="md:hidden flex items-center mb-4 px-1">
+                <input 
+                    type="checkbox" 
+                    id="mobile-select-all"
+                    onChange={handleSelectAll} 
+                    checked={filteredCoupons.length > 0 && selectedCoupons.length === filteredCoupons.length}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-5 w-5 mr-2"
+                />
+                <label htmlFor="mobile-select-all" className="text-sm font-bold text-gray-700">Selecionar Todos</label>
             </div>
 
-            <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="hidden md:block bg-white rounded shadow overflow-hidden">
                 <table className="w-full text-left">
                     <thead className="bg-gray-100">
                         <tr>
-                            <th className="p-4">Código</th>
-                            <th className="p-4">Regra</th>
-                            <th className="p-4">Desconto</th>
-                            <th className="p-4">Status</th>
-                            <th className="p-4">Ações</th>
+                            <th className="p-3 w-10"><input type="checkbox" onChange={handleSelectAll} checked={filteredCoupons.length > 0 && selectedCoupons.length === filteredCoupons.length}/></th>
+                            <th className="p-3">Código</th><th className="p-3">Regra</th><th className="p-3">Desc.</th><th className="p-3">Restrições</th><th className="p-3">Valid.</th><th className="p-3">Status</th><th className="p-3">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {coupons.map(c => (
+                        {filteredCoupons.map(c => (
                             <tr key={c.id} className="border-b hover:bg-gray-50">
-                                <td className="p-4 font-mono font-bold text-blue-600">{c.code}</td>
-                                <td className="p-4 text-sm">
-                                    {c.is_global ? <span className="text-green-600 font-bold">Global</span> : <span className="text-amber-600 font-bold">Restrito</span>}
+                                <td className="p-3"><input type="checkbox" checked={selectedCoupons.includes(c.id)} onChange={() => handleSelectCoupon(c.id)}/></td>
+                                <td className="p-3 font-mono font-bold text-blue-600">{c.code}</td>
+                                <td className="p-3 text-xs">{c.is_global ? <span className="text-green-600 font-bold">Global</span> : <span className="text-amber-600 font-bold">Restrito</span>}</td>
+                                <td className="p-3 text-sm">{c.type === 'free_shipping' ? 'Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$${c.value}`)}</td>
+                                <td className="p-3 text-xs text-gray-500">
+                                    {!c.is_global && (
+                                        <div className="flex flex-col gap-1">
+                                            {tryParse(c.allowed_brands).length > 0 && <span className="text-purple-700">M: {tryParse(c.allowed_brands).join(', ')}</span>}
+                                            {tryParse(c.allowed_categories).length > 0 && <span className="text-blue-700">C: {tryParse(c.allowed_categories).join(', ')}</span>}
+                                        </div>
+                                    )}
+                                    {!!c.is_first_purchase && <div className="text-amber-700 font-semibold">• 1ª Compra</div>}
+                                    {!!c.is_single_use_per_user && <div className="text-blue-700 font-semibold">• Uso Único</div>}
                                 </td>
-                                <td className="p-4">{c.type === 'free_shipping' ? 'Frete Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2)}`)}</td>
-                                <td className="p-4"><span className={`px-2 py-1 text-xs rounded ${c.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{c.is_active ? 'Ativo' : 'Inativo'}</span></td>
-                                <td className="p-4 flex gap-2">
-                                    <button onClick={() => { setEditingCoupon({
-                                        ...c, 
-                                        allowed_categories: JSON.parse(c.allowed_categories || '[]'),
-                                        allowed_brands: JSON.parse(c.allowed_brands || '[]')
-                                    }); setIsModalOpen(true); }}><EditIcon className="h-5 w-5 text-gray-500"/></button>
-                                    <button onClick={() => handleDelete(c.id)}><TrashIcon className="h-5 w-5 text-red-500"/></button>
+                                <td className="p-3"><CouponCountdown createdAt={c.created_at} validityDays={c.validity_days}/></td>
+                                <td className="p-3"><span className={`px-2 py-0.5 text-xs rounded ${c.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100'}`}>{c.is_active ? 'Ativo' : 'Inativo'}</span></td>
+                                <td className="p-3 flex gap-2">
+                                    <button onClick={() => { setEditingCoupon({ ...c, allowed_categories: tryParse(c.allowed_categories), allowed_brands: tryParse(c.allowed_brands) }); setIsModalOpen(true); }}><EditIcon className="h-4 w-4 text-gray-500"/></button>
+                                    <button onClick={() => handleDelete(c.id)}><TrashIcon className="h-4 w-4 text-red-500"/></button>
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
+            
+            <div className="md:hidden space-y-3">
+                 {filteredCoupons.map(c => (
+                    <div key={c.id} className={`bg-white border rounded p-3 relative ${selectedCoupons.includes(c.id) ? 'border-blue-400 ring-1 ring-blue-400' : ''}`}>
+                         <div className="flex justify-between">
+                            <div><h3 className="font-bold text-blue-700">{c.code}</h3><p className="text-xs">{c.type === 'free_shipping' ? 'Frete Grátis' : `${c.value}${c.type==='percentage'?'%':'R$'}`}</p></div>
+                            <input type="checkbox" checked={selectedCoupons.includes(c.id)} onChange={() => handleSelectCoupon(c.id)}/>
+                         </div>
+                         
+                         <div className="flex justify-between mt-2 text-xs text-gray-500 items-center">
+                            <span className="bg-gray-100 px-2 py-0.5 rounded">{c.is_global ? 'Global' : 'Restrito'}</span>
+                            <span className={`font-bold px-2 py-0.5 rounded ${c.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                {c.is_active ? 'Ativo' : 'Inativo'}
+                            </span>
+                            <CouponCountdown createdAt={c.created_at} validityDays={c.validity_days}/>
+                         </div>
+
+                         <div className="text-xs mt-2">
+                            {!c.is_global && (
+                                <div className="flex flex-col gap-1 text-gray-600 bg-gray-50 p-1 rounded">
+                                    {tryParse(c.allowed_brands).length > 0 && <span>M: {tryParse(c.allowed_brands).join(', ')}</span>}
+                                    {tryParse(c.allowed_categories).length > 0 && <span>C: {tryParse(c.allowed_categories).join(', ')}</span>}
+                                </div>
+                            )}
+                            {!!c.is_first_purchase && <span className="block text-amber-700 font-semibold">• 1ª Compra</span>}
+                            {!!c.is_single_use_per_user && <span className="block text-blue-700 font-semibold">• Uso Único</span>}
+                         </div>
+                         <div className="flex justify-end gap-3 mt-2 border-t pt-2">
+                            <button onClick={() => { setEditingCoupon({ ...c, allowed_categories: tryParse(c.allowed_categories), allowed_brands: tryParse(c.allowed_brands) }); setIsModalOpen(true); }} className="text-blue-600 text-xs font-bold flex gap-1"><EditIcon className="h-3 w-3"/> Edit</button>
+                            <button onClick={() => handleDelete(c.id)} className="text-red-600 text-xs font-bold flex gap-1"><TrashIcon className="h-3 w-3"/> Del</button>
+                         </div>
+                    </div>
+                 ))}
+            </div>
         </div>
     );
-};;
+};
 
 const AdminRefunds = ({ onNavigate }) => {
     const [refunds, setRefunds] = useState([]);
@@ -9703,7 +12301,8 @@ const AdminRefunds = ({ onNavigate }) => {
     );
 };
 
-const AdminOrders = () => {
+const AdminOrders = ({ appName }) => {
+    const { pickupConfig } = useShop(); 
     const [orders, setOrders] = useState([]);
     const [filteredOrders, setFilteredOrders] = useState([]);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -9712,106 +12311,233 @@ const AdminOrders = () => {
     const notification = useNotification();
 
     const [currentPage, setCurrentPage] = useState(1);
-    const [orderIdSearch, setOrderIdSearch] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
     const [newOrdersCount, setNewOrdersCount] = useState(0);
     const [showNewOrderNotification, setShowNewOrderNotification] = useState(true);
+    const [itemsExpanded, setItemsExpanded] = useState(true);
+
     const ordersPerPage = 10;
 
     const [filters, setFilters] = useState({
         startDate: '',
         endDate: '',
         status: '',
-        customerName: '',
         minPrice: '',
         maxPrice: '',
     });
 
-    // --- Estados para o Modal de Reembolso ---
     const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
     const [refundAmount, setRefundAmount] = useState(0);
     const [refundReason, setRefundReason] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
 
-    // Define os fluxos de status separados
-    const shippingStatuses = [
-        'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue',
-        'Pagamento Recusado', 'Cancelado', /* 'Reembolsado' removido */
-    ];
-    const pickupStatuses = [
-        'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Pronto para Retirada', 'Entregue',
-        'Pagamento Recusado', 'Cancelado', /* 'Reembolsado' removido */
+    const allStatuses = [
+        'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 
+        'Pronto para Retirada', 'Enviado', 'Saiu para Entrega', 
+        'Entregue', 'Pagamento Recusado', 'Cancelado'
     ];
 
+    const getShippingDisplay = (method) => {
+        const lower = method ? method.toLowerCase() : '';
+        if (lower.includes('retirar') || lower.includes('loja')) {
+            return { icon: <BoxIcon className="h-4 w-4"/>, label: 'Retirada', fullText: 'Retirada na Loja', classes: 'bg-purple-100 text-purple-700 border border-purple-200' };
+        }
+        if (lower.includes('motoboy') || lower.includes('delivery') || lower.includes('local')) {
+            return { icon: <TruckIcon className="h-4 w-4"/>, label: 'Motoboy', fullText: 'Entrega Local (Moto)', classes: 'bg-blue-100 text-blue-700 border border-blue-200' };
+        }
+        return { icon: <TruckIcon className="h-4 w-4"/>, label: 'Correios', fullText: method || 'Envio Padrão', classes: 'bg-amber-100 text-amber-700 border border-amber-200' };
+    };
+
+    const TimelineDisplay = ({ order }) => {
+        const isLocalDelivery = order.shipping_method && (order.shipping_method.toLowerCase().includes('motoboy') || order.shipping_method.toLowerCase().includes('entrega local'));
+        const isPickup = order.shipping_method === 'Retirar na loja';
+        
+        let timelineOrder = [];
+        let displayLabels = {};
+
+        if (isLocalDelivery) {
+            timelineOrder = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Saiu para Entrega', 'Entregue'];
+            displayLabels = { 'Pendente': 'Pendente', 'Pagamento Aprovado': 'Aprovado', 'Separando Pedido': 'Separando', 'Saiu para Entrega': 'Em Rota', 'Entregue': 'Entregue' };
+        } else if (isPickup) {
+            timelineOrder = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Pronto para Retirada', 'Entregue'];
+            displayLabels = { 'Pendente': 'Pendente', 'Pagamento Aprovado': 'Aprovado', 'Separando Pedido': 'Separando', 'Pronto para Retirada': 'Pronto', 'Entregue': 'Retirado' };
+        } else { 
+            timelineOrder = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue'];
+            displayLabels = { 'Pendente': 'Pendente', 'Pagamento Aprovado': 'Aprovado', 'Separando Pedido': 'Separando', 'Enviado': 'Enviado', 'Saiu para Entrega': 'Saiu p/ Entrega', 'Entregue': 'Entregue' };
+        }
+
+        if (['Cancelado', 'Pagamento Recusado', 'Reembolsado'].includes(order.status)) {
+            return (
+                <div className="w-full p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-center gap-3 mb-6">
+                     <XCircleIcon className="h-6 w-6 text-red-600" />
+                     <div className="text-center">
+                         <p className="font-bold text-red-800 text-lg uppercase tracking-wide">{order.status}</p>
+                         <p className="text-xs text-red-600">O fluxo deste pedido foi interrompido.</p>
+                     </div>
+                </div>
+            );
+        }
+
+        const currentStatusIndex = timelineOrder.indexOf(order.status);
+        const progressWidth = currentStatusIndex >= 0 ? (currentStatusIndex / (timelineOrder.length - 1)) * 100 : 0;
+
+        return (
+            <div className="w-full py-6 mb-4">
+                <div className="flex items-center justify-between relative">
+                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-200 -z-10 rounded-full"></div>
+                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 bg-green-500 -z-10 rounded-full transition-all duration-500" style={{ width: `${progressWidth}%` }}></div>
+                    {timelineOrder.map((statusKey, index) => {
+                        const isCompleted = index <= currentStatusIndex;
+                        const isCurrent = statusKey === order.status;
+                        return (
+                            <div key={statusKey} className="flex flex-col items-center group">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center border-4 transition-all duration-300 z-10 ${isCompleted ? 'bg-green-500 border-green-500 scale-110' : 'bg-white border-gray-300'}`}>
+                                    {isCompleted && <CheckIcon className="h-4 w-4 text-white stroke-2" />}
+                                </div>
+                                <p className={`absolute -bottom-8 text-[10px] font-bold text-center w-20 transition-colors ${isCurrent ? 'text-green-700' : (isCompleted ? 'text-gray-600' : 'text-gray-400')}`}>
+                                    {displayLabels[statusKey]}
+                                </p>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    };
+
+    const generateWhatsAppStatusMessage = (status, order, trackingCode) => {
+        const customerName = order.user_name;
+        const orderId = order.id;
+        const firstName = customerName ? customerName.split(' ')[0] : 'Cliente';
+        const isPickup = order.shipping_method === 'Retirar na loja';
+        const isLocalDelivery = order.shipping_method && (order.shipping_method.toLowerCase().includes('motoboy') || order.shipping_method.toLowerCase().includes('entrega local'));
+        
+        const orderLink = `${window.location.origin}/#account/orders/${orderId}`;
+        const paymentLink = `${window.location.origin}/#order-success/${orderId}`;
+
+        const EMOJI = {
+            PACKAGE: String.fromCodePoint(0x1F4E6), TRUCK: String.fromCodePoint(0x1F69A), DOC: String.fromCodePoint(0x1F4C4),
+            LINK: String.fromCodePoint(0x1F517), MOTO: String.fromCodePoint(0x1F6F5), CHECK: String.fromCodePoint(0x2705),
+            BAGS: String.fromCodePoint(0x1F6CD, 0xFE0F), PIN: String.fromCodePoint(0x1F4CD), CLOCK: String.fromCodePoint(0x23F0),
+            MONEY: String.fromCodePoint(0x1F4B8), CROSS: String.fromCodePoint(0x274C), WARN: String.fromCodePoint(0x26A0, 0xFE0F),
+            NEW: String.fromCodePoint(0x1F195), PHONE: String.fromCodePoint(0x1F4F1), HOUSE: String.fromCodePoint(0x1F3E0),
+            PAY: String.fromCodePoint(0x1F4B3)
+        };
+
+        let text = `Olá, *${firstName}*.\n\n`;
+
+        if (status === 'Pendente') {
+             text += `🔔 *Lembrete de Pagamento: Pedido #${orderId}*\n\n`;
+             text += `Recebemos seu pedido, mas ainda não identificamos a confirmação do pagamento.\n\n`;
+             text += `${EMOJI.PAY} *Para realizar o pagamento, acesse:* \n${paymentLink}\n\n`;
+             text += `⚠️ *Caso já tenha efetuado o pagamento:* \nPor favor, desconsidere esta mensagem.\n\n`;
+             text += `${EMOJI.DOC} *Acompanhe o status aqui:* \n${orderLink}\n\n`;
+             text += `Atenciosamente,\n*Equipe ${appName || 'da Loja'}*\n${EMOJI.PHONE} (83) 98737-9573`;
+             return text;
+        }
+
+        text += `O status do seu pedido *#${orderId}* foi atualizado:\n\n`;
+
+        switch (status) {
+            case 'Separando Pedido': text += `${EMOJI.PACKAGE} *Novo Status: Preparado o pedido para envio*\nEstamos separando seus itens com cuidado.`; break;
+            case 'Enviado': text += `${EMOJI.TRUCK} *Novo Status: Pedido Enviado*\n${trackingCode ? `\n${EMOJI.DOC} *Rastreio:* ${trackingCode}\n${EMOJI.LINK} *Acompanhe:* https://linketrack.com/track?codigo=${trackingCode}` : ''}`; break;
+            case 'Saiu para Entrega':
+                if (isLocalDelivery) text += `${EMOJI.MOTO} *Novo Status: Saiu para entrega (Motoboy)*\nO motorista já está a caminho.${trackingCode?.startsWith('http') ? `\n\n${EMOJI.LINK} *Acompanhe em tempo real:*\n${trackingCode}` : ''}`;
+                else text += `${EMOJI.MOTO} *Novo Status: Saiu para Entrega*\nSeu pedido está em rota de entrega.`;
+                break;
+            case 'Entregue': text += `${EMOJI.CHECK} *Novo Status: Pedido entregue*\nConfirmamos a entrega. Esperamos que goste dos produtos!`; break;
+            case 'Pronto para Retirada': text += `${EMOJI.BAGS} *Novo Status: Pronto para Retirada*\nJá disponível em nossa loja.`; break;
+            case 'Pagamento Aprovado': text += `${EMOJI.MONEY} *Novo Status: Pagamento Aprovado*\nPagamento confirmado. Iniciaremos a separação.`; break;
+            case 'Cancelado': text += `${EMOJI.CROSS} *Novo Status: Cancelado*\nO pedido foi cancelado. Se tiver dúvidas, estamos à disposição.`; break;
+            case 'Pagamento Recusado': text += `${EMOJI.WARN} *Novo Status: Pagamento Recusado*\nO pagamento não foi autorizado. Tente novamente ou entre em contato.`; break;
+            case 'Reembolsado': text += `${EMOJI.MONEY} *Novo Status: Reembolsado*\nO reembolso do seu pedido foi processado.`; break;
+            default: text += `${EMOJI.NEW} *Novo Status:* ${status}`;
+        }
+
+        if (!['Cancelado', 'Reembolsado', 'Pagamento Recusado'].includes(status)) {
+             text += `\n\n--------------------------------\n`;
+             if (isPickup) {
+                const pAddr = pickupConfig?.address;
+                let pAddrStr = 'Endereço não configurado';
+                if (typeof pAddr === 'object' && pAddr !== null) {
+                    pAddrStr = `Rua: ${pAddr.rua}\nNº: ${pAddr.numero}\nBairro: ${pAddr.bairro}\nCidade: ${pAddr.cidade}\nEstado: ${pAddr.estado || pAddr.uf}\nCEP: ${pAddr.cep}`;
+                } else if (typeof pAddr === 'string') {
+                    pAddrStr = pAddr;
+                }
+                const pHours = pickupConfig?.hours || 'Seg a Sáb, 09h-11h30 e 15h-17h30';
+                const pInst = pickupConfig?.instructions || 'Documento com foto e número do pedido.';
+                const pMaps = pickupConfig?.mapsLink || '';
+
+                text += `${EMOJI.PIN} *Local de Retirada:*\n${pAddrStr}\n`;
+                if (pMaps) text += `\n${EMOJI.LINK} *Mapa:* ${pMaps}\n`;
+                text += `\n${EMOJI.CLOCK} *Horário:* ${pHours}\n`;
+                text += `\n${EMOJI.DOC} *Necessário:* ${pInst}`;
+            } else {
+                try {
+                    const addr = JSON.parse(order.shipping_address);
+                    if (addr) {
+                        text += `${EMOJI.HOUSE} *Endereço de Entrega:*\n${addr.logradouro}, ${addr.numero}\n${addr.bairro ? `${addr.bairro} - ` : ''}${addr.localidade}/${addr.uf}`;
+                    }
+                } catch (e) { text += `${EMOJI.TRUCK} Envio para o endereço cadastrado.`; }
+            }
+        }
+
+        text += `\n\n${EMOJI.LINK} *Detalhes no site:*\n${orderLink}\n\nAtenciosamente,\n*Equipe ${appName || 'da Loja'}*\n${EMOJI.PHONE} (83) 98737-9573`;
+        return text;
+    };
+
+    const handleManualWhatsAppNotification = () => {
+        if (!editingOrder || !editingOrder.user_phone) { notification.show("Telefone do cliente não disponível.", "error"); return; }
+        const statusToSend = editFormData.status || editingOrder.status;
+        const trackingToSend = editFormData.tracking_code || editingOrder.tracking_code;
+        const message = generateWhatsAppStatusMessage(statusToSend, editingOrder, trackingToSend);
+        const cleanPhone = editingOrder.user_phone.replace(/\D/g, '');
+        if (cleanPhone.length >= 10) window.open(`https://api.whatsapp.com/send?phone=55${cleanPhone}&text=${encodeURIComponent(message)}`, '_blank');
+        else notification.show("Número de telefone do cliente inválido.", "error");
+    };
+    
     const fetchOrders = useCallback(() => {
         apiService('/orders')
             .then(data => {
                 const sortedData = data.sort((a,b) => new Date(b.date) - new Date(a.date));
                 setOrders(sortedData);
-
                 const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-                const recentOrders = sortedData.filter(o => {
-                    if (!o || !o.date) return false;
-                    const orderDate = new Date(o.date);
-                    return !isNaN(orderDate) && orderDate > twentyFourHoursAgo;
-                });
-                setNewOrdersCount(recentOrders.length);
-
-            })
-            .catch(err => console.error("Falha ao buscar pedidos:", err));
+                const recent = sortedData.filter(o => o?.date && !isNaN(new Date(o.date)) && new Date(o.date) > twentyFourHoursAgo);
+                setNewOrdersCount(recent.length);
+            }).catch(console.error);
     }, []);
 
-    useEffect(() => {
-        fetchOrders();
-    }, [fetchOrders]);
+    useEffect(() => { fetchOrders(); }, [fetchOrders]);
     
+    useEffect(() => {
+        let temp = [...orders];
+        if (searchTerm) {
+            const lowerTerm = searchTerm.toLowerCase();
+            temp = temp.filter(o => String(o.id).includes(lowerTerm) || (o.user_name?.toLowerCase().includes(lowerTerm)) || (o.user_cpf?.includes(lowerTerm)));
+        }
+        if (filters.status) temp = temp.filter(o => o.status === filters.status);
+        if (filters.minPrice) temp = temp.filter(o => Number(o.total) >= Number(filters.minPrice));
+        if (filters.maxPrice) temp = temp.filter(o => Number(o.total) <= Number(filters.maxPrice));
+        if (filters.startDate) {
+            const start = new Date(filters.startDate); start.setHours(0,0,0,0);
+            temp = temp.filter(o => new Date(o.date) >= start);
+        }
+        if (filters.endDate) {
+            const end = new Date(filters.endDate); end.setHours(23,59,59,999);
+            temp = temp.filter(o => new Date(o.date) <= end);
+        }
+        setFilteredOrders(temp);
+        setCurrentPage(1);
+    }, [orders, filters, searchTerm]);
+
     const handleOpenEditModal = async (order) => {
         try {
-            const fullOrderDetails = await apiService(`/orders/${order.id}`);
-            setEditingOrder(fullOrderDetails);
-            setEditFormData({
-                status: fullOrderDetails.status,
-                tracking_code: fullOrderDetails.tracking_code || ''
-            });
+            const fullDetails = await apiService(`/orders/${order.id}`);
+            setEditingOrder(fullDetails);
+            setEditFormData({ status: fullDetails.status, tracking_code: fullDetails.tracking_code || '' });
+            setItemsExpanded(true); 
             setIsEditModalOpen(true);
-        } catch (error) {
-            notification.show("Erro ao buscar detalhes do pedido.", 'error');
-            console.error(error);
-        }
-    };
-
-    const handleOpenRefundModal = () => {
-        if (!editingOrder) return;
-        setRefundAmount(editingOrder.total);
-        setRefundReason('');
-        setIsEditModalOpen(false); // Fecha o modal de detalhes
-        setIsRefundModalOpen(true); // Abre o modal de reembolso
-    };
-
-    const handleRequestRefund = async (e) => {
-        e.preventDefault();
-        setIsProcessing(true);
-        try {
-            if (parseFloat(refundAmount) > parseFloat(editingOrder.total)) {
-                throw new Error("O valor do reembolso não pode ser maior que o total do pedido.");
-            }
-            const result = await apiService('/refunds', 'POST', {
-                order_id: editingOrder.id,
-                amount: refundAmount,
-                reason: refundReason,
-            });
-            notification.show(result.message);
-            setIsRefundModalOpen(false);
-            fetchOrders();
-        } catch (error) {
-            notification.show(`Erro ao solicitar reembolso: ${error.message}`, 'error');
-        } finally {
-            setIsProcessing(false);
-        }
-    };
-
-    const handleEditFormChange = (e) => {
-        const { name, value } = e.target;
-        setEditFormData(prev => ({ ...prev, [name]: value }));
+        } catch (e) { notification.show("Erro ao abrir pedido.", "error"); }
     };
 
     const handleSaveOrder = async (e) => {
@@ -9819,61 +12545,61 @@ const AdminOrders = () => {
         if (!editingOrder) return;
         try {
             await apiService(`/orders/${editingOrder.id}`, 'PUT', editFormData);
+            notification.show('Pedido atualizado!');
             fetchOrders();
             setIsEditModalOpen(false);
-            setEditingOrder(null);
-            notification.show('Pedido atualizado com sucesso!');
-        } catch(error) {
-            notification.show(`Erro ao atualizar pedido: ${error.message}`, 'error');
-        }
+        } catch(e) { notification.show(e.message, 'error'); }
     };
 
-    const handleFilterChange = (e) => {
-        const { name, value } = e.target;
-        setFilters(prev => ({ ...prev, [name]: value }));
+    const DetailCard = ({ title, icon: Icon, children, className = "" }) => (
+        <div className={`bg-white p-5 rounded-xl border border-gray-200 shadow-sm ${className}`}>
+            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-gray-100 pb-2">
+                {Icon && <Icon className="h-4 w-4 text-indigo-500"/>}
+                {title}
+            </h4>
+            <div className="text-sm text-gray-700 space-y-2">
+                {children}
+            </div>
+        </div>
+    );
+
+    const indexOfLastOrder = currentPage * ordersPerPage;
+    const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
+    const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
+    const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
+
+    const getStatusLabel = (status, order) => {
+        const isLocal = editingOrder?.shipping_method?.toLowerCase().includes('motoboy');
+        if (isLocal) {
+            if (status === 'Saiu para Entrega') return 'Saiu para entrega (Motoboy)';
+            if (status === 'Separando Pedido') return 'Preparado p/ envio';
+        }
+        return status;
     };
 
-    const applyFilters = useCallback(() => {
-        let tempOrders = [...orders];
+    const handleOpenRefundModal = () => {
+        if (!editingOrder) return;
+        setRefundAmount(editingOrder.total); setRefundReason('');
+        setIsEditModalOpen(false); setIsRefundModalOpen(true);
+    };
 
-        if (orderIdSearch) {
-            tempOrders = tempOrders.filter(o => String(o.id).includes(orderIdSearch));
-        }
-        
-        if (filters.startDate) {
-            tempOrders = tempOrders.filter(o => new Date(o.date) >= new Date(filters.startDate));
-        }
-        if (filters.endDate) {
-            const endOfDay = new Date(filters.endDate);
-            endOfDay.setHours(23, 59, 59, 999);
-            tempOrders = tempOrders.filter(o => new Date(o.date) <= endOfDay);
-        }
-        if (filters.status) {
-            tempOrders = tempOrders.filter(o => o.status === filters.status);
-        }
-        if (filters.customerName) {
-            tempOrders = tempOrders.filter(o => o.user_name.toLowerCase().includes(filters.customerName.toLowerCase()));
-        }
-        if (filters.minPrice) {
-            tempOrders = tempOrders.filter(o => parseFloat(o.total) >= parseFloat(filters.minPrice));
-        }
-        if (filters.maxPrice) {
-            tempOrders = tempOrders.filter(o => parseFloat(o.total) <= parseFloat(filters.maxPrice));
-        }
-        
-        setFilteredOrders(tempOrders);
-        setCurrentPage(1);
-    }, [orders, filters, orderIdSearch]);
-    
-    useEffect(() => {
-        applyFilters();
-    }, [filters, orderIdSearch, orders, applyFilters]);
+    const handleRequestRefund = async (e) => {
+        e.preventDefault();
+        setIsProcessing(true);
+        try {
+            if (parseFloat(refundAmount) > parseFloat(editingOrder.total)) throw new Error("O valor do reembolso não pode ser maior que o total do pedido.");
+            const result = await apiService('/refunds', 'POST', { order_id: editingOrder.id, amount: refundAmount, reason: refundReason });
+            notification.show(result.message);
+            setIsRefundModalOpen(false);
+            fetchOrders();
+        } catch (error) { notification.show(`Erro ao solicitar reembolso: ${error.message}`, 'error'); } 
+        finally { setIsProcessing(false); }
+    };
 
-    const clearFilters = () => {
-        setFilters({ startDate: '', endDate: '', status: '', customerName: '', minPrice: '', maxPrice: '' });
-        setOrderIdSearch('');
-        setCurrentPage(1);
-    }
+    const handleEditFormChange = (e) => setEditFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    const handleFilterChange = (e) => setFilters(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    const applyFilters = useCallback(() => { /* Lógica de filtro reativa já trata */ }, []);
+    const clearFilters = () => { setFilters({ startDate: '', endDate: '', status: '', minPrice: '', maxPrice: '' }); setSearchTerm(''); setCurrentPage(1); }
 
     const getStatusChipClass = (status) => {
         const lowerStatus = status ? status.toLowerCase() : '';
@@ -9882,11 +12608,71 @@ const AdminOrders = () => {
         if (lowerStatus.includes('pendente')) return 'bg-yellow-100 text-yellow-800';
         return 'bg-blue-100 text-blue-800';
     };
-    
-    const indexOfLastOrder = currentPage * ordersPerPage;
-    const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
-    const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
-    const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
+
+    const renderUpdateOrderForm = () => {
+        const isLocalDelivery = editingOrder.shipping_method && (editingOrder.shipping_method.toLowerCase().includes('motoboy') || editingOrder.shipping_method.toLowerCase().includes('entrega local'));
+        const isPickup = editingOrder.shipping_method === 'Retirar na loja';
+        const canRequestRefund = editingOrder.payment_status === 'approved' && !editingOrder.refund_id && !['Cancelado', 'Reembolsado'].includes(editingOrder.status);
+
+        let availableStatuses = [];
+        if (isLocalDelivery) availableStatuses = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Saiu para Entrega', 'Entregue', 'Cancelado', 'Pagamento Recusado'];
+        else if (isPickup) availableStatuses = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Pronto para Retirada', 'Entregue', 'Cancelado', 'Pagamento Recusado'];
+        else availableStatuses = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue', 'Cancelado', 'Pagamento Recusado'];
+
+        if (!availableStatuses.includes(editingOrder.status)) availableStatuses.push(editingOrder.status);
+
+        return (
+            <div className="bg-white p-6 rounded-xl shadow-md border border-indigo-100 mt-6 lg:mt-0">
+                <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2 border-b pb-3">
+                    <EditIcon className="h-5 w-5 text-indigo-600"/> Atualizar Status e Entrega
+                </h4>
+                <form onSubmit={handleSaveOrder} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Status do Pedido</label>
+                            <select name="status" value={editFormData.status} onChange={handleEditFormChange} className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 bg-white">
+                                {availableStatuses.map(s => <option key={s} value={s}>{getStatusLabel(s)}</option>)}
+                            </select>
+                        </div>
+                        {!isPickup && (
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                                    {isLocalDelivery ? "Link de Acompanhamento (Uber/Moto)" : "Código de Rastreio"}
+                                </label>
+                                <input type="text" name="tracking_code" value={editFormData.tracking_code} onChange={handleEditFormChange} placeholder={isLocalDelivery ? "Cole o link da viagem aqui" : "Ex: AA123456789BR"} className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" />
+                                {isLocalDelivery && <p className="text-xs text-gray-500 mt-1">Link para o cliente acompanhar o motoboy.</p>}
+                            </div>
+                        )}
+                    </div>
+                    
+                    <div className="flex flex-col-reverse md:flex-row justify-between items-center pt-4 border-t border-gray-100 gap-4">
+                        <div className="flex flex-wrap gap-3 w-full md:w-auto justify-start">
+                            {canRequestRefund ? (
+                                <button type="button" onClick={handleOpenRefundModal} className="px-4 py-2.5 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 font-bold text-sm flex items-center gap-2 transition-colors flex-grow md:flex-grow-0 justify-center">
+                                    <CurrencyDollarIcon className="h-5 w-5"/> Reembolso
+                                </button>
+                            ) : editingOrder.refund_id ? (
+                                <span className="text-xs font-bold text-orange-600 bg-orange-50 px-3 py-1 rounded-full border border-orange-200 self-center">Reembolso Solicitado</span>
+                            ) : null}
+
+                            {editingOrder.user_phone && (
+                                <button type="button" onClick={handleManualWhatsAppNotification} className="px-4 py-2.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-bold text-sm flex items-center gap-2 transition-colors flex-grow md:flex-grow-0 justify-center">
+                                    <WhatsappIcon className="h-5 w-5"/> Notificar
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="flex flex-wrap gap-3 w-full md:w-auto">
+                            <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 md:flex-none px-6 py-2.5 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 text-sm transition-colors">Cancelar</button>
+                            <button type="submit" className="flex-1 md:flex-none px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-md text-sm transition-colors flex items-center justify-center gap-2">
+                                <CheckIcon className="h-5 w-5"/> Salvar
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        );
+    };
 
     return (
         <div>
@@ -9916,153 +12702,279 @@ const AdminOrders = () => {
             </AnimatePresence>
             <AnimatePresence>
                 {editingOrder && (() => {
-                    const baseStatuses = editingOrder.shipping_method === 'Retirar na loja' 
-                        ? pickupStatuses 
-                        : shippingStatuses;
-                    
-                    const availableStatuses = baseStatuses.filter(s => s !== 'Reembolsado');
-
-                    if (!availableStatuses.includes(editingOrder.status)) {
-                        availableStatuses.push(editingOrder.status);
-                    }
-
-                    const canRequestRefund = editingOrder.payment_status === 'approved' && !editingOrder.refund_id && editingOrder.status !== 'Cancelado' && editingOrder.status !== 'Reembolsado';
+                    const isLocalDelivery = editingOrder.shipping_method && (editingOrder.shipping_method.toLowerCase().includes('motoboy') || editingOrder.shipping_method.toLowerCase().includes('entrega local'));
+                    const isPickup = editingOrder.shipping_method === 'Retirar na loja';
+                    const pAddress = pickupConfig?.address;
+                    const isPAddressObj = typeof pAddress === 'object' && pAddress !== null;
 
                     return (
-                        <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Detalhes do Pedido #${editingOrder.id}`}>
-                            <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4 text-sm items-start">
-                                    <div>
-                                        <h4 className="font-bold text-gray-700 mb-1">Cliente</h4>
-                                        <p>{editingOrder.user_name}</p>
+                        <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Pedido #${editingOrder.id}`} size="3xl">
+                            <div className="bg-gray-50/50 -m-6 p-4 sm:p-6 pb-24">
+                                
+                                {/* 1. Timeline */}
+                                <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-2">
+                                        <div>
+                                            <p className="text-xs text-gray-500 font-medium">Realizado em</p>
+                                            <p className="text-sm font-bold text-gray-900">{new Date(editingOrder.date).toLocaleString('pt-BR')}</p>
+                                        </div>
+                                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border self-start sm:self-auto ${
+                                            editingOrder.status === 'Entregue' ? 'bg-green-50 text-green-700 border-green-200' :
+                                            editingOrder.status === 'Cancelado' ? 'bg-red-50 text-red-700 border-red-200' :
+                                            'bg-blue-50 text-blue-700 border-blue-200'
+                                        }`}>
+                                            {editingOrder.status}
+                                        </span>
                                     </div>
-                                    <div>
-                                        <h4 className="font-bold text-gray-700 mb-1">Pagamento</h4>
-                                        {(() => {
-                                            if (!editingOrder.payment_details) {
-                                                return <p className="capitalize">{editingOrder.payment_method || 'N/A'}</p>;
-                                            }
-                                            try {
-                                                const details = JSON.parse(editingOrder.payment_details);
-                                                if (details.method === 'credit_card') {
-                                                    return (
-                                                        <div className="text-sm">
-                                                            <p className="font-semibold text-gray-800">Cartão de Crédito</p>
-                                                            <p className="text-gray-600">Bandeira: <span className="uppercase">{details.card_brand}</span></p>
-                                                            <p className="text-gray-600">Final: •••• {details.card_last_four}</p>
-                                                            <p className="text-gray-600">Parcelas: {details.installments}x</p>
-                                                        </div>
-                                                    );
-                                                }
-                                                if (details.method === 'pix') {
-                                                    return <p className="font-semibold text-gray-800">Pix</p>;
-                                                }
-                                                if (details.method === 'boleto') {
-                                                    return <p className="font-semibold text-gray-800">Boleto</p>;
-                                                }
-                                            } catch (e) {
-                                                return <p className="capitalize">{editingOrder.payment_method || 'N/A'}</p>;
-                                            }
-                                            return <p className="capitalize">{editingOrder.payment_method || 'N/A'}</p>;
-                                        })()}
-                                    </div>
+                                    <TimelineDisplay order={editingOrder} />
                                 </div>
-                                {editingOrder.shipping_method === 'Retirar na loja' ? (
-                                    <div>
-                                        <h4 className="font-bold text-gray-700 mb-1">Detalhes da Retirada</h4>
-                                        <div className="text-sm bg-blue-50 p-3 rounded-md border border-blue-200">
-                                            <p className="font-semibold text-blue-800 flex items-center gap-2"><BoxIcon className="h-5 w-5"/> Este pedido será retirado na loja.</p>
-                                            {(() => {
-                                                try {
-                                                    const details = JSON.parse(editingOrder.pickup_details);
-                                                    return (
-                                                        <div className="mt-2 pt-2 border-t">
-                                                            <p><strong>Nome:</strong> {details.personName}</p>
-                                                            <p><strong>CPF:</strong> {maskCPF(details.personCpf)}</p>
-                                                        </div>
-                                                    )
-                                                } catch { return <p className="text-red-600 mt-2">Erro: Detalhes de retirada mal formatados.</p> }
-                                            })()}
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div>
-                                        <h4 className="font-bold text-gray-700 mb-1">Endereço de Entrega</h4>
-                                        <div className="text-sm bg-gray-100 p-3 rounded-md">
-                                            {editingOrder.shipping_address ? (() => {
-                                                try {
-                                                    const addr = JSON.parse(editingOrder.shipping_address);
-                                                    return (
-                                                        <div className="space-y-1">
-                                                            <p><span className="font-semibold text-gray-500">Rua:</span> {addr.logradouro}</p>
-                                                            <p><span className="font-semibold text-gray-500">Nº:</span> {addr.numero} {addr.complemento && `- ${addr.complemento}`}</p>
-                                                            <p><span className="font-semibold text-gray-500">Bairro:</span> {addr.bairro}</p>
-                                                            <p><span className="font-semibold text-gray-500">Cidade:</span> {addr.localidade} - {addr.uf}</p>
-                                                            <p><span className="font-semibold text-gray-500">CEP:</span> {addr.cep}</p>
-                                                        </div>
-                                                    )
-                                                } catch { return <p>Endereço mal formatado.</p> }
-                                            })() : <p>Nenhum endereço de entrega.</p>}
-                                        </div>
-                                    </div>
-                                )}
-                                <div>
-                                    <h4 className="font-bold text-gray-700 mb-2">Itens do Pedido</h4>
-                                    <div className="space-y-2 border-t pt-2 max-h-48 overflow-y-auto">
-                                        {editingOrder.items?.map(item => (
-                                            <div key={item.id} className="flex items-center text-sm">
-                                                <img src={getFirstImage(item.images)} alt={item.name} className="h-12 w-12 object-contain mr-3 bg-gray-100 rounded"/>
-                                                <div>
-                                                    <p className="font-semibold text-gray-800">{item.name}</p>
-                                                    <p className="text-gray-600">{item.quantity} x R$ {Number(item.price).toFixed(2)}</p>
-                                                    {item.variation && typeof item.variation === 'object' && (
-                                                        <p className="text-xs text-indigo-600 bg-indigo-100 font-medium rounded-full px-2 py-1 w-fit mt-1">Cor: {item.variation.color} / Tamanho: {item.variation.size}</p>
-                                                    )}
+
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                    {/* COLUNA DA ESQUERDA: Itens */}
+                                    <div className="lg:col-span-2 space-y-6">
+                                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                                            {/* Header do Accordion */}
+                                            <div 
+                                                className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center cursor-pointer select-none hover:bg-gray-100 transition-colors"
+                                                onClick={() => setItemsExpanded(!itemsExpanded)}
+                                            >
+                                                <h4 className="font-bold text-gray-700 flex items-center gap-2"><BoxIcon className="h-4 w-4"/> Itens do Pedido</h4>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-medium text-gray-500">{editingOrder.items?.length || 0} itens</span>
+                                                    <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform duration-300 ${itemsExpanded ? 'rotate-180' : ''}`} />
                                                 </div>
                                             </div>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div>
-                                    <h4 className="font-bold text-gray-700 mb-2">Resumo Financeiro</h4>
-                                    <div className="text-sm bg-gray-100 p-3 rounded-md space-y-1">
-                                        <div className="flex justify-between"><span>Subtotal:</span> <span>R$ {(editingOrder.items?.reduce((acc, item) => acc + (Number(item.price) * item.quantity), 0) || 0).toFixed(2)}</span></div>
-                                        <div className="flex justify-between"><span>Frete ({editingOrder.shipping_method || 'N/A'}):</span> <span>R$ {Number(editingOrder.shipping_cost || 0).toFixed(2)}</span></div>
-                                        {Number(editingOrder.discount_amount) > 0 && (<div className="flex justify-between text-green-600"><span>Desconto ({editingOrder.coupon_code || ''}):</span><span>- R$ {Number(editingOrder.discount_amount).toFixed(2)}</span></div>)}
-                                        <div className="flex justify-between font-bold text-base border-t mt-2 pt-2"><span>Total:</span> <span>R$ {Number(editingOrder.total).toFixed(2)}</span></div>
-                                    </div>
-                                </div>
-                                <form onSubmit={handleSaveOrder} className="space-y-4 border-t pt-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Status do Pedido</label>
-                                        <select name="status" value={editFormData.status} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500">
-                                            {availableStatuses.map(s => <option key={s} value={s}>{s}</option>)}
-                                        </select>
-                                    </div>
-                                    {editingOrder.shipping_method !== 'Retirar na loja' && (
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700">Código de Rastreio</label>
-                                            <input type="text" name="tracking_code" value={editFormData.tracking_code} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500" />
+
+                                            {/* Conteúdo do Accordion */}
+                                            <AnimatePresence initial={false}>
+                                                {itemsExpanded && (
+                                                    <motion.div
+                                                        initial={{ height: 0, opacity: 0 }}
+                                                        animate={{ height: "auto", opacity: 1 }}
+                                                        exit={{ height: 0, opacity: 0 }}
+                                                        transition={{ duration: 0.3 }}
+                                                    >
+                                                        {/* Lista de Itens com Scroll e Badges */}
+                                                        <div className="divide-y divide-gray-100 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                                                            {editingOrder.items?.map((item, idx) => {
+                                                                let variation = item.variation;
+                                                                if (typeof variation === 'string') {
+                                                                    try { variation = JSON.parse(variation); } catch(e) {}
+                                                                }
+                                                                
+                                                                const isClothing = !!variation;
+                                                                const itemTypeLabel = isClothing ? 'ROUPA' : 'PERFUME';
+                                                                const itemTypeClass = isClothing ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-purple-100 text-purple-700 border-purple-200';
+                                                                
+                                                                return (
+                                                                <div key={idx} className="p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 hover:bg-gray-50 transition-colors">
+                                                                    <div className="w-12 h-12 rounded-lg border border-gray-200 bg-white flex-shrink-0 p-1">
+                                                                        <img src={getFirstImage(item.images)} alt="" className="w-full h-full object-contain"/>
+                                                                    </div>
+                                                                    <div className="flex-grow">
+                                                                        <div className="flex items-center gap-2 mb-1">
+                                                                            <span className={`text-[10px] px-1.5 py-0.5 rounded border font-bold uppercase ${itemTypeClass}`}>
+                                                                                {itemTypeLabel}
+                                                                            </span>
+                                                                        </div>
+                                                                        <p className="text-sm font-bold text-gray-800 line-clamp-1">{item.name}</p>
+                                                                        {variation && (
+                                                                            <div className="flex items-center gap-2 mt-1">
+                                                                                <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
+                                                                                    Cor: {variation.color}
+                                                                                </span>
+                                                                                <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
+                                                                                    Tam: {variation.size}
+                                                                                </span>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="text-right w-full sm:w-auto">
+                                                                        <p className="text-xs text-gray-500">{item.quantity} x R$ {Number(item.price).toFixed(2)}</p>
+                                                                        <p className="text-sm font-bold text-gray-900">R$ {(item.quantity * item.price).toFixed(2)}</p>
+                                                                    </div>
+                                                                </div>
+                                                            )})}
+                                                        </div>
+                                                        <div className="bg-gray-50 p-4 border-t border-gray-200 space-y-2">
+                                                            <div className="flex justify-between text-xs text-gray-600">
+                                                                <span>Subtotal</span>
+                                                                <span>R$ {(Number(editingOrder.total) - Number(editingOrder.shipping_cost) + Number(editingOrder.discount_amount)).toFixed(2)}</span>
+                                                            </div>
+                                                            <div className="flex justify-between text-xs text-gray-600">
+                                                                <span>Frete ({editingOrder.shipping_method})</span>
+                                                                <span>R$ {Number(editingOrder.shipping_cost).toFixed(2)}</span>
+                                                            </div>
+                                                            {Number(editingOrder.discount_amount) > 0 && (
+                                                                <div className="flex justify-between text-xs text-green-600 font-medium">
+                                                                    <span>Desconto ({editingOrder.coupon_code})</span>
+                                                                    <span>- R$ {Number(editingOrder.discount_amount).toFixed(2)}</span>
+                                                                </div>
+                                                            )}
+                                                            <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-200">
+                                                                <span>Total Geral</span>
+                                                                <span>R$ {Number(editingOrder.total).toFixed(2)}</span>
+                                                            </div>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
                                         </div>
-                                    )}
-                                    <div className="flex justify-between items-center space-x-3 pt-4">
-                                        <div>
-                                            {canRequestRefund ? (
-                                                <button type="button" onClick={handleOpenRefundModal} className="px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 font-semibold">
-                                                    Solicitar Reembolso
-                                                </button>
+                                        
+                                        {/* ATUALIZAR PEDIDO (Visível apenas em Desktop) */}
+                                        <div className="hidden lg:block">
+                                            {renderUpdateOrderForm()}
+                                        </div>
+                                    </div>
+
+                                    {/* COLUNA DA DIREITA: Informações */}
+                                    <div className="space-y-6">
+                                        <DetailCard title="Cliente" icon={UserIcon}>
+                                            <div className="flex items-center gap-3 mb-3">
+                                                <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-lg">
+                                                    {editingOrder.user_name.charAt(0)}
+                                                </div>
+                                                <div className="overflow-hidden">
+                                                    <p className="font-bold text-gray-900 leading-tight truncate">{editingOrder.user_name}</p>
+                                                    <p className="text-xs text-gray-500">ID: {editingOrder.user_id}</p>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2 text-xs">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-8 text-right font-semibold text-gray-500">CPF:</div>
+                                                    <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">{maskCPF(editingOrder.user_cpf || '---')}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-8 text-right"><WhatsappIcon className="h-4 w-4 text-green-500 mx-auto"/></div>
+                                                    <a href={`https://wa.me/55${editingOrder.user_phone?.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="hover:underline hover:text-green-600">
+                                                        {maskPhone(editingOrder.user_phone || '')}
+                                                    </a>
+                                                </div>
+                                                {editingOrder.user_phone && (
+                                                    <a 
+                                                        href={`https://api.whatsapp.com/send?phone=55${editingOrder.user_phone.replace(/\D/g, '')}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="mt-3 w-full flex items-center justify-center gap-2 bg-green-500 text-white py-2 rounded-md hover:bg-green-600 font-bold transition-colors shadow-sm"
+                                                        title="Abrir conversa no WhatsApp"
+                                                    >
+                                                        <WhatsappIcon className="h-4 w-4 text-white"/> Conversar no WhatsApp
+                                                    </a>
+                                                )}
+                                            </div>
+                                        </DetailCard>
+
+                                        <DetailCard title="Entrega" icon={MapPinIcon}>
+                                            <div className="mb-3 pb-2 border-b border-gray-100">
+                                                <span className="text-xs text-gray-500 block">Método Escolhido</span>
+                                                <p className="font-bold text-indigo-700 text-sm">{editingOrder.shipping_method || 'Não informado'}</p>
+                                            </div>
+
+                                            {isPickup ? (
+                                                <div className="bg-amber-50 border border-amber-200 rounded p-3 text-xs text-amber-800 space-y-1.5">
+                                                    <p className="font-bold text-amber-900 mb-1">Retirada na Loja</p>
+                                                    {isPAddressObj ? (
+                                                        <div className="space-y-0.5 text-amber-900 bg-amber-100/50 p-2 rounded">
+                                                            <div className="flex"><span className="font-semibold w-12">Rua:</span> <span>{pAddress.rua}</span></div>
+                                                            <div className="flex"><span className="font-semibold w-12">Nº:</span> <span>{pAddress.numero}</span></div>
+                                                            <div className="flex"><span className="font-semibold w-12">Bairro:</span> <span>{pAddress.bairro}</span></div>
+                                                            <div className="flex"><span className="font-semibold w-12">Cidade:</span> <span>{pAddress.cidade}</span></div>
+                                                            <div className="flex"><span className="font-semibold w-12">Estado:</span> <span>{pAddress.estado || pAddress.uf}</span></div>
+                                                            <div className="flex"><span className="font-semibold w-12">CEP:</span> <span>{pAddress.cep}</span></div>
+                                                        </div>
+                                                    ) : (
+                                                        <p>{pAddress || 'Endereço não configurado'}</p>
+                                                    )}
+                                                    
+                                                    {pickupConfig?.mapsLink && (
+                                                        <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline font-bold mt-2 inline-block">Ver no Mapa &rarr;</a>
+                                                    )}
+
+                                                    {editingOrder.pickup_details && (() => {
+                                                        try {
+                                                            const p = JSON.parse(editingOrder.pickup_details);
+                                                            return <div className="mt-3 pt-2 border-t border-amber-200"><p className="font-semibold text-amber-900">Retirado por:</p><p>{p.personName} (CPF: {p.personCpf})</p></div>
+                                                        } catch { return null; }
+                                                    })()}
+                                                </div>
                                             ) : (
-                                                <p className="text-xs text-gray-500">
-                                                    {editingOrder.refund_id ? "Reembolso já solicitado." : "Pedido não elegível para reembolso."}
-                                                </p>
+                                                <div className="text-xs space-y-2">
+                                                    {(() => {
+                                                        try {
+                                                            const addr = JSON.parse(editingOrder.shipping_address);
+                                                            return (
+                                                                <>
+                                                                    <div className="flex gap-2">
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Rua:</span>
+                                                                        <span className="text-gray-800 font-medium">{addr.logradouro}</span>
+                                                                    </div>
+                                                                    <div className="flex gap-2">
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Nº:</span>
+                                                                        <span className="text-gray-800">{addr.numero} {addr.complemento ? `(${addr.complemento})` : ''}</span>
+                                                                    </div>
+                                                                    <div className="flex gap-2">
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Bairro:</span>
+                                                                        <span className="text-gray-800">{addr.bairro}</span>
+                                                                    </div>
+                                                                    <div className="flex gap-2">
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Cidade:</span>
+                                                                        <span className="text-gray-800">{addr.localidade}</span>
+                                                                    </div>
+                                                                    <div className="flex gap-2">
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Estado:</span>
+                                                                        <span className="text-gray-800">{addr.uf}</span>
+                                                                    </div>
+                                                                    <div className="flex gap-2">
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">CEP:</span>
+                                                                        <span className="font-mono text-gray-800 bg-gray-100 px-1 rounded">{addr.cep}</span>
+                                                                    </div>
+                                                                </>
+                                                            );
+                                                        } catch { return <p>Endereço inválido</p>; }
+                                                    })()}
+                                                </div>
                                             )}
-                                        </div>
-                                        <div className="flex gap-3">
-                                            <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
-                                            <button type="submit" className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900">Salvar Alterações</button>
-                                        </div>
+                                        </DetailCard>
+
+                                        <DetailCard title="Pagamento" icon={CreditCardIcon}>
+                                            <div className="flex flex-col gap-2">
+                                                {(() => {
+                                                    let details = {};
+                                                    try { 
+                                                        const parsed = JSON.parse(editingOrder.payment_details); 
+                                                        if (parsed && typeof parsed === 'object') details = parsed; 
+                                                    } catch {}
+                                                    
+                                                    return (
+                                                        <>
+                                                            <span className="inline-flex items-center w-fit px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
+                                                                {details.method === 'pix' ? 'Pix' : details.method === 'boleto' ? 'Boleto' : details.method === 'credit_card' ? 'Cartão' : 'Outro'}
+                                                            </span>
+                                                            {details.method === 'credit_card' && (
+                                                                <div className="text-xs text-gray-600">
+                                                                    <p className="capitalize">{details.card_brand} •••• {details.card_last_four}</p>
+                                                                    <p>{details.installments}x de R$ {(Number(editingOrder.total)/details.installments).toFixed(2)}</p>
+                                                                </div>
+                                                            )}
+                                                            <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center">
+                                                                <span className="text-xs text-gray-500">Status</span>
+                                                                <span className={`text-xs font-bold ${editingOrder.payment_status === 'approved' ? 'text-green-600' : 'text-amber-600'}`}>
+                                                                    {editingOrder.payment_status === 'approved' ? 'Aprovado' : 'Pendente'}
+                                                                </span>
+                                                            </div>
+                                                        </>
+                                                    )
+                                                })()}
+                                            </div>
+                                        </DetailCard>
                                     </div>
-                                </form>
+                                </div>
+                                
+                                {/* ATUALIZAR PEDIDO (Visível apenas em Mobile - FINAL DO FORMULÁRIO) */}
+                                <div className="lg:hidden mt-6">
+                                    {renderUpdateOrderForm()}
+                                </div>
+
                             </div>
                         </Modal>
                     );
@@ -10091,19 +13003,18 @@ const AdminOrders = () => {
             </AnimatePresence>
 
             <h1 className="text-3xl font-bold mb-6">Gerenciar Pedidos</h1>
-            
+            {/* ... Filtros ... */}
             <div className="bg-white p-4 rounded-lg shadow-md mb-6 space-y-4">
                 <h2 className="text-xl font-semibold">Pesquisa Avançada</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <input type="text" name="orderIdSearch" placeholder="Pesquisar por ID..." value={orderIdSearch} onChange={e => setOrderIdSearch(e.target.value)} className="p-2 border rounded-md col-span-1 md:col-span-2 lg:col-span-4"/>
+                    <input type="text" name="orderIdSearch" placeholder="Pesquisar por ID, Nome ou CPF..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="p-2 border rounded-md col-span-1 md:col-span-2 lg:col-span-4"/>
                     <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data de Início"/>
                     <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data Final"/>
                     <input type="number" name="minPrice" placeholder="Preço Mín." value={filters.minPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
                     <input type="number" name="maxPrice" placeholder="Preço Máx." value={filters.maxPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
-                    <input type="text" name="customerName" placeholder="Nome do Cliente" value={filters.customerName} onChange={handleFilterChange} className="p-2 border rounded-md md:col-span-2"/>
                     <select name="status" value={filters.status} onChange={handleFilterChange} className="p-2 border rounded-md bg-white">
                         <option value="">Todos os Status</option>
-                        {[...new Set([...shippingStatuses, ...pickupStatuses])].map(s => <option key={s} value={s}>{s}</option>)}
+                        {[...new Set(allStatuses)].map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                 </div>
                 <div className="mt-4 flex gap-2 flex-wrap">
@@ -10111,104 +13022,122 @@ const AdminOrders = () => {
                     <button onClick={clearFilters} className="bg-gray-400 text-white px-4 py-2 rounded-md hover:bg-gray-500">Limpar Filtros</button>
                 </div>
             </div>
-
+            
+            {/* Tabela de Listagem de Pedidos */}
             <div className="bg-white shadow-md rounded-lg overflow-hidden">
                 <div className="hidden lg:block overflow-x-auto">
                      <table className="w-full text-left">
                          <thead className="bg-gray-100">
                             <tr>
-                                <th className="p-4 font-semibold">Pedido ID</th>
-                                <th className="p-4 font-semibold">Cliente</th>
-                                <th className="p-4 font-semibold">Data</th>
-                                <th className="p-4 font-semibold">Total</th>
-                                <th className="p-4 font-semibold">Entrega</th>
-                                <th className="p-4 font-semibold">Status</th>
-                                <th className="p-4 font-semibold">Ações</th>
+                                <th className="p-4 font-semibold text-gray-600">ID</th>
+                                <th className="p-4 font-semibold text-gray-600">Cliente</th>
+                                <th className="p-4 font-semibold text-gray-600">Contato</th>
+                                <th className="p-4 font-semibold text-gray-600">Envio</th>
+                                <th className="p-4 font-semibold text-gray-600">Total</th>
+                                <th className="p-4 font-semibold text-gray-600">Status</th>
+                                <th className="p-4 font-semibold text-gray-600">Ações</th>
                             </tr>
                          </thead>
-                         <tbody>
+                         <tbody className="divide-y divide-gray-100">
                             {currentOrders.map(o => {
-                                const orderDate = new Date(o.date);
-                                const formattedDate = !isNaN(orderDate) ? orderDate.toLocaleString('pt-BR') : 'Data Inválida';
+                                const shipInfo = getShippingDisplay(o.shipping_method);
                                 return (
-                                    <tr key={o.id} className="border-b hover:bg-gray-50">
-                                        <td className="p-4 font-mono">#{o.id}</td>
-                                        <td className="p-4">{o.user_name}</td>
-                                        <td className="p-4">{formattedDate}</td>
-                                        <td className="p-4">R$ {Number(o.total).toFixed(2)}</td>
-                                        <td className="p-4">
-                                            {o.shipping_method === 'Retirar na loja' ? (
-                                                <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada</span>
-                                            ) : (
-                                                <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio</span>
-                                            )}
-                                        </td>
-                                        <td className="p-4">
-                                            <div className="flex flex-col items-start gap-1">
-                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
-                                                {o.refund_status === 'pending_approval' && (
-                                                    <span className="flex items-center gap-1 mt-1 px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800 animate-pulse">
-                                                        <ArrowUturnLeftIcon className="h-3 w-3"/>
-                                                        Reembolso Solicitado
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="p-4"><button onClick={() => handleOpenEditModal(o)} className="text-blue-600 hover:text-blue-800"><EditIcon className="h-5 w-5"/></button></td>
-                                    </tr>
-                                );
-                            })}
+                                <tr key={o.id} className="hover:bg-gray-50 transition-colors">
+                                    <td className="p-4">
+                                        <span className="font-mono text-indigo-600 font-bold bg-indigo-50 px-2 py-1 rounded">#{o.id}</span>
+                                        <p className="text-xs text-gray-400 mt-1">{new Date(o.date).toLocaleDateString('pt-BR')}</p>
+                                    </td>
+                                    <td className="p-4">
+                                        <p className="font-bold text-gray-900">{o.user_name}</p>
+                                        <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                                            <UserIcon className="h-3 w-3"/> {maskCPF(o.user_cpf || '')}
+                                        </p>
+                                    </td>
+                                    <td className="p-4">
+                                        {o.user_phone ? (
+                                            <a href={`https://wa.me/55${o.user_phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-green-600 font-bold hover:underline text-sm bg-green-50 px-2 py-1 rounded w-fit">
+                                                <WhatsappIcon className="h-4 w-4"/> {maskPhone(o.user_phone)}
+                                            </a>
+                                        ) : <span className="text-gray-400 text-xs">Sem contato</span>}
+                                    </td>
+                                    <td className="p-4">
+                                        <div className={`flex items-center gap-2 px-2 py-1 rounded-md w-fit ${shipInfo.classes}`}>
+                                            {shipInfo.icon}
+                                            <span className="text-xs font-bold">{shipInfo.label}</span>
+                                        </div>
+                                    </td>
+                                    <td className="p-4 font-bold text-gray-800">R$ {Number(o.total).toFixed(2)}</td>
+                                    <td className="p-4">
+                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
+                                    </td>
+                                    <td className="p-4">
+                                        <button onClick={() => handleOpenEditModal(o)} className="text-gray-500 hover:text-indigo-600 transition-colors p-2 rounded-full hover:bg-indigo-50" title="Ver Detalhes">
+                                            <EyeIcon className="h-5 w-5"/>
+                                        </button>
+                                    </td>
+                                </tr>
+                            )})}
                          </tbody>
                      </table>
                 </div>
-
-                <div className="lg:hidden space-y-4 p-4">
+                
+                {/* Mobile List View (Cards Melhorados) */}
+                <div className="lg:hidden space-y-4 p-4 bg-gray-50">
                     {currentOrders.map(o => {
-                        const orderDate = new Date(o.date);
-                        const formattedDateOnly = !isNaN(orderDate) ? orderDate.toLocaleDateString('pt-BR') : 'Data Inválida';
+                        const shipInfo = getShippingDisplay(o.shipping_method);
                         return (
-                            <div key={o.id} className="bg-white border rounded-lg p-4 shadow-sm">
-                                <div className="flex justify-between items-start">
+                        <div key={o.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm relative overflow-hidden">
+                            {/* Faixa lateral de status */}
+                            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${o.status === 'Entregue' ? 'bg-green-500' : (o.status === 'Cancelado' ? 'bg-red-500' : 'bg-indigo-500')}`}></div>
+                            
+                            <div className="pl-3">
+                                <div className="flex justify-between items-start mb-3">
                                     <div>
-                                        <p className="font-bold">Pedido #{o.id}</p>
-                                        <p className="text-sm text-gray-600">{o.user_name}</p>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-mono font-bold text-indigo-700 text-lg">#{o.id}</span>
+                                            <span className="text-xs text-gray-400">{new Date(o.date).toLocaleDateString('pt-BR')}</span>
+                                        </div>
+                                        <p className="font-bold text-gray-800 text-sm">{o.user_name}</p>
                                     </div>
-                                    <div className="flex flex-col items-end gap-1">
-                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
-                                        {o.refund_status === 'pending_approval' && (
-                                            <span className="flex items-center gap-1 mt-1 px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800 animate-pulse">
-                                                <ArrowUturnLeftIcon className="h-3 w-3"/>
-                                                Reembolso Solicitado
-                                            </span>
-                                        )}
+                                    <div className="text-right">
+                                        <p className="font-bold text-gray-900">R$ {Number(o.total).toFixed(2)}</p>
+                                        <span className={`inline-block mt-1 px-2 py-0.5 text-[10px] uppercase font-bold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t pt-4">
-                                     <div><strong className="text-gray-500 block">Data</strong> {formattedDateOnly}</div>
-                                     <div><strong className="text-gray-500 block">Total</strong> R$ {Number(o.total).toFixed(2)}</div>
-                                     <div className="col-span-2">
-                                        <strong className="text-gray-500 block">Entrega</strong>
-                                        {o.shipping_method === 'Retirar na loja' ? (
-                                            <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada na Loja</span>
-                                        ) : (
-                                            <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio Padrão</span>
-                                        )}
+
+                                {/* Dados do Cliente (Mobile) */}
+                                <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 bg-gray-50 p-2.5 rounded-lg border border-gray-100 mb-3">
+                                    <div className="flex items-center gap-1.5">
+                                        <UserIcon className="h-3.5 w-3.5 text-gray-400"/>
+                                        <span className="font-mono">{maskCPF(o.user_cpf || '---')}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <WhatsappIcon className="h-3.5 w-3.5 text-green-500"/>
+                                        <span className="font-bold text-green-700">{maskPhone(o.user_phone || '---')}</span>
                                     </div>
                                 </div>
-                                 <div className="flex justify-end mt-4 pt-2 border-t">
-                                    <button onClick={() => handleOpenEditModal(o)} className="flex items-center space-x-2 text-sm text-blue-600 font-semibold"><EditIcon className="h-4 w-4"/> <span>Detalhes</span></button>
+
+                                {/* Dados de Envio (Mobile) */}
+                                <div className={`flex items-center gap-2 p-2 rounded-lg mb-3 ${shipInfo.classes}`}>
+                                    {shipInfo.icon}
+                                    <span className="text-xs font-bold">{shipInfo.fullText}</span>
                                 </div>
+
+                                <button onClick={() => handleOpenEditModal(o)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-md active:scale-95">
+                                    <EyeIcon className="h-4 w-4"/> Ver Detalhes do Pedido
+                                </button>
                             </div>
-                        );
-                    })}
+                        </div>
+                    )})}
                 </div>
             </div>
-
+            
+            {/* Paginação */}
             {totalPages > 1 && (
                 <div className="flex justify-between items-center mt-6">
-                    <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50 font-semibold">Anterior</button>
-                    <span className="text-sm font-semibold">Página {currentPage} de {totalPages}</span>
-                    <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50 font-semibold">Próxima</button>
+                    <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-white border rounded-md disabled:opacity-50 font-bold text-gray-700">Anterior</button>
+                    <span className="text-sm font-medium text-gray-600">Página {currentPage} de {totalPages}</span>
+                    <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-4 py-2 bg-white border rounded-md disabled:opacity-50 font-bold text-gray-700">Próxima</button>
                 </div>
             )}
         </div>
@@ -10217,6 +13146,7 @@ const AdminOrders = () => {
 const AdminReports = () => {
     const [reportData, setReportData] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [expandedRows, setExpandedRows] = useState([]); // Para controlar quais linhas da tabela estão expandidas
     const notification = useNotification();
     
     // Define as datas padrão
@@ -10224,21 +13154,27 @@ const AdminReports = () => {
         const date = new Date();
         date.setDate(1);
         date.setHours(0, 0, 0, 0);
-        return date.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+        return date.toISOString().split('T')[0];
     };
     const getToday = () => {
-        return new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD
+        return new Date().toISOString().split('T')[0];
     };
 
     const [startDate, setStartDate] = useState(getFirstDayOfMonth());
     const [endDate, setEndDate] = useState(getToday());
 
+    const toggleRow = (orderId) => {
+        setExpandedRows(prev => 
+            prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId]
+        );
+    };
+
     // Função para buscar os dados da API
     const handleGenerateReport = useCallback(() => {
         setIsLoading(true);
-        setReportData(null); // Limpa dados antigos
+        setReportData(null); 
+        setExpandedRows([]); // Reseta expansão
         
-        // Destrói gráficos antigos para evitar sobreposição
         if (window.mySalesOverTimeChart) window.mySalesOverTimeChart.destroy();
         if (window.myTopProductsChart) window.myTopProductsChart.destroy();
 
@@ -10254,37 +13190,29 @@ const AdminReports = () => {
             });
     }, [startDate, endDate, notification]);
 
-    // Busca o relatório do mês atual ao carregar a página
     useEffect(() => {
         handleGenerateReport();
-    }, [handleGenerateReport]); // Roda apenas uma vez na montagem
+    }, [handleGenerateReport]); 
 
-    // Efeito para RENDERIZAR os gráficos DEPOIS que os dados chegarem
     useEffect(() => {
         if (reportData && !isLoading) {
             const renderCharts = () => {
                 if (window.Chart) {
-                    // Gráfico de Vendas ao Longo do Tempo
                     const salesCtx = document.getElementById('salesOverTimeChart')?.getContext('2d');
                     if (salesCtx && reportData.salesOverTime) {
                         if (window.mySalesOverTimeChart) window.mySalesOverTimeChart.destroy();
                         
-                        // --- CORREÇÃO DA DATA ---
                         const safeLabels = reportData.salesOverTime.map(d => {
                             if (!d.sale_date) return "Data Inválida";
-                            // Passa a string ISO completa (ex: 2025-10-18T03:00:00.000Z)
                             const dateObj = new Date(d.sale_date); 
-                            if (isNaN(dateObj.getTime())) {
-                                return "Data Inválida";
-                            }
-                            // Formata a data na localidade BR, tratando como UTC para evitar problemas de fuso
+                            if (isNaN(dateObj.getTime())) return "Data Inválida";
                             return dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
                         });
 
                         window.mySalesOverTimeChart = new window.Chart(salesCtx, {
                             type: 'line',
                             data: {
-                                labels: safeLabels, // <-- USA AS LABELS CORRIGIDAS
+                                labels: safeLabels, 
                                 datasets: [{
                                     label: 'Faturamento (R$)',
                                     data: reportData.salesOverTime.map(d => d.daily_total),
@@ -10297,7 +13225,6 @@ const AdminReports = () => {
                         });
                     }
                     
-                    // Gráfico de Produtos Mais Vendidos
                     const productsCtx = document.getElementById('topProductsChart')?.getContext('2d');
                     if (productsCtx && reportData.topProducts) {
                         if (window.myTopProductsChart) window.myTopProductsChart.destroy();
@@ -10316,13 +13243,12 @@ const AdminReports = () => {
                         });
                     }
                 } else {
-                    console.warn("Chart.js não carregado, tentando renderizar gráficos novamente...");
                     setTimeout(renderCharts, 100);
                 }
             };
             renderCharts();
         }
-    }, [reportData, isLoading]); // Depende dos dados e do status de carregamento
+    }, [reportData, isLoading]);
 
     const StatCard = ({ title, value }) => (
         <div className="bg-white p-6 rounded-lg shadow-md text-center">
@@ -10331,7 +13257,6 @@ const AdminReports = () => {
         </div>
     );
 
-    // --- INÍCIO DAS FUNÇÕES DE EXPORTAÇÃO (Movidas para dentro do componente) ---
     const runWhenLibsReady = (callback, requiredLibs) => {
         const check = () => {
             const isPdfReady = requiredLibs.includes('pdf') ? (window.jspdf && window.jspdf.jsPDF && typeof window.jspdf.jsPDF.API.autoTable === 'function') : true;
@@ -10380,9 +13305,65 @@ const AdminReports = () => {
             });
             let lastY = doc.lastAutoTable.finalY + 10;
 
-            // Tabela de Produtos Mais Vendidos
+            // Detalhamento de Vendas
+            if (reportData.detailedSales && reportData.detailedSales.length > 0) {
+                doc.setFontSize(12);
+                doc.text("Detalhamento de Vendas e Itens", 14, lastY);
+                
+                const tableBody = [];
+                reportData.detailedSales.forEach(order => {
+                    tableBody.push([
+                        `#${order.id}`, 
+                        order.customer_name, 
+                        new Date(order.date).toLocaleDateString(), 
+                        `R$ ${Number(order.total).toFixed(2)}`,
+                        order.status
+                    ]);
+                    
+                    const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
+                    items.forEach(item => {
+                        tableBody.push([
+                            '', 
+                            `-> ${item.quantity}x ${item.name}`, 
+                            '', 
+                            `R$ ${Number(item.price).toFixed(2)} un.`, 
+                            ''
+                        ]);
+                    });
+                });
+
+                doc.autoTable({
+                    startY: lastY + 5,
+                    head: [['ID', 'Cliente / Produto', 'Data', 'Valor', 'Status']],
+                    body: tableBody,
+                    theme: 'grid',
+                    styles: { fontSize: 8 },
+                    columnStyles: {
+                        0: { fontStyle: 'bold', cellWidth: 20 },
+                        1: { cellWidth: 'auto' },
+                        2: { cellWidth: 25 },
+                        3: { halign: 'right', cellWidth: 30 },
+                        4: { cellWidth: 30 }
+                    },
+                    didParseCell: function(data) {
+                        if (data.section === 'body' && data.row.raw[0] === '') {
+                            data.cell.styles.textColor = [100, 100, 100];
+                            data.cell.styles.fontStyle = 'italic';
+                            data.cell.styles.fillColor = [250, 250, 250];
+                        }
+                        if (data.section === 'body' && data.row.raw[0] !== '') {
+                            data.cell.styles.fillColor = [240, 240, 240];
+                            data.cell.styles.fontStyle = 'bold';
+                        }
+                    }
+                });
+                lastY = doc.lastAutoTable.finalY + 10;
+            }
+
+            doc.addPage();
+            lastY = 20;
             doc.setFontSize(12);
-            doc.text("Produtos Mais Vendidos (por Unidade)", 14, lastY);
+            doc.text("Top Produtos", 14, lastY);
             doc.autoTable({
                 startY: lastY + 5,
                 head: [['Produto', 'Unidades Vendidas', 'Faturamento (R$)']],
@@ -10393,27 +13374,10 @@ const AdminReports = () => {
                 ]),
                 theme: 'striped'
             });
-            lastY = doc.lastAutoTable.finalY + 10;
-            
-            // Tabela de Clientes Mais Valiosos
-            doc.setFontSize(12);
-            doc.text("Clientes Mais Valiosos", 14, lastY);
-            doc.autoTable({
-                startY: lastY + 5,
-                head: [['Cliente', 'E-mail', 'Total de Pedidos', 'Valor Gasto (R$)']],
-                body: reportData.topCustomers.map(c => [
-                    c.name,
-                    c.email,
-                    c.total_orders,
-                    `R$ ${Number(c.total_spent).toFixed(2)}`
-                ]),
-                theme: 'striped'
-            });
 
             doc.save(`relatorio_detalhado_${startDate}_a_${endDate}.pdf`);
         }, ['pdf']);
     };
-    // --- FIM DAS FUNÇÕES DE EXPORTAÇÃO ---
 
     return (
         <div>
@@ -10429,7 +13393,7 @@ const AdminReports = () => {
                             id="startDate"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
-                            className="mt-1 p-2 border border-gray-300 rounded-md"
+                            className="mt-1 p-2 border border-gray-300 rounded-md w-full md:w-auto"
                         />
                     </div>
                     <div>
@@ -10439,25 +13403,27 @@ const AdminReports = () => {
                             id="endDate"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
-                            className="mt-1 p-2 border border-gray-300 rounded-md"
+                            className="mt-1 p-2 border border-gray-300 rounded-md w-full md:w-auto"
                         />
                     </div>
-                    <button
-                        onClick={handleGenerateReport}
-                        disabled={isLoading}
-                        className="w-full md:w-auto bg-gray-800 text-white px-6 py-2 rounded-md hover:bg-gray-900 disabled:bg-gray-400 mt-3 md:mt-6"
-                    >
-                        {isLoading ? <SpinnerIcon /> : 'Gerar Relatório'}
-                    </button>
-                    {/* --- NOVO BOTÃO DE EXPORTAR PDF --- */}
-                    <button
-                        onClick={handleExportPDF}
-                        disabled={isLoading || !reportData}
-                        className="w-full md:w-auto bg-red-600 text-white px-6 py-2 rounded-md hover:bg-red-700 disabled:bg-gray-400 mt-3 md:mt-6 flex items-center justify-center gap-2"
-                    >
-                        <DownloadIcon className="h-5 w-5"/>
-                        Exportar PDF
-                    </button>
+                    <div className="flex gap-2 w-full md:w-auto mt-3 md:mt-6">
+                        <button
+                            onClick={handleGenerateReport}
+                            disabled={isLoading}
+                            className="flex-1 md:flex-none bg-gray-800 text-white px-6 py-2 rounded-md hover:bg-gray-900 disabled:bg-gray-400"
+                        >
+                            {isLoading ? <SpinnerIcon /> : 'Gerar Relatório'}
+                        </button>
+                        <button
+                            onClick={handleExportPDF}
+                            disabled={isLoading || !reportData}
+                            className="flex-1 md:flex-none bg-red-600 text-white px-6 py-2 rounded-md hover:bg-red-700 disabled:bg-gray-400 flex items-center justify-center gap-2"
+                        >
+                            <DownloadIcon className="h-5 w-5"/>
+                            <span className="hidden md:inline">Exportar PDF</span>
+                            <span className="md:hidden">PDF</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -10480,6 +13446,134 @@ const AdminReports = () => {
                         <StatCard title="Novos Clientes" value={reportData.kpis.newCustomers} />
                     </div>
 
+                    {/* NOVA SEÇÃO: DETALHAMENTO DE VENDAS */}
+                    <div className="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
+                        <div className="p-4 border-b border-gray-200 bg-gray-50">
+                            <h3 className="font-bold text-lg text-gray-800">Detalhamento de Vendas ({reportData.detailedSales ? reportData.detailedSales.length : 0})</h3>
+                        </div>
+                        {reportData.detailedSales && reportData.detailedSales.length > 0 ? (
+                            <>
+                                {/* VISÃO DESKTOP (TABELA) */}
+                                <div className="hidden md:block overflow-x-auto">
+                                    <table className="w-full text-left text-sm">
+                                        <thead className="bg-gray-100 text-gray-600 font-semibold uppercase text-xs">
+                                            <tr>
+                                                <th className="p-4 w-10"></th>
+                                                <th className="p-4">Pedido</th>
+                                                <th className="p-4">Cliente</th>
+                                                <th className="p-4">Data</th>
+                                                <th className="p-4">Total</th>
+                                                <th className="p-4">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-200">
+                                            {reportData.detailedSales.map(order => {
+                                                const isExpanded = expandedRows.includes(order.id);
+                                                const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
+
+                                                return (
+                                                    <React.Fragment key={order.id}>
+                                                        <tr className={`hover:bg-gray-50 transition-colors cursor-pointer ${isExpanded ? 'bg-blue-50' : ''}`} onClick={() => toggleRow(order.id)}>
+                                                            <td className="p-4 text-center">
+                                                                <ChevronDownIcon className={`h-4 w-4 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}/>
+                                                            </td>
+                                                            <td className="p-4 font-bold text-indigo-600">#{order.id}</td>
+                                                            <td className="p-4">{order.customer_name}</td>
+                                                            <td className="p-4 text-gray-500">{new Date(order.date).toLocaleDateString()}</td>
+                                                            <td className="p-4 font-bold text-green-600">R$ {Number(order.total).toFixed(2)}</td>
+                                                            <td className="p-4">
+                                                                <span className="px-2 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-700">
+                                                                    {order.status}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                        {isExpanded && (
+                                                            <tr className="bg-gray-50">
+                                                                <td colSpan="6" className="p-4 pl-12 border-t border-gray-200 shadow-inner">
+                                                                    <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Itens do Pedido:</h4>
+                                                                    <div className="space-y-2">
+                                                                        {items.map((item, idx) => (
+                                                                            <div key={idx} className="flex justify-between text-sm text-gray-700 border-b border-gray-200 pb-1 last:border-0 last:pb-0">
+                                                                                <span>{item.quantity}x {item.name}</span>
+                                                                                <span className="font-mono">R$ {Number(item.price).toFixed(2)}</span>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        )}
+                                                    </React.Fragment>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* VISÃO MOBILE (CARDS) */}
+                                <div className="md:hidden space-y-4 p-4">
+                                    {reportData.detailedSales.map(order => {
+                                        const isExpanded = expandedRows.includes(order.id);
+                                        const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
+
+                                        return (
+                                            <div key={order.id} className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+                                                <div 
+                                                    className={`p-4 flex justify-between items-start cursor-pointer ${isExpanded ? 'bg-blue-50 border-b border-blue-100' : ''}`}
+                                                    onClick={() => toggleRow(order.id)}
+                                                >
+                                                    <div className="space-y-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-indigo-600">#{order.id}</span>
+                                                            <span className="text-xs text-gray-500">{new Date(order.date).toLocaleDateString()}</span>
+                                                        </div>
+                                                        <p className="font-medium text-gray-800">{order.customer_name}</p>
+                                                        <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200">
+                                                            {order.status}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="font-bold text-green-600 mb-2">R$ {Number(order.total).toFixed(2)}</p>
+                                                        <ChevronDownIcon className={`h-5 w-5 text-gray-400 ml-auto transition-transform ${isExpanded ? 'rotate-180' : ''}`}/>
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* Detalhes Mobile Expandidos */}
+                                                <AnimatePresence>
+                                                    {isExpanded && (
+                                                        <motion.div 
+                                                            initial={{ height: 0 }} 
+                                                            animate={{ height: 'auto' }} 
+                                                            exit={{ height: 0 }} 
+                                                            className="overflow-hidden bg-gray-50"
+                                                        >
+                                                            <div className="p-4 border-t border-gray-100">
+                                                                <h4 className="text-xs font-bold text-gray-500 uppercase mb-3 flex items-center gap-1">
+                                                                    <BoxIcon className="h-3 w-3"/> Itens do Pedido
+                                                                </h4>
+                                                                <div className="space-y-3">
+                                                                    {items.map((item, idx) => (
+                                                                        <div key={idx} className="flex justify-between text-sm text-gray-700 border-b border-gray-200 pb-2 last:border-0 last:pb-0">
+                                                                            <div className="flex-1 pr-2">
+                                                                                <span className="font-bold text-gray-900">{item.quantity}x</span> {item.name}
+                                                                            </div>
+                                                                            <span className="font-mono text-gray-600 whitespace-nowrap">R$ {Number(item.price).toFixed(2)}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </>
+                        ) : (
+                            <div className="p-8 text-center text-gray-500">Nenhuma venda encontrada neste período.</div>
+                        )}
+                    </div>
+
                     {/* Gráficos */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div className="bg-white p-6 rounded-lg shadow min-h-[300px]">
@@ -10495,36 +13589,8 @@ const AdminReports = () => {
                             </div>
                         </div>
                     </div>
-
-                    {/* Tabela de Clientes */}
-                    <div className="bg-white p-6 rounded-lg shadow">
-                        <h3 className="font-bold mb-4 text-lg">Clientes Mais Valiosos</h3>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-gray-100">
-                                    <tr>
-                                        <th className="p-3 font-semibold">Cliente</th>
-                                        <th className="p-3 font-semibold">E-mail</th>
-                                        <th className="p-3 font-semibold">Total de Pedidos</th>
-                                        <th className="p-3 font-semibold">Valor Gasto (R$)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {reportData.topCustomers.map((customer, index) => (
-                                        <tr key={index} className="border-b last:border-b-0 hover:bg-gray-50">
-                                            <td className="p-3">{customer.name}</td>
-                                            <td className="p-3">{customer.email}</td>
-                                            <td className="p-3">{customer.total_orders}</td>
-                                            <td className="p-3 font-medium">R$ {Number(customer.total_spent).toFixed(2)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
                 </motion.div>
             )}
-
         </div>
     );
 };
@@ -10550,7 +13616,7 @@ const AdminLogsPage = () => {
 
     return (
         <div>
-            <h1 className="text-3xl font-bold mb-6">Histórico de Ações</h1>
+            <h1 className="text-3xl font-bold mb-6">Histórico de Ações e Auditoria</h1>
             {isLoading ? (
                 <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-500"/></div>
             ) : (
@@ -10562,6 +13628,7 @@ const AdminLogsPage = () => {
                                 <tr>
                                     <th className="p-4 font-semibold">Data</th>
                                     <th className="p-4 font-semibold">Administrador</th>
+                                    <th className="p-4 font-semibold">IP</th> {/* Nova Coluna */}
                                     <th className="p-4 font-semibold">Ação</th>
                                     <th className="p-4 font-semibold">Detalhes</th>
                                 </tr>
@@ -10571,6 +13638,7 @@ const AdminLogsPage = () => {
                                     <tr key={log.id} className="border-b hover:bg-gray-50">
                                         <td className="p-4 whitespace-nowrap text-gray-600">{new Date(log.created_at).toLocaleString('pt-BR')}</td>
                                         <td className="p-4 font-medium">{log.user_name}</td>
+                                        <td className="p-4 font-mono text-xs text-gray-500">{log.ip_address || 'N/A'}</td> {/* Exibição do IP */}
                                         <td className="p-4"><span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full capitalize">{log.action.replace(/_/g, ' ')}</span></td>
                                         <td className="p-4 text-gray-700 break-words">{log.details}</td>
                                     </tr>
@@ -10588,6 +13656,9 @@ const AdminLogsPage = () => {
                                         <p className="text-xs text-gray-500">{new Date(log.created_at).toLocaleString('pt-BR')}</p>
                                     </div>
                                     <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full capitalize">{log.action.replace(/_/g, ' ')}</span>
+                                </div>
+                                <div className="mb-2">
+                                    <span className="text-xs font-bold text-gray-500 uppercase">IP:</span> <span className="font-mono text-xs">{log.ip_address || 'N/A'}</span>
                                 </div>
                                 <div>
                                     <p className="text-gray-700 break-words">{log.details}</p>
@@ -10637,6 +13708,8 @@ const MaintenanceModeToggle = () => {
             await apiService('/settings/maintenance', 'PUT', { status: newStatus ? 'on' : 'off' });
             setIsOn(newStatus);
             notification.show(`Modo de manutenção foi ${newStatus ? 'ATIVADO' : 'DESATIVADO'}.`);
+            // Dispara um evento global para atualizar a barra do topo (AdminLayout) na hora
+            window.dispatchEvent(new CustomEvent('maintenance-changed', { detail: newStatus ? 'on' : 'off' }));
         } catch (error) {
             notification.show(`Erro ao alterar status: ${error.message}`, 'error');
         } finally {
@@ -10969,7 +14042,7 @@ const AdminBanners = () => {
             { 
                 confirmText: "Excluir", 
                 confirmColor: "bg-red-600 hover:bg-red-700",
-                requiresAuth: true // Segurança adicionada: requer senha/2FA
+                requiresAuth: true // Segurança adicionada
             }
         );
     };
@@ -11061,21 +14134,33 @@ const AdminBanners = () => {
                                         const now = new Date();
                                         const start = banner.start_date ? new Date(banner.start_date) : null;
                                         const end = banner.end_date ? new Date(banner.end_date) : null;
-                                        // Lógica simples de "No Ar": (Sem data OU Data válida) E Ativo
-                                        const isActiveNow = banner.is_active && (!start || now >= start) && (!end || now <= end);
+                                        
+                                        // CORREÇÃO CRÍTICA DO "0": Usar !! para converter para booleano real
+                                        const isActiveNow = !!banner.is_active && (!start || now >= start) && (!end || now <= end);
+                                        // Verifica se é o Padrão (sem datas)
+                                        const isDefault = !start && !end;
                                         
                                         return (
                                             <div key={banner.id} className={`flex flex-col md:flex-row bg-white border rounded-lg overflow-hidden shadow-sm ${isActiveNow ? 'border-green-500 ring-1 ring-green-500' : 'border-gray-200 opacity-80'}`}>
                                                 <div className="w-full md:w-48 h-32 bg-gray-100 relative">
                                                     <img src={banner.image_url} alt={banner.title} className="w-full h-full object-cover"/>
+                                                    
+                                                    {/* Renderização Condicional Corrigida */}
                                                     {isActiveNow && <span className="absolute top-2 left-2 bg-green-500 text-white text-[10px] px-2 py-1 rounded font-bold shadow">NO AR</span>}
+                                                    {isDefault && <span className="absolute bottom-2 left-2 bg-gray-600 text-white text-[10px] px-2 py-1 rounded font-bold shadow">PADRÃO</span>}
                                                 </div>
                                                 <div className="p-4 flex-grow flex flex-col justify-center">
                                                     <h4 className="font-bold text-gray-800 text-lg">{banner.title}</h4>
                                                     <p className="text-sm text-gray-500">{banner.subtitle}</p>
                                                     <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
-                                                        <span className="bg-gray-100 px-2 py-1 rounded border flex items-center gap-1"><ClockIcon className="h-3 w-3"/> Início: {start ? start.toLocaleDateString() : 'Imediato'}</span>
-                                                        <span className="bg-gray-100 px-2 py-1 rounded border flex items-center gap-1"><ClockIcon className="h-3 w-3"/> Fim: {end ? end.toLocaleDateString() : 'Indefinido'}</span>
+                                                        {start ? (
+                                                            <>
+                                                                <span className="bg-blue-50 px-2 py-1 rounded border border-blue-100"><ClockIcon className="h-3 w-3 inline mr-1"/> De: {start.toLocaleDateString()}</span>
+                                                                <span className="bg-blue-50 px-2 py-1 rounded border border-blue-100">Até: {end ? end.toLocaleDateString() : 'Indefinido'}</span>
+                                                            </>
+                                                        ) : (
+                                                            <span className="bg-gray-100 px-2 py-1 rounded border">Sem agendamento (Exibido se nenhum outro estiver ativo)</span>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <div className="p-4 flex md:flex-col justify-center gap-2 border-t md:border-t-0 md:border-l bg-gray-50">
@@ -11112,8 +14197,8 @@ const AdminBanners = () => {
                                             key={card.id} 
                                             banner={card} 
                                             onEdit={() => handleOpenModal(card, 'cards')} 
-                                            onDelete={() => handleDelete(card.id)} // Adicionada deleção com segurança
-                                            customLabel={idx === 0 ? "Esquerda (Fixo)" : "Direita (Fixo)"}
+                                            onDelete={() => handleDelete(card.id)} 
+                                            customLabel={idx === 0 ? "Esquerda" : "Direita"}
                                             customColor="bg-purple-600 text-white"
                                             description={card.subtitle}
                                         />
@@ -11145,7 +14230,7 @@ const AdminBanners = () => {
                                                 key={banner.id} 
                                                 banner={banner} 
                                                 onEdit={(b) => handleOpenModal(b, 'carousel')} 
-                                                onDelete={() => handleDelete(banner.id)} // Adicionada deleção com segurança
+                                                onDelete={() => handleDelete(banner.id)}
                                             />
                                         ))}
                                     </div>
@@ -11165,12 +14250,22 @@ const UserEditForm = ({ user, onSave, onCancel }) => {
         name: user.name || '',
         email: user.email || '',
         role: user.role || 'user',
+        cpf: user.cpf || '',
+        phone: user.phone || '',
         password: ''
     });
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleCpfChange = (e) => {
+        setFormData(prev => ({ ...prev, cpf: maskCPF(e.target.value) }));
+    };
+
+    const handlePhoneChange = (e) => {
+        setFormData(prev => ({ ...prev, phone: maskPhone(e.target.value) }));
     };
 
     const handleSubmit = (e) => {
@@ -11184,6 +14279,21 @@ const UserEditForm = ({ user, onSave, onCancel }) => {
                 <label className="block text-sm font-medium text-gray-700">Nome</label>
                 <input type="text" name="name" value={formData.name} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
             </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">CPF</label>
+                    <input type="text" name="cpf" value={formData.cpf} onChange={handleCpfChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Celular / WhatsApp</label>
+                    <div className="relative">
+                        <input type="text" name="phone" value={formData.phone} onChange={handlePhoneChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md pl-10"/>
+                        <WhatsappIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-green-500" />
+                    </div>
+                </div>
+            </div>
+
             <div>
                 <label className="block text-sm font-medium text-gray-700">Email</label>
                 <input type="email" name="email" value={formData.email} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
@@ -11674,6 +14784,359 @@ const AdminCollections = () => {
     );
 };
 
+const AdminAppIcons = () => {
+    // Estados para ícones e nome
+    const [icons, setIcons] = useState({
+        favicon: { current: '', previous: null, default: '' },
+        pwa_icon: { current: '', previous: null, default: '' }
+    });
+    const [nameConfig, setNameConfig] = useState({ short_name: '', name: '', logo_text: '' });
+    
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+    
+    const notification = useNotification();
+    const confirmation = useConfirmation(); 
+    
+    const fileInputRefFavicon = useRef(null);
+    const fileInputRefPWA = useRef(null);
+
+    // Carrega configurações iniciais
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadSettings = async () => {
+            try {
+                const [iconData, nameData] = await Promise.all([
+                    apiService('/settings/app-icons'),
+                    apiService('/settings/app-name')
+                ]);
+                if (isMounted) {
+                    setIcons(iconData);
+                    setNameConfig(nameData);
+                }
+            } catch (err) {
+                if (isMounted) {
+                    notification.show("Erro ao carregar configurações.", "error");
+                }
+            } finally {
+                if (isMounted) {
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        loadSettings();
+
+        return () => { isMounted = false; };
+    }, []);
+
+    // Manipulação de upload de arquivo
+    const handleFileChange = async (event, key) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (file.size > 5 * 1024 * 1024) {
+            notification.show("Arquivo muito grande. O limite é 5MB.", "error");
+            event.target.value = '';
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            const uploadResult = await apiImageUploadService('/upload/image', file);
+            
+            setIcons(prev => ({
+                ...prev,
+                [key]: {
+                    ...prev[key],
+                    previous: prev[key].current, 
+                    current: uploadResult.imageUrl 
+                }
+            }));
+            notification.show(`Pré-visualização carregada. Clique em salvar para aplicar.`);
+        } catch (error) {
+            notification.show(`Erro no upload: ${error.message}`, 'error');
+        } finally {
+            setIsSaving(false);
+            event.target.value = '';
+        }
+    };
+
+    // Restauração de ícone
+    const handleRestore = (key, type) => {
+        setIcons(prev => {
+            const iconObj = prev[key];
+            let newCurrent = iconObj.current;
+            
+            if (type === 'previous' && iconObj.previous) {
+                newCurrent = iconObj.previous;
+            } else if (type === 'default' && iconObj.default) {
+                newCurrent = iconObj.default;
+            }
+
+            return {
+                ...prev,
+                [key]: {
+                    ...iconObj,
+                    previous: iconObj.current,
+                    current: newCurrent
+                }
+            };
+        });
+        notification.show(`Restaurado na pré-visualização. Clique em salvar para aplicar.`);
+    };
+
+    // Definir como padrão
+    const handleSetAsDefault = (key) => {
+        setIcons(prev => ({
+            ...prev,
+            [key]: {
+                ...prev[key],
+                default: prev[key].current
+            }
+        }));
+        notification.show(`Definido como padrão! Lembre-se de clicar em "Salvar Definitivamente".`);
+    };
+
+    // Manipulação de alteração de nome do app
+    const handleNameChange = (e, key) => {
+        const value = e.target.value;
+        setNameConfig(prev => ({ ...prev, [key]: value }));
+    };
+
+    // Salvar com confirmação de Senha/2FA e Tela de Carregamento
+    const handleSave = () => {
+        if (!nameConfig.short_name || !nameConfig.name) {
+            notification.show("Preencha Nome e Nome Curto do Aplicativo.", "error");
+            return;
+        }
+
+        confirmation.show(
+            "Você está alterando a identidade visual principal do aplicativo. Por favor, confirme sua identidade.",
+            async () => {
+                setIsSaving(true);
+                try {
+                    await Promise.all([
+                        apiService('/settings/app-icons', 'PUT', { icons }),
+                        apiService('/settings/app-name', 'PUT', { nameConfig })
+                    ]);
+                    
+                    if (icons.favicon?.current) {
+                        localStorage.setItem('lovecestas_app_favicon', icons.favicon.current);
+                        const faviconLink = document.querySelector("link[rel~='icon']");
+                        if (faviconLink) {
+                            faviconLink.href = `${icons.favicon.current}?t=${new Date().getTime()}`;
+                        }
+                    }
+                    if (icons.pwa_icon?.current) {
+                        localStorage.setItem('lovecestas_app_logo', icons.pwa_icon.current);
+                    }
+
+                    // Dispara evento global para o frontend atualizar instantaneamente
+                    const nameEvent = new CustomEvent('app-name-updated', { detail: nameConfig });
+                    window.dispatchEvent(nameEvent);
+
+                    notification.show("Identidade visual atualizada com sucesso!");
+                } catch (err) {
+                    notification.show(`Erro ao salvar: ${err.message}`, "error");
+                } finally {
+                    setIsSaving(false);
+                }
+            },
+            { 
+                requiresAuth: true, 
+                confirmText: "Confirmar e Salvar", 
+                confirmColor: "bg-green-600 hover:bg-green-700" 
+            }
+        );
+    };
+
+    if (isLoading) return <div className="flex justify-center py-20"><SpinnerIcon className="h-8 w-8 text-indigo-600"/></div>;
+
+    return (
+        <div className="max-w-4xl mx-auto space-y-10">
+            <AnimatePresence>
+                {isSaving && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-900/80 backdrop-blur-sm"
+                    >
+                        <div className="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center transform transition-all ring-1 ring-indigo-500/30">
+                            <SpinnerIcon className="h-16 w-16 text-indigo-600 mb-6 animate-spin" />
+                            <h3 className="text-2xl font-extrabold text-slate-800 mb-2">Salvando Alterações</h3>
+                            <p className="text-sm font-medium text-slate-600">Atualizando a identidade visual do seu aplicativo e propagando para os usuários...</p>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            <div>
+                <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Personalização Visual do App</h1>
+                <p className="text-slate-500 text-sm mt-1">Altere o nome, ícones e logotipos do seu site e aplicativo (PWA).</p>
+            </div>
+
+            {/* Edição de Nome do App */}
+            <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 space-y-6">
+                <div className="border-b border-gray-100 pb-5">
+                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2.5">
+                        <ClipboardDocListIcon className="h-5 w-5 text-indigo-500"/> Identidade do Aplicativo
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-1">Esses nomes aparecem na tela de instalação, barra de tarefas e cabeçalho.</p>
+                </div>
+                
+                <div className="grid md:grid-cols-3 gap-6">
+                    <div>
+                        <label className="text-sm font-medium text-slate-700 block mb-1.5">Nome Curto (Tela Inicial)</label>
+                        <input 
+                            type="text" 
+                            value={nameConfig.short_name} 
+                            onChange={(e) => handleNameChange(e, 'short_name')} 
+                            placeholder="Love Cestas" 
+                            maxLength={12} 
+                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200 transition text-sm"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium text-slate-700 block mb-1.5">Nome Aba (Navegador)</label>
+                        <input 
+                            type="text" 
+                            value={nameConfig.name} 
+                            onChange={(e) => handleNameChange(e, 'name')} 
+                            placeholder="Love Cestas e Perfumes" 
+                            maxLength={40} 
+                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200 transition text-sm"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium text-slate-700 block mb-1.5">Texto Logo (Cabeçalho)</label>
+                        <input 
+                            type="text" 
+                            value={nameConfig.logo_text || ''} 
+                            onChange={(e) => handleNameChange(e, 'logo_text')} 
+                            placeholder="LovecestasePerfumes" 
+                            maxLength={30} 
+                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200 transition text-sm"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Favicon Editor */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <h3 className="text-lg font-bold text-slate-800 mb-2">Favicon do Site</h3>
+                <p className="text-sm text-gray-500 mb-6">
+                    Ícone exibido na aba do navegador. Recomenda-se formato quadrado (PNG ou ICO, Máx 5MB).<br/>
+                    <strong className="text-amber-600">Dica:</strong> Para o ícone não ficar pequeno, recorte a imagem removendo as bordas transparentes vazias antes de enviar.
+                </p>
+                
+                <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
+                    <div className="w-32 h-32 flex-shrink-0 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 p-2 flex items-center justify-center relative overflow-hidden group">
+                        {icons.favicon?.current ? (
+                            <img 
+                                src={`${icons.favicon.current}?t=${new Date().getTime()}`} 
+                                alt="Preview Favicon" 
+                                className="max-w-full max-h-full object-contain drop-shadow-md" 
+                            />
+                        ) : (
+                            <PhotoIcon className="h-10 w-10 text-gray-400" />
+                        )}
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => fileInputRefFavicon.current.click()} className="bg-white text-gray-800 text-xs font-bold px-3 py-1.5 rounded-md shadow-md">
+                                Alterar
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div className="flex-grow space-y-4 w-full">
+                        <input type="file" ref={fileInputRefFavicon} className="hidden" accept="image/png,image/jpeg,image/gif,image/webp,image/x-icon" onChange={(e) => handleFileChange(e, 'favicon')} />
+                        
+                        <div className="flex flex-col gap-2">
+                            <button onClick={() => fileInputRefFavicon.current.click()} disabled={isSaving} className="w-full md:w-auto bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold py-2 px-4 rounded-lg hover:bg-indigo-100 transition flex items-center justify-center gap-2">
+                                <UploadIcon className="h-4 w-4"/> Fazer Upload Nova Imagem
+                            </button>
+
+                            <div className="flex gap-2">
+                                <button onClick={() => handleRestore('favicon', 'previous')} disabled={!icons.favicon?.previous || isSaving} className="flex-1 bg-gray-50 text-gray-600 border border-gray-200 font-bold py-2 px-3 rounded-lg hover:bg-gray-100 transition disabled:opacity-50 text-xs">
+                                    ↩️ Desfazer Última
+                                </button>
+                                <button onClick={() => handleRestore('favicon', 'default')} disabled={!icons.favicon?.default || isSaving} className="flex-1 bg-gray-50 text-gray-600 border border-gray-200 font-bold py-2 px-3 rounded-lg hover:bg-gray-100 transition disabled:opacity-50 text-xs">
+                                    🔄 Restaurar Padrão
+                                </button>
+                            </div>
+                            <button onClick={() => handleSetAsDefault('favicon')} disabled={isSaving} className="w-full bg-amber-50 text-amber-700 border border-amber-200 font-bold py-2 px-3 rounded-lg hover:bg-amber-100 transition disabled:opacity-50 text-xs">
+                                ⭐ Definir Imagem Atual como Novo Padrão
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* PWA Icon Editor */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <h3 className="text-lg font-bold text-slate-800 mb-2">Ícone do Aplicativo (PWA)</h3>
+                <p className="text-sm text-gray-500 mb-6">
+                    Ícone exibido na tela inicial do celular quando o app é instalado (Máx 5MB). O sistema gerará automaticamente as versões em 192px e 512px.
+                </p>
+                
+                <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
+                    <div className="w-32 h-32 flex-shrink-0 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 p-2 flex items-center justify-center relative overflow-hidden group">
+                        {icons.pwa_icon?.current ? (
+                            <img 
+                                src={`${icons.pwa_icon.current}?t=${new Date().getTime()}`} 
+                                alt="Preview PWA" 
+                                className="w-full h-full object-contain drop-shadow-md" 
+                            />
+                        ) : (
+                            <PhotoIcon className="h-10 w-10 text-gray-400" />
+                        )}
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => fileInputRefPWA.current.click()} className="bg-white text-gray-800 text-xs font-bold px-3 py-1.5 rounded-md shadow-md">
+                                Alterar
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div className="flex-grow space-y-4 w-full">
+                        <input type="file" ref={fileInputRefPWA} className="hidden" accept="image/png,image/jpeg,image/gif,image/webp,image/x-icon" onChange={(e) => handleFileChange(e, 'pwa_icon')} />
+                        
+                        <div className="flex flex-col gap-2">
+                            <button onClick={() => fileInputRefPWA.current.click()} disabled={isSaving} className="w-full md:w-auto bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold py-2 px-4 rounded-lg hover:bg-indigo-100 transition flex items-center justify-center gap-2">
+                                <UploadIcon className="h-4 w-4"/> Fazer Upload Nova Imagem
+                            </button>
+
+                            <div className="flex gap-2">
+                                <button onClick={() => handleRestore('pwa_icon', 'previous')} disabled={!icons.pwa_icon?.previous || isSaving} className="flex-1 bg-gray-50 text-gray-600 border border-gray-200 font-bold py-2 px-3 rounded-lg hover:bg-gray-100 transition disabled:opacity-50 text-xs">
+                                    ↩️ Desfazer Última
+                                </button>
+                                <button onClick={() => handleRestore('pwa_icon', 'default')} disabled={!icons.pwa_icon?.default || isSaving} className="flex-1 bg-gray-50 text-gray-600 border border-gray-200 font-bold py-2 px-3 rounded-lg hover:bg-gray-100 transition disabled:opacity-50 text-xs">
+                                    🔄 Restaurar Padrão
+                                </button>
+                            </div>
+                            <button onClick={() => handleSetAsDefault('pwa_icon')} disabled={isSaving} className="w-full bg-amber-50 text-amber-700 border border-amber-200 font-bold py-2 px-3 rounded-lg hover:bg-amber-100 transition disabled:opacity-50 text-xs">
+                                ⭐ Definir Imagem Atual como Novo Padrão
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex justify-end pt-6 border-t border-gray-200">
+                <button 
+                    onClick={handleSave} 
+                    disabled={isSaving}
+                    className="bg-green-600 text-white px-10 py-3 rounded-xl font-bold hover:bg-green-700 shadow-md flex items-center gap-2.5 disabled:opacity-70 transition-all active:scale-95"
+                >
+                    <CheckIcon className="h-5 w-5"/>
+                    Salvar Definitivamente
+                </button>
+            </div>
+        </div>
+    );
+};
+
 // --- COMPONENTE DO BOTÃO DE INSTALAÇÃO PWA ---
 const InstallPWAButton = ({ deferredPrompt }) => {
     const handleInstallClick = async () => {
@@ -11756,7 +15219,7 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
 
     return (
         <section 
-            className="relative h-[90vh] sm:h-[70vh] w-full overflow-hidden group bg-black"
+            className="relative h-[55vh] sm:h-[70vh] w-full overflow-hidden group bg-black"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -11772,11 +15235,13 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
                     onClick={() => onNavigate(currentBanner.link_url.replace(/^#/, ''))}
                 >
                     <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${imageUrl})` }} />
-                    <div className="absolute inset-0 bg-black/40" />
+                    
+                    {/* AQUI ESTÁ A CORREÇÃO: Utilizando a cor sólida HEX para não sofrer interferência das variáveis do tema claro */}
+                    <div className="absolute inset-0 bg-[#000000]/40" />
                     
                     {(currentBanner.title || currentBanner.subtitle || currentBanner.cta_enabled) && (
                          <motion.div 
-                            className="relative z-10 h-full flex flex-col items-center justify-center text-center text-white p-4"
+                            className="relative z-10 h-full flex flex-col items-center justify-center text-center text-[#ffffff] p-4"
                             variants={bannerVariants}
                             initial="hidden"
                             animate="visible"
@@ -11786,7 +15251,7 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
                             {currentBanner.title && (
                                 <motion.h1 
                                     variants={itemVariants}
-                                    className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-wider drop-shadow-lg"
+                                    className="text-3xl sm:text-5xl md:text-7xl font-extrabold tracking-wider drop-shadow-lg"
                                 >
                                     {currentBanner.title}
                                 </motion.h1>
@@ -11794,14 +15259,14 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
                             {currentBanner.subtitle && (
                                 <motion.p 
                                     variants={itemVariants}
-                                    className="text-lg md:text-xl mt-4 max-w-2xl text-gray-200"
+                                    className="text-base md:text-xl mt-2 md:mt-4 max-w-2xl text-[#e5e7eb]"
                                 >
                                     {currentBanner.subtitle}
                                 </motion.p>
                             )}
                              {currentBanner.cta_enabled === 1 && currentBanner.cta_text && (
                                 <motion.div variants={itemVariants}>
-                                    <button className="mt-8 bg-amber-400 text-black px-8 sm:px-10 py-3 rounded-md text-lg font-bold hover:bg-amber-300 transition-colors">
+                                    <button className="mt-6 md:mt-8 bg-amber-400 text-black px-8 py-3 md:px-12 md:py-4 rounded-md text-base md:text-lg font-bold hover:bg-amber-300 transition-colors shadow-xl active:scale-95">
                                         {currentBanner.cta_text}
                                     </button>
                                 </motion.div>
@@ -11813,15 +15278,15 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
 
             {banners.length > 1 && (
                 <>
-                    <button onClick={(e) => { e.stopPropagation(); goPrev(); }} className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/30 rounded-full text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                    <button onClick={(e) => { e.stopPropagation(); goPrev(); }} className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-[#000000]/30 rounded-full text-[#ffffff] md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); goNext(); }} className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/30 rounded-full text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                    <button onClick={(e) => { e.stopPropagation(); goNext(); }} className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-[#000000]/30 rounded-full text-[#ffffff] md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                     </button>
                     <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex space-x-2">
                         {banners.map((_, index) => (
-                            <button key={index} onClick={(e) => { e.stopPropagation(); setCurrentIndex(index); }} className={`w-3 h-3 rounded-full transition-colors ${currentIndex === index ? 'bg-amber-400' : 'bg-white/50'}`} />
+                            <button key={index} onClick={(e) => { e.stopPropagation(); setCurrentIndex(index); }} className={`w-3 h-3 rounded-full transition-colors ${currentIndex === index ? 'bg-amber-400' : 'bg-[#ffffff]/50'}`} />
                         ))}
                     </div>
                 </>
@@ -11829,15 +15294,749 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
         </section>
     );
 });
-
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+// AQUI ESTÁ A CORREÇÃO: O componente ColorPickerRow foi movido para FORA 
+// do AdminThemeSettings. Isso impede que o React destrua o input enquanto 
+// você arrasta a bolinha de cor.
+const ColorPickerRow = ({ label, field, desc, value, onChange }) => (
+    <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-indigo-300 transition-colors">
+        <div className="pr-4">
+            <p className="font-bold text-gray-800 text-sm">{label}</p>
+            <p className="text-[10px] sm:text-xs text-gray-500 leading-tight mt-0.5">{desc}</p>
+        </div>
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            <span className="hidden sm:inline text-xs font-mono text-gray-500 uppercase">{value}</span>
+            <div className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden border-2 border-gray-300 shadow-inner cursor-pointer flex-shrink-0">
+                <input 
+                    type="color" 
+                    value={value} 
+                    onChange={(e) => onChange(field, e.target.value)}
+                    className="absolute -top-2 -left-2 w-16 h-16 cursor-pointer"
+                />
+            </div>
+        </div>
+    </div>
+);
+
+const AdminThemeSettings = () => {
+    const defaultThemeFallback = {
+        primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af', animationsEnabled: true, activeSeason: null
+    };
+
+    // Temas Sazonais com IDs para forçar a animação
+    const seasonalThemesPreview = [
+        { id: 'natal', name: 'Natal', date: 'Dezembro', colors: { primary: '#ef4444', primaryHover: '#dc2626', bg: '#000000', surface: '#052e16', surfaceHover: '#064e3b', text: '#ffffff', textMuted: '#a7f3d0' } },
+        { id: 'namorados', name: 'Namorados', date: 'Junho', colors: { primary: '#f43f5e', primaryHover: '#e11d48', bg: '#000000', surface: '#2e1065', surfaceHover: '#4c1d95', text: '#ffffff', textMuted: '#e2e8f0' } }, 
+        { id: 'pais', name: 'Pais', date: 'Agosto', colors: { primary: '#3b82f6', primaryHover: '#2563eb', bg: '#000000', surface: '#0f172a', surfaceHover: '#1e293b', text: '#ffffff', textMuted: '#94a3b8' } },
+        { id: 'maes', name: 'Mães', date: 'Maio', colors: { primary: '#ec4899', primaryHover: '#db2777', bg: '#000000', surface: '#4a044e', surfaceHover: '#701a75', text: '#ffffff', textMuted: '#fbcfe8' } }, 
+        { id: 'blackfriday', name: 'Black Friday', date: 'Novembro', colors: { primary: '#a855f7', primaryHover: '#9333ea', bg: '#000000', surface: '#18181b', surfaceHover: '#27272a', text: '#ffffff', textMuted: '#a1a1aa' } },
+    ];
+
+    const predefinedPresets = [
+        { name: 'Ouro Elegante', colors: { primary: '#d4af37', primaryHover: '#b8972e', bg: '#020617', surface: '#0f172a', surfaceHover: '#1e293b', text: '#f8fafc', textMuted: '#94a3b8' } },
+        { name: 'Ruby Premium', colors: { primary: '#e11d48', primaryHover: '#be123c', bg: '#000000', surface: '#1c1917', surfaceHover: '#27272a', text: '#ffffff', textMuted: '#a1a1aa' } },
+        { name: 'Minimalista Claro', colors: { primary: '#0ea5e9', primaryHover: '#0284c7', bg: '#f8fafc', surface: '#ffffff', surfaceHover: '#f1f5f9', text: '#0f172a', textMuted: '#64748b' } },
+        { name: 'Natureza Suave', colors: { primary: '#10b981', primaryHover: '#059669', bg: '#ecfdf5', surface: '#ffffff', surfaceHover: '#f0fdf4', text: '#064e3b', textMuted: '#34d399' } }
+    ];
+
+    const [localConfig, setLocalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true, activeSeason: null });
+    const [originalConfig, setOriginalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true, activeSeason: null });
+    
+    // Estado para carregar o nome dinâmico da loja no simulador
+    const [simulatorName, setSimulatorName] = useState('Love Cestas');
+    
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+    
+    const notification = useNotification();
+    const confirmation = useConfirmation();
+
+    useEffect(() => {
+        // Busca o nome configurado para refletir no simulador
+        apiService('/settings/app-name')
+            .then(data => { if(data && data.short_name) setSimulatorName(data.short_name); })
+            .catch(()=>{});
+
+        apiService('/settings/theme')
+            .then(data => {
+                const isAuto = data.autoSeasonal === true || data.autoSeasonal === 'true' || data.autoSeasonal === 1;
+                const animEnabled = data.animationsEnabled !== false;
+                const activeSeason = data.activeSeason || null;
+                const loadedConfig = data.colors 
+                    ? { ...data, autoSeasonal: isAuto, animationsEnabled: animEnabled, activeSeason } 
+                    : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto, animationsEnabled: animEnabled, activeSeason };
+                
+                setLocalConfig(loadedConfig);
+                setOriginalConfig(loadedConfig);
+            })
+            .catch(err => console.log("Usando tema padrão. Banco não respondeu com tema salvo."))
+            .finally(() => setIsLoading(false));
+    }, []); 
+
+    const dispatchPreview = (newConfig, activeSeason = null) => {
+        window.dispatchEvent(new CustomEvent('app-theme-updated', { detail: { ...newConfig, previewSeason: activeSeason } }));
+    };
+
+    const handleColorChange = (key, value) => {
+        const newConfig = { ...localConfig, colors: { ...localConfig.colors, [key]: value }, autoSeasonal: false, activeSeason: null };
+        setLocalConfig(newConfig);
+        dispatchPreview(newConfig);
+    };
+
+    const handleToggleSeasonal = () => {
+        const newSeasonalStatus = !localConfig.autoSeasonal;
+        const newConfig = { ...localConfig, autoSeasonal: newSeasonalStatus, activeSeason: null };
+        setLocalConfig(newConfig);
+        dispatchPreview(newConfig);
+        if (newSeasonalStatus) {
+            notification.show("Automação sazonal ATIVADA na pré-visualização.");
+        } else {
+            notification.show("Automação sazonal DESATIVADA.");
+        }
+    };
+
+    const handleToggleAnimations = () => {
+        const newStatus = !localConfig.animationsEnabled;
+        const newConfig = { ...localConfig, animationsEnabled: newStatus };
+        setLocalConfig(newConfig);
+        dispatchPreview(newConfig);
+    };
+
+    const applyPreset = (presetColors, seasonId = null) => {
+        const newConfig = { ...localConfig, colors: { ...presetColors }, autoSeasonal: false, activeSeason: seasonId };
+        setLocalConfig(newConfig);
+        dispatchPreview(newConfig, seasonId);
+        notification.show("Tema aplicado na pré-visualização. Clique em Salvar para publicar.");
+    };
+
+    const handleRestoreDefault = () => {
+        const newConfig = { ...localConfig, colors: { ...defaultThemeFallback }, autoSeasonal: false, activeSeason: null };
+        setLocalConfig(newConfig);
+        dispatchPreview(newConfig);
+        notification.show("Cores padrão restauradas na pré-visualização. Clique em 'Salvar' para confirmar.");
+    };
+
+    const handleCancel = () => {
+        setLocalConfig(originalConfig);
+        dispatchPreview(originalConfig, originalConfig.activeSeason);
+        notification.show("Alterações descartadas.");
+    };
+
+    const handleSave = () => {
+        confirmation.show(
+            "Tem certeza que deseja aplicar este tema e configurações ao site de forma definitiva?",
+            async () => {
+                setIsSaving(true);
+                try {
+                    await apiService('/settings/theme', 'PUT', { themeConfig: localConfig });
+                    setOriginalConfig(localConfig); 
+                    notification.show("Novo tema e configurações aplicados com sucesso!");
+                } catch (error) {
+                    notification.show(`Erro ao salvar: ${error.message}`, "error");
+                } finally {
+                    setIsSaving(false);
+                }
+            },
+            { requiresAuth: true, confirmText: "Salvar e Publicar", confirmColor: "bg-green-600 hover:bg-green-700" }
+        );
+    };
+
+    const isPresetActive = (colorsObj) => {
+        return localConfig.colors.primary === colorsObj.primary &&
+               localConfig.colors.bg === colorsObj.bg &&
+               localConfig.colors.surface === colorsObj.surface &&
+               !localConfig.autoSeasonal && 
+               !localConfig.activeSeason;
+    };
+
+    const isSeasonalActive = (seasonColors, seasonId) => {
+        return localConfig.colors.primary === seasonColors.primary &&
+               localConfig.colors.bg === seasonColors.bg &&
+               localConfig.colors.surface === seasonColors.surface &&
+               !localConfig.autoSeasonal &&
+               localConfig.activeSeason === seasonId;
+    };
+
+    if (isLoading) return <div className="flex justify-center py-20"><SpinnerIcon className="h-8 w-8 text-indigo-600"/></div>;
+
+    return (
+        <div className="max-w-6xl mx-auto space-y-8 pb-12">
+            <div>
+                <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Identidade Visual e Temas</h1>
+                <p className="text-slate-500 text-sm mt-1">Gerencie as cores e os efeitos da sua loja. O preview é em tempo real.</p>
+            </div>
+
+            {/* SEÇÃO 1: Automação Sazonal e Animações */}
+            <div className="bg-gradient-to-r from-indigo-900 to-slate-900 rounded-2xl shadow-lg p-1">
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 border border-white/10">
+                    <div className="text-white flex-1">
+                        <h2 className="text-xl font-bold flex items-center gap-2 mb-2">
+                            <SparklesIcon className="h-6 w-6 text-amber-400"/> Temas Sazonais Inteligentes
+                        </h2>
+                        <p className="text-indigo-200 text-sm leading-relaxed max-w-2xl">
+                            Ative esta opção para que o site mude automaticamente de tema e exiba efeitos visuais (corações, neve) durante datas comemorativas.
+                        </p>
+                        
+                        <div className="flex items-center justify-between p-4 bg-black/30 border border-white/10 rounded-xl mt-4 max-w-md">
+                            <div>
+                                <h3 className="text-white font-bold text-sm">Permitir Efeitos Animados</h3>
+                                <p className="text-indigo-200 text-[10px]">Neve, corações, brilhos caindo na tela.</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" checked={localConfig.animationsEnabled !== false} onChange={handleToggleAnimations} className="sr-only peer" />
+                                <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div className="flex-shrink-0 bg-white/5 p-4 rounded-xl border border-white/10 flex flex-col items-center">
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" checked={localConfig.autoSeasonal} onChange={handleToggleSeasonal} className="sr-only peer" />
+                            <div className="w-14 h-7 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-amber-500"></div>
+                        </label>
+                        <span className="text-xs font-bold text-white mt-2 uppercase tracking-widest">
+                            {localConfig.autoSeasonal ? 'Ativado' : 'Desativado'}
+                        </span>
+                    </div>
+                </div>
+                
+                <div className="px-6 pb-6 pt-4">
+                    <p className="text-xs text-indigo-300 mb-3 uppercase tracking-wider font-bold">Clique para testar os temas e animações do calendário:</p>
+                    <div className="flex flex-wrap gap-3">
+                        {seasonalThemesPreview.map(season => (
+                            <button 
+                                key={season.name} 
+                                type="button"
+                                onClick={() => applyPreset(season.colors, season.id)}
+                                className={`flex items-center gap-2 border rounded-lg px-3 py-1.5 transition-all cursor-pointer shadow-sm active:scale-95 ${
+                                    isSeasonalActive(season.colors, season.id) 
+                                    ? 'bg-white/20 border-amber-400 ring-1 ring-amber-400' 
+                                    : 'bg-white/10 hover:bg-white/20 border-white/20 hover:border-amber-300'
+                                }`}
+                            >
+                                <div className="flex -space-x-2">
+                                    <div className="w-4 h-4 rounded-full border border-slate-800 shadow-sm" style={{ backgroundColor: season.colors.surface }}></div>
+                                    <div className="w-4 h-4 rounded-full border border-slate-800 shadow-sm" style={{ backgroundColor: season.colors.primary }}></div>
+                                </div>
+                                <span className="text-xs text-white font-bold">{season.name}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* SEÇÃO 2: Controles de Cor */}
+                <div className="lg:col-span-7 space-y-6">
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                <PhotoIcon className="h-5 w-5 text-indigo-500"/> Escolha um Estilo
+                            </h2>
+                            <button 
+                                type="button"
+                                onClick={handleRestoreDefault}
+                                className="text-xs font-bold bg-amber-100 text-amber-800 px-3 py-1.5 rounded-lg border border-amber-200 hover:bg-amber-200 transition-colors flex items-center gap-1"
+                            >
+                                <ArrowUturnLeftIcon className="h-3 w-3"/> Restaurar Padrão
+                            </button>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            {predefinedPresets.map((preset, idx) => (
+                                <button 
+                                    key={idx} 
+                                    type="button"
+                                    onClick={() => applyPreset(preset.colors)}
+                                    className={`flex flex-col items-center justify-center p-3 border rounded-xl hover:shadow-md transition-all group ${
+                                        isPresetActive(preset.colors) 
+                                        ? 'border-indigo-600 ring-2 ring-indigo-100 bg-indigo-50' 
+                                        : 'border-gray-200 bg-gray-50 hover:border-indigo-400'
+                                    }`}
+                                >
+                                    <div className="flex w-full h-10 rounded-lg overflow-hidden mb-2 border border-gray-300 shadow-sm">
+                                        <div className="flex-1" style={{ backgroundColor: preset.colors.bg }}></div>
+                                        <div className="flex-1" style={{ backgroundColor: preset.colors.surface }}></div>
+                                        <div className="flex-1" style={{ backgroundColor: preset.colors.primary }}></div>
+                                    </div>
+                                    <span className={`text-[10px] font-bold uppercase tracking-wide text-center ${isPresetActive(preset.colors) ? 'text-indigo-700' : 'text-gray-600 group-hover:text-indigo-600'}`}>
+                                        {preset.name}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-3">
+                        <h2 className="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
+                            <ChartIcon className="h-5 w-5 text-indigo-500"/> Personalização Fina
+                        </h2>
+                        
+                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-4">
+                            <p className="text-xs text-blue-800">
+                                💡 <strong>Dica:</strong> Se você alterar uma cor manualmente e não gostar, basta <strong>clicar novamente no Estilo (preset) acima</strong> para restaurar as cores originais daquele estilo, ou clicar em "Descartar" no final da página.
+                            </p>
+                        </div>
+
+                        {/* As propriedades value e onChange agora são passadas como propriedades */}
+                        <ColorPickerRow label="Cor Primária" field="primary" desc="Botões principais, ícones ativos e selos de desconto." value={localConfig.colors.primary} onChange={handleColorChange} />
+                        <ColorPickerRow label="Cor Primária (Hover)" field="primaryHover" desc="Cor do botão primário ao passar o mouse." value={localConfig.colors.primaryHover} onChange={handleColorChange} />
+                        <ColorPickerRow label="Fundo Principal" field="bg" desc="Cor de fundo de todo o site." value={localConfig.colors.bg} onChange={handleColorChange} />
+                        <ColorPickerRow label="Superfície (Cards)" field="surface" desc="Fundo de cartões de produto, menus drop-down e rodapé." value={localConfig.colors.surface} onChange={handleColorChange} />
+                        <ColorPickerRow label="Texto Principal" field="text" desc="Cor dos títulos, nomes de produtos e textos normais." value={localConfig.colors.text} onChange={handleColorChange} />
+                        <ColorPickerRow label="Texto Secundário" field="textMuted" desc="Textos de apoio, descrições menores e bordas suaves." value={localConfig.colors.textMuted} onChange={handleColorChange} />
+                    </div>
+                </div>
+
+                {/* SEÇÃO 3: Pré-visualização do Cliente */}
+                <div className="lg:col-span-5">
+                    <div className="bg-gray-100 p-6 rounded-2xl border border-gray-200 flex flex-col justify-start items-center sticky top-24 min-h-[500px]">
+                        <div className="w-full flex justify-between items-center mb-6">
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                                <EyeIcon className="h-4 w-4"/> Visão do Cliente
+                            </p>
+                            {localConfig.autoSeasonal && (
+                                <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-full animate-pulse">Sazonal ON</span>
+                            )}
+                        </div>
+                        
+                        {/* Card Simulador de Site */}
+                        <div 
+                            className="w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden transition-colors duration-500 border border-white/10 flex flex-col"
+                            style={{ backgroundColor: localConfig.colors.bg }}
+                        >
+                            <div className="px-5 py-4 flex items-center justify-between shadow-sm transition-colors duration-500" style={{ backgroundColor: localConfig.colors.surface }}>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-500" style={{ backgroundColor: localConfig.colors.primary }}>
+                                        <span className="text-[10px] font-bold" style={{ color: localConfig.colors.bg }}>{simulatorName.charAt(0).toUpperCase()}</span>
+                                    </div>
+                                    <span className="font-bold text-sm transition-colors duration-500" style={{ color: localConfig.colors.primary }}>{simulatorName}</span>
+                                </div>
+                                <div className="flex gap-3">
+                                    <SearchIcon className="h-4 w-4 transition-colors duration-500" style={{ color: localConfig.colors.textMuted }} />
+                                    <CartIcon className="h-4 w-4 transition-colors duration-500" style={{ color: localConfig.colors.text }} />
+                                </div>
+                            </div>
+                            
+                            <div className="h-24 w-full flex flex-col items-center justify-center transition-colors duration-500" style={{ backgroundColor: localConfig.colors.surfaceHover }}>
+                                <span className="text-[10px] font-bold uppercase tracking-widest transition-colors duration-500" style={{ color: localConfig.colors.primary }}>Nova Coleção</span>
+                                <h3 className="text-lg font-bold transition-colors duration-500" style={{ color: localConfig.colors.text }}>Inverno 2026</h3>
+                            </div>
+
+                            <div className="p-5 flex-grow">
+                                <div className="flex gap-4 mb-4">
+                                    <div className="w-20 h-24 rounded-lg flex-shrink-0 transition-colors duration-500" style={{ backgroundColor: localConfig.colors.surface }}></div>
+                                    <div className="flex-1">
+                                        <div className="h-3 w-16 rounded mb-2 transition-colors duration-500" style={{ backgroundColor: localConfig.colors.primary }}></div>
+                                        <div className="h-4 w-3/4 rounded mb-2 transition-colors duration-500" style={{ color: localConfig.colors.text, backgroundColor: localConfig.colors.text }}></div>
+                                        <div className="h-3 w-full rounded mb-1 transition-colors duration-500" style={{ color: localConfig.colors.textMuted, backgroundColor: localConfig.colors.textMuted }}></div>
+                                        <div className="h-3 w-2/3 rounded transition-colors duration-500" style={{ color: localConfig.colors.textMuted, backgroundColor: localConfig.colors.textMuted }}></div>
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-between items-end mb-4">
+                                    <div>
+                                        <p className="text-[10px] line-through transition-colors duration-500" style={{ color: localConfig.colors.textMuted }}>R$ 199,90</p>
+                                        <p className="text-xl font-bold transition-colors duration-500" style={{ color: localConfig.colors.text }}>R$ 149,90</p>
+                                    </div>
+                                    <div className="px-2 py-1 rounded text-[10px] font-bold transition-colors duration-500" style={{ backgroundColor: localConfig.colors.primary, color: localConfig.colors.bg }}>
+                                        -25% OFF
+                                    </div>
+                                </div>
+
+                                <button 
+                                    type="button"
+                                    className="w-full py-3 rounded-lg font-bold shadow-md transition-all duration-300 text-sm flex items-center justify-center gap-2"
+                                    style={{ backgroundColor: localConfig.colors.primary, color: localConfig.colors.bg }}
+                                    onMouseEnter={(e) => {
+                                        e.target.style.backgroundColor = localConfig.colors.primaryHover;
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.target.style.backgroundColor = localConfig.colors.primary;
+                                    }}
+                                >
+                                    <CartIcon className="h-4 w-4"/> Comprar Agora
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-200 sticky bottom-0 bg-gray-50/90 backdrop-blur p-4 -mx-4 sm:mx-0 sm:bg-transparent sm:p-0 z-10">
+                <button 
+                    type="button"
+                    onClick={handleCancel}
+                    disabled={isSaving}
+                    className="px-6 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 shadow-sm transition-all"
+                >
+                    Descartar
+                </button>
+                <button 
+                    type="button"
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-md flex items-center gap-2 transition-all active:scale-95 disabled:opacity-70"
+                >
+                    {isSaving ? <SpinnerIcon className="h-5 w-5"/> : <CheckBadgeIcon className="h-5 w-5"/>}
+                    Salvar e Publicar
+                </button>
+            </div>
+        </div>
+    );
+};
+// Componente de Animações Sazonais (Alta Performance via CSS Animation e Memoização)
+const SeasonalAnimations = memo(({ isEnabled, forcedSeason, isAppReady }) => {
+    const [season, setSeason] = useState(null);
+    const [isActive, setIsActive] = useState(false); 
+    const [isMounted, setIsMounted] = useState(false); 
+
+    useEffect(() => {
+        // Se a animação estiver desativada pelo Admin ou se o app ainda estiver na tela de carregamento, não faz nada.
+        if (!isEnabled || !isAppReady) {
+            return;
+        }
+
+        // Se veio forçado pelo config (Admin salvou o tema sazonal)
+        if (forcedSeason) {
+            setSeason(forcedSeason);
+        } else {
+            const now = new Date();
+            const m = now.getMonth() + 1;
+            const d = now.getDate();
+
+            if (m === 12 && d <= 25) setSeason('natal');
+            else if (m === 6 && d <= 12) setSeason('namorados');
+            else if (m === 5 && d <= 15) setSeason('maes');
+            else if (m === 8 && d <= 15) setSeason('pais');
+            else if (m === 11 && d >= 15) setSeason('blackfriday');
+            else {
+                setSeason(null);
+                return;
+            }
+        }
+
+        // Inicia a animação apenas quando o app estiver pronto
+        setIsActive(true);
+        setIsMounted(true);
+        
+        const fadeTimer = setTimeout(() => {
+            setIsActive(false); // Inicia o fade out suave aos 5 segundos
+        }, 5000);
+        
+        const unmountTimer = setTimeout(() => {
+            setIsMounted(false); // Remove totalmente da memória aos 6 segundos
+        }, 6000);
+
+        return () => {
+            clearTimeout(fadeTimer);
+            clearTimeout(unmountTimer);
+        };
+    }, [isEnabled, forcedSeason, isAppReady]); // A dependência isAppReady garante que só inicie após o load
+
+    const particles = useMemo(() => {
+        if (!season) return [];
+        
+        let count = 0;
+        if (season === 'natal') count = 40;
+        else if (season === 'namorados' || season === 'maes') count = 25;
+        else if (season === 'pais') count = 15;
+        else if (season === 'blackfriday') count = 40;
+
+        return [...Array(count)].map((_, i) => ({
+            id: i,
+            left: Math.random() * 100,
+            top: season === 'blackfriday' ? Math.random() * 100 : -10,
+            animDuration: season === 'blackfriday' ? 1 + Math.random() * 2 : 4 + Math.random() * 4,
+            delay: season === 'blackfriday' ? Math.random() * 2 : Math.random() * -5,
+            size: season === 'blackfriday' ? 0.1 + Math.random() * 0.3 : 0.8 + Math.random() * 1.5,
+        }));
+    }, [season]);
+
+    if (!isEnabled || !isAppReady || !isMounted || !season || particles.length === 0) return null;
+
+    return (
+        <div className={`fixed inset-0 pointer-events-none z-[100] overflow-hidden transition-opacity duration-1000 ${isActive ? 'opacity-100' : 'opacity-0'}`} aria-hidden="true">
+            <style>{`
+                @keyframes fall {
+                    0% { transform: translateY(-10vh) rotate(0deg); opacity: 0; }
+                    10% { opacity: 1; }
+                    80% { opacity: 1; }
+                    100% { transform: translateY(110vh) rotate(360deg); opacity: 0; }
+                }
+                @keyframes sparkle {
+                    0%, 100% { opacity: 0; transform: scale(0); }
+                    50% { opacity: 1; transform: scale(1); }
+                }
+            `}</style>
+
+            {particles.map((p) => {
+                if (season === 'blackfriday') {
+                    return (
+                        <div
+                            key={p.id}
+                            className="absolute bg-amber-400 rounded-full"
+                            style={{
+                                left: `${p.left}vw`,
+                                top: `${p.top}vh`,
+                                width: `${p.size}rem`,
+                                height: `${p.size}rem`,
+                                boxShadow: '0 0 12px 4px rgba(251, 191, 36, 0.8)',
+                                animation: `sparkle ${p.animDuration}s ease-in-out ${p.delay}s infinite`,
+                            }}
+                        />
+                    );
+                }
+
+                let content;
+                if (season === 'natal') {
+                    content = <div className="rounded-full bg-white" style={{ width: `${p.size * 0.3}rem`, height: `${p.size * 0.3}rem`, boxShadow: '0 0 10px rgba(255,255,255,1)' }} />;
+                } else if (season === 'namorados') {
+                    content = '❤️';
+                } else if (season === 'maes') {
+                    content = '🌸';
+                } else if (season === 'pais') {
+                    content = '👔';
+                }
+
+                return (
+                    <div
+                        key={p.id}
+                        className="absolute"
+                        style={{
+                            left: `${p.left}vw`,
+                            top: `${p.top}vh`,
+                            fontSize: season !== 'natal' ? `${p.size}rem` : undefined,
+                            animation: `fall ${p.animDuration}s linear ${p.delay}s infinite`,
+                            opacity: season === 'pais' ? 0.4 : 0.7,
+                            filter: season !== 'natal' ? 'drop-shadow(0px 4px 6px rgba(0,0,0,0.3))' : 'none'
+                        }}
+                    >
+                        {content}
+                    </div>
+                );
+            })}
+        </div>
+    );
+});
+
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
-  // Efeito para buscar o status de manutenção (inicial e periodicamente)
+  const defaultThemeFallback = {
+      primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af', animationsEnabled: true, activeSeason: null
+  };
+
+  const seasonalThemes = {
+      natal: { primary: '#ef4444', primaryHover: '#dc2626', bg: '#000000', surface: '#052e16', surfaceHover: '#064e3b', text: '#ffffff', textMuted: '#a7f3d0' },
+      namorados: { primary: '#f43f5e', primaryHover: '#e11d48', bg: '#000000', surface: '#2e1065', surfaceHover: '#4c1d95', text: '#ffffff', textMuted: '#e2e8f0' }, 
+      maes: { primary: '#ec4899', primaryHover: '#db2777', bg: '#000000', surface: '#4a044e', surfaceHover: '#701a75', text: '#ffffff', textMuted: '#fbcfe8' }, 
+      pais: { primary: '#3b82f6', primaryHover: '#2563eb', bg: '#000000', surface: '#0f172a', surfaceHover: '#1e293b', text: '#ffffff', textMuted: '#94a3b8' },
+      blackfriday: { primary: '#a855f7', primaryHover: '#9333ea', bg: '#000000', surface: '#18181b', surfaceHover: '#27272a', text: '#ffffff', textMuted: '#a1a1aa' }
+  };
+
+  const getSeasonalTheme = useCallback(() => {
+      const now = new Date();
+      const m = now.getMonth() + 1; 
+      const d = now.getDate();
+
+      if (m === 12 && d <= 25) return seasonalThemes.natal;
+      if (m === 6 && d <= 12) return seasonalThemes.namorados;
+      if (m === 5 && d <= 15) return seasonalThemes.maes;
+      if (m === 8 && d <= 15) return seasonalThemes.pais;
+      if (m === 11 && d >= 15) return seasonalThemes.blackfriday;
+
+      return null;
+  }, []);
+
+  const [appThemeConfig, setAppThemeConfig] = useState(() => {
+      try {
+          const cached = localStorage.getItem('lovecestas_theme_config');
+          if (cached) {
+              const parsed = JSON.parse(cached);
+              if (parsed.animationsEnabled === undefined) parsed.animationsEnabled = true;
+              if (parsed.autoSeasonal === undefined) parsed.autoSeasonal = false;
+              return parsed;
+          }
+      } catch(e) {}
+      return { colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true, activeSeason: null };
+  });
+  
+  const [previewSeason, setPreviewSeason] = useState(null);
+
+  const [appLogo, setAppLogo] = useState(() => {
+      return localStorage.getItem('lovecestas_app_logo') || 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
+  });
+  
+  const [appNameConfig, setAppNameConfig] = useState(() => {
+      try {
+          const cached = localStorage.getItem('lovecestas_app_name');
+          if (cached) return JSON.parse(cached);
+      } catch(e) {}
+      return { short_name: 'Love Cestas', name: 'Love Cestas e Perfumes', logo_text: 'LovecestasePerfumes' };
+  });
+
+  const activeThemeColors = useMemo(() => {
+      if (appThemeConfig.autoSeasonal) {
+          const seasonColors = getSeasonalTheme();
+          if (seasonColors) return seasonColors;
+      }
+      return appThemeConfig.colors || defaultThemeFallback;
+  }, [appThemeConfig, getSeasonalTheme]);
+
+  React.useLayoutEffect(() => {
+      const t = activeThemeColors;
+      const isAdmin = currentPath.startsWith('admin');
+      
+      const styleId = 'dynamic-theme-override';
+      let styleElement = document.getElementById(styleId);
+
+      if (!styleElement) {
+          styleElement = document.createElement('style');
+          styleElement.id = styleId;
+          document.head.appendChild(styleElement);
+      }
+
+      if (isAdmin) {
+          styleElement.innerHTML = '';
+          return;
+      }
+
+      styleElement.innerHTML = `
+          :root {
+              --theme-primary: ${t.primary};
+              --theme-primary-hover: ${t.primaryHover};
+              --theme-bg: ${t.bg};
+              --theme-surface: ${t.surface};
+              --theme-surface-hover: ${t.surfaceHover};
+              --theme-text: ${t.text};
+              --theme-text-muted: ${t.textMuted};
+          }
+
+          .bg-amber-400, .bg-amber-500 { background-color: var(--theme-primary) !important; color: var(--theme-bg) !important; }
+          .hover\\:bg-amber-300:hover, .hover\\:bg-amber-400:hover { background-color: var(--theme-primary-hover) !important; color: var(--theme-bg) !important; }
+          .text-amber-400, .text-amber-500 { color: var(--theme-primary) !important; }
+          .hover\\:text-amber-300:hover, .hover\\:text-amber-400:hover { color: var(--theme-primary-hover) !important; }
+          .border-amber-400, .border-amber-500 { border-color: var(--theme-primary) !important; }
+          .ring-amber-400 { --tw-ring-color: var(--theme-primary) !important; }
+
+          .bg-black { background-color: var(--theme-bg) !important; }
+          .bg-gray-900 { background-color: var(--theme-surface) !important; }
+          .bg-gray-800 { background-color: var(--theme-surface-hover) !important; }
+          
+          .bg-black\\/80 { background-color: color-mix(in srgb, var(--theme-bg) 80%, transparent) !important; }
+          .bg-black\\/70 { background-color: color-mix(in srgb, var(--theme-bg) 70%, transparent) !important; }
+          .bg-black\\/60 { background-color: color-mix(in srgb, var(--theme-bg) 60%, transparent) !important; }
+          .bg-black\\/40 { background-color: color-mix(in srgb, var(--theme-bg) 40%, transparent) !important; }
+          .bg-black\\/30 { background-color: color-mix(in srgb, var(--theme-bg) 30%, transparent) !important; }
+          
+          .bg-gray-900\\/95 { background-color: color-mix(in srgb, var(--theme-surface) 95%, transparent) !important; }
+          .bg-gray-900\\/80 { background-color: color-mix(in srgb, var(--theme-surface) 80%, transparent) !important; }
+          .bg-gray-900\\/50 { background-color: color-mix(in srgb, var(--theme-surface) 50%, transparent) !important; }
+          
+          .bg-gray-800\\/50 { background-color: color-mix(in srgb, var(--theme-surface-hover) 50%, transparent) !important; }
+
+          .border-gray-800, .border-gray-700 { border-color: var(--theme-surface-hover) !important; }
+          
+          .text-white { color: var(--theme-text) !important; }
+          .text-gray-200 { color: color-mix(in srgb, var(--theme-text) 90%, var(--theme-bg)) !important; }
+          .text-gray-300 { color: color-mix(in srgb, var(--theme-text) 80%, var(--theme-bg)) !important; }
+          .text-gray-400 { color: var(--theme-text-muted) !important; }
+          .text-gray-500 { color: color-mix(in srgb, var(--theme-text-muted) 80%, var(--theme-bg)) !important; }
+      `;
+
+      return () => {
+          if (styleElement) styleElement.innerHTML = '';
+      };
+  }, [activeThemeColors, currentPath]);
+
+  useEffect(() => {
+      if (appNameConfig && appNameConfig.name) {
+          document.title = appNameConfig.name;
+      } else {
+          document.title = "Love Cestas e Perfumes";
+      }
+  }, [appNameConfig]);
+
+  useEffect(() => {
+      const handleNameUpdate = (event) => {
+          if (event.detail) {
+              setAppNameConfig(event.detail);
+              localStorage.setItem('lovecestas_app_name', JSON.stringify(event.detail));
+          }
+      };
+
+      const handleThemeUpdate = (event) => {
+          if (event.detail) {
+              setAppThemeConfig(event.detail);
+              setPreviewSeason(event.detail.previewSeason || event.detail.activeSeason || null); 
+              localStorage.setItem('lovecestas_theme_config', JSON.stringify(event.detail));
+          }
+      };
+
+      window.addEventListener('app-name-updated', handleNameUpdate);
+      window.addEventListener('app-theme-updated', handleThemeUpdate);
+      
+      return () => {
+          window.removeEventListener('app-name-updated', handleNameUpdate);
+          window.removeEventListener('app-theme-updated', handleThemeUpdate);
+      };
+  }, []);
+
+  useEffect(() => {
+      apiService(`/settings/theme?v=${new Date().getTime()}`)
+          .then(data => { 
+              if (data) {
+                  const isAuto = data.autoSeasonal === true || data.autoSeasonal === 'true' || data.autoSeasonal === 1;
+                  const animEnabled = data.animationsEnabled !== false;
+                  const loadedConfig = data.colors ? { ...data, autoSeasonal: isAuto, animationsEnabled: animEnabled, activeSeason: data.activeSeason } : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto, animationsEnabled: animEnabled, activeSeason: null };
+                  setAppThemeConfig(loadedConfig); 
+                  localStorage.setItem('lovecestas_theme_config', JSON.stringify(loadedConfig));
+              }
+          })
+          .catch(err => {
+              console.log("Usando tema local estático fallback.");
+          });
+
+      apiService(`/settings/app-icons?v=${new Date().getTime()}`)
+          .then(data => {
+              if (data && data.favicon && data.favicon.current) {
+                  const faviconLink = document.querySelector("link[rel~='icon']");
+                  if (faviconLink) faviconLink.href = data.favicon.current;
+                  localStorage.setItem('lovecestas_app_favicon', data.favicon.current);
+              }
+              if (data && data.pwa_icon && data.pwa_icon.current) {
+                  setAppLogo(data.pwa_icon.current);
+                  localStorage.setItem('lovecestas_app_logo', data.pwa_icon.current);
+              }
+          })
+          .catch(err => console.log("Ícones mantidos como original."));
+
+      apiService(`/settings/app-name?v=${new Date().getTime()}`)
+          .then(data => {
+              if (data && data.name) {
+                  setAppNameConfig(data);
+                  localStorage.setItem('lovecestas_app_name', JSON.stringify(data));
+              }
+          })
+          .catch(err => console.log("Nome mantido como original."));
+  }, []);
+
   useEffect(() => {
     const checkStatus = () => {
         apiService('/settings/maintenance-status')
@@ -11851,7 +16050,7 @@ function AppContent({ deferredPrompt }) {
                 });
             })
             .catch(err => {
-                console.error("Falha ao verificar o modo de manutenção, o site continuará online por segurança.", err);
+                console.error("Falha ao verificar manutenção.", err);
                 setIsInMaintenance(false);
             })
             .finally(() => {
@@ -11866,21 +16065,61 @@ function AppContent({ deferredPrompt }) {
     return () => clearInterval(intervalId); 
   }, [isStatusLoading]); 
 
+  useEffect(() => {
+    const registerPush = async () => {
+        if (!isAuthenticated || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') return;
+
+            const publicVapidKey = "BGDEC_rvB5lgb2pzKg8bZMwAfOwohu0sf_777oDMYHV1dTQzV1Q4UgU2eFXj_2IVoFlKvN3YkrETqNJVSje0t4g";
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+            });
+            await apiService('/notifications/subscribe', 'POST', subscription);
+        } catch (error) {
+            console.error('Erro ao registrar push:', error);
+        }
+    };
+    registerPush();
+  }, [isAuthenticated]); 
+
   const navigate = useCallback((path) => {
     window.location.hash = path;
   }, []);
   
   useEffect(() => {
-    const pendingOrderId = sessionStorage.getItem('pendingOrderId');
+    const handleReturn = () => {
+        const hash = window.location.hash;
+        
+        const hashParts = hash.split('?');
+        if (hashParts.length > 1) {
+            const params = new URLSearchParams(hashParts[1]);
+            const externalReference = params.get('external_reference');
+            
+            if (externalReference && !hash.includes('order-success')) {
+                navigate(`order-success/${externalReference}?${hashParts[1]}`);
+                return;
+            }
+        }
+
+        const pendingOrderId = localStorage.getItem('pendingOrderId');
+        if (pendingOrderId && !hash.includes('order-success')) {
+            navigate(`order-success/${pendingOrderId}`);
+        }
+    };
+
+    handleReturn();
+    window.addEventListener('focus', handleReturn);
+    window.addEventListener('visibilitychange', handleReturn);
     
-    if (pendingOrderId && !currentPath.startsWith('order-success')) {
-      console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting to success page.`);
-      sessionStorage.removeItem('pendingOrderId'); 
-      navigate(`order-success/${pendingOrderId}`);
-    } else if (currentPath.startsWith('order-success')) {
-        sessionStorage.removeItem('pendingOrderId');
-    }
-  }, [currentPath, navigate]); 
+    return () => {
+        window.removeEventListener('focus', handleReturn);
+        window.removeEventListener('visibilitychange', handleReturn);
+    };
+  }, [navigate]); 
   
   useEffect(() => {
     const handleHashChange = () => {
@@ -11894,10 +16133,27 @@ function AppContent({ deferredPrompt }) {
     window.scrollTo(0, 0);
   }, [currentPath]);
   
-  if (isLoading || isStatusLoading) {
+  const safeName = appNameConfig?.name || 'Love Cestas e Perfumes';
+  const safeShortName = appNameConfig?.short_name || 'Love Cestas';
+  const safeLogoText = appNameConfig?.logo_text || (safeName ? String(safeName).replace(/\s/g, '') : 'LoveCestas');
+
+  const isAppReady = !isLoading && !isStatusLoading;
+
+  if (!isAppReady) {
       return (
-        <div className="h-screen flex items-center justify-center bg-black">
-            <SpinnerIcon className="h-8 w-8 text-amber-400"/>
+        <div className="h-screen flex flex-col items-center justify-center gap-6" style={{ backgroundColor: activeThemeColors.bg }}>
+            <motion.div 
+                animate={{ scale: [1, 1.05, 1], opacity: [0.8, 1, 0.8] }} 
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                className="w-28 h-28 relative"
+            >
+                <div className="absolute inset-0 blur-2xl opacity-20 rounded-full animate-pulse" style={{ backgroundColor: activeThemeColors.primary }}></div>
+                <img src={appLogo} alt={safeName} className="w-full h-full object-contain relative z-10" />
+            </motion.div>
+            <div className="flex flex-col items-center gap-3" style={{ color: activeThemeColors.primary }}>
+                <SpinnerIcon className="h-8 w-8 animate-spin" />
+                <p className="opacity-80 font-bold tracking-[0.2em] text-xs uppercase animate-pulse">Preparando a loja...</p>
+            </div>
         </div>
       );
   }
@@ -11931,14 +16187,17 @@ function AppContent({ deferredPrompt }) {
             'dashboard': <AdminDashboard onNavigate={navigate} />, 
             'banners': <AdminBanners />,
             'products': <AdminProducts onNavigate={navigate} />,
-            'orders': <AdminOrders />,
+            'orders': <AdminOrders appName={safeName} />,
             'refunds': <AdminRefunds onNavigate={navigate} />,
             'collections': <AdminCollections />,
             'users': <AdminUsers />,
             'coupons': <AdminCoupons />,
             'reports': <AdminReports />,
             'logs': <AdminLogsPage />,
-            'newsletter': <AdminNewsletter />, // Rota para gestão de Newsletter
+            'newsletter': <AdminNewsletter appName={safeName} />, 
+            'shipping': <AdminShippingSettings />, 
+            'app-icons': <AdminAppIcons />,
+            'theme': <AdminThemeSettings />,
         };
 
         return (
@@ -11949,7 +16208,7 @@ function AppContent({ deferredPrompt }) {
     }
 
     if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) {
-        return <LoginPage onNavigate={navigate} />;
+        return <LoginPage onNavigate={navigate} redirectPath={currentPath} />;
     }
     
     if (mainPage === 'product' && pageId) {
@@ -11957,7 +16216,7 @@ function AppContent({ deferredPrompt }) {
     }
 
     if (mainPage === 'order-success' && pageId) {
-        return <OrderSuccessPage orderId={pageId} onNavigate={navigate} />;
+        return <OrderSuccessPage orderId={pageId} onNavigate={navigate} appName={safeName} />;
     }
     
     if (mainPage === 'account') {
@@ -11967,16 +16226,16 @@ function AppContent({ deferredPrompt }) {
    const pages = {
         'home': <HomePage onNavigate={navigate} />,
         'products': <ProductsPage onNavigate={navigate} initialSearch={initialSearch} initialCategory={initialCategory} initialBrand={initialBrand} initialIsPromo={initialIsPromo} />,
-        'categories': <CategoriesPage onNavigate={navigate} />, // Rota para o novo menu mobile
+        'categories': <CategoriesPage onNavigate={navigate} />, 
         'login': <LoginPage onNavigate={navigate} />,
         'register': <RegisterPage onNavigate={navigate} />,
         'cart': <CartPage onNavigate={navigate} />,
         'checkout': <CheckoutPage onNavigate={navigate} />,
         'wishlist': <WishlistPage onNavigate={navigate} />,
         'ajuda': <AjudaPage onNavigate={navigate} />,
-        'about': <AboutPage />,
-        'privacy': <PrivacyPolicyPage />,
-        'terms': <TermsOfServicePage />,
+        'about': <AboutPage appName={safeName} />,
+        'privacy': <PrivacyPolicyPage appName={safeName} appLogoText={safeLogoText} />,
+        'terms': <TermsOfServicePage appName={safeName} appLogoText={safeLogoText} />,
         'forgot-password': <ForgotPasswordPage onNavigate={navigate} />,
     };
     return pages[mainPage] || <HomePage onNavigate={navigate} />;
@@ -11984,16 +16243,39 @@ function AppContent({ deferredPrompt }) {
 
   const showHeaderFooter = !currentPath.startsWith('admin');
   
+  const effectiveForcedSeason = previewSeason || appThemeConfig.activeSeason;
+  const shouldRunAnimations = appThemeConfig.animationsEnabled !== false && 
+                              (appThemeConfig.autoSeasonal || effectiveForcedSeason);
+  
   return (
-    <div className="bg-black min-h-screen flex flex-col">
-      {showHeaderFooter && <Header onNavigate={navigate} />}
+    <div className="bg-black min-h-screen flex flex-col transition-colors duration-500 relative">
+      
+      {!currentPath.startsWith('admin') && (
+          <SeasonalAnimations 
+            isEnabled={shouldRunAnimations} 
+            forcedSeason={effectiveForcedSeason} 
+            isAppReady={isAppReady}
+          />
+      )}
+      
+      {showHeaderFooter && (
+          <Header 
+              onNavigate={navigate} 
+              appName={safeName} 
+              appShortName={safeShortName} 
+              appLogoText={safeLogoText} 
+          />
+      )}
+
+      {/* CORREÇÃO: Removido 'z-10' e 'relative' que causavam o bloqueio da tela de categorias */}
       <main className="flex-grow">{renderPage()}</main>
+      
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
-        <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800">
+        <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800 transition-colors duration-500 z-10 relative">
             <div className="container mx-auto px-4 py-12">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
                     <div className="space-y-4">
-                        <h3 className="text-xl font-bold text-amber-400">LovecestasePerfumes</h3>
+                        <h3 className="text-xl font-bold text-amber-400">{safeName}</h3>
                         <p className="text-sm text-gray-400">
                             Elegância que veste e perfuma. Descubra fragrâncias e peças que definem seu estilo e marcam momentos.
                         </p>
@@ -12022,80 +16304,76 @@ function AppContent({ deferredPrompt }) {
                     </div>
 
                     <div className="space-y-4">
-                        <h3 className="font-bold text-white tracking-wider">Formas de Pagamento</h3>
-                        <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
-                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <PixIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <VisaIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <MastercardIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <EloIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <BoletoIcon className="h-6 w-auto text-black"/>
-                            </div>
+                        <h3 className="font-bold text-white tracking-wider">Segurança e Qualidade</h3>
+                        <div className="flex flex-col gap-3 items-center md:items-start text-sm text-gray-400">
+                             <div className="flex items-center gap-2">
+                                <ShieldCheckIcon className="h-5 w-5 text-green-500"/>
+                                <span>Compra 100% Segura</span>
+                             </div>
+                             <div className="flex items-center gap-2">
+                                <CheckBadgeIcon className="h-5 w-5 text-blue-500"/>
+                                <span>Produtos Originais</span>
+                             </div>
+                             <div className="flex items-center gap-2">
+                                <TruckIcon className="h-5 w-5 text-amber-500"/>
+                                <span>Entrega Garantida</span>
+                             </div>
                         </div>
-                         <p className="text-xs text-gray-500">Parcele em até 4x sem juros.</p>
                     </div>
                 </div>
             </div>
-            <div className="bg-black py-4 border-t border-gray-800">
-                <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} LovecestasePerfumes. Todos os direitos reservados.</p>
+            
+            <div className="bg-black py-4 border-t border-gray-800 transition-colors duration-500 pb-20 md:pb-4">
+                <div className="container mx-auto px-4 flex items-center justify-center">
+                    <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} {safeName}. Todos os direitos reservados.</p>
+                </div>
             </div>
         </footer>
       )}
       
-      {deferredPrompt && <InstallPWAButton deferredPrompt={deferredPrompt} />}
+      {deferredPrompt && !currentPath.startsWith('admin') && <InstallPWAButton deferredPrompt={deferredPrompt} />}
     </div>
   );
 }
-
+// ATUALIZAÇÃO DO COMPONENTE BASE: Carregando a biblioteca do frontend
 export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
 
     useEffect(() => {
-        // --- Configuração PWA ---
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            setDeferredPrompt(e);
-            console.log('`beforeinstallprompt` event foi disparado e está pronto para ser usado.');
-        });
+        window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); setDeferredPrompt(e); });
         
-        // Registra o Service Worker a partir do arquivo estático
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
+            const registerSW = () => {
                 navigator.serviceWorker.register('/sw.js')
-                    .then(registration => console.log('Service Worker estático registrado com sucesso:', registration))
-                    .catch(error => console.log('Falha no registro do Service Worker estático:', error));
-            });
+                    .then(registration => console.log('SW registrado com sucesso:', registration))
+                    .catch(error => console.log('Falha no SW:', error));
+            };
+
+            if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                registerSW();
+            } else {
+                window.addEventListener('load', registerSW);
+            }
         }
 
-        // --- Carregamento de Scripts Externos ---
+        // Scripts externos (Chart, Excel, PDF, MercadoPago e agora o WEBAUTHN)
         const loadScript = (src, id, callback) => {
-            if (document.getElementById(id)) {
-                if (callback) callback();
-                return;
-            }
+            if (document.getElementById(id)) { if (callback) callback(); return; }
             const script = document.createElement('script');
-            script.src = src;
-            script.id = id;
-            script.async = true;
+            script.src = src; script.id = id; script.async = true;
             script.onload = () => { if (callback) callback(); };
             document.body.appendChild(script);
         };
-
+        
+        // --- NOVO: Carrega a biblioteca de biometria via CDN dinamicamente ---
+        loadScript('https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.umd.min.js', 'webauthn-browser-script');
+        
         loadScript('https://cdn.jsdelivr.net/npm/chart.js', 'chartjs-script');
         loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'xlsx-script');
         loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'jspdf-script', () => {
             loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js', 'jspdf-autotable-script');
         });
         loadScript('https://sdk.mercadopago.com/js/v2', 'mercadopago-sdk');
-
     }, []);
 
     return (
@@ -12110,4 +16388,3 @@ export default function App() {
         </AuthProvider>
     );
 }
-
