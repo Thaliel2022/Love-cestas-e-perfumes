@@ -14004,8 +14004,7 @@ const AdminBanners = () => {
     const notification = useNotification();
     const confirmation = useConfirmation();
     
-    // CORREÇÃO CRÍTICA MÓVEL: activationConstraint adicionado para exigir movimento
-    // de 5px antes que o arrasto ative, permitindo que a tela role normalmente no touch.
+    // Configuração dos sensores com distância de ativação para permitir scroll no mobile
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
@@ -14035,7 +14034,6 @@ const AdminBanners = () => {
         confirmation.show("Deseja popular o banco com as campanhas sazonais padrão? (Não duplicará existentes)", async () => {
             setIsGenerating(true);
             try {
-                // Chama a nova rota do backend que contém a inteligência e os dados
                 const response = await apiService('/banners/seed-defaults', 'POST');
                 notification.show(response.message);
                 fetchBanners();
@@ -14059,7 +14057,6 @@ const AdminBanners = () => {
 
     const card1 = banners.find(b => b.display_order === 60);
     const card2 = banners.find(b => b.display_order === 61);
-    const displayCards = [card1, card2];
 
     const handleOpenModal = (banner, section) => {
         let initialData = banner ? { ...banner } : {};
@@ -14127,16 +14124,24 @@ const AdminBanners = () => {
     // Drag & Drop do Carrossel (Topo)
     const handleDragEndCarousel = async (event) => {
         const { active, over } = event;
-        if (active.id !== over.id) {
+        if (active && over && active.id !== over.id) {
             const oldIndex = carouselBanners.findIndex((b) => b.id === active.id);
             const newIndex = carouselBanners.findIndex((b) => b.id === over.id);
+            
+            // Reordena o array
             const newOrder = arrayMove(carouselBanners, oldIndex, newIndex);
             
-            // Atualiza UI localmente para evitar flick
+            // Atualiza o display_order localmente para evitar o flicker do React
+            const updatedNewOrder = newOrder.map((banner, index) => ({
+                ...banner,
+                display_order: index
+            }));
+            
+            // Atualiza UI localmente
             const others = banners.filter(b => b.display_order >= 50);
-            setBanners([...newOrder, ...others]);
+            setBanners([...updatedNewOrder, ...others]);
 
-            const orderedIds = newOrder.map(b => b.id);
+            const orderedIds = updatedNewOrder.map(b => b.id);
             try {
                 await apiService('/banners/order', 'PUT', { orderedIds });
                 notification.show('Ordem salva!');
@@ -14212,17 +14217,13 @@ const AdminBanners = () => {
                                         const start = banner.start_date ? new Date(banner.start_date) : null;
                                         const end = banner.end_date ? new Date(banner.end_date) : null;
                                         
-                                        // CORREÇÃO CRÍTICA DO "0": Usar !! para converter para booleano real
                                         const isActiveNow = !!banner.is_active && (!start || now >= start) && (!end || now <= end);
-                                        // Verifica se é o Padrão (sem datas)
                                         const isDefault = !start && !end;
                                         
                                         return (
                                             <div key={banner.id} className={`flex flex-col md:flex-row bg-white border rounded-lg overflow-hidden shadow-sm ${isActiveNow ? 'border-green-500 ring-1 ring-green-500' : 'border-gray-200 opacity-80'}`}>
                                                 <div className="w-full md:w-48 h-32 bg-gray-100 relative">
                                                     <img src={banner.image_url} alt={banner.title} className="w-full h-full object-cover"/>
-                                                    
-                                                    {/* Renderização Condicional Corrigida */}
                                                     {isActiveNow && <span className="absolute top-2 left-2 bg-green-500 text-white text-[10px] px-2 py-1 rounded font-bold shadow">NO AR</span>}
                                                     {isDefault && <span className="absolute bottom-2 left-2 bg-gray-600 text-white text-[10px] px-2 py-1 rounded font-bold shadow">PADRÃO</span>}
                                                 </div>
@@ -14260,7 +14261,7 @@ const AdminBanners = () => {
                         </div>
                     )}
 
-              {/* --- ABA CARDS --- */}
+                    {/* --- ABA CARDS --- */}
                     {activeTab === 'cards' && (
                         <div className="space-y-6 animate-fade-in">
                             <div className="flex justify-between items-center bg-purple-50 p-4 rounded-lg border border-purple-100">
