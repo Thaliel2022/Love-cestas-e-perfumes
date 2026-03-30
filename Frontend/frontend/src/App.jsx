@@ -3204,10 +3204,10 @@ const HomePage = ({ onNavigate }) => {
     }, []);
 
     return (
-      <div className="bg-black min-h-screen pb-0 overflow-x-hidden">
+      // CORREÇÃO: Alterado pb-0 para pb-24 md:pb-0 para liberar o espaço do menu inferior
+      <div className="bg-black min-h-screen pb-24 md:pb-0 overflow-x-hidden">
         {/* Banner Principal Rotativo */}
         {isLoadingBanners ? (
-            // ATUALIZAÇÃO: Altura do loading ajustada para h-[55vh] no mobile para coincidir com o banner real
             <div className="relative h-[55vh] sm:h-[70vh] bg-gray-900 flex items-center justify-center">
                 <SpinnerIcon className="h-10 w-10 text-amber-400" />
             </div>
@@ -3318,7 +3318,6 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
             apiService('/collections', 'GET', null, { signal: controller.signal })
         ]).then(([productsData, collectionsData]) => {
             setAllProducts(productsData);
-            // Cria uma lista única de categorias a partir das coleções ativas
             const activeCategories = collectionsData.map(cat => cat.filter);
             setUniqueCategories([...new Set(activeCategories)].sort());
         }).catch(err => {
@@ -3351,13 +3350,11 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
             result = result.filter(p => p.brand === filters.brand);
         }
         if (filters.category) {
-            // CORREÇÃO: Lógica para mapear categorias genéricas dos banners para tipos de produto
             if (filters.category === 'Roupas') {
                 result = result.filter(p => p.product_type === 'clothing');
             } else if (filters.category === 'Perfumes') {
                 result = result.filter(p => p.product_type === 'perfume');
             } else {
-                // Filtro padrão exato para categorias específicas (ex: "Blusas")
                 result = result.filter(p => p.category === filters.category);
             }
         }
@@ -3398,7 +3395,8 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
     const pageTitle = initialIsPromo ? 'Produtos em Promoção' : 'Nossa Coleção';
 
     return (
-        <div className="bg-black text-white py-12 min-h-screen">
+        // CORREÇÃO AQUI: pt-12 pb-28 md:pb-12 para liberar espaço do navbar mobile
+        <div className="bg-black text-white min-h-screen pt-12 pb-28 md:pb-12">
             <div className="container mx-auto px-4">
                 <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">{pageTitle}</h2>
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -3938,26 +3936,20 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const isClothing = product?.product_type === 'clothing';
     const isPerfume = product?.product_type === 'perfume';
 
-    // --- CORREÇÃO: LÓGICA DE ESTOQUE ---
-    // Garante que Number seja usado para evitar strings "0" passarem batido.
     const globalStock = Number(product?.stock) || 0;
     let productOrVariationOutOfStock = false;
     let stockLimit = 0;
 
     if (isClothing) {
         if (globalStock <= 0) {
-            // Se o produto de roupa zerou por completo o estoque global
             productOrVariationOutOfStock = true;
         } else if (selectedVariation) {
-            // Se selecionou uma cor e tamanho específicos
             productOrVariationOutOfStock = Number(selectedVariation.stock) <= 0;
             stockLimit = Number(selectedVariation.stock);
         } else {
-            // Se ainda não selecionou tamanho, usa o global para o input provisório
             stockLimit = globalStock;
         }
     } else {
-        // Para perfumes e outros itens sem variação
         productOrVariationOutOfStock = globalStock <= 0;
         stockLimit = globalStock;
     }
@@ -3965,8 +3957,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const isQtyAtMax = stockLimit > 0 ? quantity >= stockLimit : false;
 
     const getYouTubeEmbedUrl = (url) => { if (!url) return null; try { let videoId = ''; const urlObj = new URL(url); if (urlObj.hostname === 'youtu.be') { videoId = urlObj.pathname.slice(1); } else if (urlObj.hostname.includes('youtube.com')) { if (urlObj.searchParams.has('v')) { videoId = urlObj.searchParams.get('v'); } else if (urlObj.pathname.includes('/embed/')) { videoId = urlObj.pathname.split('/embed/')[1]; } else if (urlObj.pathname.includes('/shorts/')) { videoId = urlObj.pathname.split('/shorts/')[1]; } } if (!videoId) return null; videoId = videoId.split('?')[0].split('&')[0]; return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`; } catch (e) { if (url && url.includes('youtu.be/')) { const simpleId = url.split('youtu.be/')[1]?.split('?')[0]; return simpleId ? `https://www.youtube.com/embed/${simpleId}?autoplay=1&rel=0` : null; } return null; } };
-    const parseTextToList = (text) => { if (!text || text.trim() === '') return null; return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>; };
-    const getInstallmentSummary = () => { if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; } const noInterest = [...installments].reverse().find(p => p.installment_rate === 0); if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } const lastInstallment = installments[installments.length - 1]; if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } return null; };
+    const parseTextToList = (text) => { if (!text || text.trim() === '') return null; return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">✓</span><span>{line}</span></li>)}</ul>; };
+    const getInstallmentSummary = () => { if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; } const noInterest = [...installments].reverse().find(p => p.installment_rate === 0); if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$ {noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } const lastInstallment = installments[installments.length - 1]; if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$ {lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } return null; };
 
     const fetchProductData = useCallback(async (id) => {
         const controller = new AbortController();
@@ -4124,7 +4116,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     };
 
     const TabButton = ({ label, tabName, isVisible = true }) => { if (!isVisible) return null; return ( <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-amber-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'}`} > {label} </button> ); };
-    const Lightbox = ({ mainImage, onClose }) => ( <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}> <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">&times;</button> <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div> </div> );
+    const Lightbox = ({ mainImage, onClose }) => ( <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}> <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">×</button> <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div> </div> );
 
     if (isLoading) {
         return (
@@ -4147,7 +4139,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const showGalleryArrows = galleryImages.length > 1;
 
     return (
-        <div className="bg-black text-white min-h-screen">
+        // CORREÇÃO AQUI: pb-28 md:pb-12 aplicado para o padding inferior no mobile
+        <div className="bg-black text-white min-h-screen pb-28 md:pb-12">
             <style>{`
                 .scrollbar-hide::-webkit-scrollbar {
                     display: none;
@@ -5263,10 +5256,10 @@ const ForgotPasswordPage = ({ onNavigate }) => {
 const CartPage = ({ onNavigate }) => {
     const {
         cart,
-        setCart, // Necessário para atualização otimista
+        setCart, 
         updateQuantity,
         removeFromCart,
-        addToCart, // Necessário para trocar a variação (remove old, add new)
+        addToCart, 
         autoCalculatedShipping,
         isLoadingShipping,
         shippingError,
@@ -5276,7 +5269,7 @@ const CartPage = ({ onNavigate }) => {
         discount
     } = useShop();
     const notification = useNotification();
-    const { isAuthenticated } = useAuth(); // Necessário para sincronização API
+    const { isAuthenticated } = useAuth(); 
 
     const subtotal = useMemo(() => cart.reduce((sum, item) => {
         const price = item.is_on_sale && item.sale_price ? item.sale_price : item.price;
@@ -5306,11 +5299,9 @@ const CartPage = ({ onNavigate }) => {
         }
     };
 
-    // --- NOVA FUNÇÃO: Trocar Tamanho no Carrinho ---
     const handleSizeChange = async (item, newSize) => {
         if (!item.variation || item.variation.size === newSize) return;
 
-        // 1. Encontrar a variação completa correspondente ao novo tamanho
         const allVariations = parseJsonString(item.variations, []);
         const newVariation = allVariations.find(v => v.color === item.variation.color && v.size === newSize);
 
@@ -5324,21 +5315,16 @@ const CartPage = ({ onNavigate }) => {
             return;
         }
 
-        // 2. Criar o ID do novo item
         const newCartItemId = `${item.id}-${newVariation.color}-${newVariation.size}`;
         
-        // 3. Verificar se já existe esse item no carrinho (para mesclar)
         const existingItemIndex = cart.findIndex(i => i.cartItemId === newCartItemId);
         
         let newCart = [...cart];
 
         if (existingItemIndex > -1) {
-            // Se já existe, soma a quantidade e remove o item antigo que estava sendo editado
             newCart[existingItemIndex].qty += item.qty;
-            // Remove o item "antigo" (que tinha o tamanho anterior)
             newCart = newCart.filter(i => i.cartItemId !== item.cartItemId);
         } else {
-            // Se não existe, atualiza o item atual com a nova variação e ID
             newCart = newCart.map(i => {
                 if (i.cartItemId === item.cartItemId) {
                     return { ...i, variation: newVariation, cartItemId: newCartItemId };
@@ -5347,20 +5333,15 @@ const CartPage = ({ onNavigate }) => {
             });
         }
 
-        // 4. Atualiza Estado Local (UI Instantânea)
         setCart(newCart);
         notification.show(`Tamanho alterado para ${newSize}`);
 
-        // 5. Sincroniza com Backend (se logado)
         if (isAuthenticated) {
             try {
-                // Remove o antigo
                 await apiService(`/cart/${item.id}`, 'DELETE', { variation: item.variation });
-                // Adiciona o novo (ou atualiza se mesclou)
-                // Para simplificar, o backend trata adição como "insert or update qty"
                 await apiService('/cart', 'POST', { 
                     productId: item.id, 
-                    quantity: item.qty, // Quantidade que estava no item sendo movido
+                    quantity: item.qty, 
                     variationId: newVariation.id, 
                     variation: newVariation,
                     variation_details: JSON.stringify(newVariation)
@@ -5375,7 +5356,8 @@ const CartPage = ({ onNavigate }) => {
 
     return (
         <div className="bg-black text-white min-h-screen">
-            <div className="container mx-auto px-4 py-12"> 
+            {/* CORREÇÃO AQUI: pt-12 pb-28 md:pb-12 para liberar espaço do navbar mobile */}
+            <div className="container mx-auto px-4 pt-12 pb-28 md:pb-12"> 
                 <h1 className="text-3xl md:text-4xl font-bold mb-10 text-center">Meu Carrinho</h1> 
                 {cart.length === 0 ? (
                     <EmptyState
@@ -5387,9 +5369,7 @@ const CartPage = ({ onNavigate }) => {
                     />
                 ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-10"> 
-                        {/* Coluna de Itens e Frete */}
                         <div className="lg:col-span-2 space-y-8"> 
-                            {/* Card de Itens */}
                             <div className="bg-gray-900 rounded-lg border border-gray-800 shadow-lg">
                                 <h2 className="text-xl font-semibold p-5 border-b border-gray-700 text-amber-400">Itens no Carrinho ({cart.length})</h2>
                                 <div className="divide-y divide-gray-700">
@@ -5398,7 +5378,6 @@ const CartPage = ({ onNavigate }) => {
                                         const currentPrice = isOnSale ? item.sale_price : item.price;
                                         const itemSubtotal = currentPrice * item.qty;
                                         
-                                        // Preparar opções de tamanho se for roupa
                                         let availableSizes = [];
                                         if (item.product_type === 'clothing' && item.variation) {
                                             const allVars = parseJsonString(item.variations, []);
@@ -5427,7 +5406,6 @@ const CartPage = ({ onNavigate }) => {
                                                 <div className="flex-grow px-4">
                                                     <h3 className="font-bold text-lg cursor-pointer hover:text-amber-400 transition line-clamp-2" onClick={() => onNavigate(`product/${item.id}`)}>{item.name}</h3>
                                                     
-                                                    {/* SEÇÃO DE VARIAÇÃO (COR E TAMANHO) */}
                                                     {item.variation && (
                                                         <div className="flex flex-wrap items-center gap-3 mt-2">
                                                             <div className="flex items-center gap-1 text-xs text-gray-300 bg-gray-800 px-2 py-1 rounded border border-gray-700">
@@ -5435,7 +5413,6 @@ const CartPage = ({ onNavigate }) => {
                                                                 <span className="font-bold text-white">{item.variation.color}</span>
                                                             </div>
 
-                                                            {/* SELETOR DE TAMANHO NO CARRINHO */}
                                                             <div className="flex items-center gap-2">
                                                                 <label className="text-xs text-gray-500">Tam:</label>
                                                                 <select 
@@ -5453,24 +5430,21 @@ const CartPage = ({ onNavigate }) => {
 
                                                     {isOnSale ? (
                                                         <div className="flex items-baseline gap-2 mt-2">
-                                                            <p className="text-base text-red-500 font-bold">R$&nbsp;{Number(currentPrice).toFixed(2)}</p>
-                                                            <p className="text-xs text-gray-500 line-through">R$&nbsp;{Number(item.price).toFixed(2)}</p>
+                                                            <p className="text-base text-red-500 font-bold">R$ {Number(currentPrice).toFixed(2)}</p>
+                                                            <p className="text-xs text-gray-500 line-through">R$ {Number(item.price).toFixed(2)}</p>
                                                         </div>
                                                     ) : (
-                                                        <p className="text-base text-amber-400 mt-2">R$&nbsp;{Number(item.price).toFixed(2)}</p>
+                                                        <p className="text-base text-amber-400 mt-2">R$ {Number(item.price).toFixed(2)}</p>
                                                     )}
                                                 </div>
                                             </div>
                                             <div className="flex items-center justify-between w-full md:w-auto gap-4 md:gap-6">
-                                                {/* Controle de Quantidade */}
                                                 <div className="flex items-center border border-gray-700 rounded-md overflow-hidden h-9">
                                                     <button onClick={() => handleUpdateQuantity(item.cartItemId, item.qty - 1)} className="px-3 text-lg hover:bg-gray-700 transition-colors h-full flex items-center">-</button>
                                                     <span className="w-10 text-center font-semibold text-sm border-x border-gray-700 h-full flex items-center justify-center">{item.qty}</span>
                                                     <button onClick={() => handleUpdateQuantity(item.cartItemId, item.qty + 1)} className="px-3 text-lg hover:bg-gray-700 transition-colors h-full flex items-center">+</button>
                                                 </div>
-                                                {/* Subtotal Item */}
-                                                <p className="font-bold text-base w-24 text-right">R$&nbsp;{itemSubtotal.toFixed(2)}</p>
-                                                {/* Remover Item */}
+                                                <p className="font-bold text-base w-24 text-right">R$ {itemSubtotal.toFixed(2)}</p>
                                                 <button onClick={() => removeFromCart(item.cartItemId)} className="text-gray-500 hover:text-red-500 transition-colors" title="Remover item">
                                                     <TrashIcon className="h-5 w-5"/>
                                                 </button>
@@ -5488,12 +5462,11 @@ const CartPage = ({ onNavigate }) => {
                             <ShippingCalculator items={itemsForShipping} />
                         </div>
 
-                        {/* Coluna de Resumo */}
                         <div className="lg:col-span-1">
                             <div className="bg-gray-900 rounded-lg border border-gray-800 p-6 shadow-lg h-fit lg:sticky lg:top-28">
                                 <h2 className="text-2xl font-bold mb-6 text-center text-amber-400">Resumo do Pedido</h2>
                                 <div className="space-y-3 mb-5 border-b border-gray-700 pb-5">
-                                    <div className="flex justify-between text-gray-300 text-sm"><span>Subtotal Produtos</span><span>R$&nbsp;{subtotal.toFixed(2)}</span></div>
+                                    <div className="flex justify-between text-gray-300 text-sm"><span>Subtotal Produtos</span><span>R$ {subtotal.toFixed(2)}</span></div>
                                     <div className="flex justify-between text-gray-300 text-sm">
                                         <span>Frete</span>
                                         {isLoadingShipping ? (
@@ -5508,16 +5481,15 @@ const CartPage = ({ onNavigate }) => {
                                     {appliedCoupon && (
                                         <div className="flex justify-between text-green-400 text-sm">
                                             <span>Desconto ({appliedCoupon.code})</span>
-                                            <span>- R$&nbsp;{discount.toFixed(2)}</span>
+                                            <span>- R$ {discount.toFixed(2)}</span>
                                         </div>
                                     )}
                                 </div>
                                 <div className="flex justify-between font-bold text-xl mb-6">
                                     <span>Total</span>
-                                    <span className="text-amber-400">R$&nbsp;{total.toFixed(2)}</span>
+                                    <span className="text-amber-400">R$ {total.toFixed(2)}</span>
                                 </div>
 
-                                {/* Seção do Cupom */}
                                 <div className="mb-6">
                                     {!appliedCoupon ? (
                                         <>
@@ -5535,7 +5507,6 @@ const CartPage = ({ onNavigate }) => {
                                     )}
                                 </div>
 
-                                {/* Botão Checkout */}
                                 <button
                                     onClick={() => onNavigate('checkout')}
                                     className="w-full bg-gradient-to-r from-amber-400 to-amber-500 text-black py-3.5 rounded-md hover:from-amber-300 hover:to-amber-400 font-bold text-lg shadow-md hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:bg-gray-600 flex items-center justify-center gap-2"
@@ -5663,7 +5634,7 @@ const WishlistItemCard = memo(({ item, onRemove, onNavigate }) => {
 
 
 const WishlistPage = ({ onNavigate }) => {
-    const { wishlist, removeFromWishlist } = useShop(); // Pegar addToCart foi removido daqui
+    const { wishlist, removeFromWishlist } = useShop(); 
     const notification = useNotification();
 
     const handleRemove = async (item) => {
@@ -5675,12 +5646,13 @@ const WishlistPage = ({ onNavigate }) => {
         hidden: { opacity: 0 },
         visible: {
             opacity: 1,
-            transition: { staggerChildren: 0.1 } // Anima os filhos em sequência
+            transition: { staggerChildren: 0.1 } 
         }
     };
 
     return (
-        <div className="bg-black text-white min-h-screen py-12">
+        // CORREÇÃO AQUI: pt-12 pb-28 md:pb-12 para liberar espaço do navbar mobile
+        <div className="bg-black text-white min-h-screen pt-12 pb-28 md:pb-12">
             <div className="container mx-auto px-4">
                 <h1 className="text-3xl md:text-4xl font-bold mb-10 text-center">Lista de Desejos</h1>
                 {wishlist.length === 0 ? (
@@ -5705,7 +5677,6 @@ const WishlistPage = ({ onNavigate }) => {
                                     item={item}
                                     onRemove={handleRemove}
                                     onNavigate={onNavigate}
-                                    // onAddToCart não é mais passado, pois o card lida com isso
                                 />
                             ))}
                         </AnimatePresence>
@@ -6002,8 +5973,6 @@ const CheckoutPage = ({ onNavigate }) => {
     
     const total = useMemo(() => Math.max(0, (Number(subtotal) || 0) - (Number(discount) || 0) + (Number(shippingCost) || 0)), [subtotal, discount, shippingCost]);
 
-    const getShippingName = (name) => name?.toLowerCase().includes('pac') ? 'PAC' : (name || 'N/A');
-    
     const getDeliveryDateText = (deliveryTime) => {
         if (typeof deliveryTime === 'string' && deliveryTime.includes('Receba até')) return `${deliveryTime} (1 dia útil)`;
         const timeInDays = Number(deliveryTime);
@@ -6100,7 +6069,8 @@ const CheckoutPage = ({ onNavigate }) => {
             <AddressSelectionModal isOpen={isAddressModalOpen} onClose={() => setIsAddressModalOpen(false)} addresses={addresses} onSelectAddress={handleAddressSelection} onAddNewAddress={handleAddNewAddress} />
             <Modal isOpen={isNewAddressModalOpen} onClose={() => setIsNewAddressModalOpen(false)} title="Adicionar Novo Endereço"><AddressForm onSave={handleSaveNewAddress} onCancel={() => setIsNewAddressModalOpen(false)} /></Modal>
 
-            <div className="bg-black text-white min-h-screen py-8 sm:py-12">
+            {/* CORREÇÃO AQUI: pt-8 pb-28 sm:pt-12 sm:pb-12 */}
+            <div className="bg-black text-white min-h-screen pt-8 pb-28 sm:pt-12 sm:pb-12">
                 <div className="container mx-auto px-4">
                     <button onClick={() => onNavigate('cart')} className="text-sm text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 mb-6 w-fit bg-gray-800/50 hover:bg-gray-700/50 px-3 py-1.5 rounded-md border border-gray-700">
                         <ArrowUturnLeftIcon className="h-4 w-4"/> Voltar ao Carrinho
@@ -6110,7 +6080,6 @@ const CheckoutPage = ({ onNavigate }) => {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12 items-start">
 
                         <div className="lg:col-span-2 space-y-8">
-                            
                             <CheckoutSection title="Contato para Status" step={1} icon={WhatsappIcon}>
                                 <div className="space-y-4">
                                     <div>
@@ -6270,15 +6239,15 @@ const CheckoutPage = ({ onNavigate }) => {
                                                     )}
                                                 </div>
                                             </div>
-                                            <span className="font-medium flex-shrink-0">R$&nbsp;{( (Number(item.is_on_sale && item.sale_price ? item.sale_price : item.price) || 0) * (Number(item.qty) || 0) ).toFixed(2)}</span>
+                                            <span className="font-medium flex-shrink-0">R$ {( (Number(item.is_on_sale && item.sale_price ? item.sale_price : item.price) || 0) * (Number(item.qty) || 0) ).toFixed(2)}</span>
                                         </div>
                                     ))}
                                 </div>
                                 <div className="border-t border-gray-700 pt-4 space-y-2 text-sm">
-                                    <div className="flex justify-between text-gray-400"><span>Subtotal</span><span className="font-medium text-gray-300">R$&nbsp;{subtotal.toFixed(2)}</span></div>
+                                    <div className="flex justify-between text-gray-400"><span>Subtotal</span><span className="font-medium text-gray-300">R$ {subtotal.toFixed(2)}</span></div>
                                     {autoCalculatedShipping ? (
                                         <div className="flex justify-between text-gray-400">
-                                            <span>Frete ({getShippingName(autoCalculatedShipping.name)})</span>
+                                            <span>Frete ({autoCalculatedShipping.name.includes('PAC') ? 'PAC' : autoCalculatedShipping.name})</span>
                                             <span className="font-medium text-gray-300">{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
                                         </div>
                                     ) : (
@@ -6287,12 +6256,12 @@ const CheckoutPage = ({ onNavigate }) => {
                                     {appliedCoupon && (
                                         <div className="flex justify-between text-green-400">
                                             <span>Desconto ({appliedCoupon.code})</span>
-                                            <span className="font-medium">- R$&nbsp;{discount.toFixed(2)}</span>
+                                            <span className="font-medium">- R$ {discount.toFixed(2)}</span>
                                         </div>
                                     )}
                                     <div className="flex justify-between font-bold text-lg text-white border-t border-gray-700 pt-3 mt-3">
                                         <span>Total</span>
-                                        <span className="text-amber-400">R$&nbsp;{total.toFixed(2)}</span>
+                                        <span className="text-amber-400">R$ {total.toFixed(2)}</span>
                                     </div>
                                 </div>
 
@@ -7784,9 +7753,8 @@ const MyOrdersListPage = ({ onNavigate }) => {
 };
 const MyAccountPage = ({ onNavigate, path }) => {
     const { user, logout } = useAuth();
-    const { orderNotificationCount } = useShop(); // Hook para pegar a contagem
+    const { orderNotificationCount } = useShop(); 
     
-    // A lógica agora extrai a aba principal e o ID do detalhe
     const pathParts = (path || 'orders').split('/');
     const activeTab = pathParts[0];
     const detailId = pathParts[1];
@@ -7800,7 +7768,6 @@ const MyAccountPage = ({ onNavigate, path }) => {
             key: 'orders', 
             label: 'Meus Pedidos', 
             icon: <PackageIcon className="h-5 w-5"/>,
-            // Adiciona a contagem apenas nesta aba
             notification: orderNotificationCount 
         },
         { key: 'addresses', label: 'Meus Endereços', icon: <MapPinIcon className="h-5 w-5"/> },
@@ -7815,19 +7782,17 @@ const MyAccountPage = ({ onNavigate, path }) => {
                 return <MyProfileSection user={user} />;
             case 'orders':
             default:
-                // Se houver um ID na URL, mostra a página de detalhes
                 if (detailId && !isNaN(detailId)) {
                     return <OrderDetailPage orderId={detailId} onNavigate={onNavigate} />;
                 }
-                // Senão, mostra a lista de pedidos
                 return <MyOrdersListPage onNavigate={onNavigate} />;
         }
     };
 
     return (
-        <div className="bg-black text-white min-h-screen py-8 sm:py-12">
+        // CORREÇÃO AQUI: pt-8 pb-28 sm:pt-12 sm:pb-12 para liberar espaço do navbar mobile
+        <div className="bg-black text-white min-h-screen pt-8 pb-28 sm:pt-12 sm:pb-12">
             <div className="container mx-auto px-4">
-                {/* Oculta o título principal na página de detalhes para evitar repetição */}
                 {!detailId && <h1 className="text-3xl md:text-4xl font-bold mb-8">Minha Conta</h1>}
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                     <aside className="lg:col-span-1">
@@ -7842,7 +7807,6 @@ const MyAccountPage = ({ onNavigate, path }) => {
                                         {tab.icon}
                                         <span>{tab.label}</span>
                                     </div>
-                                    {/* Exibe o badge se houver notificações */}
                                     {tab.notification > 0 && (
                                         <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
                                             {tab.notification}
@@ -15963,6 +15927,9 @@ function AppContent({ deferredPrompt }) {
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
+  
+  // NOVO ESTADO: Detectar se está rodando como App instalado (PWA)
+  const [isStandalone, setIsStandalone] = useState(false);
 
   const defaultThemeFallback = {
       primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af', animationsEnabled: true, activeSeason: null
@@ -16211,6 +16178,22 @@ function AppContent({ deferredPrompt }) {
     };
     registerPush();
   }, [isAuthenticated]); 
+  
+  // NOVO EFEITO: Verifica se está rodando como PWA (Standalone)
+  useEffect(() => {
+      const checkStandalone = () => {
+          setIsStandalone(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone);
+      };
+      checkStandalone();
+      
+      const mediaQuery = window.matchMedia('(display-mode: standalone)');
+      const handleChange = (e) => setIsStandalone(e.matches);
+      
+      if (mediaQuery.addEventListener) {
+          mediaQuery.addEventListener('change', handleChange);
+          return () => mediaQuery.removeEventListener('change', handleChange);
+      }
+  }, []);
 
   const navigate = useCallback((path) => {
     window.location.hash = path;
@@ -16373,6 +16356,9 @@ function AppContent({ deferredPrompt }) {
   const shouldRunAnimations = appThemeConfig.animationsEnabled !== false && 
                               (appThemeConfig.autoSeasonal || effectiveForcedSeason);
   
+  // ATUALIZAÇÃO: Esconde o footer se for PWA (Standalone)
+  const showFooter = showHeaderFooter && !currentPath.startsWith('order-success') && !isStandalone;
+
   return (
     <div className="bg-black min-h-screen flex flex-col transition-colors duration-500 relative">
       
@@ -16393,10 +16379,9 @@ function AppContent({ deferredPrompt }) {
           />
       )}
 
-      {/* CORREÇÃO: Removido 'z-10' e 'relative' que causavam o bloqueio da tela de categorias */}
       <main className="flex-grow">{renderPage()}</main>
       
-      {showHeaderFooter && !currentPath.startsWith('order-success') && (
+      {showFooter && (
         <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800 transition-colors duration-500 z-10 relative">
             <div className="container mx-auto px-4 py-12">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
