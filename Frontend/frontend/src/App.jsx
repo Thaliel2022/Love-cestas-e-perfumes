@@ -13970,6 +13970,30 @@ const SortableBannerCard = ({ banner, onEdit, onDelete, isLastItem }) => {
     );
 };
 
+const StaticBannerCard = ({ banner, onEdit, onDelete, customLabel, customColor }) => {
+    return (
+        <div className="bg-white border rounded-lg shadow-sm overflow-hidden relative">
+             <div className={`absolute top-0 left-0 text-[10px] font-bold px-2 py-1 z-20 shadow-md ${customColor || 'bg-gray-600 text-white'}`}>
+                 {customLabel}
+             </div>
+            <img src={banner.image_url} alt={banner.title || 'Banner'} className="w-full h-32 object-cover"/>
+            <div className="p-3">
+                <p className="font-bold text-sm truncate">{banner.title || "Banner sem título"}</p>
+                <p className="text-xs text-gray-500 truncate">Link: {banner.link_url}</p>
+                <div className="flex justify-between items-center mt-3 pt-3 border-t">
+                    <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${banner.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700'}`}>
+                        {banner.is_active ? 'Ativo' : 'Inativo'}
+                    </span>
+                    <div className="flex items-center space-x-2">
+                        <button onClick={() => onEdit(banner)} className="p-1 text-gray-400 hover:text-amber-600"><EditIcon className="h-5 w-5"/></button>
+                        <button onClick={() => onDelete(banner.id)} className="p-1 text-gray-400 hover:text-red-600"><TrashIcon className="h-5 w-5"/></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const AdminBanners = () => {
     const [banners, setBanners] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
