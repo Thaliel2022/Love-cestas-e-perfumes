@@ -1050,7 +1050,6 @@ const ConfirmationProvider = ({ children }) => {
 };
 
 
-// --- COMPONENTES DA UI ---
 const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
   if (!isOpen) return null;
 
@@ -1076,7 +1075,7 @@ const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
 
   return (
     <motion.div 
-      className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4" 
+      className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex justify-center items-center p-4" 
       variants={backdropVariants}
       initial="hidden"
       animate="visible"
@@ -1084,16 +1083,16 @@ const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
       onClick={onClose}
     >
       <motion.div 
-        className={`bg-white rounded-lg shadow-xl w-full flex flex-col ${sizeClasses[size]}`} 
+        className={`bg-white rounded-lg shadow-2xl w-full flex flex-col border border-gray-200 ${sizeClasses[size]}`} 
         style={{ maxHeight: '90vh' }} 
         variants={modalVariants}
         onClick={e => e.stopPropagation()}
       >
         <div className="flex-shrink-0 p-6 pb-4 flex justify-between items-center border-b border-gray-200">
-            <h2 className="text-2xl font-bold text-gray-800">{title}</h2>
-            <button onClick={onClose} className="text-3xl text-gray-400 hover:text-gray-600 leading-none">&times;</button>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-800">{title}</h2>
+            <button onClick={onClose} className="text-3xl text-gray-400 hover:text-red-500 leading-none transition-colors">×</button>
         </div>
-        <div className="flex-grow p-6 overflow-y-auto">
+        <div className="flex-grow p-6 overflow-y-auto custom-scrollbar">
           {children}
         </div>
       </motion.div>
@@ -5815,33 +5814,133 @@ const AddressForm = ({ initialData = {}, onSave, onCancel }) => {
     );
 };
 
-const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, onAddNewAddress }) => {
+const AddressForm = ({ initialData = {}, onSave, onCancel }) => {
+    const [formData, setFormData] = useState({
+        alias: '',
+        cep: '',
+        logradouro: '',
+        numero: '',
+        complemento: '',
+        bairro: '',
+        localidade: '',
+        uf: '',
+        is_default: false,
+        ...initialData
+    });
+    const [isSaving, setIsSaving] = useState(false);
+    const notification = useNotification();
+
+    const handleCepLookup = useCallback(async (cepValue) => {
+        const cep = cepValue.replace(/\D/g, '');
+        if (cep.length !== 8) return;
+        
+        try {
+            const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+            if (!response.ok) throw new Error('Falha na resposta da API de CEP.');
+            
+            const data = await response.json();
+            if (!data.erro) {
+                setFormData(prev => ({ 
+                    ...prev, 
+                    logradouro: data.logradouro, 
+                    bairro: data.bairro, 
+                    localidade: data.localidade, 
+                    uf: data.uf
+                }));
+            } else {
+                notification.show("CEP não encontrado.", "error");
+            }
+        } catch (error) {
+            console.error("Erro ao buscar CEP:", error);
+            notification.show("Não foi possível buscar o CEP. Tente novamente.", "error");
+        }
+    }, [notification]);
+
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value
+        }));
+    };
+
+    const handleCepChange = (e) => {
+        const newCep = maskCEP(e.target.value);
+        setFormData(prev => ({ ...prev, cep: newCep }));
+        if (newCep.replace(/\D/g, '').length === 8) {
+            handleCepLookup(newCep);
+        }
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setIsSaving(true);
+        await onSave(formData);
+        setIsSaving(false);
+    };
+    
+    const isFormValid = useMemo(() => {
+        const { alias, cep, logradouro, numero, bairro, localidade, uf } = formData;
+        return alias && cep.replace(/\D/g, '').length === 8 && logradouro && numero && bairro && localidade && uf;
+    }, [formData]);
+
+    // Identifica quais campos exatos estão faltando
+    const missingFields = useMemo(() => {
+        const missing = [];
+        if (!formData.alias) missing.push('Apelido');
+        if (!formData.cep || formData.cep.replace(/\D/g, '').length !== 8) missing.push('CEP Válido');
+        if (!formData.logradouro) missing.push('Rua');
+        if (!formData.numero) missing.push('Número');
+        if (!formData.bairro) missing.push('Bairro');
+        if (!formData.localidade) missing.push('Cidade');
+        if (!formData.uf) missing.push('UF');
+        return missing;
+    }, [formData]);
+
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Selecione um Endereço de Entrega" size="md">
-            <div className="space-y-3">
-                {addresses.map(addr => (
-                    <div 
-                        key={addr.id} 
-                        onClick={() => onSelectAddress(addr)}
-                        className="p-4 border-2 rounded-lg cursor-pointer transition-all bg-gray-50 hover:border-amber-400 hover:bg-amber-50"
-                    >
-                        <p className="font-bold text-gray-800">{addr.alias} {addr.is_default ? <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full ml-2">Padrão</span> : ''}</p>
-                        <p className="text-sm text-gray-600">{addr.logradouro}, {addr.numero}</p>
-                        <p className="text-sm text-gray-500">{addr.bairro}, {addr.localidade} - {addr.uf}</p>
-                        <p className="text-sm text-gray-500">{addr.cep}</p>
-                    </div>
-                ))}
-                {addresses.length < 5 && (
-                    <button 
-                        onClick={onAddNewAddress}
-                        className="w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-amber-400 hover:text-amber-600 transition-colors"
-                    >
-                        <PlusCircleIcon className="h-6 w-6" />
-                        <span>Adicionar Novo Endereço</span>
-                    </button>
-                )}
+        <form onSubmit={handleSubmit} className="space-y-4 text-gray-800">
+            <input name="alias" value={formData.alias} onChange={handleChange} placeholder="Apelido do Endereço (ex: Casa, Trabalho)" className="w-full p-3 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-400 outline-none transition-all" required />
+            
+            <input name="cep" value={formData.cep} onChange={handleCepChange} placeholder="CEP" className="w-full p-3 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-400 outline-none transition-all" required />
+            
+            <input name="logradouro" value={formData.logradouro} onChange={handleChange} placeholder="Rua / Logradouro" className="w-full p-3 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-400 outline-none transition-all" required />
+            
+            <div className="flex space-x-4">
+                <input name="numero" value={formData.numero} onChange={handleChange} placeholder="Número" className="w-1/2 p-3 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-400 outline-none transition-all" required />
+                <input name="complemento" value={formData.complemento} onChange={handleChange} placeholder="Complemento (Opcional)" className="w-1/2 p-3 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-400 outline-none transition-all" />
             </div>
-        </Modal>
+            
+            <input name="bairro" value={formData.bairro} onChange={handleChange} placeholder="Bairro" className="w-full p-3 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-400 outline-none transition-all" required />
+            
+            <div className="flex space-x-4">
+                <input name="localidade" value={formData.localidade} onChange={handleChange} placeholder="Cidade" className="flex-grow p-3 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-400 outline-none transition-all" required />
+                <input name="uf" value={formData.uf} onChange={handleChange} placeholder="UF" maxLength="2" className="w-1/4 p-3 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-400 outline-none transition-all uppercase" required />
+            </div>
+            
+            <div className="flex items-center pt-2">
+                <input type="checkbox" id="is_default" name="is_default" checked={formData.is_default} onChange={handleChange} className="h-4 w-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500 cursor-pointer" />
+                <label htmlFor="is_default" className="ml-2 block text-sm font-semibold text-gray-700 cursor-pointer">Salvar como meu endereço padrão</label>
+            </div>
+
+            {/* Aviso visual claro de quais campos faltam preencher */}
+            {!isFormValid && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md text-xs text-red-600 font-medium flex items-start gap-2">
+                    <ExclamationCircleIcon className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                    <span>Falta preencher: <strong>{missingFields.join(', ')}</strong></span>
+                </div>
+            )}
+
+            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 mt-2">
+                <button type="button" onClick={onCancel} className="px-5 py-2.5 bg-white border border-gray-300 rounded-md hover:bg-gray-50 font-bold text-gray-700 transition-colors">Cancelar</button>
+                <button 
+                    type="submit" 
+                    disabled={!isFormValid || isSaving} 
+                    className="px-6 py-2.5 bg-amber-500 text-black font-bold rounded-md hover:bg-amber-400 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center justify-center transition-all"
+                >
+                    {isSaving ? <SpinnerIcon className="h-5 w-5" /> : 'Salvar Endereço'}
+                </button>
+            </div>
+        </form>
     );
 };
 
