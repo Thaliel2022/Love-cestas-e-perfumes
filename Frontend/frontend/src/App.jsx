@@ -7305,6 +7305,23 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
 
     return (
         <>
+            {/* TODOS OS MODAIS RESTAURADOS AQUI NO TOPO */}
+            <TrackingModal isOpen={isTrackingModalOpen} onClose={() => setIsTrackingModalOpen(false)} order={order} />
+            
+            <StatusDescriptionModal isOpen={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} details={selectedStatusDetails} />
+            
+            <AnimatePresence>
+                {reviewingItem && (
+                    <Modal isOpen={true} onClose={() => setReviewingItem(null)} title={`Avaliar: ${reviewingItem.name}`}>
+                        <ProductReviewForm 
+                            productId={reviewingItem.product_id}
+                            orderId={order.id}
+                            onReviewSubmitted={handleReviewSuccess}
+                        />
+                    </Modal>
+                )}
+            </AnimatePresence>
+
             <AnimatePresence>
                 {isRefundModalOpen && (
                     <Modal isOpen={true} onClose={() => setIsRefundModalOpen(false)} title={`Solicitar ${actionText} do Pedido #${order.id}`}>
@@ -7328,6 +7345,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                     </Modal>
                 )}
             </AnimatePresence>
+            
             <div>
                 <button onClick={() => onNavigate('account/orders')} className="text-sm text-amber-400 hover:underline flex items-center mb-6 w-fit transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
