@@ -5263,10 +5263,10 @@ const ForgotPasswordPage = ({ onNavigate }) => {
 const CartPage = ({ onNavigate }) => {
     const {
         cart,
-        setCart, // Necessário para atualização otimista
+        setCart, 
         updateQuantity,
         removeFromCart,
-        addToCart, // Necessário para trocar a variação (remove old, add new)
+        addToCart, 
         autoCalculatedShipping,
         isLoadingShipping,
         shippingError,
@@ -5276,7 +5276,7 @@ const CartPage = ({ onNavigate }) => {
         discount
     } = useShop();
     const notification = useNotification();
-    const { isAuthenticated } = useAuth(); // Necessário para sincronização API
+    const { isAuthenticated } = useAuth(); 
 
     const subtotal = useMemo(() => cart.reduce((sum, item) => {
         const price = item.is_on_sale && item.sale_price ? item.sale_price : item.price;
@@ -5306,11 +5306,9 @@ const CartPage = ({ onNavigate }) => {
         }
     };
 
-    // --- NOVA FUNÇÃO: Trocar Tamanho no Carrinho ---
     const handleSizeChange = async (item, newSize) => {
         if (!item.variation || item.variation.size === newSize) return;
 
-        // 1. Encontrar a variação completa correspondente ao novo tamanho
         const allVariations = parseJsonString(item.variations, []);
         const newVariation = allVariations.find(v => v.color === item.variation.color && v.size === newSize);
 
@@ -5324,21 +5322,16 @@ const CartPage = ({ onNavigate }) => {
             return;
         }
 
-        // 2. Criar o ID do novo item
         const newCartItemId = `${item.id}-${newVariation.color}-${newVariation.size}`;
         
-        // 3. Verificar se já existe esse item no carrinho (para mesclar)
         const existingItemIndex = cart.findIndex(i => i.cartItemId === newCartItemId);
         
         let newCart = [...cart];
 
         if (existingItemIndex > -1) {
-            // Se já existe, soma a quantidade e remove o item antigo que estava sendo editado
             newCart[existingItemIndex].qty += item.qty;
-            // Remove o item "antigo" (que tinha o tamanho anterior)
             newCart = newCart.filter(i => i.cartItemId !== item.cartItemId);
         } else {
-            // Se não existe, atualiza o item atual com a nova variação e ID
             newCart = newCart.map(i => {
                 if (i.cartItemId === item.cartItemId) {
                     return { ...i, variation: newVariation, cartItemId: newCartItemId };
@@ -5347,20 +5340,15 @@ const CartPage = ({ onNavigate }) => {
             });
         }
 
-        // 4. Atualiza Estado Local (UI Instantânea)
         setCart(newCart);
         notification.show(`Tamanho alterado para ${newSize}`);
 
-        // 5. Sincroniza com Backend (se logado)
         if (isAuthenticated) {
             try {
-                // Remove o antigo
                 await apiService(`/cart/${item.id}`, 'DELETE', { variation: item.variation });
-                // Adiciona o novo (ou atualiza se mesclou)
-                // Para simplificar, o backend trata adição como "insert or update qty"
                 await apiService('/cart', 'POST', { 
                     productId: item.id, 
-                    quantity: item.qty, // Quantidade que estava no item sendo movido
+                    quantity: item.qty, 
                     variationId: newVariation.id, 
                     variation: newVariation,
                     variation_details: JSON.stringify(newVariation)
@@ -5375,7 +5363,8 @@ const CartPage = ({ onNavigate }) => {
 
     return (
         <div className="bg-black text-white min-h-screen">
-            <div className="container mx-auto px-4 py-12"> 
+            {/* CORREÇÃO AQUI: pt-12 pb-28 md:pb-12 para liberar espaço do navbar mobile */}
+            <div className="container mx-auto px-4 pt-12 pb-28 md:pb-12"> 
                 <h1 className="text-3xl md:text-4xl font-bold mb-10 text-center">Meu Carrinho</h1> 
                 {cart.length === 0 ? (
                     <EmptyState
@@ -5387,9 +5376,7 @@ const CartPage = ({ onNavigate }) => {
                     />
                 ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-10"> 
-                        {/* Coluna de Itens e Frete */}
                         <div className="lg:col-span-2 space-y-8"> 
-                            {/* Card de Itens */}
                             <div className="bg-gray-900 rounded-lg border border-gray-800 shadow-lg">
                                 <h2 className="text-xl font-semibold p-5 border-b border-gray-700 text-amber-400">Itens no Carrinho ({cart.length})</h2>
                                 <div className="divide-y divide-gray-700">
@@ -5398,7 +5385,6 @@ const CartPage = ({ onNavigate }) => {
                                         const currentPrice = isOnSale ? item.sale_price : item.price;
                                         const itemSubtotal = currentPrice * item.qty;
                                         
-                                        // Preparar opções de tamanho se for roupa
                                         let availableSizes = [];
                                         if (item.product_type === 'clothing' && item.variation) {
                                             const allVars = parseJsonString(item.variations, []);
@@ -5427,7 +5413,6 @@ const CartPage = ({ onNavigate }) => {
                                                 <div className="flex-grow px-4">
                                                     <h3 className="font-bold text-lg cursor-pointer hover:text-amber-400 transition line-clamp-2" onClick={() => onNavigate(`product/${item.id}`)}>{item.name}</h3>
                                                     
-                                                    {/* SEÇÃO DE VARIAÇÃO (COR E TAMANHO) */}
                                                     {item.variation && (
                                                         <div className="flex flex-wrap items-center gap-3 mt-2">
                                                             <div className="flex items-center gap-1 text-xs text-gray-300 bg-gray-800 px-2 py-1 rounded border border-gray-700">
@@ -5435,7 +5420,6 @@ const CartPage = ({ onNavigate }) => {
                                                                 <span className="font-bold text-white">{item.variation.color}</span>
                                                             </div>
 
-                                                            {/* SELETOR DE TAMANHO NO CARRINHO */}
                                                             <div className="flex items-center gap-2">
                                                                 <label className="text-xs text-gray-500">Tam:</label>
                                                                 <select 
@@ -5453,24 +5437,21 @@ const CartPage = ({ onNavigate }) => {
 
                                                     {isOnSale ? (
                                                         <div className="flex items-baseline gap-2 mt-2">
-                                                            <p className="text-base text-red-500 font-bold">R$&nbsp;{Number(currentPrice).toFixed(2)}</p>
-                                                            <p className="text-xs text-gray-500 line-through">R$&nbsp;{Number(item.price).toFixed(2)}</p>
+                                                            <p className="text-base text-red-500 font-bold">R$ {Number(currentPrice).toFixed(2)}</p>
+                                                            <p className="text-xs text-gray-500 line-through">R$ {Number(item.price).toFixed(2)}</p>
                                                         </div>
                                                     ) : (
-                                                        <p className="text-base text-amber-400 mt-2">R$&nbsp;{Number(item.price).toFixed(2)}</p>
+                                                        <p className="text-base text-amber-400 mt-2">R$ {Number(item.price).toFixed(2)}</p>
                                                     )}
                                                 </div>
                                             </div>
                                             <div className="flex items-center justify-between w-full md:w-auto gap-4 md:gap-6">
-                                                {/* Controle de Quantidade */}
                                                 <div className="flex items-center border border-gray-700 rounded-md overflow-hidden h-9">
                                                     <button onClick={() => handleUpdateQuantity(item.cartItemId, item.qty - 1)} className="px-3 text-lg hover:bg-gray-700 transition-colors h-full flex items-center">-</button>
                                                     <span className="w-10 text-center font-semibold text-sm border-x border-gray-700 h-full flex items-center justify-center">{item.qty}</span>
                                                     <button onClick={() => handleUpdateQuantity(item.cartItemId, item.qty + 1)} className="px-3 text-lg hover:bg-gray-700 transition-colors h-full flex items-center">+</button>
                                                 </div>
-                                                {/* Subtotal Item */}
-                                                <p className="font-bold text-base w-24 text-right">R$&nbsp;{itemSubtotal.toFixed(2)}</p>
-                                                {/* Remover Item */}
+                                                <p className="font-bold text-base w-24 text-right">R$ {itemSubtotal.toFixed(2)}</p>
                                                 <button onClick={() => removeFromCart(item.cartItemId)} className="text-gray-500 hover:text-red-500 transition-colors" title="Remover item">
                                                     <TrashIcon className="h-5 w-5"/>
                                                 </button>
@@ -5488,12 +5469,11 @@ const CartPage = ({ onNavigate }) => {
                             <ShippingCalculator items={itemsForShipping} />
                         </div>
 
-                        {/* Coluna de Resumo */}
                         <div className="lg:col-span-1">
                             <div className="bg-gray-900 rounded-lg border border-gray-800 p-6 shadow-lg h-fit lg:sticky lg:top-28">
                                 <h2 className="text-2xl font-bold mb-6 text-center text-amber-400">Resumo do Pedido</h2>
                                 <div className="space-y-3 mb-5 border-b border-gray-700 pb-5">
-                                    <div className="flex justify-between text-gray-300 text-sm"><span>Subtotal Produtos</span><span>R$&nbsp;{subtotal.toFixed(2)}</span></div>
+                                    <div className="flex justify-between text-gray-300 text-sm"><span>Subtotal Produtos</span><span>R$ {subtotal.toFixed(2)}</span></div>
                                     <div className="flex justify-between text-gray-300 text-sm">
                                         <span>Frete</span>
                                         {isLoadingShipping ? (
@@ -5508,16 +5488,15 @@ const CartPage = ({ onNavigate }) => {
                                     {appliedCoupon && (
                                         <div className="flex justify-between text-green-400 text-sm">
                                             <span>Desconto ({appliedCoupon.code})</span>
-                                            <span>- R$&nbsp;{discount.toFixed(2)}</span>
+                                            <span>- R$ {discount.toFixed(2)}</span>
                                         </div>
                                     )}
                                 </div>
                                 <div className="flex justify-between font-bold text-xl mb-6">
                                     <span>Total</span>
-                                    <span className="text-amber-400">R$&nbsp;{total.toFixed(2)}</span>
+                                    <span className="text-amber-400">R$ {total.toFixed(2)}</span>
                                 </div>
 
-                                {/* Seção do Cupom */}
                                 <div className="mb-6">
                                     {!appliedCoupon ? (
                                         <>
@@ -5535,7 +5514,6 @@ const CartPage = ({ onNavigate }) => {
                                     )}
                                 </div>
 
-                                {/* Botão Checkout */}
                                 <button
                                     onClick={() => onNavigate('checkout')}
                                     className="w-full bg-gradient-to-r from-amber-400 to-amber-500 text-black py-3.5 rounded-md hover:from-amber-300 hover:to-amber-400 font-bold text-lg shadow-md hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:bg-gray-600 flex items-center justify-center gap-2"
@@ -5663,7 +5641,7 @@ const WishlistItemCard = memo(({ item, onRemove, onNavigate }) => {
 
 
 const WishlistPage = ({ onNavigate }) => {
-    const { wishlist, removeFromWishlist } = useShop(); // Pegar addToCart foi removido daqui
+    const { wishlist, removeFromWishlist } = useShop(); 
     const notification = useNotification();
 
     const handleRemove = async (item) => {
@@ -5675,12 +5653,13 @@ const WishlistPage = ({ onNavigate }) => {
         hidden: { opacity: 0 },
         visible: {
             opacity: 1,
-            transition: { staggerChildren: 0.1 } // Anima os filhos em sequência
+            transition: { staggerChildren: 0.1 } 
         }
     };
 
     return (
-        <div className="bg-black text-white min-h-screen py-12">
+        // CORREÇÃO AQUI: pt-12 pb-28 md:pb-12 para liberar espaço do navbar mobile
+        <div className="bg-black text-white min-h-screen pt-12 pb-28 md:pb-12">
             <div className="container mx-auto px-4">
                 <h1 className="text-3xl md:text-4xl font-bold mb-10 text-center">Lista de Desejos</h1>
                 {wishlist.length === 0 ? (
@@ -5705,7 +5684,6 @@ const WishlistPage = ({ onNavigate }) => {
                                     item={item}
                                     onRemove={handleRemove}
                                     onNavigate={onNavigate}
-                                    // onAddToCart não é mais passado, pois o card lida com isso
                                 />
                             ))}
                         </AnimatePresence>
@@ -6002,8 +5980,6 @@ const CheckoutPage = ({ onNavigate }) => {
     
     const total = useMemo(() => Math.max(0, (Number(subtotal) || 0) - (Number(discount) || 0) + (Number(shippingCost) || 0)), [subtotal, discount, shippingCost]);
 
-    const getShippingName = (name) => name?.toLowerCase().includes('pac') ? 'PAC' : (name || 'N/A');
-    
     const getDeliveryDateText = (deliveryTime) => {
         if (typeof deliveryTime === 'string' && deliveryTime.includes('Receba até')) return `${deliveryTime} (1 dia útil)`;
         const timeInDays = Number(deliveryTime);
@@ -6100,7 +6076,8 @@ const CheckoutPage = ({ onNavigate }) => {
             <AddressSelectionModal isOpen={isAddressModalOpen} onClose={() => setIsAddressModalOpen(false)} addresses={addresses} onSelectAddress={handleAddressSelection} onAddNewAddress={handleAddNewAddress} />
             <Modal isOpen={isNewAddressModalOpen} onClose={() => setIsNewAddressModalOpen(false)} title="Adicionar Novo Endereço"><AddressForm onSave={handleSaveNewAddress} onCancel={() => setIsNewAddressModalOpen(false)} /></Modal>
 
-            <div className="bg-black text-white min-h-screen py-8 sm:py-12">
+            {/* CORREÇÃO AQUI: pt-8 pb-28 sm:pt-12 sm:pb-12 */}
+            <div className="bg-black text-white min-h-screen pt-8 pb-28 sm:pt-12 sm:pb-12">
                 <div className="container mx-auto px-4">
                     <button onClick={() => onNavigate('cart')} className="text-sm text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 mb-6 w-fit bg-gray-800/50 hover:bg-gray-700/50 px-3 py-1.5 rounded-md border border-gray-700">
                         <ArrowUturnLeftIcon className="h-4 w-4"/> Voltar ao Carrinho
@@ -6110,7 +6087,6 @@ const CheckoutPage = ({ onNavigate }) => {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12 items-start">
 
                         <div className="lg:col-span-2 space-y-8">
-                            
                             <CheckoutSection title="Contato para Status" step={1} icon={WhatsappIcon}>
                                 <div className="space-y-4">
                                     <div>
@@ -6270,15 +6246,15 @@ const CheckoutPage = ({ onNavigate }) => {
                                                     )}
                                                 </div>
                                             </div>
-                                            <span className="font-medium flex-shrink-0">R$&nbsp;{( (Number(item.is_on_sale && item.sale_price ? item.sale_price : item.price) || 0) * (Number(item.qty) || 0) ).toFixed(2)}</span>
+                                            <span className="font-medium flex-shrink-0">R$ {( (Number(item.is_on_sale && item.sale_price ? item.sale_price : item.price) || 0) * (Number(item.qty) || 0) ).toFixed(2)}</span>
                                         </div>
                                     ))}
                                 </div>
                                 <div className="border-t border-gray-700 pt-4 space-y-2 text-sm">
-                                    <div className="flex justify-between text-gray-400"><span>Subtotal</span><span className="font-medium text-gray-300">R$&nbsp;{subtotal.toFixed(2)}</span></div>
+                                    <div className="flex justify-between text-gray-400"><span>Subtotal</span><span className="font-medium text-gray-300">R$ {subtotal.toFixed(2)}</span></div>
                                     {autoCalculatedShipping ? (
                                         <div className="flex justify-between text-gray-400">
-                                            <span>Frete ({getShippingName(autoCalculatedShipping.name)})</span>
+                                            <span>Frete ({autoCalculatedShipping.name.includes('PAC') ? 'PAC' : autoCalculatedShipping.name})</span>
                                             <span className="font-medium text-gray-300">{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
                                         </div>
                                     ) : (
@@ -6287,12 +6263,12 @@ const CheckoutPage = ({ onNavigate }) => {
                                     {appliedCoupon && (
                                         <div className="flex justify-between text-green-400">
                                             <span>Desconto ({appliedCoupon.code})</span>
-                                            <span className="font-medium">- R$&nbsp;{discount.toFixed(2)}</span>
+                                            <span className="font-medium">- R$ {discount.toFixed(2)}</span>
                                         </div>
                                     )}
                                     <div className="flex justify-between font-bold text-lg text-white border-t border-gray-700 pt-3 mt-3">
                                         <span>Total</span>
-                                        <span className="text-amber-400">R$&nbsp;{total.toFixed(2)}</span>
+                                        <span className="text-amber-400">R$ {total.toFixed(2)}</span>
                                     </div>
                                 </div>
 
