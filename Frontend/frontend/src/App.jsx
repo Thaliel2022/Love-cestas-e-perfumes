@@ -2050,7 +2050,8 @@ const Minicart = memo(({ onNavigate }) => {
     } = useShop();
 
     const subtotal = useMemo(() => cart.reduce((sum, item) => {
-        const price = item.is_on_sale && item.sale_price ? item.sale_price : item.price;
+        const isOnSale = !!item.is_on_sale && item.sale_price > 0;
+        const price = isOnSale ? item.sale_price : item.price;
         return sum + price * item.qty;
     }, 0), [cart]);
 
@@ -2124,7 +2125,10 @@ const Minicart = memo(({ onNavigate }) => {
                                 </div>
                             ) : (
                                 cart.map(item => {
-                                    const currentPrice = item.is_on_sale && item.sale_price > 0 ? item.sale_price : item.price;
+                                    // CORREÇÃO: Força o booleano aqui para evitar imprimir "0"
+                                    const isOnSale = !!item.is_on_sale && item.sale_price > 0;
+                                    const currentPrice = isOnSale ? item.sale_price : item.price;
+                                    
                                     return (
                                         <div key={item.cartItemId} className="flex gap-4 bg-white/5 p-3.5 rounded-2xl border border-white/5 shadow-sm relative group hover:bg-white/10 transition-all duration-300">
                                             {/* Imagem do Produto */}
@@ -2166,7 +2170,8 @@ const Minicart = memo(({ onNavigate }) => {
                                                     
                                                     {/* Preço */}
                                                     <div className="text-right">
-                                                        {item.is_on_sale && item.sale_price > 0 && (
+                                                        {/* CORREÇÃO: Usando a constante booleana */}
+                                                        {isOnSale && (
                                                             <p className="text-[10px] text-gray-500 line-through">R$ {Number(item.price * item.qty).toFixed(2).replace('.', ',')}</p>
                                                         )}
                                                         <p className="font-extrabold text-white text-base tracking-tight">R$ {Number(currentPrice * item.qty).toFixed(2).replace('.', ',')}</p>
