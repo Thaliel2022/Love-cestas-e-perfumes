@@ -6207,7 +6207,9 @@ const CheckoutPage = ({ onNavigate }) => {
     const {
         cart, autoCalculatedShipping, appliedCoupon, clearOrderState, addresses,
         fetchAddresses, shippingLocation, setShippingLocation, shippingOptions,
-        setAutoCalculatedShipping, setSelectedShippingName, pickupConfig
+        setAutoCalculatedShipping, setSelectedShippingName, pickupConfig,
+        // Trazendo as funções de cupom do contexto global
+        couponCode, setCouponCode, applyCoupon, removeCoupon, couponMessage
     } = useShop();
     const notification = useNotification();
 
@@ -6299,8 +6301,16 @@ const CheckoutPage = ({ onNavigate }) => {
 
     const handleWhatsappChange = (e) => setWhatsapp(maskPhone(e.target.value));
 
+    const handleApplyCoupon = (e) => {
+        e.preventDefault();
+        if (couponCode.trim()) {
+            applyCoupon(couponCode);
+        }
+    };
+
     const subtotal = useMemo(() => cart.reduce((sum, item) => sum + ((Number(item.is_on_sale && item.sale_price ? item.sale_price : item.price) || 0) * (Number(item.qty) || 0)), 0), [cart]);
     const shippingCost = useMemo(() => Number(autoCalculatedShipping?.price) || 0, [autoCalculatedShipping]);
+    
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
         let val = 0;
@@ -6412,8 +6422,7 @@ const CheckoutPage = ({ onNavigate }) => {
             <AddressSelectionModal isOpen={isAddressModalOpen} onClose={() => setIsAddressModalOpen(false)} addresses={addresses} onSelectAddress={handleAddressSelection} onAddNewAddress={handleAddNewAddress} />
             <Modal isOpen={isNewAddressModalOpen} onClose={() => setIsNewAddressModalOpen(false)} title="Adicionar Novo Endereço"><AddressForm onSave={handleSaveNewAddress} onCancel={() => setIsNewAddressModalOpen(false)} /></Modal>
 
-            {/* CORREÇÃO AQUI: pt-8 pb-28 sm:pt-12 sm:pb-12 */}
-            <div className="bg-black text-white min-h-screen pt-8 pb-28 sm:pt-12 sm:pb-12">
+            <div className="bg-black text-white pt-8 pb-28 sm:pt-12 sm:pb-12">
                 <div className="container mx-auto px-4">
                     <button onClick={() => onNavigate('cart')} className="text-sm text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 mb-6 w-fit bg-gray-800/50 hover:bg-gray-700/50 px-3 py-1.5 rounded-md border border-gray-700">
                         <ArrowUturnLeftIcon className="h-4 w-4"/> Voltar ao Carrinho
@@ -6606,6 +6615,33 @@ const CheckoutPage = ({ onNavigate }) => {
                                         <span>Total</span>
                                         <span className="text-amber-400">R$ {total.toFixed(2)}</span>
                                     </div>
+                                </div>
+
+                                {/* --- NOVO: CAMPO DE CUPOM ADICIONADO AQUI --- */}
+                                <div className="mt-5 border-t border-gray-700 pt-5">
+                                    {!appliedCoupon ? (
+                                        <>
+                                            <label className="block text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wide">Possui um cupom de desconto?</label>
+                                            <form onSubmit={handleApplyCoupon} className="flex space-x-2">
+                                                <input 
+                                                    value={couponCode} 
+                                                    onChange={e => setCouponCode(e.target.value.toUpperCase())} 
+                                                    type="text" 
+                                                    placeholder="Digite o código" 
+                                                    className="w-full p-2.5 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-sm text-white placeholder-gray-500 font-mono" 
+                                                />
+                                                <button type="submit" className="px-4 bg-gray-800 border border-gray-600 text-amber-400 font-bold rounded-md hover:bg-gray-700 hover:text-amber-300 text-sm transition-colors">
+                                                    Aplicar
+                                                </button>
+                                            </form>
+                                            {couponMessage && <p className={`text-xs mt-2 font-medium ${couponMessage.includes('aplicado') ? 'text-green-400' : 'text-red-400'}`}>{couponMessage}</p>}
+                                        </>
+                                    ) : (
+                                        <div className="flex justify-between items-center bg-green-900/20 p-3 rounded-md border border-green-800">
+                                            <p className="text-sm text-green-400 flex items-center gap-2 font-medium"><CheckCircleIcon className="h-5 w-5"/> Cupom <strong>{appliedCoupon.code}</strong> aplicado!</p>
+                                            <button onClick={removeCoupon} className="text-xs text-red-400 hover:text-red-300 hover:underline flex-shrink-0 font-medium">Remover</button>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <button
