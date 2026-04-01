@@ -429,8 +429,10 @@ const ShopProvider = ({ children }) => {
     const [couponMessage, setCouponMessage] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState(null);
 
+    // --- NOVO ESTADO: Controle do Minicart ---
+    const [isMinicartOpen, setIsMinicartOpen] = useState(false);
+
     const [localShippingConfig, setLocalShippingConfig] = useState({ base_price: 20, rules: [] });
-    // NOVO ESTADO: Configurações de Retirada na Loja
     const [pickupConfig, setPickupConfig] = useState(null);
 
     const [orderNotificationCount, setOrderNotificationCount] = useState(0);
@@ -479,7 +481,6 @@ const ShopProvider = ({ children }) => {
         return date;
     }, []);
     
-    // NOVA FUNÇÃO: Busca as configs de retirada na loja
     const fetchPickupConfig = useCallback(() => {
         apiService('/settings/pickup')
             .then(data => {
@@ -502,7 +503,7 @@ const ShopProvider = ({ children }) => {
         const intervalId = setInterval(() => {
             fetchShippingConfig();
             fetchPickupConfig();
-        }, 30000); // 30 segundos
+        }, 30000); 
         return () => clearInterval(intervalId);
     }, [fetchShippingConfig, fetchPickupConfig]);
 
@@ -869,7 +870,6 @@ const ShopProvider = ({ children }) => {
 
     const clearOrderState = useCallback(() => { clearCart(); removeCoupon(); determineShippingLocation(); }, [clearCart, removeCoupon, determineShippingLocation]);
 
-    // O pickConfig FOI ADICIONADO AQUI NO PROVIDER VALUE
     return (
         <ShopContext.Provider value={{
             cart, setCart, clearOrderState, wishlist, addToCart, addToWishlist, removeFromWishlist, updateQuantity, removeFromCart, 
@@ -879,7 +879,8 @@ const ShopProvider = ({ children }) => {
             couponCode, setCouponCode, couponMessage, applyCoupon, appliedCoupon, removeCoupon, discount,
             calculateLocalDeliveryPrice, calculateDeliveryDate,
             orderNotificationCount, markOrderAsSeen, checkNotifications,
-            pickupConfig 
+            pickupConfig,
+            isMinicartOpen, setIsMinicartOpen // Exposto para ser usado em qualquer lugar
         }}>
             {children}
         </ShopContext.Provider>
@@ -1571,7 +1572,8 @@ const SizeGuideDisplay = ({ dataString }) => {
     );
 };
 const ProductCard = memo(({ product, onNavigate }) => {
-    const { addToCart, shippingLocation, calculateLocalDeliveryPrice } = useShop();
+    // --- ATUALIZAÇÃO: Puxa o setIsMinicartOpen do hook ---
+    const { addToCart, shippingLocation, calculateLocalDeliveryPrice, setIsMinicartOpen } = useShop();
     const notification = useNotification();
     const { user } = useAuth();
     const { wishlist, addToWishlist, removeFromWishlist } = useShop(); 
@@ -1734,6 +1736,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
         onNavigate(`product/${product.id}`);
     };
 
+    // --- ATUALIZAÇÃO: Abre a gaveta do carrinho ao invés de pular página ---
     const handleAddToCartInternal = async (e) => { 
         e.stopPropagation();
         if (product.product_type === 'clothing') {
@@ -1744,7 +1747,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
         setIsAddingToCart(true);
         try {
             await addToCart(product, 1);
-            notification.show(`${product.name} adicionado ao carrinho!`);
+            setIsMinicartOpen(true); // Abre a gaveta
         } catch (error) {
             notification.show(error.message || "Erro ao adicionar ao carrinho", "error");
         } finally {
@@ -1771,7 +1774,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
         return (
             <button
                 onClick={handleWishlistToggle}
-                // AQUI ESTÁ A CORREÇÃO: Fundo isolado para não esbranquiçar no tema claro
                 className={`absolute top-2 right-2 bg-[#000000]/40 hover:bg-[#000000]/60 backdrop-blur-sm p-1.5 rounded-full text-[#ffffff] transition-colors duration-200 z-10 ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-300'}`}
                 aria-label="Adicionar à Lista de Desejos"
             >
@@ -1818,7 +1820,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     ) : null}
                 </div>
 
-                {/* AQUI ESTÁ A CORREÇÃO: Fundos e Textos blindados para não sofrerem interferência do tema claro nas fotos */}
                 {isPromoActive && timeLeft && timeLeft !== 'Expirada' && !isOutOfStock && (
                     <div className="absolute bottom-0 left-0 w-full bg-gradient-to-r from-red-700 to-red-500/90 backdrop-blur-md py-1.5 px-3 flex items-center justify-between z-20 shadow-inner border-t border-red-400">
                         <div className="flex items-center gap-1.5 text-[#ffffff] font-bold text-[10px] uppercase tracking-wide">
@@ -2039,10 +2040,141 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
     );
 });
 
+const Minicart = memo(({ onNavigate }) => {
+    const {
+        cart,
+        isMinicartOpen,
+        setIsMinicartOpen,
+        updateQuantity,
+        removeFromCart
+    } = useShop();
+
+    const subtotal = useMemo(() => cart.reduce((sum, item) => {
+        const price = item.is_on_sale && item.sale_price ? item.sale_price : item.price;
+        return sum + price * item.qty;
+    }, 0), [cart]);
+
+    // Bloqueia o scroll do fundo quando o carrinho está aberto no mobile
+    useEffect(() => {
+        if (isMinicartOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        return () => { document.body.style.overflow = 'unset'; };
+    }, [isMinicartOpen]);
+
+    return (
+        <AnimatePresence>
+            {isMinicartOpen && (
+                <>
+                    {/* Overlay Escuro */}
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setIsMinicartOpen(false)}
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
+                    />
+                    
+                    {/* Gaveta Lateral */}
+                    <motion.div
+                        initial={{ x: '100%' }}
+                        animate={{ x: 0 }}
+                        exit={{ x: '100%' }}
+                        transition={{ type: 'tween', duration: 0.3, ease: 'easeOut' }}
+                        className="fixed top-0 right-0 h-full w-full sm:w-[400px] bg-gray-900 border-l border-gray-800 shadow-2xl z-[110] flex flex-col"
+                    >
+                        {/* Header do Minicart */}
+                        <div className="flex items-center justify-between p-4 md:p-5 border-b border-gray-800 bg-black/20">
+                            <h2 className="text-lg font-bold text-amber-400 flex items-center gap-2">
+                                <CartIcon className="h-5 w-5" /> Meu Carrinho ({cart.reduce((a,b) => a + b.qty, 0)})
+                            </h2>
+                            <button onClick={() => setIsMinicartOpen(false)} className="text-gray-400 hover:text-red-500 p-1 transition-colors">
+                                <XMarkIcon className="h-6 w-6" />
+                            </button>
+                        </div>
+
+                        {/* Conteúdo (Itens) */}
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-gray-900">
+                            {cart.length === 0 ? (
+                                <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-4 py-20">
+                                    <CartIcon className="h-16 w-16 opacity-20" />
+                                    <p className="font-medium text-center px-4">Seu carrinho está vazio no momento.</p>
+                                    <button 
+                                        onClick={() => { setIsMinicartOpen(false); onNavigate('products'); }} 
+                                        className="mt-4 px-6 py-2 bg-gray-800 text-amber-400 rounded-full font-bold border border-gray-700 hover:bg-gray-700 transition-colors"
+                                    >
+                                        Explorar Produtos
+                                    </button>
+                                </div>
+                            ) : (
+                                cart.map(item => {
+                                    const currentPrice = item.is_on_sale && item.sale_price > 0 ? item.sale_price : item.price;
+                                    return (
+                                        <div key={item.cartItemId} className="flex gap-4 bg-gray-800 p-3 rounded-xl border border-gray-700 shadow-sm relative group">
+                                            <div className="w-20 h-20 bg-white rounded-lg border border-gray-600 p-1 flex-shrink-0 cursor-pointer overflow-hidden" onClick={() => {setIsMinicartOpen(false); onNavigate(`product/${item.id}`);}}>
+                                                <img src={getFirstImage(item.images)} alt={item.name} className="w-full h-full object-contain transform group-hover:scale-110 transition-transform duration-300" />
+                                            </div>
+                                            <div className="flex-1 flex flex-col justify-between py-0.5 min-w-0">
+                                                <div className="flex justify-between items-start gap-2">
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-bold text-gray-200 line-clamp-2 cursor-pointer hover:text-amber-400 transition-colors" onClick={() => {setIsMinicartOpen(false); onNavigate(`product/${item.id}`);}}>{item.name}</p>
+                                                        {item.variation && <p className="text-xs text-gray-400 mt-0.5 bg-gray-900 w-fit px-1.5 py-0.5 rounded border border-gray-700">{item.variation.color} / {item.variation.size}</p>}
+                                                    </div>
+                                                    <button onClick={() => removeFromCart(item.cartItemId)} className="text-gray-500 hover:text-red-500 transition-colors p-1 flex-shrink-0 bg-gray-900 rounded-md border border-gray-700">
+                                                        <TrashIcon className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                                <div className="flex items-center justify-between mt-3">
+                                                    <div className="flex items-center border border-gray-600 rounded-md bg-gray-900 h-8">
+                                                        <button onClick={() => updateQuantity(item.cartItemId, item.qty - 1)} className="px-2.5 text-gray-400 hover:text-white hover:bg-gray-700 h-full flex items-center transition-colors">-</button>
+                                                        <span className="w-6 text-center text-xs font-bold border-x border-gray-700 text-white">{item.qty}</span>
+                                                        <button onClick={() => updateQuantity(item.cartItemId, item.qty + 1)} className="px-2.5 text-gray-400 hover:text-white hover:bg-gray-700 h-full flex items-center transition-colors">+</button>
+                                                    </div>
+                                                    <p className="font-bold text-amber-400 text-sm">R$ {Number(currentPrice * item.qty).toFixed(2).replace('.', ',')}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+
+                        {/* Footer do Minicart */}
+                        {cart.length > 0 && (
+                            <div className="border-t border-gray-800 p-4 md:p-5 bg-gray-900 shadow-[0_-10px_40px_rgba(0,0,0,0.4)] z-10">
+                                <div className="flex justify-between items-end mb-4 bg-black/20 p-3 rounded-lg border border-gray-800">
+                                    <span className="text-gray-400 text-sm font-semibold uppercase tracking-wider">Subtotal:</span>
+                                    <span className="text-2xl font-extrabold text-white">R$ {subtotal.toFixed(2).replace('.', ',')}</span>
+                                </div>
+                                <div className="flex flex-col gap-3">
+                                    <button 
+                                        onClick={() => { setIsMinicartOpen(false); onNavigate('checkout'); }} 
+                                        className="w-full py-3.5 bg-gradient-to-r from-amber-400 to-amber-500 text-black rounded-xl font-extrabold text-base hover:from-amber-300 hover:to-amber-400 transition-all flex items-center justify-center gap-2 shadow-lg active:scale-[0.98]"
+                                    >
+                                        <CheckBadgeIcon className="h-5 w-5" /> Finalizar Compra
+                                    </button>
+                                    <button 
+                                        onClick={() => { setIsMinicartOpen(false); onNavigate('cart'); }} 
+                                        className="w-full py-3 bg-transparent text-gray-300 border border-gray-700 rounded-xl font-bold text-sm hover:bg-gray-800 hover:text-white transition-colors active:scale-[0.98]"
+                                    >
+                                        Ver Carrinho Completo
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </motion.div>
+                </>
+            )}
+        </AnimatePresence>
+    );
+});
 
 const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortName = "Love Cestas", appLogoText = "LovecestasePerfumes" }) => {
     const { isAuthenticated, user, logout } = useAuth();
-    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses, orderNotificationCount } = useShop(); 
+    // --- ATUALIZAÇÃO: Puxa o setIsMinicartOpen do hook ---
+    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses, orderNotificationCount, setIsMinicartOpen } = useShop(); 
     const [searchTerm, setSearchTerm] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [searchSuggestions, setSearchSuggestions] = useState([]);
@@ -2052,7 +2184,6 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
     const [dynamicMenuItems, setDynamicMenuItems] = useState([]);
     const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
 
-    // --- NOVOS ESTADOS PARA A PESQUISA INTELIGENTE ---
     const [isSearching, setIsSearching] = useState(false);
     const [recentSearches, setRecentSearches] = useState([]);
 
@@ -2060,7 +2191,6 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
     const lastScrollY = useRef(0);
     const isScrollingDown = useRef(false);
 
-    // Carrega buscas recentes ao iniciar
     useEffect(() => {
         try {
             const saved = localStorage.getItem('lovecestas_recent_searches');
@@ -2174,7 +2304,6 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
         prevTotalCartItems.current = totalCartItems;
     }, [totalCartItems, cartAnimationControls]);
 
-    // --- NOVA LÓGICA DE BUSCA INTELIGENTE ---
     useEffect(() => {
         if (searchTerm.trim().length < 2) {
             setSearchSuggestions([]);
@@ -2188,7 +2317,7 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                 .then(data => setSearchSuggestions(data))
                 .catch(err => console.error(err))
                 .finally(() => setIsSearching(false));
-        }, 400); // Debounce levemente maior para evitar requisições desnecessárias
+        }, 400); 
         
         return () => clearTimeout(debounceTimer);
     }, [searchTerm]);
@@ -2209,7 +2338,6 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
             setSearchTerm('');
             setSearchSuggestions([]);
             setIsMobileMenuOpen(false);
-            // Pequeno delay para garantir que o teclado mobile feche suavemente
             setTimeout(() => setIsSearchFocused(false), 100);
         }
     };
@@ -2238,7 +2366,6 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
         localStorage.setItem('lovecestas_recent_searches', JSON.stringify(updatedRecents));
     };
 
-    // Função auxiliar para destacar o texto digitado nas sugestões
     const highlightText = (text, highlight) => {
         if (!highlight.trim()) return text;
         const parts = text.split(new RegExp(`(${highlight})`, 'gi'));
@@ -2249,7 +2376,6 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
         );
     };
 
-    // --- COMPONENTE DO DROPDOWN DE PESQUISA (REUTILIZÁVEL DESKTOP/MOBILE) ---
     const SearchDropdown = () => (
         <AnimatePresence>
             {isSearchFocused && (
@@ -2261,7 +2387,6 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                     className="absolute top-full mt-2 w-full bg-white border border-gray-100 rounded-xl shadow-2xl z-50 overflow-hidden flex flex-col"
                 >
                     {searchTerm.length < 2 ? (
-                        /* ESTADO 1: Buscas Recentes (Sem texto) */
                         <div className="p-2">
                             {recentSearches.length > 0 ? (
                                 <>
@@ -2296,13 +2421,11 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                             )}
                         </div>
                     ) : isSearching ? (
-                        /* ESTADO 2: Carregando */
                         <div className="p-8 flex flex-col items-center justify-center text-gray-400 gap-3">
                             <SpinnerIcon className="h-6 w-6 text-amber-500 animate-spin" />
                             <span className="text-sm font-medium">Buscando produtos...</span>
                         </div>
                     ) : (
-                        /* ESTADO 3: Resultados */
                         <div className="flex flex-col max-h-[60vh] md:max-h-96">
                             <div className="overflow-y-auto custom-scrollbar p-1">
                                 {searchSuggestions.length > 0 ? (
@@ -2341,7 +2464,6 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                                 )}
                             </div>
                             
-                            {/* Rodapé do Dropdown */}
                             {searchTerm.trim() && searchSuggestions.length > 0 && ( 
                                 <div className="p-2 bg-gray-50 border-t border-gray-100">
                                     <button 
@@ -2454,7 +2576,8 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                     {wishlistCount > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlistCount}</span>}
                 </button>
 
-                <button onClick={() => onNavigate('cart')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                {/* --- ATUALIZAÇÃO: ABRE O MINICART --- */}
+                <button onClick={() => setIsMinicartOpen(true)} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <motion.div animate={cartAnimationControls}>
                         <CartIcon className="h-6 w-6 mb-1"/>
                     </motion.div>
@@ -2526,7 +2649,6 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                         <span>{appLogoText}</span>
                     </a>
                     
-                    {/* BARRA DE PESQUISA DESKTOP ATUALIZADA */}
                     <div className="hidden lg:block flex-1 max-w-2xl mx-8 relative">
                          <form onSubmit={handleSearchSubmit} className="relative z-20">
                             <div className={`relative flex items-center w-full bg-gray-800/80 hover:bg-gray-800 border ${isSearchFocused ? 'border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.15)]' : 'border-gray-700'} rounded-full transition-all duration-300`}>
@@ -2553,7 +2675,6 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                             </div>
                             <SearchDropdown />
                         </form>
-                        {/* Overlay invisível para capturar cliques fora e fechar se necessário */}
                         {isSearchFocused && <div className="fixed inset-0 z-10" onClick={() => setIsSearchFocused(false)}></div>}
                     </div>
 
@@ -2570,7 +2691,8 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                             </button> 
                         )}
                         <button onClick={() => onNavigate('wishlist')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <HeartIcon className="h-6 w-6"/> <span className="hidden sm:inline text-sm font-medium">Lista</span> {wishlist.length > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlist.length}</span>} </button>
-                        <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <CartIcon className="h-6 w-6"/> <span className="hidden sm:inline text-sm font-medium">Carrinho</span> {totalCartItems > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>} </motion.button>
+                        {/* --- ATUALIZAÇÃO: ABRE O MINICART --- */}
+                        <motion.button animate={cartAnimationControls} onClick={() => setIsMinicartOpen(true)} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <CartIcon className="h-6 w-6"/> <span className="hidden sm:inline text-sm font-medium">Carrinho</span> {totalCartItems > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>} </motion.button>
                         <div className="hidden sm:block">
                             {isAuthenticated ? (
                                 <div className="relative group">
@@ -2593,7 +2715,6 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                     </a>
                 </div>
                 
-                {/* BARRA DE PESQUISA MOBILE ATUALIZADA */}
                 <form onSubmit={handleSearchSubmit} className="relative mb-2 z-20">
                     <div className={`relative flex items-center w-full bg-gray-800 border ${isSearchFocused ? 'border-amber-500' : 'border-gray-700'} rounded-lg transition-all duration-300`}>
                         <SearchIcon className={`absolute left-3 h-5 w-5 ${isSearchFocused ? 'text-amber-400' : 'text-gray-400'}`} />
@@ -3956,7 +4077,8 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
 
 const ProductDetailPage = ({ productId, onNavigate }) => {
     const { user } = useAuth();
-    const { addToCart, calculateLocalDeliveryPrice, shippingLocation } = useShop(); 
+    // --- ATUALIZAÇÃO: setIsMinicartOpen adicionado ---
+    const { addToCart, calculateLocalDeliveryPrice, shippingLocation, setIsMinicartOpen } = useShop(); 
     const notification = useNotification();
     const confirmation = useConfirmation();
     const [isLoading, setIsLoading] = useState(true);
@@ -3973,12 +4095,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [isLoadingInstallments, setIsLoadingInstallments] = useState(true);
     const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
     
-    // --- ESTADOS DE SELEÇÃO E MODAL ---
     const [selectedColor, setSelectedColor] = useState('');
     const [selectedSize, setSelectedSize] = useState('');
     const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
     
-    // --- ESTADO DO MODAL DE MEDIDAS ---
     const [isSizeGuideModalOpen, setIsSizeGuideModalOpen] = useState(false);
     
     const [pendingAction, setPendingAction] = useState(null); 
@@ -4229,11 +4349,16 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         setIsSelectionModalOpen(false);
     };
 
+    // --- ATUALIZAÇÃO: Abre a gaveta ao invés de pular de página ---
     const processAddToCart = async (action) => {
         try {
             await addToCart(product, quantity, selectedVariation);
             notification.show(`${quantity}x ${product.name} adicionado(s) ao carrinho!`);
-            if (action === 'buyNow') { onNavigate('cart'); }
+            if (action === 'buyNow') { 
+                onNavigate('checkout'); 
+            } else {
+                setIsMinicartOpen(true); 
+            }
         } catch (error) { notification.show(error.message, 'error'); }
     };
 
@@ -4312,8 +4437,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const showGalleryArrows = galleryImages.length > 1;
 
     return (
-        // CORREÇÃO AQUI: pb-28 md:pb-12 aplicado para o padding inferior no mobile
-        <div className="bg-black text-white min-h-screen pb-28 md:pb-12">
+        // Padding mantido sem min-h-screen para evitar o buraco preto
+        <div className="bg-black text-white pb-28 md:pb-12">
             <style>{`
                 .scrollbar-hide::-webkit-scrollbar {
                     display: none;
@@ -4644,7 +4769,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         </div>
 
-                        {/* Seletor na página principal (também controlado pelo estado da página) */}
                         {isClothing && ( 
                             <div className="mb-2">
                                 <VariationSelector 
@@ -4656,7 +4780,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     setSelectedSize={setSelectedSize} 
                                     error={selectionError} 
                                 /> 
-                                {/* --- BOTÃO DE GUIA DE MEDIDAS (DESKTOP E MOBILE PRINCIPAL) --- */}
                                 {product.size_guide && (
                                     <div className="flex justify-end mt-4">
                                         <button 
@@ -4670,7 +4793,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         )}
 
-                        {/* --- BLOCO DO BOTÃO "COMPRAR" / "ESGOTADO" --- */}
                         {!productOrVariationOutOfStock && (
                             <div className="flex items-center space-x-4">
                                 <p className="font-semibold text-sm">Quantidade:</p>
@@ -16121,7 +16243,6 @@ function AppContent({ deferredPrompt }) {
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
   
-  // NOVO ESTADO: Detectar se está rodando como App instalado (PWA)
   const [isStandalone, setIsStandalone] = useState(false);
 
   const defaultThemeFallback = {
@@ -16372,7 +16493,6 @@ function AppContent({ deferredPrompt }) {
     registerPush();
   }, [isAuthenticated]); 
   
-  // NOVO EFEITO: Verifica se está rodando como PWA (Standalone)
   useEffect(() => {
       const checkStandalone = () => {
           setIsStandalone(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone);
@@ -16544,16 +16664,14 @@ function AppContent({ deferredPrompt }) {
   };
 
   const showHeaderFooter = !currentPath.startsWith('admin');
-  
   const effectiveForcedSeason = previewSeason || appThemeConfig.activeSeason;
   const shouldRunAnimations = appThemeConfig.animationsEnabled !== false && 
                               (appThemeConfig.autoSeasonal || effectiveForcedSeason);
-  
-  // ATUALIZAÇÃO: Esconde o footer se for PWA (Standalone)
   const showFooter = showHeaderFooter && !currentPath.startsWith('order-success') && !isStandalone;
 
   return (
-    <div className="bg-black min-h-screen flex flex-col transition-colors duration-500 relative">
+    // CORREÇÃO: min-h-screen removido
+    <div className="bg-black flex flex-col transition-colors duration-500 relative">
       
       {!currentPath.startsWith('admin') && (
           <SeasonalAnimations 
@@ -16564,12 +16682,15 @@ function AppContent({ deferredPrompt }) {
       )}
       
       {showHeaderFooter && (
-          <Header 
-              onNavigate={navigate} 
-              appName={safeName} 
-              appShortName={safeShortName} 
-              appLogoText={safeLogoText} 
-          />
+          <>
+              <Header 
+                  onNavigate={navigate} 
+                  appName={safeName} 
+                  appShortName={safeShortName} 
+                  appLogoText={safeLogoText} 
+              />
+              <Minicart onNavigate={navigate} />
+          </>
       )}
 
       <main className="flex-grow">{renderPage()}</main>
