@@ -12348,7 +12348,7 @@ const AdminRefunds = ({ onNavigate }) => {
             'failed': { text: 'Falhou', class: 'bg-gray-200 text-gray-800' }
         };
         const s = statuses[status] || { text: 'Desconhecido', class: 'bg-gray-200 text-gray-800' };
-        return <span className={`px-2 py-1 text-xs font-semibold rounded-full ${s.class}`}>{s.text}</span>;
+        return <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${s.class}`}>{s.text}</span>;
     };
     
     // Função para extrair o método de pagamento
@@ -12371,10 +12371,10 @@ const AdminRefunds = ({ onNavigate }) => {
                      <Modal isOpen={true} onClose={() => setIsDenyModalOpen(false)} title={`Negar Reembolso #${selectedRefund.id}`}>
                         <form onSubmit={handleDeny}>
                             <label className="block text-sm font-medium text-gray-700">Por favor, informe o motivo da negação (será registrado internamente):</label>
-                            <textarea value={denyReason} onChange={e => setDenyReason(e.target.value)} required rows="4" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"></textarea>
-                            <div className="flex justify-end gap-3 mt-6">
-                                <button type="button" onClick={() => setIsDenyModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md">Cancelar</button>
-                                <button type="submit" disabled={isProcessing} className="px-4 py-2 bg-gray-800 text-white rounded-md flex items-center gap-2 disabled:bg-gray-400">
+                            <textarea value={denyReason} onChange={e => setDenyReason(e.target.value)} required rows="4" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                            <div className="flex justify-end gap-3 mt-6 border-t pt-4">
+                                <button type="button" onClick={() => setIsDenyModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md font-semibold text-gray-700 hover:bg-gray-300 transition-colors">Cancelar</button>
+                                <button type="submit" disabled={isProcessing} className="px-4 py-2 bg-gray-800 text-white rounded-md font-bold hover:bg-gray-900 transition-colors flex items-center gap-2 disabled:bg-gray-400">
                                     {isProcessing && <SpinnerIcon className="h-5 w-5" />}
                                     Confirmar Negação
                                 </button>
@@ -12384,84 +12384,104 @@ const AdminRefunds = ({ onNavigate }) => {
                 )}
             </AnimatePresence>
 
-            <h1 className="text-3xl font-bold mb-6">Gerenciar Reembolsos</h1>
+            <h1 className="text-3xl font-bold mb-6 text-slate-800 tracking-tight">Gerenciar Reembolsos</h1>
             
             {isLoading ? (
-                <div className="flex justify-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-500" /></div>
+                <div className="flex justify-center py-20"><SpinnerIcon className="h-8 w-8 text-indigo-600" /></div>
             ) : (
-                <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                <div className="bg-white shadow-md rounded-lg overflow-hidden border border-gray-100">
                     {/* Desktop Table View */}
                     <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-left text-sm">
-                            <thead className="bg-gray-100">
+                            <thead className="bg-gray-50 border-b border-gray-200">
                                 <tr>
-                                    <th className="p-4">Pedido</th>
-                                    <th className="p-4">Cliente</th>
-                                    <th className="p-4">Data Pedido</th>
-                                    <th className="p-4">Pagamento</th>
-                                    <th className="p-4">Data Solicitação</th>
-                                    <th className="p-4">Valor</th>
-                                    <th className="p-4 w-1/4">Motivo</th>
-                                    <th className="p-4">Solicitante</th>
-                                    <th className="p-4">Status</th>
-                                    <th className="p-4">Ações</th>
+                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs">Pedido</th>
+                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs">Cliente</th>
+                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs">Data Pedido</th>
+                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs">Pagamento</th>
+                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs">Data Solicitação</th>
+                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs">Valor</th>
+                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs w-1/4">Motivo</th>
+                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs">Solicitante</th>
+                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs">Status</th>
+                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs">Ações</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                {filteredRefunds.map(r => (
-                                    <tr key={r.id} className="border-b">
-                                        <td className="p-4 font-mono">#{r.order_id}</td>
-                                        <td className="p-4">{r.customer_name}</td>
-                                        <td className="p-4">{new Date(r.order_date).toLocaleDateString('pt-BR')}</td>
-                                        <td className="p-4 capitalize">{getPaymentMethodName(r.payment_method, r.payment_details)}</td>
-                                        <td className="p-4">{new Date(r.created_at).toLocaleString('pt-BR')}</td>
-                                        <td className="p-4 font-bold">R$ {Number(r.amount).toFixed(2)}</td>
-                                        <td className="p-4 text-gray-600 break-words">{r.reason}</td>
-                                        <td className="p-4">{r.requester_name}</td>
-                                        <td className="p-4">{getStatusChip(r.status)}</td>
-                                        <td className="p-4">
-                                            {r.status === 'pending_approval' && (
-                                                <div className="flex gap-2">
-                                                    <button onClick={() => handleApprove(r)} className="p-2 text-green-600 hover:bg-green-100 rounded-full" title="Aprovar"><CheckIcon className="h-5 w-5"/></button>
-                                                    <button onClick={() => { setSelectedRefund(r); setIsDenyModalOpen(true); }} className="p-2 text-red-600 hover:bg-red-100 rounded-full" title="Negar"><XMarkIcon className="h-5 w-5"/></button>
-                                                </div>
-                                            )}
+                            <tbody className="divide-y divide-gray-100">
+                                {filteredRefunds.length > 0 ? (
+                                    filteredRefunds.map(r => (
+                                        <tr key={r.id} className="hover:bg-gray-50 transition-colors">
+                                            <td className="p-4 font-mono font-bold text-indigo-600">#{r.order_id}</td>
+                                            <td className="p-4 font-medium text-gray-900">{r.customer_name}</td>
+                                            <td className="p-4 text-gray-500">{new Date(r.order_date).toLocaleDateString('pt-BR')}</td>
+                                            <td className="p-4 capitalize text-gray-700">{getPaymentMethodName(r.payment_method, r.payment_details)}</td>
+                                            <td className="p-4 text-gray-500">{new Date(r.created_at).toLocaleString('pt-BR')}</td>
+                                            <td className="p-4 font-bold text-gray-900">R$ {Number(r.amount).toFixed(2)}</td>
+                                            <td className="p-4 text-gray-600 break-words">{r.reason}</td>
+                                            <td className="p-4 text-gray-700">{r.requester_name}</td>
+                                            <td className="p-4">{getStatusChip(r.status)}</td>
+                                            <td className="p-4">
+                                                {r.status === 'pending_approval' && (
+                                                    <div className="flex gap-2">
+                                                        <button onClick={() => handleApprove(r)} className="p-2 text-green-600 hover:bg-green-100 rounded-full transition-colors" title="Aprovar"><CheckIcon className="h-5 w-5"/></button>
+                                                        <button onClick={() => { setSelectedRefund(r); setIsDenyModalOpen(true); }} className="p-2 text-red-600 hover:bg-red-100 rounded-full transition-colors" title="Negar"><XMarkIcon className="h-5 w-5"/></button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan="10" className="p-12 text-center text-gray-500">
+                                            <div className="flex flex-col items-center justify-center">
+                                                <CurrencyDollarArrowIcon className="h-12 w-12 text-gray-300 mb-3" />
+                                                <h3 className="text-lg font-bold text-gray-700">Nenhum reembolso encontrado</h3>
+                                                <p className="text-sm text-gray-500 mt-1">Ainda não há solicitações de reembolso no sistema.</p>
+                                            </div>
                                         </td>
                                     </tr>
-                                ))}
+                                )}
                             </tbody>
                         </table>
                     </div>
                      {/* Mobile Card View */}
-                     <div className="md:hidden space-y-4 p-4">
-                        {filteredRefunds.map(r => (
-                            <div key={r.id} className="bg-white border rounded-lg p-4 shadow-sm text-sm">
-                                <div className="flex justify-between items-start mb-3 pb-3 border-b">
-                                    <div>
-                                        <p className="font-bold">Pedido #{r.order_id}</p>
-                                        <p className="text-xs text-gray-500">{new Date(r.created_at).toLocaleString('pt-BR')}</p>
+                     <div className="md:hidden p-4 bg-gray-50">
+                        {filteredRefunds.length > 0 ? (
+                            filteredRefunds.map(r => (
+                                <div key={r.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm text-sm mb-4 last:mb-0">
+                                    <div className="flex justify-between items-start mb-3 pb-3 border-b border-gray-100">
+                                        <div>
+                                            <p className="font-bold text-indigo-700 text-lg">Pedido #{r.order_id}</p>
+                                            <p className="text-xs text-gray-500">{new Date(r.created_at).toLocaleString('pt-BR')}</p>
+                                        </div>
+                                        {getStatusChip(r.status)}
                                     </div>
-                                    {getStatusChip(r.status)}
-                                </div>
-                                <div className="grid grid-cols-2 gap-y-2 gap-x-4 mb-3">
-                                    <div><strong className="text-gray-500 block">Cliente</strong> {r.customer_name}</div>
-                                    <div><strong className="text-gray-500 block">Valor</strong> <span className="font-bold">R$ {Number(r.amount).toFixed(2)}</span></div>
-                                    <div><strong className="text-gray-500 block">Data Pedido</strong> {new Date(r.order_date).toLocaleDateString('pt-BR')}</div>
-                                    <div><strong className="text-gray-500 block">Pagamento</strong> <span className="capitalize">{getPaymentMethodName(r.payment_method, r.payment_details)}</span></div>
-                                    <div><strong className="text-gray-500 block">Solicitado por</strong> {r.requester_name}</div>
-                                </div>
-                                <div className="border-t pt-3">
-                                    <strong className="text-gray-500 block mb-1">Motivo da Solicitação</strong>
-                                    <p className="text-gray-700 break-words">{r.reason}</p>
-                                </div>
-                                {r.status === 'pending_approval' && (
-                                    <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
-                                        <button onClick={() => { setSelectedRefund(r); setIsDenyModalOpen(true); }} className="px-3 py-1.5 bg-red-100 text-red-700 font-semibold rounded-md">Negar</button>
-                                        <button onClick={() => handleApprove(r)} className="px-3 py-1.5 bg-green-100 text-green-700 font-semibold rounded-md">Aprovar</button>
+                                    <div className="grid grid-cols-2 gap-y-3 gap-x-4 mb-3">
+                                        <div><strong className="text-gray-500 block text-xs uppercase tracking-wide">Cliente</strong> <span className="font-medium text-gray-900">{r.customer_name}</span></div>
+                                        <div><strong className="text-gray-500 block text-xs uppercase tracking-wide">Valor</strong> <span className="font-bold text-gray-900">R$ {Number(r.amount).toFixed(2)}</span></div>
+                                        <div><strong className="text-gray-500 block text-xs uppercase tracking-wide">Data Pedido</strong> <span className="text-gray-700">{new Date(r.order_date).toLocaleDateString('pt-BR')}</span></div>
+                                        <div><strong className="text-gray-500 block text-xs uppercase tracking-wide">Pagamento</strong> <span className="capitalize text-gray-700">{getPaymentMethodName(r.payment_method, r.payment_details)}</span></div>
+                                        <div className="col-span-2"><strong className="text-gray-500 block text-xs uppercase tracking-wide">Solicitado por</strong> <span className="text-gray-700">{r.requester_name}</span></div>
                                     </div>
-                                )}
+                                    <div className="border-t border-gray-100 pt-3">
+                                        <strong className="text-gray-500 block text-xs uppercase tracking-wide mb-1">Motivo da Solicitação</strong>
+                                        <p className="text-gray-700 break-words bg-gray-50 p-2 rounded-md">{r.reason}</p>
+                                    </div>
+                                    {r.status === 'pending_approval' && (
+                                        <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-100">
+                                            <button onClick={() => { setSelectedRefund(r); setIsDenyModalOpen(true); }} className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 font-bold rounded-lg transition-colors">Negar</button>
+                                            <button onClick={() => handleApprove(r)} className="px-4 py-2 bg-green-50 hover:bg-green-100 text-green-700 font-bold rounded-lg transition-colors">Aprovar</button>
+                                        </div>
+                                    )}
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-center p-8 bg-white rounded-xl border border-gray-200 shadow-sm">
+                                <CurrencyDollarArrowIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                                <h3 className="text-lg font-bold text-gray-700">Nenhum reembolso</h3>
+                                <p className="text-sm text-gray-500 mt-1">Ainda não há solicitações.</p>
                             </div>
-                        ))}
+                        )}
                     </div>
                 </div>
             )}
