@@ -2078,7 +2078,7 @@ const Minicart = memo(({ onNavigate }) => {
                         className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
                     />
                     
-                    {/* Gaveta Lateral Premium */}
+                    {/* Gaveta Lateral Premium & Temática (Roxo Profundo do Dia das Mães) */}
                     <motion.div
                         initial={{ x: '100%' }}
                         animate={{ x: 0 }}
@@ -2086,11 +2086,11 @@ const Minicart = memo(({ onNavigate }) => {
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
                         className="fixed top-0 right-0 h-full w-full sm:w-[420px] bg-[#0a0a0a] shadow-2xl z-[110] flex flex-col border-l border-white/10"
                     >
-                        {/* Header do Minicart (Glassmorphism) */}
+                        {/* Header do Minicart (Glassmorphism e Toque Rosa) */}
                         <div className="flex items-center justify-between p-5 border-b border-white/5 bg-[#0a0a0a]/80 backdrop-blur-xl z-20 sticky top-0">
                             <h2 className="text-xl font-bold text-white flex items-center gap-3 tracking-wide">
-                                <span className="p-2 bg-amber-500/10 rounded-lg">
-                                    <CartIcon className="h-5 w-5 text-amber-400" />
+                                <span className="p-2 bg-pink-500/10 rounded-lg">
+                                    <CartIcon className="h-5 w-5 text-pink-400" />
                                 </span>
                                 Minha Sacola
                                 <span className="bg-white/10 text-white text-xs px-2.5 py-0.5 rounded-full font-medium ml-1">
@@ -2106,8 +2106,8 @@ const Minicart = memo(({ onNavigate }) => {
                         <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-gradient-to-b from-[#0a0a0a] to-[#111]">
                             {cart.length === 0 ? (
                                 <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-6 py-20 relative">
-                                    {/* Efeito de luz sutil no fundo vazio */}
-                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-amber-500/5 rounded-full blur-3xl"></div>
+                                    {/* Efeito de luz sutil no fundo vazio com a cor primária do tema */}
+                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-pink-500/5 rounded-full blur-3xl"></div>
                                     <div className="relative">
                                         <CartIcon className="h-20 w-20 text-gray-700 opacity-50" />
                                     </div>
@@ -2136,12 +2136,12 @@ const Minicart = memo(({ onNavigate }) => {
                                             <div className="flex-1 flex flex-col justify-between min-w-0 py-0.5">
                                                 <div className="flex justify-between items-start gap-2">
                                                     <div className="min-w-0 pr-2">
-                                                        <p className="text-sm font-bold text-gray-100 line-clamp-2 cursor-pointer hover:text-amber-400 transition-colors leading-tight" onClick={() => {setIsMinicartOpen(false); onNavigate(`product/${item.id}`);}}>
+                                                        <p className="text-sm font-bold text-gray-100 line-clamp-2 cursor-pointer hover:text-pink-400 transition-colors leading-tight" onClick={() => {setIsMinicartOpen(false); onNavigate(`product/${item.id}`);}}>
                                                             {item.name}
                                                         </p>
                                                         {item.variation && (
                                                             <div className="flex flex-wrap gap-1.5 mt-2">
-                                                                <span className="text-[10px] font-medium text-amber-200 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                                                                <span className="text-[10px] font-medium text-pink-200 bg-pink-500/10 px-2 py-0.5 rounded-full border border-pink-500/20">
                                                                     {item.variation.color}
                                                                 </span>
                                                                 <span className="text-[10px] font-medium text-gray-300 bg-white/10 px-2 py-0.5 rounded-full border border-white/10">
@@ -2179,7 +2179,7 @@ const Minicart = memo(({ onNavigate }) => {
                             )}
                         </div>
 
-                        {/* Footer do Minicart Premium */}
+                        {/* Footer do Minicart Premium (Destaque Rosa do Dia das Mães) */}
                         {cart.length > 0 && (
                             <div className="p-6 bg-[#0a0a0a]/90 backdrop-blur-xl border-t border-white/5 z-20 pb-safe">
                                 <div className="flex justify-between items-end mb-6">
@@ -2189,7 +2189,7 @@ const Minicart = memo(({ onNavigate }) => {
                                 <div className="flex flex-col gap-3">
                                     <button 
                                         onClick={() => { setIsMinicartOpen(false); onNavigate('checkout'); }} 
-                                        className="w-full py-4 bg-gradient-to-r from-amber-400 to-amber-500 text-black rounded-xl font-extrabold text-base hover:from-amber-300 hover:to-amber-400 transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(251,191,36,0.15)] hover:shadow-[0_0_25px_rgba(251,191,36,0.3)] active:scale-[0.98]"
+                                        className="w-full py-4 bg-gradient-to-r from-pink-400 to-pink-500 text-black rounded-xl font-extrabold text-base hover:from-pink-300 hover:to-pink-400 transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(236,72,153,0.15)] hover:shadow-[0_0_25px_rgba(236,72,153,0.3)] active:scale-[0.98]"
                                     >
                                         <CheckBadgeIcon className="h-6 w-6" /> Finalizar Compra
                                     </button>
