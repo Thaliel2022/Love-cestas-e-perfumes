@@ -16713,8 +16713,8 @@ function AppContent({ deferredPrompt }) {
   const showFooter = showHeaderFooter && !currentPath.startsWith('order-success') && !isStandalone;
 
   return (
-    // CORREÇÃO: min-h-screen removido
-    <div className="bg-black flex flex-col transition-colors duration-500 relative">
+    // CORREÇÃO: min-h-screen DE VOLTA, garantindo que o layout empurre o rodapé para o fim da tela!
+    <div className="bg-black min-h-screen flex flex-col transition-colors duration-500 relative">
       
       {!currentPath.startsWith('admin') && (
           <SeasonalAnimations 
