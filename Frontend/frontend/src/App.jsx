@@ -2068,71 +2068,109 @@ const Minicart = memo(({ onNavigate }) => {
         <AnimatePresence>
             {isMinicartOpen && (
                 <>
-                    {/* Overlay Escuro */}
+                    {/* Overlay Escuro com Desfoque */}
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
+                        transition={{ duration: 0.4 }}
                         onClick={() => setIsMinicartOpen(false)}
                         className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
                     />
                     
-                    {/* Gaveta Lateral */}
+                    {/* Gaveta Lateral Premium */}
                     <motion.div
                         initial={{ x: '100%' }}
                         animate={{ x: 0 }}
                         exit={{ x: '100%' }}
-                        transition={{ type: 'tween', duration: 0.3, ease: 'easeOut' }}
-                        className="fixed top-0 right-0 h-full w-full sm:w-[400px] bg-gray-900 border-l border-gray-800 shadow-2xl z-[110] flex flex-col"
+                        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                        className="fixed top-0 right-0 h-full w-full sm:w-[420px] bg-[#0a0a0a] shadow-2xl z-[110] flex flex-col border-l border-white/10"
                     >
-                        {/* Header do Minicart */}
-                        <div className="flex items-center justify-between p-4 md:p-5 border-b border-gray-800 bg-black/20">
-                            <h2 className="text-lg font-bold text-amber-400 flex items-center gap-2">
-                                <CartIcon className="h-5 w-5" /> Meu Carrinho ({cart.reduce((a,b) => a + b.qty, 0)})
+                        {/* Header do Minicart (Glassmorphism) */}
+                        <div className="flex items-center justify-between p-5 border-b border-white/5 bg-[#0a0a0a]/80 backdrop-blur-xl z-20 sticky top-0">
+                            <h2 className="text-xl font-bold text-white flex items-center gap-3 tracking-wide">
+                                <span className="p-2 bg-amber-500/10 rounded-lg">
+                                    <CartIcon className="h-5 w-5 text-amber-400" />
+                                </span>
+                                Minha Sacola
+                                <span className="bg-white/10 text-white text-xs px-2.5 py-0.5 rounded-full font-medium ml-1">
+                                    {cart.reduce((a,b) => a + b.qty, 0)}
+                                </span>
                             </h2>
-                            <button onClick={() => setIsMinicartOpen(false)} className="text-gray-400 hover:text-red-500 p-1 transition-colors">
-                                <XMarkIcon className="h-6 w-6" />
+                            <button onClick={() => setIsMinicartOpen(false)} className="text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-full transition-all">
+                                <XMarkIcon className="h-5 w-5" />
                             </button>
                         </div>
 
                         {/* Conteúdo (Itens) */}
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-gray-900">
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-gradient-to-b from-[#0a0a0a] to-[#111]">
                             {cart.length === 0 ? (
-                                <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-4 py-20">
-                                    <CartIcon className="h-16 w-16 opacity-20" />
-                                    <p className="font-medium text-center px-4">Seu carrinho está vazio no momento.</p>
-                                    <button 
-                                        onClick={() => { setIsMinicartOpen(false); onNavigate('products'); }} 
-                                        className="mt-4 px-6 py-2 bg-gray-800 text-amber-400 rounded-full font-bold border border-gray-700 hover:bg-gray-700 transition-colors"
-                                    >
-                                        Explorar Produtos
-                                    </button>
+                                <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-6 py-20 relative">
+                                    {/* Efeito de luz sutil no fundo vazio */}
+                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-amber-500/5 rounded-full blur-3xl"></div>
+                                    <div className="relative">
+                                        <CartIcon className="h-20 w-20 text-gray-700 opacity-50" />
+                                    </div>
+                                    <div className="text-center z-10 px-4">
+                                        <p className="text-lg font-bold text-gray-300 mb-2">Sua sacola está vazia</p>
+                                        <p className="text-sm text-gray-500 mb-8">Parece que você ainda não adicionou nenhum produto.</p>
+                                        <button 
+                                            onClick={() => { setIsMinicartOpen(false); onNavigate('products'); }} 
+                                            className="px-8 py-3.5 bg-white text-black rounded-full font-bold shadow-lg hover:bg-gray-200 transition-all active:scale-95"
+                                        >
+                                            Começar a Comprar
+                                        </button>
+                                    </div>
                                 </div>
                             ) : (
                                 cart.map(item => {
                                     const currentPrice = item.is_on_sale && item.sale_price > 0 ? item.sale_price : item.price;
                                     return (
-                                        <div key={item.cartItemId} className="flex gap-4 bg-gray-800 p-3 rounded-xl border border-gray-700 shadow-sm relative group">
-                                            <div className="w-20 h-20 bg-white rounded-lg border border-gray-600 p-1 flex-shrink-0 cursor-pointer overflow-hidden" onClick={() => {setIsMinicartOpen(false); onNavigate(`product/${item.id}`);}}>
-                                                <img src={getFirstImage(item.images)} alt={item.name} className="w-full h-full object-contain transform group-hover:scale-110 transition-transform duration-300" />
+                                        <div key={item.cartItemId} className="flex gap-4 bg-white/5 p-3.5 rounded-2xl border border-white/5 shadow-sm relative group hover:bg-white/10 transition-all duration-300">
+                                            {/* Imagem do Produto */}
+                                            <div className="w-24 h-28 bg-white rounded-xl p-1.5 flex-shrink-0 cursor-pointer overflow-hidden shadow-inner" onClick={() => {setIsMinicartOpen(false); onNavigate(`product/${item.id}`);}}>
+                                                <img src={getFirstImage(item.images)} alt={item.name} className="w-full h-full object-contain transform group-hover:scale-105 transition-transform duration-500" />
                                             </div>
-                                            <div className="flex-1 flex flex-col justify-between py-0.5 min-w-0">
+                                            
+                                            {/* Detalhes do Produto */}
+                                            <div className="flex-1 flex flex-col justify-between min-w-0 py-0.5">
                                                 <div className="flex justify-between items-start gap-2">
-                                                    <div className="min-w-0">
-                                                        <p className="text-sm font-bold text-gray-200 line-clamp-2 cursor-pointer hover:text-amber-400 transition-colors" onClick={() => {setIsMinicartOpen(false); onNavigate(`product/${item.id}`);}}>{item.name}</p>
-                                                        {item.variation && <p className="text-xs text-gray-400 mt-0.5 bg-gray-900 w-fit px-1.5 py-0.5 rounded border border-gray-700">{item.variation.color} / {item.variation.size}</p>}
+                                                    <div className="min-w-0 pr-2">
+                                                        <p className="text-sm font-bold text-gray-100 line-clamp-2 cursor-pointer hover:text-amber-400 transition-colors leading-tight" onClick={() => {setIsMinicartOpen(false); onNavigate(`product/${item.id}`);}}>
+                                                            {item.name}
+                                                        </p>
+                                                        {item.variation && (
+                                                            <div className="flex flex-wrap gap-1.5 mt-2">
+                                                                <span className="text-[10px] font-medium text-amber-200 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                                                                    {item.variation.color}
+                                                                </span>
+                                                                <span className="text-[10px] font-medium text-gray-300 bg-white/10 px-2 py-0.5 rounded-full border border-white/10">
+                                                                    Tam: {item.variation.size}
+                                                                </span>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    <button onClick={() => removeFromCart(item.cartItemId)} className="text-gray-500 hover:text-red-500 transition-colors p-1 flex-shrink-0 bg-gray-900 rounded-md border border-gray-700">
+                                                    {/* Botão Remover Discreto */}
+                                                    <button onClick={() => removeFromCart(item.cartItemId)} className="text-gray-500 hover:text-red-400 transition-colors p-1.5 flex-shrink-0 rounded-full hover:bg-red-500/10">
                                                         <TrashIcon className="h-4 w-4" />
                                                     </button>
                                                 </div>
-                                                <div className="flex items-center justify-between mt-3">
-                                                    <div className="flex items-center border border-gray-600 rounded-md bg-gray-900 h-8">
-                                                        <button onClick={() => updateQuantity(item.cartItemId, item.qty - 1)} className="px-2.5 text-gray-400 hover:text-white hover:bg-gray-700 h-full flex items-center transition-colors">-</button>
-                                                        <span className="w-6 text-center text-xs font-bold border-x border-gray-700 text-white">{item.qty}</span>
-                                                        <button onClick={() => updateQuantity(item.cartItemId, item.qty + 1)} className="px-2.5 text-gray-400 hover:text-white hover:bg-gray-700 h-full flex items-center transition-colors">+</button>
+
+                                                <div className="flex items-end justify-between mt-3">
+                                                    {/* Controle de Quantidade em Pílula */}
+                                                    <div className="flex items-center bg-black/40 rounded-full border border-white/10 p-0.5">
+                                                        <button onClick={() => updateQuantity(item.cartItemId, item.qty - 1)} className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white rounded-full hover:bg-white/10 transition-colors">-</button>
+                                                        <span className="w-6 text-center text-xs font-bold text-white">{item.qty}</span>
+                                                        <button onClick={() => updateQuantity(item.cartItemId, item.qty + 1)} className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white rounded-full hover:bg-white/10 transition-colors">+</button>
                                                     </div>
-                                                    <p className="font-bold text-amber-400 text-sm">R$ {Number(currentPrice * item.qty).toFixed(2).replace('.', ',')}</p>
+                                                    
+                                                    {/* Preço */}
+                                                    <div className="text-right">
+                                                        {item.is_on_sale && item.sale_price > 0 && (
+                                                            <p className="text-[10px] text-gray-500 line-through">R$ {Number(item.price * item.qty).toFixed(2).replace('.', ',')}</p>
+                                                        )}
+                                                        <p className="font-extrabold text-white text-base tracking-tight">R$ {Number(currentPrice * item.qty).toFixed(2).replace('.', ',')}</p>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -2141,26 +2179,31 @@ const Minicart = memo(({ onNavigate }) => {
                             )}
                         </div>
 
-                        {/* Footer do Minicart */}
+                        {/* Footer do Minicart Premium */}
                         {cart.length > 0 && (
-                            <div className="border-t border-gray-800 p-4 md:p-5 bg-gray-900 shadow-[0_-10px_40px_rgba(0,0,0,0.4)] z-10">
-                                <div className="flex justify-between items-end mb-4 bg-black/20 p-3 rounded-lg border border-gray-800">
-                                    <span className="text-gray-400 text-sm font-semibold uppercase tracking-wider">Subtotal:</span>
-                                    <span className="text-2xl font-extrabold text-white">R$ {subtotal.toFixed(2).replace('.', ',')}</span>
+                            <div className="p-6 bg-[#0a0a0a]/90 backdrop-blur-xl border-t border-white/5 z-20 pb-safe">
+                                <div className="flex justify-between items-end mb-6">
+                                    <span className="text-gray-400 text-sm font-medium">Subtotal</span>
+                                    <span className="text-2xl font-black text-white tracking-tight">R$ {subtotal.toFixed(2).replace('.', ',')}</span>
                                 </div>
                                 <div className="flex flex-col gap-3">
                                     <button 
                                         onClick={() => { setIsMinicartOpen(false); onNavigate('checkout'); }} 
-                                        className="w-full py-3.5 bg-gradient-to-r from-amber-400 to-amber-500 text-black rounded-xl font-extrabold text-base hover:from-amber-300 hover:to-amber-400 transition-all flex items-center justify-center gap-2 shadow-lg active:scale-[0.98]"
+                                        className="w-full py-4 bg-gradient-to-r from-amber-400 to-amber-500 text-black rounded-xl font-extrabold text-base hover:from-amber-300 hover:to-amber-400 transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(251,191,36,0.15)] hover:shadow-[0_0_25px_rgba(251,191,36,0.3)] active:scale-[0.98]"
                                     >
-                                        <CheckBadgeIcon className="h-5 w-5" /> Finalizar Compra
+                                        <CheckBadgeIcon className="h-6 w-6" /> Finalizar Compra
                                     </button>
                                     <button 
                                         onClick={() => { setIsMinicartOpen(false); onNavigate('cart'); }} 
-                                        className="w-full py-3 bg-transparent text-gray-300 border border-gray-700 rounded-xl font-bold text-sm hover:bg-gray-800 hover:text-white transition-colors active:scale-[0.98]"
+                                        className="w-full py-3 bg-transparent text-gray-400 font-bold text-sm hover:text-white transition-colors active:scale-[0.98]"
                                     >
                                         Ver Carrinho Completo
                                     </button>
+                                </div>
+                                {/* Gatilho de Confiança */}
+                                <div className="mt-4 flex items-center justify-center gap-1.5 text-gray-500">
+                                    <ShieldCheckIcon className="h-4 w-4" />
+                                    <span className="text-[10px] font-medium uppercase tracking-widest">Ambiente 100% Seguro</span>
                                 </div>
                             </div>
                         )}
