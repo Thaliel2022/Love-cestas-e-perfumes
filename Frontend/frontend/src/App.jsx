@@ -4799,7 +4799,7 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
     // Estado para controle de exibição do botão de Biometria
     const [hasBiometrics, setHasBiometrics] = useState(false);
 
-    // ATUALIZAÇÃO: Inicializa a logo buscando da memória local (localStorage) primeiro
+    // Inicializa a logo buscando da memória local (localStorage) primeiro
     const [appLogo, setAppLogo] = useState(() => {
         return localStorage.getItem('lovecestas_app_logo') || 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
     });
@@ -4819,7 +4819,6 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
             .then(data => {
                 if (data && data.pwa_icon && data.pwa_icon.current) {
                     setAppLogo(data.pwa_icon.current);
-                    // ATUALIZAÇÃO: Atualiza a memória local para não piscar no próximo recarregamento
                     localStorage.setItem('lovecestas_app_logo', data.pwa_icon.current);
                 }
             })
@@ -5003,7 +5002,8 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
                                 <div>
                                     <label className="text-xs sm:text-sm font-medium text-gray-400 mb-1 block">Senha</label>
                                     <div className="relative">
-                                        <input type={isPasswordVisible ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 pr-10 text-sm sm:text-base" />
+                                        {/* CORREÇÃO: placeholder alterado para "Digite sua senha" */}
+                                        <input type={isPasswordVisible ? 'text' : 'password'} placeholder="Digite sua senha" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 pr-10 text-sm sm:text-base" />
                                        <button type="button" onClick={() => setIsPasswordVisible(v => !v)} className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-amber-400">
                                             {isPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
                                         </button>
