@@ -4125,7 +4125,6 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
 
 const ProductDetailPage = ({ productId, onNavigate }) => {
     const { user } = useAuth();
-    // --- ATUALIZAÇÃO: setIsMinicartOpen adicionado ---
     const { addToCart, calculateLocalDeliveryPrice, shippingLocation, setIsMinicartOpen } = useShop(); 
     const notification = useNotification();
     const confirmation = useConfirmation();
@@ -4397,13 +4396,12 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         setIsSelectionModalOpen(false);
     };
 
-    // --- ATUALIZAÇÃO: Abre a gaveta ao invés de pular de página ---
     const processAddToCart = async (action) => {
         try {
             await addToCart(product, quantity, selectedVariation);
             notification.show(`${quantity}x ${product.name} adicionado(s) ao carrinho!`);
             if (action === 'buyNow') { 
-                onNavigate('checkout'); 
+                onNavigate('cart'); // ATUALIZAÇÃO AQUI: Agora vai para o carrinho em vez do checkout
             } else {
                 setIsMinicartOpen(true); 
             }
@@ -4485,7 +4483,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const showGalleryArrows = galleryImages.length > 1;
 
     return (
-        // Padding mantido sem min-h-screen para evitar o buraco preto
         <div className="bg-black text-white pb-28 md:pb-12">
             <style>{`
                 .scrollbar-hide::-webkit-scrollbar {
@@ -4817,6 +4814,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         </div>
 
+                        {/* Seletor na página principal (também controlado pelo estado da página) */}
                         {isClothing && ( 
                             <div className="mb-2">
                                 <VariationSelector 
@@ -4828,6 +4826,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     setSelectedSize={setSelectedSize} 
                                     error={selectionError} 
                                 /> 
+                                {/* --- BOTÃO DE GUIA DE MEDIDAS (DESKTOP E MOBILE PRINCIPAL) --- */}
                                 {product.size_guide && (
                                     <div className="flex justify-end mt-4">
                                         <button 
@@ -4841,6 +4840,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         )}
 
+                        {/* --- BLOCO DO BOTÃO "COMPRAR" / "ESGOTADO" --- */}
                         {!productOrVariationOutOfStock && (
                             <div className="flex items-center space-x-4">
                                 <p className="font-semibold text-sm">Quantidade:</p>
