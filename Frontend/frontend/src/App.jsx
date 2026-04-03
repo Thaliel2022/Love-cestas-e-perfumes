@@ -1572,7 +1572,6 @@ const SizeGuideDisplay = ({ dataString }) => {
     );
 };
 const ProductCard = memo(({ product, onNavigate }) => {
-    // --- ATUALIZAÇÃO: Puxa o setIsMinicartOpen do hook ---
     const { addToCart, shippingLocation, calculateLocalDeliveryPrice, setIsMinicartOpen } = useShop();
     const notification = useNotification();
     const { user } = useAuth();
@@ -1736,7 +1735,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
         onNavigate(`product/${product.id}`);
     };
 
-    // --- ATUALIZAÇÃO: Abre a gaveta do carrinho ao invés de pular página ---
+    // --- CORREÇÃO: No Mobile, NÃO abre a gaveta. Apenas notifica.
     const handleAddToCartInternal = async (e) => { 
         e.stopPropagation();
         if (product.product_type === 'clothing') {
@@ -1747,7 +1746,11 @@ const ProductCard = memo(({ product, onNavigate }) => {
         setIsAddingToCart(true);
         try {
             await addToCart(product, 1);
-            setIsMinicartOpen(true); // Abre a gaveta
+            if (window.innerWidth >= 1024) {
+                setIsMinicartOpen(true); 
+            } else {
+                notification.show(`${product.name} adicionado à sacola!`, 'success');
+            }
         } catch (error) {
             notification.show(error.message || "Erro ao adicionar ao carrinho", "error");
         } finally {
@@ -2221,7 +2224,6 @@ const Minicart = memo(({ onNavigate }) => {
 
 const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortName = "Love Cestas", appLogoText = "LovecestasePerfumes" }) => {
     const { isAuthenticated, user, logout } = useAuth();
-    // --- ATUALIZAÇÃO: Puxa o setIsMinicartOpen do hook ---
     const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses, orderNotificationCount, setIsMinicartOpen } = useShop(); 
     const [searchTerm, setSearchTerm] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -2624,8 +2626,8 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                     {wishlistCount > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlistCount}</span>}
                 </button>
 
-                {/* --- ATUALIZAÇÃO: ABRE O MINICART --- */}
-                <button onClick={() => setIsMinicartOpen(true)} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                {/* CORREÇÃO: No Mobile, clica no carrinho leva para a PÁGINA do Carrinho Completo */}
+                <button onClick={() => { setIsMinicartOpen(false); onNavigate('cart'); }} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <motion.div animate={cartAnimationControls}>
                         <CartIcon className="h-6 w-6 mb-1"/>
                     </motion.div>
@@ -2739,7 +2741,8 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                             </button> 
                         )}
                         <button onClick={() => onNavigate('wishlist')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <HeartIcon className="h-6 w-6"/> <span className="hidden sm:inline text-sm font-medium">Lista</span> {wishlist.length > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlist.length}</span>} </button>
-                        {/* --- ATUALIZAÇÃO: ABRE O MINICART --- */}
+                        
+                        {/* Desktop: Abre a gaveta lateral normalmente */}
                         <motion.button animate={cartAnimationControls} onClick={() => setIsMinicartOpen(true)} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <CartIcon className="h-6 w-6"/> <span className="hidden sm:inline text-sm font-medium">Carrinho</span> {totalCartItems > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>} </motion.button>
                         <div className="hidden sm:block">
                             {isAuthenticated ? (
@@ -4396,14 +4399,17 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         setIsSelectionModalOpen(false);
     };
 
+    // --- CORREÇÃO: No Mobile, não abre gaveta, apenas notifica.
     const processAddToCart = async (action) => {
         try {
             await addToCart(product, quantity, selectedVariation);
-            notification.show(`${quantity}x ${product.name} adicionado(s) ao carrinho!`);
             if (action === 'buyNow') { 
-                onNavigate('cart'); // ATUALIZAÇÃO AQUI: Agora vai para o carrinho em vez do checkout
+                onNavigate('cart'); 
             } else {
-                setIsMinicartOpen(true); 
+                notification.show(`${quantity}x ${product.name} adicionado(s) à sacola!`, 'success');
+                if (window.innerWidth >= 1024) {
+                    setIsMinicartOpen(true); 
+                }
             }
         } catch (error) { notification.show(error.message, 'error'); }
     };
