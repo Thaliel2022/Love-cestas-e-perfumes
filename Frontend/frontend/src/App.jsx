@@ -3,6 +3,20 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { initMercadoPago, Payment } from '@mercadopago/sdk-react';
+
+import { 
+    MapPinIcon, TruckIcon, CreditCardIcon, CheckBadgeIcon, 
+    ArrowUturnLeftIcon, ExclamationCircleIcon, EditIcon, PlusIcon,
+    WhatsappIcon, BoxIcon, ClockIcon, CheckCircleIcon
+} from '@heroicons/react/24/outline';
+import { SpinnerIcon } from '../components/Icons';
+import Modal from '../components/Modal';
+import AddressSelectionModal from '../components/AddressSelectionModal';
+import AddressForm from '../components/AddressForm';
+
+// INICIALIZAÇÃO DO MERCADO PAGO (Cole a sua Public Key real aqui)
+initMercadoPago('APP_USR-a10936fa-4ca7-4965-b829-bfa9175b7c9e', { locale: 'pt-BR' });
 
 // --- Constante da API ---
 const API_URL = process.env.REACT_APP_API_URL || 'https://love-cestas-e-perfumes.onrender.com/api';
@@ -6196,15 +6210,19 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
     );
 };
 
-const CheckoutSection = ({ title, step, children, icon: Icon }) => (
-     <div className="bg-gray-900 rounded-lg border border-gray-800 shadow-md">
-        <div className="flex items-center gap-3 p-4 border-b border-gray-700">
-            {Icon && <Icon className="h-6 w-6 text-amber-400 flex-shrink-0"/>}
-            <h2 className="text-xl font-bold text-amber-400 tracking-wide">{step ? `${step}. ` : ''}{title}</h2>
+const CheckoutSection = ({ title, step, icon: Icon, children }) => (
+    <div className="bg-gray-900 rounded-lg border border-gray-800 p-5 lg:p-8 shadow-lg relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-1.5 h-full bg-amber-400"></div>
+        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-800">
+            {step && (
+                <div className="bg-amber-400 text-black w-8 h-8 rounded-full flex items-center justify-center font-black text-sm shadow-md">
+                    {step}
+                </div>
+            )}
+            {Icon && <Icon className="h-7 w-7 text-amber-400" />}
+            <h2 className="text-xl lg:text-2xl font-bold text-white tracking-wide">{title}</h2>
         </div>
-        <div className="p-5">
-            {children}
-        </div>
+        {children}
     </div>
 );
 
@@ -6214,13 +6232,11 @@ const CheckoutPage = ({ onNavigate }) => {
         cart, autoCalculatedShipping, appliedCoupon, clearOrderState, addresses,
         fetchAddresses, shippingLocation, setShippingLocation, shippingOptions,
         setAutoCalculatedShipping, setSelectedShippingName, pickupConfig,
-        // Trazendo as funções de cupom do contexto global
         couponCode, setCouponCode, applyCoupon, removeCoupon, couponMessage
     } = useShop();
     const notification = useNotification();
 
     const [displayAddress, setDisplayAddress] = useState(null);
-    const [paymentMethod, setPaymentMethod] = useState('mercadopago');
     const [isLoading, setIsLoading] = useState(false);
     const [isAddressLoading, setIsAddressLoading] = useState(true);
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
@@ -6361,54 +6377,52 @@ const CheckoutPage = ({ onNavigate }) => {
                !displayAddress.is_incomplete;
     }, [displayAddress, autoCalculatedShipping, isSomeoneElsePickingUp, pickupPersonName, pickupPersonCpf]);
 
-    const handlePlaceOrderAndPay = async () => {
-        const isPickup = autoCalculatedShipping?.isPickup;
-        if (!canPlaceOrder && !isPickup) {
-             notification.show("Por favor, complete o endereço de entrega (Rua, Número e Bairro) para continuar.", 'error');
-             setIsNewAddressModalOpen(true); return;
-        }
-        if (!whatsapp || !validatePhone(whatsapp)) { notification.show("Por favor, informe um número de WhatsApp válido para contato.", 'error'); return; }
-        const nameToCheck = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
-        const cpfToCheck = isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf;
-        
-        if (isPickup && (!nameToCheck || !validateCPF(cpfToCheck))) {
-            if(!isSomeoneElsePickingUp && !user) notification.show("Faça login ou marque 'Outra pessoa vai retirar?' e preencha os dados.", 'error');
-            else notification.show("Preencha nome e CPF válidos para quem vai retirar.", 'error');
-            return;
-        }
 
+    // --- NOVA FUNÇÃO DE PROCESSAMENTO DO BRICK DE PAGAMENTO ---
+    const handlePaymentSubmit = async (paymentFormData) => {
         setIsLoading(true);
         try {
+            const isPickup = autoCalculatedShipping?.isPickup;
             const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
             const cpfToSend = (isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf)?.replace(/\D/g, '') || '';
             const nameToSend = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
 
+            // Juntamos os dados do carrinho com os dados seguros do cartão gerados pelo Brick
             const orderPayload = {
                 items: cart.map(item => ({ id: item.id, qty: item.qty, price: (item.is_on_sale && item.sale_price ? item.sale_price : item.price), variation: item.variation })),
-                total, shippingAddress: finalShippingAddress, paymentMethod, shipping_method: autoCalculatedShipping.name, shipping_cost: shippingCost,
-                coupon_code: appliedCoupon?.code || null, discount_amount: discount, pickup_details: isPickup ? JSON.stringify({ personName: nameToSend, personCpf: cpfToSend }) : null,
-                phone: whatsapp.replace(/\D/g, '')
+                total, 
+                shippingAddress: finalShippingAddress, 
+                shipping_method: autoCalculatedShipping.name, 
+                shipping_cost: shippingCost,
+                coupon_code: appliedCoupon?.code || null, 
+                discount_amount: discount, 
+                pickup_details: isPickup ? JSON.stringify({ personName: nameToSend, personCpf: cpfToSend }) : null,
+                phone: whatsapp.replace(/\D/g, ''),
+                // Dados injetados do Mercado Pago Transparente
+                payment_data: paymentFormData.formData
             };
             
-            const { orderId } = await apiService('/orders', 'POST', orderPayload);
+            // Enviamos para a nova rota do backend que vamos criar na próxima etapa
+            const { orderId } = await apiService('/orders/transparent', 'POST', orderPayload);
 
-            if (paymentMethod === 'mercadopago') {
-                localStorage.setItem('pendingOrderId', orderId);
-                const { init_point } = await apiService('/create-mercadopago-payment', 'POST', { orderId });
-                if (init_point) window.location.assign(init_point);
-                else throw new Error("Link de pagamento não obtido.");
-            } else {
-                clearOrderState();
-                onNavigate(`order-success/${orderId}`);
-            }
+            clearOrderState();
+            onNavigate(`order-success/${orderId}`);
+            
         } catch (error) {
-            notification.show(`Erro: ${error.message}`, 'error');
+            notification.show(`Erro no pagamento: ${error.message}`, 'error');
             setIsLoading(false);
         }
     };
 
     const pAddress = pickupConfig?.address;
     const isPAddressObj = typeof pAddress === 'object' && pAddress !== null;
+
+    // Configurações do Visual do Mercado Pago Brick
+    const initialization = { amount: total };
+    const customization = {
+        paymentMethods: { ticket: "all", bankTransfer: "all", creditCard: "all", debitCard: "all", mercadoPago: "all" },
+        visual: { style: { theme: 'dark', customVariables: { formBackgroundColor: '#111827', baseColor: '#fbbf24' } } }
+    };
 
     return (
         <>
@@ -6417,8 +6431,8 @@ const CheckoutPage = ({ onNavigate }) => {
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/80 backdrop-blur-md">
                         <div className="bg-gray-900 border border-gray-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center transform transition-all ring-1 ring-amber-500/30">
                             <SpinnerIcon className="h-16 w-16 text-amber-400 mb-6 animate-spin" />
-                            <h3 className="text-2xl font-extrabold text-white mb-2">Processando Pedido</h3>
-                            <p className="text-sm font-medium text-gray-300">Estamos gerando seu link de pagamento seguro no Mercado Pago...</p>
+                            <h3 className="text-2xl font-extrabold text-white mb-2">Processando Pagamento</h3>
+                            <p className="text-sm font-medium text-gray-300">Conectando com o ambiente seguro do Mercado Pago...</p>
                             <p className="text-xs text-red-400 mt-5 font-bold uppercase tracking-widest animate-pulse">Por favor, não feche esta janela</p>
                         </div>
                     </motion.div>
@@ -6492,27 +6506,8 @@ const CheckoutPage = ({ onNavigate }) => {
                                                 ) : (
                                                     <p className="text-gray-300">{pAddress || 'Endereço não configurado'}</p>
                                                 )}
-
-                                                {pickupConfig?.mapsLink && (
-                                                    <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 hover:underline text-xs font-bold mt-2 inline-flex items-center gap-1 bg-amber-400/10 px-3 py-1.5 rounded-md border border-amber-400/30 transition-all">
-                                                        Ver localização no mapa <ArrowUturnLeftIcon className="h-3 w-3 rotate-180" />
-                                                    </a>
-                                                )}
                                             </div>
                                         </div>
-                                        
-                                        <div className="flex items-start gap-2 pt-3 border-t border-gray-700">
-                                            <ClockIcon className="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" />
-                                            <div>
-                                                <p className="font-bold text-white">Horário de Funcionamento:</p>
-                                                <p className="text-gray-300 mt-1">{pickupConfig?.hours || 'Seg a Sáb: 09h-11h30 e 15h-17h30 (exceto feriados)'}</p>
-                                            </div>
-                                        </div>
-
-                                        <p className="text-amber-300 text-xs mt-3 font-semibold bg-amber-900/30 p-2 rounded border border-amber-800 flex items-center gap-1.5">
-                                            <ExclamationCircleIcon className="h-4 w-4" />
-                                            Aguarde a notificação "Pronto para Retirada" antes de se dirigir ao local.
-                                        </p>
                                     </div>
                                     <div className="mt-5 space-y-3">
                                         <div className="flex items-center">
@@ -6535,7 +6530,6 @@ const CheckoutPage = ({ onNavigate }) => {
                                         <div className="p-4 bg-gray-800 rounded-md border border-gray-700 relative">
                                             <div className="flex justify-between items-start">
                                                 <p className="font-bold text-lg mb-2 text-white">{displayAddress.alias}</p>
-                                                {!!displayAddress.is_default && <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full font-semibold">Padrão</span>}
                                             </div>
                                             <div className="space-y-1 text-gray-300 text-sm">
                                                 <p><span className="font-semibold text-gray-500 w-16 inline-block">Rua:</span> {displayAddress.logradouro}</p>
@@ -6561,21 +6555,25 @@ const CheckoutPage = ({ onNavigate }) => {
                                 </CheckoutSection>
                             )}
 
-                            <CheckoutSection title="Forma de Pagamento" step={3} icon={CreditCardIcon}>
-                                <div className="space-y-3">
-                                    <div onClick={() => setPaymentMethod('mercadopago')}
-                                         className={`relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center gap-4 ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-gray-800 shadow-inner' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}>
-                                        <div className="absolute top-3 left-3 w-5 h-5 flex items-center justify-center">
-                                            <div className={`w-4 h-4 rounded-full border-2 ${paymentMethod === 'mercadopago' ? 'border-amber-400' : 'border-gray-500'}`}>
-                                                {paymentMethod === 'mercadopago' && <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-400"></div></div>}
-                                            </div>
-                                        </div>
-                                        <div className="pl-8 flex-grow">
-                                            <span className="font-bold text-base text-white">Mercado Pago</span>
-                                            <p className="text-xs text-gray-400 mt-0.5">Cartão de Crédito, Pix ou Boleto.</p>
-                                        </div>
+                            {/* --- NOVO: SEÇÃO DE PAGAMENTO TRANSPARENTE --- */}
+                            <CheckoutSection title="Pagamento Seguro" step={3} icon={CreditCardIcon}>
+                                {!canPlaceOrder || !autoCalculatedShipping || !whatsapp || !validatePhone(whatsapp) ? (
+                                    <div className="bg-amber-900/20 border border-amber-800 p-6 rounded-xl text-center flex flex-col items-center justify-center gap-3">
+                                        <CheckBadgeIcon className="h-10 w-10 text-amber-500 opacity-50" />
+                                        <p className="text-amber-200 font-medium text-sm">
+                                            Para sua segurança, os métodos de pagamento serão liberados assim que você preencher o <strong className="text-amber-400">WhatsApp</strong> e os <strong className="text-amber-400">dados de entrega</strong> acima.
+                                        </p>
                                     </div>
-                                </div>
+                                ) : (
+                                    <div className="min-h-[400px]">
+                                        <Payment
+                                            initialization={initialization}
+                                            customization={customization}
+                                            onSubmit={handlePaymentSubmit}
+                                            onError={(error) => notification.show("Erro ao carregar o pagamento seguro.", "error")}
+                                        />
+                                    </div>
+                                )}
                             </CheckoutSection>
                         </div> 
 
@@ -6623,7 +6621,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                     </div>
                                 </div>
 
-                                {/* --- NOVO: CAMPO DE CUPOM ADICIONADO AQUI --- */}
+                                {/* CAMPO DE CUPOM */}
                                 <div className="mt-5 border-t border-gray-700 pt-5">
                                     {!appliedCoupon ? (
                                         <>
@@ -6650,23 +6648,6 @@ const CheckoutPage = ({ onNavigate }) => {
                                     )}
                                 </div>
 
-                                <button
-                                    onClick={handlePlaceOrderAndPay}
-                                    disabled={(!canPlaceOrder && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading}
-                                    className={`w-full mt-6 py-3 rounded-md font-bold text-lg shadow-md transition-all duration-300 flex items-center justify-center gap-2
-                                        ${(!canPlaceOrder && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading 
-                                            ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
-                                            : 'bg-gradient-to-r from-amber-400 to-amber-500 text-black hover:from-amber-300 hover:to-amber-400 hover:shadow-lg'
-                                        }`}
-                                >
-                                    <CheckBadgeIcon className="h-5 w-5" />
-                                    Finalizar Compra
-                                </button>
-                                {(!canPlaceOrder && !autoCalculatedShipping?.isPickup && !isLoading) && (
-                                    <p className="text-center text-xs text-red-400 mt-3 font-semibold">
-                                        ⚠️ Complete o endereço de entrega para continuar.
-                                    </p>
-                                )}
                             </div>
                         </div>
                     </div>
@@ -6675,6 +6656,8 @@ const CheckoutPage = ({ onNavigate }) => {
         </>
     );
 };
+
+
 
 const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
     const { clearOrderState } = useShop();
