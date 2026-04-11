@@ -6361,7 +6361,6 @@ const CheckoutPage = ({ onNavigate }) => {
                !displayAddress.is_incomplete;
     }, [displayAddress, autoCalculatedShipping, isSomeoneElsePickingUp, pickupPersonName, pickupPersonCpf]);
 
-    // --- NOVA LÓGICA DO CHECKOUT BRICKS ---
     const handlePaymentSubmit = async (paymentFormData) => {
         const isPickup = autoCalculatedShipping?.isPickup;
         if (!canPlaceOrder && !isPickup) {
@@ -6380,7 +6379,6 @@ const CheckoutPage = ({ onNavigate }) => {
 
         setIsLoading(true);
         try {
-            // 1. Cria o pedido no banco primeiro (Status: Pendente)
             const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
             const cpfToSend = (isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf)?.replace(/\D/g, '') || '';
             const nameToSend = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
@@ -6394,7 +6392,6 @@ const CheckoutPage = ({ onNavigate }) => {
             
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
 
-            // 2. Envia os dados do Brick para processar o pagamento diretamente
             const paymentPayload = {
                 orderId,
                 paymentData: paymentFormData.formData
@@ -6614,16 +6611,10 @@ const CheckoutPage = ({ onNavigate }) => {
                                                 },
                                                 visual: {
                                                     style: {
-                                                        theme: 'default',
+                                                        theme: 'dark', // Corrigido para tema escuro nativo do MP Bricks
                                                         customVariables: {
-                                                            formBackgroundColor: '#1f2937', // bg-gray-800
-                                                            baseColor: '#fbbf24', // amber-400
-                                                            textPrimaryColor: '#ffffff',
-                                                            textSecondaryColor: '#9ca3af',
-                                                            inputBackgroundColor: '#374151', // bg-gray-700
-                                                            inputTextColor: '#ffffff',
-                                                            successColor: '#10b981',
-                                                            errorColor: '#ef4444',
+                                                            formBackgroundColor: '#1f2937', 
+                                                            baseColor: '#fbbf24', 
                                                         }
                                                     }
                                                 }
@@ -16815,7 +16806,6 @@ function AppContent({ deferredPrompt }) {
     </div>
   );
 }
-// ATUALIZAÇÃO DO COMPONENTE BASE: Carregando a biblioteca do frontend
 export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
 
@@ -16836,7 +16826,7 @@ export default function App() {
             }
         }
 
-        // Scripts externos (Chart, Excel, PDF, MercadoPago e agora o WEBAUTHN)
+        // Scripts externos (Chart, Excel, PDF, e WEBAUTHN)
         const loadScript = (src, id, callback) => {
             if (document.getElementById(id)) { if (callback) callback(); return; }
             const script = document.createElement('script');
@@ -16845,15 +16835,15 @@ export default function App() {
             document.body.appendChild(script);
         };
         
-        // --- NOVO: Carrega a biblioteca de biometria via CDN dinamicamente ---
         loadScript('https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.umd.min.js', 'webauthn-browser-script');
-        
         loadScript('https://cdn.jsdelivr.net/npm/chart.js', 'chartjs-script');
         loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'xlsx-script');
         loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'jspdf-script', () => {
             loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js', 'jspdf-autotable-script');
         });
-        loadScript('https://sdk.mercadopago.com/js/v2', 'mercadopago-sdk');
+        
+        // O Script do Mercado Pago foi removido daqui, pois o @mercadopago/sdk-react 
+        // já lida com a injeção do script automaticamente, evitando duplicação.
     }, []);
 
     return (
