@@ -6361,8 +6361,8 @@ const CheckoutPage = ({ onNavigate }) => {
                !displayAddress.is_incomplete;
     }, [displayAddress, autoCalculatedShipping, isSomeoneElsePickingUp, pickupPersonName, pickupPersonCpf]);
 
-    // --- CORREÇÃO DO PAGAMENTO E EXPORTAÇÃO DOS DADOS ---
-    const handlePaymentSubmit = async (paymentResponse) => {
+    // --- CORREÇÃO DO PAGAMENTO E EXPORTAÇÃO DOS DADOS (mpResponse) ---
+    const handlePaymentSubmit = async (mpResponse) => {
         const isPickup = autoCalculatedShipping?.isPickup;
         if (!canPlaceOrder && !isPickup) {
              notification.show("Por favor, complete o endereço de entrega para continuar.", 'error');
@@ -6380,6 +6380,7 @@ const CheckoutPage = ({ onNavigate }) => {
 
         setIsLoading(true);
         try {
+            // 1. Cria o pedido no banco primeiro (Status: Pendente)
             const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
             const cpfToSend = (isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf)?.replace(/\D/g, '') || '';
             const nameToSend = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
@@ -6393,16 +6394,18 @@ const CheckoutPage = ({ onNavigate }) => {
             
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
 
-            // CORREÇÃO AQUI: Garante que estamos pegando a camada 'formData' do objeto retornado pelo Mercado Pago
-            const actualPaymentData = paymentResponse.formData || paymentResponse;
+            // CORREÇÃO: Extrai corretamente os dados limpos gerados pelo Brick (formData)
+            const actualPaymentData = mpResponse.formData || mpResponse;
 
             const paymentPayload = {
                 orderId,
                 paymentData: actualPaymentData 
             };
 
+            // 2. Processa o pagamento via Backend
             const paymentResult = await apiService('/process-payment', 'POST', paymentPayload);
 
+            // 3. Valida os status de sucesso do MP
             if (['approved', 'in_process', 'pending'].includes(paymentResult.status)) {
                 clearOrderState();
                 onNavigate(`order-success/${orderId}`);
@@ -6410,7 +6413,7 @@ const CheckoutPage = ({ onNavigate }) => {
                 notification.show(`Pagamento recusado pela operadora. Tente outro cartão ou método.`, 'error');
             }
         } catch (error) {
-            notification.show(`Erro: ${error.message}`, 'error');
+            notification.show(`Erro ao processar: ${error.message}`, 'error');
         } finally {
             setIsLoading(false);
         }
@@ -6621,13 +6624,14 @@ const CheckoutPage = ({ onNavigate }) => {
                                                 },
                                                 visual: {
                                                     style: {
-                                                        theme: 'dark' // Apenas isto é suficiente. Removemos as customVariables.
+                                                        theme: 'dark' // Apenas isto é suficiente. Removemos as customVariables que causavam o erro de SVG.
                                                     }
                                                 }
                                             }}
                                             onSubmit={handlePaymentSubmit}
                                             onError={(error) => {
-                                                // Ignora silenciosamente o erro de IndexedDB que não afeta a usabilidade
+                                                // Ignora silenciosamente o erro de IndexedDB que não afeta a usabilidade, 
+                                                // pois ele é apenas um aviso do React StrictMode com o SDK do MP.
                                                 if(error?.message && error.message.includes("createObjectStore")) return;
                                                 console.error("Mercado Pago Bricks Error:", error);
                                             }}
