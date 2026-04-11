@@ -6476,7 +6476,7 @@ const CheckoutPage = ({ onNavigate }) => {
             },
             paymentMethods: {
                 creditCard: "all",
-                pix: "all",
+                bankTransfer: "all", // CORREÇÃO: Essa é a chave correta para habilitar o Pix no Brick!
                 ticket: "all"
             }
         };
@@ -6486,6 +6486,7 @@ const CheckoutPage = ({ onNavigate }) => {
             preferenceId: currentPreferenceId,
             payer: {
                 email: user?.email || '',
+                entityType: 'individual' // CORREÇÃO: Resolve o aviso amarelo no console "entityType only receives..."
             }
         };
 
@@ -6684,7 +6685,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                 </CheckoutSection>
                             )}
 
-                            {/* Passo 3: Pagamento (Informa que é na próxima tela) */}
+                            {/* O passo 3 agora apenas avisa que o pagamento é integrado */}
                             <CheckoutSection title="Forma de Pagamento" step={3} icon={CreditCardIcon}>
                                 <div className="space-y-3">
                                     <div className="relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center gap-4 border-amber-400 bg-gray-800 shadow-inner">
