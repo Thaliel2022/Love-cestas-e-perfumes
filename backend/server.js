@@ -3752,31 +3752,25 @@ const processPaymentWebhook = async (paymentId) => {
             const { status: currentDBStatus } = currentOrder;
 
             // 3. SEGURANÇA CRÍTICA: Validação de Valor
-            // Compara o valor efetivamente pago no MP com o valor total registrado no banco
             const paidAmount = parseFloat(payment.transaction_amount);
             const orderTotal = parseFloat(currentOrder.total);
             const difference = Math.abs(paidAmount - orderTotal);
 
-            // Aceita diferença mínima de R$ 0,05 (para casos raros de arredondamento), mas bloqueia fraudes
             if (paymentStatus === 'approved' && difference > 0.05) {
                 console.error(`[SEGURANÇA] 🚨 FRAUDE DETECTADA: Divergência de valor no Pedido #${orderId}. Esperado: R$ ${orderTotal}, Pago: R$ ${paidAmount}`);
                 
-                // Registra o incidente mas NÃO aprova o pedido
                 await connection.query(
                     "UPDATE orders SET status = 'Pagamento Recusado', payment_status = 'fraud_suspected', notes = ? WHERE id = ?",
                     [`FRAUDE: Valor pago (R$ ${paidAmount}) diverge do total (R$ ${orderTotal}).`, orderId]
                 );
                 
                 await connection.commit();
-                
-                // Opcional: Notificar admin imediatamente (pode ser adicionado aqui)
                 return; 
             }
 
-            console.log(`[Webhook] Valores conferem. Status atual do pedido ${orderId} no DB: '${currentDBStatus}'`);
-
-            // Extrai detalhes do pagamento para salvar
+            // 4. Mapeamento de Detalhes de Pagamento (CORRIGIDO: NÃO APAGA O QR CODE E O BOLETO)
             let paymentDetailsPayload = null;
+            
             if (payment.payment_type_id === 'credit_card' && payment.card && payment.card.last_four_digits) {
                 paymentDetailsPayload = {
                     method: 'credit_card',
@@ -3784,13 +3778,44 @@ const processPaymentWebhook = async (paymentId) => {
                     card_last_four: payment.card.last_four_digits,
                     installments: payment.installments
                 };
-            } else if (payment.payment_type_id === 'bank_transfer' || payment.payment_method_id === 'pix') {
-                paymentDetailsPayload = { method: 'pix' };
+            } else if (payment.payment_method_id === 'pix' || payment.payment_type_id === 'bank_transfer') {
+                paymentDetailsPayload = { method: 'pix', type: payment.payment_type_id };
+                
+                // Extrai o QR Code do próprio webhook para garantir que não será perdido
+                if (payment.point_of_interaction?.transaction_data) {
+                    paymentDetailsPayload.qr_code = payment.point_of_interaction.transaction_data.qr_code;
+                    paymentDetailsPayload.qr_code_base64 = payment.point_of_interaction.transaction_data.qr_code_base64;
+                    paymentDetailsPayload.ticket_url = payment.point_of_interaction.transaction_data.ticket_url;
+                } else {
+                    // Se o webhook vier sem o QR Code, preserva o que o backend já tinha salvo
+                    try {
+                        const existingDetails = currentOrder.payment_details ? JSON.parse(currentOrder.payment_details) : null;
+                        if (existingDetails && existingDetails.qr_code) {
+                            paymentDetailsPayload.qr_code = existingDetails.qr_code;
+                            paymentDetailsPayload.qr_code_base64 = existingDetails.qr_code_base64;
+                        }
+                    } catch(e) {}
+                }
             } else if (payment.payment_type_id === 'ticket') {
-                paymentDetailsPayload = { method: 'boleto' };
+                paymentDetailsPayload = { method: payment.payment_method_id, type: 'ticket' };
+                
+                if (payment.transaction_details && payment.transaction_details.external_resource_url) {
+                    paymentDetailsPayload.external_resource_url = payment.transaction_details.external_resource_url;
+                    paymentDetailsPayload.barcode = payment.barcode?.content || payment.barcode;
+                } else {
+                    try {
+                        const existingDetails = currentOrder.payment_details ? JSON.parse(currentOrder.payment_details) : null;
+                        if (existingDetails && existingDetails.external_resource_url) {
+                            paymentDetailsPayload.external_resource_url = existingDetails.external_resource_url;
+                            paymentDetailsPayload.barcode = existingDetails.barcode;
+                        }
+                    } catch(e) {}
+                }
+            } else {
+                try { paymentDetailsPayload = currentOrder.payment_details ? JSON.parse(currentOrder.payment_details) : { method: payment.payment_method_id }; } catch(e) {}
             }
             
-            // Atualiza dados técnicos do pagamento
+            // Atualiza dados técnicos do pagamento no banco
             await connection.query(
                 "UPDATE orders SET payment_status = ?, payment_gateway_id = ?, payment_details = ? WHERE id = ?",
                 [
@@ -3826,13 +3851,6 @@ const processPaymentWebhook = async (paymentId) => {
                     html: adminEmailHtml
                 });
 
-                // Verificação de Estoque Baixo (Mantida da versão anterior)
-                try {
-                   // ... (Lógica de alerta de estoque baixo mantida aqui para brevidade do bloco, já existe no seu código)
-                } catch (stockErr) {
-                   console.error("Erro ao verificar estoque na aprovação:", stockErr);
-                }
-
             } else if ((paymentStatus === 'rejected' || paymentStatus === 'cancelled') && currentDBStatus !== ORDER_STATUS.CANCELLED) {
                 // Lógica de Rejeição e Estorno de Estoque
                 await updateOrderStatus(orderId, ORDER_STATUS.PAYMENT_REJECTED, connection);
@@ -3856,14 +3874,10 @@ const processPaymentWebhook = async (paymentId) => {
                             await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
                         }
                     }
-                    console.log(`[Webhook] Estoque e vendas revertidos para o pedido ${orderId}.`);
                 }
-            } else {
-                 console.log(`[Webhook] Nenhuma atualização de status necessária para o pedido ${orderId}. Status atual: '${currentDBStatus}'.`);
             }
             
             await connection.commit();
-            console.log(`[Webhook] Transação para o pedido ${orderId} finalizada com sucesso.`);
 
         } catch(dbError) {
             console.error(`[Webhook] ERRO DE BANCO DE DADOS ao processar pedido ${orderId}:`, dbError);
