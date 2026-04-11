@@ -3,8 +3,6 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { initMercadoPago, Payment } from '@mercadopago/sdk-react';
-initMercadoPago('APP_USR-fe8bcd59-da54-4fb5-a3d0-8b8f749097be', { locale: 'pt-BR' });
 
 // --- Constante da API ---
 const API_URL = process.env.REACT_APP_API_URL || 'https://love-cestas-e-perfumes.onrender.com/api';
@@ -82,7 +80,7 @@ const CurrencyDollarArrowIcon = ({ className }) => <svg xmlns="http://www.w3.org
 const ArrowUturnLeftIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M15 10a.75.75 0 0 1-.75.75H7.707l2.293 2.293a.75.75 0 1 1-1.06 1.06l-3.5-3.5a.75.75 0 0 1 0-1.06l3.5-3.5a.75.75 0 0 1 1.06 1.06L7.707 9.25H14.25A.75.75 0 0 1 15 10Z" clipRule="evenodd" /></svg>;
 const ShieldCheckIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M10 1a.75.75 0 0 1 .75.75v1.252a1.75 1.75 0 0 1 2.476 1.222l.17.682a.75.75 0 0 1-1.42.354l-.17-.682a.25.25 0 0 0-.353-.175.75.75 0 0 1-.586 0 .25.25 0 0 0-.353.175l-.17.682a.75.75 0 0 1-1.42-.354l.17-.682A1.75 1.75 0 0 1 9.25 3.002V1.75A.75.75 0 0 1 10 1ZM5.113 4.634a.75.75 0 0 1 1.06 0l1.592 1.591a.75.75 0 0 1-1.06 1.06l-1.592-1.59a.75.75 0 0 1 0-1.061Zm8.714 0a.75.75 0 0 1 0 1.06l-1.591 1.591a.75.75 0 1 1-1.06-1.06l1.59-1.591a.75.75 0 0 1 1.061 0ZM10 4.25a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5a.75.75 0 0 1 .75-.75ZM10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm-2.207-6.207a1 1 0 0 1 1.414 0L10 12.586l.793-.793a1 1 0 1 1 1.414 1.414l-1.5 1.5a1 1 0 0 1-1.414 0l-2.5-2.5a1 1 0 0 1 0-1.414Z" clipRule="evenodd" /></svg>;
 const FingerprintIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className || "w-6 h-6"}><path strokeLinecap="round" strokeLinejoin="round" d="M7.864 4.243A7.5 7.5 0 0119.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 004.5 10.5a7.464 7.464 0 01-1.15 3.993m1.989 3.559A11.209 11.209 0 008.25 10.5a3.75 3.75 0 117.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 01-3.6 9.75m6.633-4.596a18.666 18.666 0 01-2.485 5.33" /></svg>;
-const LockClosedIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}><path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clipRule="evenodd" /></svg>;
+
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
     cpf = String(cpf).replace(/[^\d]/g, ''); 
@@ -6210,20 +6208,19 @@ const CheckoutSection = ({ title, step, children, icon: Icon }) => (
     </div>
 );
 
-// Inicialização limpa fora do componente
-initMercadoPago('APP_USR-fe8bcd59-da54-4fb5-a3d0-8b8f749097be', { locale: 'pt-BR' });
-
 const CheckoutPage = ({ onNavigate }) => {
     const { user } = useAuth();
     const {
         cart, autoCalculatedShipping, appliedCoupon, clearOrderState, addresses,
         fetchAddresses, shippingLocation, setShippingLocation, shippingOptions,
         setAutoCalculatedShipping, setSelectedShippingName, pickupConfig,
+        // Trazendo as funções de cupom do contexto global
         couponCode, setCouponCode, applyCoupon, removeCoupon, couponMessage
     } = useShop();
     const notification = useNotification();
 
     const [displayAddress, setDisplayAddress] = useState(null);
+    const [paymentMethod, setPaymentMethod] = useState('mercadopago');
     const [isLoading, setIsLoading] = useState(false);
     const [isAddressLoading, setIsAddressLoading] = useState(true);
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
@@ -6232,7 +6229,6 @@ const CheckoutPage = ({ onNavigate }) => {
     const [pickupPersonName, setPickupPersonName] = useState('');
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
     const [whatsapp, setWhatsapp] = useState(''); 
-    const [isBrickReady, setIsBrickReady] = useState(false);
 
     useEffect(() => {
         const pendingOrderId = localStorage.getItem('pendingOrderId');
@@ -6365,92 +6361,54 @@ const CheckoutPage = ({ onNavigate }) => {
                !displayAddress.is_incomplete;
     }, [displayAddress, autoCalculatedShipping, isSomeoneElsePickingUp, pickupPersonName, pickupPersonCpf]);
 
-    // --- NOVA LÓGICA: CRIA TUDO QUANDO CLICA EM "PAGAR" NO BRICK ---
-    const handlePaymentSubmit = async ({ selectedPaymentMethod, formData }) => {
-        if (!canPlaceOrder && !autoCalculatedShipping?.isPickup) {
-             notification.show("Por favor, complete o endereço de entrega para continuar.", 'error');
-             return Promise.reject();
+    const handlePlaceOrderAndPay = async () => {
+        const isPickup = autoCalculatedShipping?.isPickup;
+        if (!canPlaceOrder && !isPickup) {
+             notification.show("Por favor, complete o endereço de entrega (Rua, Número e Bairro) para continuar.", 'error');
+             setIsNewAddressModalOpen(true); return;
         }
-        if (!whatsapp || !validatePhone(whatsapp)) { 
-             notification.show("Por favor, informe um número de WhatsApp válido.", 'error'); 
-             return Promise.reject(); 
-        }
+        if (!whatsapp || !validatePhone(whatsapp)) { notification.show("Por favor, informe um número de WhatsApp válido para contato.", 'error'); return; }
+        const nameToCheck = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
+        const cpfToCheck = isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf;
         
+        if (isPickup && (!nameToCheck || !validateCPF(cpfToCheck))) {
+            if(!isSomeoneElsePickingUp && !user) notification.show("Faça login ou marque 'Outra pessoa vai retirar?' e preencha os dados.", 'error');
+            else notification.show("Preencha nome e CPF válidos para quem vai retirar.", 'error');
+            return;
+        }
+
         setIsLoading(true);
         try {
-            const isPickup = autoCalculatedShipping?.isPickup;
             const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
             const cpfToSend = (isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf)?.replace(/\D/g, '') || '';
             const nameToSend = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
 
-            // 1. Prepara o Pedido
             const orderPayload = {
                 items: cart.map(item => ({ id: item.id, qty: item.qty, price: (item.is_on_sale && item.sale_price ? item.sale_price : item.price), variation: item.variation })),
-                total, shippingAddress: finalShippingAddress, paymentMethod: 'mercadopago_bricks', shipping_method: autoCalculatedShipping.name, shipping_cost: shippingCost,
+                total, shippingAddress: finalShippingAddress, paymentMethod, shipping_method: autoCalculatedShipping.name, shipping_cost: shippingCost,
                 coupon_code: appliedCoupon?.code || null, discount_amount: discount, pickup_details: isPickup ? JSON.stringify({ personName: nameToSend, personCpf: cpfToSend }) : null,
                 phone: whatsapp.replace(/\D/g, '')
             };
             
-            // 2. Salva no Banco de Dados
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
 
-            // 3. Processa o Pagamento no Mercado Pago
-            await apiService('/process_payment', 'POST', {
-                payment_data: formData,
-                orderId: orderId
-            });
-            
-            clearOrderState();
-            // Leva pra tela de sucesso onde o QR Code será exibido
-            onNavigate(`order-success/${orderId}`);
+            if (paymentMethod === 'mercadopago') {
+                localStorage.setItem('pendingOrderId', orderId);
+                const { init_point } = await apiService('/create-mercadopago-payment', 'POST', { orderId });
+                if (init_point) window.location.assign(init_point);
+                else throw new Error("Link de pagamento não obtido.");
+            } else {
+                clearOrderState();
+                onNavigate(`order-success/${orderId}`);
+            }
         } catch (error) {
+            notification.show(`Erro: ${error.message}`, 'error');
             setIsLoading(false);
-            notification.show("Erro ao processar o pagamento. Verifique seus dados.", "error");
-            return Promise.reject(); // Para o Brick entender que falhou
         }
-    };
-
-    const handlePaymentReady = () => setIsBrickReady(true);
-    const handlePaymentError = (error) => {
-        console.error("Erro no Payment Brick:", error);
-        notification.show("Erro ao carregar o módulo de pagamento.", "error");
     };
 
     const pAddress = pickupConfig?.address;
     const isPAddressObj = typeof pAddress === 'object' && pAddress !== null;
-
-    // --- CONFIGURAÇÃO DO BRICK NO MODO PURO (SEM PREFERENCE ID) ---
-    const customization = {
-        visual: {
-            style: {
-                theme: 'dark', 
-                customVariables: {
-                    textPrimaryColor: '#ffffff',
-                    textSecondaryColor: '#9ca3af',
-                    inputBackgroundColor: '#1f2937',
-                    formBackgroundColor: '#111827',
-                    baseColor: '#fbbf24', 
-                    baseColorFirstVariant: '#f59e0b',
-                    baseColorSecondVariant: '#d97706',
-                    errorColor: '#ef4444',
-                    successColor: '#10b981'
-                }
-            }
-        },
-        paymentMethods: {
-            creditCard: "all",
-            bankTransfer: "all", // Garante o Pix
-            ticket: "all"
-        }
-    };
-
-    const initialization = {
-        amount: total,
-        payer: {
-            email: user?.email || '',
-            entityType: 'individual'
-        }
-    };
 
     return (
         <>
@@ -6459,8 +6417,9 @@ const CheckoutPage = ({ onNavigate }) => {
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/80 backdrop-blur-md">
                         <div className="bg-gray-900 border border-gray-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center transform transition-all ring-1 ring-amber-500/30">
                             <SpinnerIcon className="h-16 w-16 text-amber-400 mb-6 animate-spin" />
-                            <h3 className="text-2xl font-extrabold text-white mb-2">Processando Pagamento...</h3>
-                            <p className="text-sm font-medium text-gray-300">Conectando ao banco com segurança.</p>
+                            <h3 className="text-2xl font-extrabold text-white mb-2">Processando Pedido</h3>
+                            <p className="text-sm font-medium text-gray-300">Estamos gerando seu link de pagamento seguro no Mercado Pago...</p>
+                            <p className="text-xs text-red-400 mt-5 font-bold uppercase tracking-widest animate-pulse">Por favor, não feche esta janela</p>
                         </div>
                     </motion.div>
                 )}
@@ -6487,6 +6446,10 @@ const CheckoutPage = ({ onNavigate }) => {
                                             <input type="text" value={whatsapp} onChange={handleWhatsappChange} placeholder="(00) 00000-0000" className="w-full pl-10 p-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 text-white" />
                                             <WhatsappIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-green-500" />
                                         </div>
+                                    </div>
+                                    <div className="bg-blue-900/30 border border-blue-800 p-3 rounded-md flex gap-3 items-start">
+                                        <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                                        <p className="text-sm text-blue-200">Manteremos você informado sobre cada etapa do seu pedido através deste número.<br/><span className="text-xs text-gray-400 mt-1 block">Caso altere o número aqui, seu cadastro será atualizado automaticamente.</span></p>
                                     </div>
                                 </div>
                             </CheckoutSection>
@@ -6529,8 +6492,27 @@ const CheckoutPage = ({ onNavigate }) => {
                                                 ) : (
                                                     <p className="text-gray-300">{pAddress || 'Endereço não configurado'}</p>
                                                 )}
+
+                                                {pickupConfig?.mapsLink && (
+                                                    <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 hover:underline text-xs font-bold mt-2 inline-flex items-center gap-1 bg-amber-400/10 px-3 py-1.5 rounded-md border border-amber-400/30 transition-all">
+                                                        Ver localização no mapa <ArrowUturnLeftIcon className="h-3 w-3 rotate-180" />
+                                                    </a>
+                                                )}
                                             </div>
                                         </div>
+                                        
+                                        <div className="flex items-start gap-2 pt-3 border-t border-gray-700">
+                                            <ClockIcon className="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                                            <div>
+                                                <p className="font-bold text-white">Horário de Funcionamento:</p>
+                                                <p className="text-gray-300 mt-1">{pickupConfig?.hours || 'Seg a Sáb: 09h-11h30 e 15h-17h30 (exceto feriados)'}</p>
+                                            </div>
+                                        </div>
+
+                                        <p className="text-amber-300 text-xs mt-3 font-semibold bg-amber-900/30 p-2 rounded border border-amber-800 flex items-center gap-1.5">
+                                            <ExclamationCircleIcon className="h-4 w-4" />
+                                            Aguarde a notificação "Pronto para Retirada" antes de se dirigir ao local.
+                                        </p>
                                     </div>
                                     <div className="mt-5 space-y-3">
                                         <div className="flex items-center">
@@ -6579,41 +6561,24 @@ const CheckoutPage = ({ onNavigate }) => {
                                 </CheckoutSection>
                             )}
 
-                            {/* --- SEÇÃO 3: O BRICK NATIVO ESTÁ AQUI --- */}
                             <CheckoutSection title="Forma de Pagamento" step={3} icon={CreditCardIcon}>
-                                {(!canPlaceOrder && !autoCalculatedShipping?.isPickup) ? (
-                                    <div className="text-center py-8 bg-gray-800/50 rounded-lg border border-dashed border-gray-700">
-                                        <MapPinIcon className="h-8 w-8 text-gray-500 mx-auto mb-3" />
-                                        <p className="text-gray-400 font-medium">Preencha o endereço de entrega acima para liberar o pagamento.</p>
-                                    </div>
-                                ) : !autoCalculatedShipping ? (
-                                     <div className="text-center py-8 bg-gray-800/50 rounded-lg border border-dashed border-gray-700">
-                                        <TruckIcon className="h-8 w-8 text-gray-500 mx-auto mb-3" />
-                                        <p className="text-gray-400 font-medium">Selecione uma forma de entrega para continuar.</p>
-                                    </div>
-                                ) : (
-                                    <div className="w-full relative min-h-[300px]">
-                                        {!isBrickReady && (
-                                             <div className="absolute inset-0 flex flex-col items-center justify-center py-6 bg-gray-900 z-10 rounded-lg">
-                                                <SpinnerIcon className="h-8 w-8 text-amber-500 animate-spin mb-3" />
-                                                <p className="text-gray-400 text-sm">Carregando ambiente seguro...</p>
+                                <div className="space-y-3">
+                                    <div onClick={() => setPaymentMethod('mercadopago')}
+                                         className={`relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center gap-4 ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-gray-800 shadow-inner' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}>
+                                        <div className="absolute top-3 left-3 w-5 h-5 flex items-center justify-center">
+                                            <div className={`w-4 h-4 rounded-full border-2 ${paymentMethod === 'mercadopago' ? 'border-amber-400' : 'border-gray-500'}`}>
+                                                {paymentMethod === 'mercadopago' && <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-400"></div></div>}
                                             </div>
-                                        )}
-                                        <div className={`transition-opacity duration-500 ${isBrickReady ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
-                                            <Payment
-                                                initialization={initialization}
-                                                customization={customization}
-                                                onSubmit={handlePaymentSubmit}
-                                                onReady={handlePaymentReady}
-                                                onError={handlePaymentError}
-                                            />
+                                        </div>
+                                        <div className="pl-8 flex-grow">
+                                            <span className="font-bold text-base text-white">Mercado Pago</span>
+                                            <p className="text-xs text-gray-400 mt-0.5">Cartão de Crédito, Pix ou Boleto.</p>
                                         </div>
                                     </div>
-                                )}
+                                </div>
                             </CheckoutSection>
                         </div> 
 
-                        {/* --- LATERAL DIREITA: RESUMO DO PEDIDO --- */}
                         <div className="lg:col-span-1">
                              <div className="bg-gray-900 rounded-lg border border-gray-800 p-5 lg:p-6 shadow-lg h-fit lg:sticky lg:top-24">
                                 <h2 className="text-xl font-bold mb-5 text-amber-400 border-b border-gray-700 pb-3">Resumo do Pedido</h2>
@@ -6658,6 +6623,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                     </div>
                                 </div>
 
+                                {/* --- NOVO: CAMPO DE CUPOM ADICIONADO AQUI --- */}
                                 <div className="mt-5 border-t border-gray-700 pt-5">
                                     {!appliedCoupon ? (
                                         <>
@@ -6684,13 +6650,23 @@ const CheckoutPage = ({ onNavigate }) => {
                                     )}
                                 </div>
 
-                                {/* Como o pagamento agora é na etapa 3, o botão grande some e colocamos um aviso amigável */}
-                                <div className="mt-6 p-4 bg-blue-900/20 border border-blue-800/50 rounded-xl text-center">
-                                    <ShieldCheckIcon className="h-8 w-8 text-blue-400 mx-auto mb-2" />
-                                    <p className="text-sm text-blue-200">
-                                        Sua compra está protegida. O pagamento deve ser concluído no formulário à esquerda.
+                                <button
+                                    onClick={handlePlaceOrderAndPay}
+                                    disabled={(!canPlaceOrder && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading}
+                                    className={`w-full mt-6 py-3 rounded-md font-bold text-lg shadow-md transition-all duration-300 flex items-center justify-center gap-2
+                                        ${(!canPlaceOrder && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading 
+                                            ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
+                                            : 'bg-gradient-to-r from-amber-400 to-amber-500 text-black hover:from-amber-300 hover:to-amber-400 hover:shadow-lg'
+                                        }`}
+                                >
+                                    <CheckBadgeIcon className="h-5 w-5" />
+                                    Finalizar Compra
+                                </button>
+                                {(!canPlaceOrder && !autoCalculatedShipping?.isPickup && !isLoading) && (
+                                    <p className="text-center text-xs text-red-400 mt-3 font-semibold">
+                                        ⚠️ Complete o endereço de entrega para continuar.
                                     </p>
-                                </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -6703,15 +6679,15 @@ const CheckoutPage = ({ onNavigate }) => {
 const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
     const { clearOrderState } = useShop();
     const notification = useNotification();
-    const [pageStatus, setPageStatus] = useState('processing'); 
+    const [pageStatus, setPageStatus] = useState('processing'); // 'processing', 'success', 'timeout', 'pending_action'
     const [finalOrderStatus, setFinalOrderStatus] = useState('');
     const [isRetryingPayment, setIsRetryingPayment] = useState(false);
-    const [isCheckingManual, setIsCheckingManual] = useState(false); 
-    const [pixData, setPixData] = useState(null); // Estado para o QR Code do Pix
+    const [isCheckingManual, setIsCheckingManual] = useState(false); // Novo estado para o botão "Já Paguei"
 
     const statusRef = useRef(pageStatus);
     const pollsCount = useRef(0);
 
+    // Detecta se está no navegador padrão ou dentro do PWA (Standalone)
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
 
     useEffect(() => {
@@ -6719,22 +6695,30 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
     }, [pageStatus]);
 
     const pollStatus = useCallback(async (isManualCheck = false) => {
-        try {
-            // A rota /api/orders/:id/status agora traz o status E OS DETALHES DE PAGAMENTO!
-            const response = await apiService(`/orders/${orderId}/status?_t=${Date.now()}`);
+        console.log(`Verificando status do pedido #${orderId}... (Manual: ${isManualCheck})`);
+        
+        // 1. Verificação via URL (Lê apenas se NÃO for uma checagem manual pelo botão)
+        const hashParts = window.location.hash.split('?');
+        if (hashParts.length > 1 && !isManualCheck) {
+            const params = new URLSearchParams(hashParts[1]);
+            const mpStatus = params.get('status') || params.get('collection_status');
             
-            if (response.payment_details) {
-                try {
-                    const details = JSON.parse(response.payment_details);
-                    if (details.method === 'pix' && details.qr_code_base64) {
-                        setPixData({
-                            image: `data:image/jpeg;base64,${details.qr_code_base64}`,
-                            code: details.qr_code
-                        });
-                    }
-                } catch(e) {}
+            if (mpStatus === 'approved') {
+                setFinalOrderStatus('Pagamento Aprovado');
+                setPageStatus('success');
+                window.location.hash = hashParts[0]; // Limpa a URL para não prender em loops
+                return true; 
+            } else if (mpStatus === 'rejected' || mpStatus === 'null' || mpStatus === 'cancelled') {
+                setFinalOrderStatus('Pagamento Recusado');
+                setPageStatus('pending_action');
+                window.location.hash = hashParts[0]; // Limpa a URL
+                return true;
             }
+        }
 
+        // 2. Verificação Real via API (Anti-Cache)
+        try {
+            const response = await apiService(`/orders/${orderId}/status?_t=${Date.now()}`);
             if (response.status && response.status !== 'Pendente') {
                 setFinalOrderStatus(response.status);
                 
@@ -6753,27 +6737,59 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
     }, [orderId]);
 
     const handleRetryPayment = async () => {
-        // Se deu erro ou cancelou, o usuário volta pro carrinho para refazer, já que não temos mais link do Mercado Pago Pro.
-        onNavigate('cart');
-        notification.show("Por favor, selecione os produtos e tente pagar novamente.", 'error');
+        setIsRetryingPayment(true);
+        try {
+            const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
+            if (paymentResult && paymentResult.init_point) {
+                localStorage.setItem('pendingOrderId', orderId);
+                window.location.assign(paymentResult.init_point);
+            } else {
+                throw new Error("Não foi possível obter o link de pagamento.");
+            }
+        } catch (error) {
+            notification.show(`Erro ao tentar abrir o pagamento: ${error.message}`, 'error');
+            setIsRetryingPayment(false);
+        }
     };
 
     const handleManualCheck = async () => {
         setIsCheckingManual(true);
+        
         try {
+            // true indica que o usuário clicou no botão (ignora URL antiga)
             const isFinished = await pollStatus(true);
+            
+            // Trava um tempo mínimo de UX para o usuário ver que a ação foi realizada
             await new Promise(resolve => setTimeout(resolve, 1500));
 
             if (!isFinished) {
                  if (statusRef.current !== 'success') {
                     setPageStatus('pending_action');
-                    notification.show("Ainda não confirmado. Pagamentos via Pix podem levar alguns instantes.", "error");
+                    notification.show("Ainda não confirmado. Boleto/Pix podem levar alguns instantes.", "error");
                  }
             }
         } finally {
             setIsCheckingManual(false);
         }
     };
+
+    useEffect(() => {
+        const resetPaymentState = () => {
+            if (document.visibilityState === 'visible') {
+                setIsRetryingPayment(false);
+            }
+        };
+
+        window.addEventListener('focus', resetPaymentState);
+        window.addEventListener('pageshow', resetPaymentState);
+        document.addEventListener('visibilitychange', resetPaymentState);
+
+        return () => {
+            window.removeEventListener('focus', resetPaymentState);
+            window.removeEventListener('pageshow', resetPaymentState);
+            document.removeEventListener('visibilitychange', resetPaymentState);
+        };
+    }, []);
 
     useEffect(() => {
         clearOrderState(); 
@@ -6784,6 +6800,7 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
 
         const forceCheck = () => {
             if (statusRef.current === 'processing' || statusRef.current === 'pending_action') {
+                // Ao voltar para a tela, não reseta a visualização se já estiver pendente, apenas checa silenciosamente
                 pollStatus().then(isFinished => {
                     if (!isFinished && pollsCount.current > 2 && statusRef.current === 'processing') {
                          setPageStatus('pending_action');
@@ -6830,13 +6847,7 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
         };
     }, [orderId, clearOrderState, pollStatus]); 
 
-    const copyPixCode = () => {
-        if (pixData?.code) {
-            navigator.clipboard.writeText(pixData.code);
-            notification.show("Código Pix copiado! Cole no app do seu banco.", "success");
-        }
-    };
-
+    // --- DESIGN PREMIUM ---
     const renderContent = () => {
         switch (pageStatus) {
             case 'success':
@@ -6857,61 +6868,36 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
                     borderColor: "border-green-500/30"
                 };
             case 'pending_action':
-                // Se estiver pendente e TEMOS O PIX, exibe o QR Code em destaque absurdo!
-                if (pixData) {
-                    return {
-                        icon: (
-                            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-2 shadow-[0_0_40px_rgba(245,158,11,0.2)]">
-                                <PixIcon className="h-12 w-12 text-amber-500" />
-                            </div>
-                        ),
-                        title: "Falta pouco!",
-                        subtitle: `PAGUE O PIX PARA LIBERAR O PEDIDO #${orderId}`,
-                        message: "Escaneie o QR Code ou copie o código abaixo no aplicativo do seu banco para finalizar sua compra. Após pagar, aguarde alguns instantes.",
-                        actions: (
-                            <div className="flex flex-col items-center w-full gap-4">
-                                <div className="bg-white p-4 rounded-xl shadow-lg border-4 border-amber-400">
-                                    <img src={pixData.image} alt="QR Code Pix" className="w-48 h-48 sm:w-56 sm:h-56 object-contain" />
-                                </div>
-                                <button 
-                                    onClick={copyPixCode} 
-                                    className="bg-amber-400 text-black px-6 py-4 rounded-xl font-extrabold w-full flex items-center justify-center gap-2 hover:bg-amber-300 transition-colors shadow-lg active:scale-95 text-lg"
-                                >
-                                    <ClipboardDocListIcon className="h-6 w-6" /> Copiar Código (Pix Copia e Cola)
-                                </button>
-                                <button 
-                                    onClick={handleManualCheck}
-                                    disabled={isCheckingManual}
-                                    className="bg-transparent text-gray-400 border border-gray-600 px-6 py-3 rounded-xl font-bold hover:bg-gray-800 hover:text-white w-full transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 mt-2"
-                                >
-                                    {isCheckingManual ? <SpinnerIcon className="h-5 w-5"/> : <ArrowUturnLeftIcon className="h-5 w-5" />} 
-                                    {isCheckingManual ? 'Verificando pagamento...' : 'Já Paguei! (Atualizar Tela)'}
-                                </button>
-                            </div>
-                        ),
-                        borderColor: "border-amber-500/50"
-                    };
-                }
-
-                // Se recusou/falhou (ou boleto que não temos QR Code)
                 return {
                     icon: (
-                        <div className="w-20 h-20 sm:w-24 sm:h-24 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_40px_rgba(239,68,68,0.2)]">
-                            <XCircleIcon className="h-10 w-10 sm:h-12 sm:w-12 text-red-500" />
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_40px_rgba(245,158,11,0.2)]">
+                            <ExclamationCircleIcon className="h-10 w-10 sm:h-12 sm:w-12 text-amber-500" />
                         </div>
                     ),
-                    title: "Problema no Pagamento",
-                    subtitle: "HOUVE UMA FALHA NA TRANSAÇÃO.",
-                    message: `Não foi possível confirmar o pagamento para o pedido #${orderId}. Se foi no cartão, a operadora pode ter recusado. Clique abaixo para tentar novamente.`,
+                    title: "Aguardando Pagamento",
+                    subtitle: "FINALIZE A COMPRA PARA GARANTIRMOS O ESTOQUE.",
+                    message: `Ainda não recebemos a confirmação do pagamento para o pedido #${orderId}. Se você fechou a janela do Mercado Pago ou precisa gerar o Pix/Boleto novamente, clique abaixo.`,
                     actions: (
-                        <button 
-                            onClick={handleRetryPayment} 
-                            className="bg-red-600 text-white px-6 py-3.5 rounded-xl font-bold text-base hover:bg-red-700 w-full transition-all shadow-lg active:scale-95"
-                        >
-                            Tentar Pagar Novamente
-                        </button>
+                        <div className="flex flex-col gap-4 w-full">
+                             <button 
+                                onClick={handleRetryPayment} 
+                                disabled={isRetryingPayment}
+                                className={`px-6 py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2 w-full transition-all shadow-lg ${isRetryingPayment ? 'bg-green-800/50 text-gray-300 cursor-not-allowed' : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-green-500/30 active:scale-95'}`}
+                            >
+                                {isRetryingPayment ? <SpinnerIcon className="h-5 w-5"/> : <CreditCardIcon className="h-5 w-5"/>}
+                                {isRetryingPayment ? 'Abrindo...' : 'Realizar Pagamento'}
+                            </button>
+                            <button 
+                                onClick={handleManualCheck}
+                                disabled={isCheckingManual}
+                                className="bg-gray-800/80 backdrop-blur text-white border border-gray-600 px-6 py-3.5 rounded-xl font-bold hover:bg-gray-700 w-full transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95"
+                            >
+                                {isCheckingManual ? <SpinnerIcon className="h-5 w-5"/> : <ArrowUturnLeftIcon className="h-5 w-5" />} 
+                                {isCheckingManual ? 'Verificando...' : 'Já Paguei (Atualizar)'}
+                            </button>
+                        </div>
                     ),
-                    borderColor: "border-red-500/30"
+                    borderColor: "border-amber-500/30"
                 };
             case 'timeout':
                 return {
@@ -6922,10 +6908,10 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
                     ),
                     title: "Processando Pagamento...",
                     subtitle: "Isso pode levar alguns minutos.",
-                    message: `O pedido #${orderId} foi registrado. Estamos aguardando a confirmação do Mercado Pago. Se foi Pix ou Boleto, fique tranquilo, ele será confirmado em breve.`,
+                    message: `O pedido #${orderId} foi registrado. Estamos aguardando a confirmação da operadora. Assim que for processado, atualizaremos automaticamente a seção Meus Pedidos.`,
                     actions: (
                         <button onClick={() => onNavigate('account')} className="bg-gray-800 border border-gray-700 text-white px-8 py-3.5 rounded-xl font-bold text-base sm:text-lg hover:bg-gray-700 w-full shadow-lg transition-all active:scale-95">
-                            Acompanhar em Meus Pedidos
+                            Ir para Meus Pedidos
                         </button>
                     ),
                     borderColor: "border-gray-600/30"
@@ -6942,7 +6928,7 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
                     ),
                     title: "Confirmando Pagamento",
                     subtitle: "POR FAVOR, NÃO FECHE ESTA JANELA.",
-                    message: "Estamos verificando o status do seu pagamento com segurança. Isso leva apenas alguns segundos.",
+                    message: "Estamos verificando com o Mercado Pago a situação do seu pedido. Isso leva apenas alguns segundos.",
                     actions: null,
                     borderColor: "border-amber-500/30"
                 };
@@ -6955,11 +6941,14 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
     return (
         <div className="bg-black text-white min-h-[100dvh] flex flex-col justify-start md:justify-center items-center p-4 pt-10 pb-28 md:py-8 relative overflow-x-hidden overflow-y-auto">
             
+            {/* Efeitos de Luz de Fundo (Atrás de tudo) */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-                <div className="absolute top-0 md:top-1/4 left-0 md:left-1/4 w-72 h-72 md:w-96 md:h-96 bg-amber-600/10 rounded-full blur-3xl"></div>
+                <div className="absolute top-0 md:top-1/4 left-0 md:left-1/4 w-72 h-72 md:w-96 md:h-96 bg-amber-600/20 rounded-full blur-3xl"></div>
+                <div className="absolute bottom-0 md:bottom-1/4 right-0 md:right-1/4 w-72 h-72 md:w-96 md:h-96 bg-indigo-600/20 rounded-full blur-3xl"></div>
             </div>
 
-            <div className={`relative z-10 text-center p-6 sm:p-10 bg-gray-900/90 backdrop-blur-xl rounded-3xl shadow-2xl border ${borderColor} max-w-lg w-full transition-all duration-500 my-auto`}>
+            {/* Cartão de Confirmação Premium */}
+            <div className={`relative z-10 text-center p-6 sm:p-10 bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-2xl border ${borderColor} max-w-lg w-full transition-all duration-500 my-auto`}>
                 
                 {icon}
                 
@@ -6975,13 +6964,22 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
                 <div className="flex flex-col items-center gap-4 w-full">
                     {actions}
                     
-                    {pageStatus !== 'processing' && pageStatus !== 'pending_action' && (
+                    {pageStatus !== 'processing' && (
                         <button onClick={() => onNavigate('home')} className="text-gray-500 hover:text-white transition-colors text-sm mt-2 font-medium flex items-center justify-center gap-1.5 w-full py-2">
                             <HomeIcon className="h-4 w-4" /> Voltar à Página Inicial
                         </button>
                     )}
                 </div>
             </div>
+
+            {/* Aviso Inteligente: Se abriu no navegador mas o usuário tem o PWA */}
+            {!isStandalone && pageStatus !== 'processing' && (
+                <div className="mt-8 p-4 bg-blue-900/30 border border-blue-800/50 rounded-xl max-w-lg w-full text-center relative z-10 backdrop-blur-md animate-fade-in">
+                    <p className="text-xs sm:text-sm text-blue-200">
+                        <strong className="text-blue-400">Dica de Acesso:</strong> Parece que você está no navegador do celular. Se você já instalou o nosso aplicativo, recomendamos fechar esta janela e voltar a abrir o app <strong>{displayName}</strong> para a melhor experiência!
+                    </p>
+                </div>
+            )}
         </div>
     );
 };
