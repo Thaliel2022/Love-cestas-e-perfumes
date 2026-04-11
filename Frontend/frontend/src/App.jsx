@@ -3,7 +3,7 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-
+import { initMercadoPago, Payment as MercadoPagoPayment } from '@mercadopago/sdk-react';
 // --- Constante da API ---
 const API_URL = process.env.REACT_APP_API_URL || 'https://love-cestas-e-perfumes.onrender.com/api';
 
@@ -45,6 +45,7 @@ const SpinnerIcon = ({ className }) => {
         </svg>
     );
 };
+initMercadoPago(process.env.REACT_APP_MP_PUBLIC_KEY || 'APP_USR-fe8bcd59-da54-4fb5-a3d0-8b8f749097be', { locale: 'pt-BR' });
 const ClockIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const PackageIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>;
 const CheckBadgeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>;
@@ -6214,7 +6215,6 @@ const CheckoutPage = ({ onNavigate }) => {
         cart, autoCalculatedShipping, appliedCoupon, clearOrderState, addresses,
         fetchAddresses, shippingLocation, setShippingLocation, shippingOptions,
         setAutoCalculatedShipping, setSelectedShippingName, pickupConfig,
-        // Trazendo as funções de cupom do contexto global
         couponCode, setCouponCode, applyCoupon, removeCoupon, couponMessage
     } = useShop();
     const notification = useNotification();
@@ -6361,24 +6361,26 @@ const CheckoutPage = ({ onNavigate }) => {
                !displayAddress.is_incomplete;
     }, [displayAddress, autoCalculatedShipping, isSomeoneElsePickingUp, pickupPersonName, pickupPersonCpf]);
 
-    const handlePlaceOrderAndPay = async () => {
+    // --- NOVA LÓGICA DO CHECKOUT BRICKS ---
+    const handlePaymentSubmit = async (paymentFormData) => {
         const isPickup = autoCalculatedShipping?.isPickup;
         if (!canPlaceOrder && !isPickup) {
-             notification.show("Por favor, complete o endereço de entrega (Rua, Número e Bairro) para continuar.", 'error');
+             notification.show("Por favor, complete o endereço de entrega para continuar.", 'error');
              setIsNewAddressModalOpen(true); return;
         }
-        if (!whatsapp || !validatePhone(whatsapp)) { notification.show("Por favor, informe um número de WhatsApp válido para contato.", 'error'); return; }
+        if (!whatsapp || !validatePhone(whatsapp)) { notification.show("Por favor, informe um número de WhatsApp válido.", 'error'); return; }
+        
         const nameToCheck = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
         const cpfToCheck = isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf;
         
         if (isPickup && (!nameToCheck || !validateCPF(cpfToCheck))) {
-            if(!isSomeoneElsePickingUp && !user) notification.show("Faça login ou marque 'Outra pessoa vai retirar?' e preencha os dados.", 'error');
-            else notification.show("Preencha nome e CPF válidos para quem vai retirar.", 'error');
+            notification.show("Preencha nome e CPF válidos para quem vai retirar.", 'error');
             return;
         }
 
         setIsLoading(true);
         try {
+            // 1. Cria o pedido no banco primeiro (Status: Pendente)
             const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
             const cpfToSend = (isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf)?.replace(/\D/g, '') || '';
             const nameToSend = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
@@ -6392,17 +6394,23 @@ const CheckoutPage = ({ onNavigate }) => {
             
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
 
-            if (paymentMethod === 'mercadopago') {
-                localStorage.setItem('pendingOrderId', orderId);
-                const { init_point } = await apiService('/create-mercadopago-payment', 'POST', { orderId });
-                if (init_point) window.location.assign(init_point);
-                else throw new Error("Link de pagamento não obtido.");
-            } else {
+            // 2. Envia os dados do Brick para processar o pagamento diretamente
+            const paymentPayload = {
+                orderId,
+                paymentData: paymentFormData.formData
+            };
+
+            const paymentResult = await apiService('/process-payment', 'POST', paymentPayload);
+
+            if (['approved', 'in_process', 'pending'].includes(paymentResult.status)) {
                 clearOrderState();
                 onNavigate(`order-success/${orderId}`);
+            } else {
+                notification.show(`Pagamento recusado pela operadora. Tente outro cartão ou método.`, 'error');
             }
         } catch (error) {
             notification.show(`Erro: ${error.message}`, 'error');
+        } finally {
             setIsLoading(false);
         }
     };
@@ -6417,8 +6425,8 @@ const CheckoutPage = ({ onNavigate }) => {
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/80 backdrop-blur-md">
                         <div className="bg-gray-900 border border-gray-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center transform transition-all ring-1 ring-amber-500/30">
                             <SpinnerIcon className="h-16 w-16 text-amber-400 mb-6 animate-spin" />
-                            <h3 className="text-2xl font-extrabold text-white mb-2">Processando Pedido</h3>
-                            <p className="text-sm font-medium text-gray-300">Estamos gerando seu link de pagamento seguro no Mercado Pago...</p>
+                            <h3 className="text-2xl font-extrabold text-white mb-2">Processando Pagamento</h3>
+                            <p className="text-sm font-medium text-gray-300">Estamos validando seus dados de forma segura...</p>
                             <p className="text-xs text-red-400 mt-5 font-bold uppercase tracking-widest animate-pulse">Por favor, não feche esta janela</p>
                         </div>
                     </motion.div>
@@ -6492,27 +6500,8 @@ const CheckoutPage = ({ onNavigate }) => {
                                                 ) : (
                                                     <p className="text-gray-300">{pAddress || 'Endereço não configurado'}</p>
                                                 )}
-
-                                                {pickupConfig?.mapsLink && (
-                                                    <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 hover:underline text-xs font-bold mt-2 inline-flex items-center gap-1 bg-amber-400/10 px-3 py-1.5 rounded-md border border-amber-400/30 transition-all">
-                                                        Ver localização no mapa <ArrowUturnLeftIcon className="h-3 w-3 rotate-180" />
-                                                    </a>
-                                                )}
                                             </div>
                                         </div>
-                                        
-                                        <div className="flex items-start gap-2 pt-3 border-t border-gray-700">
-                                            <ClockIcon className="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" />
-                                            <div>
-                                                <p className="font-bold text-white">Horário de Funcionamento:</p>
-                                                <p className="text-gray-300 mt-1">{pickupConfig?.hours || 'Seg a Sáb: 09h-11h30 e 15h-17h30 (exceto feriados)'}</p>
-                                            </div>
-                                        </div>
-
-                                        <p className="text-amber-300 text-xs mt-3 font-semibold bg-amber-900/30 p-2 rounded border border-amber-800 flex items-center gap-1.5">
-                                            <ExclamationCircleIcon className="h-4 w-4" />
-                                            Aguarde a notificação "Pronto para Retirada" antes de se dirigir ao local.
-                                        </p>
                                     </div>
                                     <div className="mt-5 space-y-3">
                                         <div className="flex items-center">
@@ -6560,23 +6549,6 @@ const CheckoutPage = ({ onNavigate }) => {
                                     )}
                                 </CheckoutSection>
                             )}
-
-                            <CheckoutSection title="Forma de Pagamento" step={3} icon={CreditCardIcon}>
-                                <div className="space-y-3">
-                                    <div onClick={() => setPaymentMethod('mercadopago')}
-                                         className={`relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center gap-4 ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-gray-800 shadow-inner' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}>
-                                        <div className="absolute top-3 left-3 w-5 h-5 flex items-center justify-center">
-                                            <div className={`w-4 h-4 rounded-full border-2 ${paymentMethod === 'mercadopago' ? 'border-amber-400' : 'border-gray-500'}`}>
-                                                {paymentMethod === 'mercadopago' && <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-400"></div></div>}
-                                            </div>
-                                        </div>
-                                        <div className="pl-8 flex-grow">
-                                            <span className="font-bold text-base text-white">Mercado Pago</span>
-                                            <p className="text-xs text-gray-400 mt-0.5">Cartão de Crédito, Pix ou Boleto.</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </CheckoutSection>
                         </div> 
 
                         <div className="lg:col-span-1">
@@ -6617,55 +6589,48 @@ const CheckoutPage = ({ onNavigate }) => {
                                             <span className="font-medium">- R$ {discount.toFixed(2)}</span>
                                         </div>
                                     )}
-                                    <div className="flex justify-between font-bold text-lg text-white border-t border-gray-700 pt-3 mt-3">
+                                    <div className="flex justify-between font-bold text-lg text-white border-t border-gray-700 pt-3 mt-3 mb-4">
                                         <span>Total</span>
                                         <span className="text-amber-400">R$ {total.toFixed(2)}</span>
                                     </div>
                                 </div>
 
-                                {/* --- NOVO: CAMPO DE CUPOM ADICIONADO AQUI --- */}
-                                <div className="mt-5 border-t border-gray-700 pt-5">
-                                    {!appliedCoupon ? (
-                                        <>
-                                            <label className="block text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wide">Possui um cupom de desconto?</label>
-                                            <form onSubmit={handleApplyCoupon} className="flex space-x-2">
-                                                <input 
-                                                    value={couponCode} 
-                                                    onChange={e => setCouponCode(e.target.value.toUpperCase())} 
-                                                    type="text" 
-                                                    placeholder="Digite o código" 
-                                                    className="w-full p-2.5 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-sm text-white placeholder-gray-500 font-mono" 
-                                                />
-                                                <button type="submit" className="px-4 bg-gray-800 border border-gray-600 text-amber-400 font-bold rounded-md hover:bg-gray-700 hover:text-amber-300 text-sm transition-colors">
-                                                    Aplicar
-                                                </button>
-                                            </form>
-                                            {couponMessage && <p className={`text-xs mt-2 font-medium ${couponMessage.includes('aplicado') ? 'text-green-400' : 'text-red-400'}`}>{couponMessage}</p>}
-                                        </>
-                                    ) : (
-                                        <div className="flex justify-between items-center bg-green-900/20 p-3 rounded-md border border-green-800">
-                                            <p className="text-sm text-green-400 flex items-center gap-2 font-medium"><CheckCircleIcon className="h-5 w-5"/> Cupom <strong>{appliedCoupon.code}</strong> aplicado!</p>
-                                            <button onClick={removeCoupon} className="text-xs text-red-400 hover:text-red-300 hover:underline flex-shrink-0 font-medium">Remover</button>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <button
-                                    onClick={handlePlaceOrderAndPay}
-                                    disabled={(!canPlaceOrder && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading}
-                                    className={`w-full mt-6 py-3 rounded-md font-bold text-lg shadow-md transition-all duration-300 flex items-center justify-center gap-2
-                                        ${(!canPlaceOrder && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading 
-                                            ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
-                                            : 'bg-gradient-to-r from-amber-400 to-amber-500 text-black hover:from-amber-300 hover:to-amber-400 hover:shadow-lg'
-                                        }`}
-                                >
-                                    <CheckBadgeIcon className="h-5 w-5" />
-                                    Finalizar Compra
-                                </button>
-                                {(!canPlaceOrder && !autoCalculatedShipping?.isPickup && !isLoading) && (
-                                    <p className="text-center text-xs text-red-400 mt-3 font-semibold">
-                                        ⚠️ Complete o endereço de entrega para continuar.
-                                    </p>
+                                {/* --- RENDERIZAÇÃO DO CHECKOUT BRICKS --- */}
+                                {(!canPlaceOrder || !autoCalculatedShipping || cart.length === 0) ? (
+                                    <div className="text-center p-4 bg-gray-800 border border-gray-700 rounded-lg">
+                                        <p className="text-sm text-gray-400">Preencha o contato e a forma de entrega para liberar o pagamento.</p>
+                                    </div>
+                                ) : (
+                                    <div className="mt-4 pt-4 border-t border-gray-700">
+                                        <MercadoPagoPayment
+                                            initialization={{ amount: total }}
+                                            customization={{
+                                                paymentMethods: {
+                                                    ticket: "all",
+                                                    bankTransfer: "all",
+                                                    creditCard: "all",
+                                                    debitCard: "all",
+                                                    mercadoPago: "all",
+                                                },
+                                                visual: {
+                                                    style: {
+                                                        theme: 'default',
+                                                        customVariables: {
+                                                            formBackgroundColor: '#1f2937', // bg-gray-800
+                                                            baseColor: '#fbbf24', // amber-400
+                                                            textPrimaryColor: '#ffffff',
+                                                            textSecondaryColor: '#9ca3af',
+                                                            inputBackgroundColor: '#374151', // bg-gray-700
+                                                            inputTextColor: '#ffffff',
+                                                            successColor: '#10b981',
+                                                            errorColor: '#ef4444',
+                                                        }
+                                                    }
+                                                }
+                                            }}
+                                            onSubmit={handlePaymentSubmit}
+                                        />
+                                    </div>
                                 )}
                             </div>
                         </div>

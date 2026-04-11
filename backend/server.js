@@ -20,7 +20,7 @@ const webpush = require('web-push');
 const { z } = require('zod'); // Substitui express-validator
 const compression = require('compression'); 
 const { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } = require('@simplewebauthn/server');
-
+const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
 
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
@@ -3503,6 +3503,72 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
     }
 });
 
+// --- NOVA ROTA: Processamento de Pagamento Direto (Bricks) ---
+app.post('/api/process-payment', verifyToken, async (req, res) => {
+    try {
+        const { orderId, paymentData } = req.body;
+        
+        if (!orderId || !paymentData) {
+            return res.status(400).json({ message: "ID do pedido e dados de pagamento são obrigatórios." });
+        }
+        
+        const backendUrl = process.env.BACKEND_URL;
+        const connection = await db.getConnection();
+        
+        try {
+            // Verifica se o pedido existe e pertence ao usuário
+            const [orderResult] = await connection.query("SELECT * FROM orders WHERE id = ? AND user_id = ?", [orderId, req.user.id]);
+            if (!orderResult.length) {
+                return res.status(404).json({ message: "Pedido não encontrado ou acesso negado."});
+            }
+            const order = orderResult[0];
+
+            // Instancia a classe de Pagamento
+            const payment = new Payment(mpClient);
+
+            // Prepara o payload para a API do MP mesclando os dados do Brick
+            const mpPayload = {
+                body: {
+                    ...paymentData,
+                    external_reference: orderId.toString(),
+                    description: `Pedido #${orderId} - Love Cestas e Perfumes`,
+                    notification_url: `${backendUrl}/api/mercadopago-webhook`
+                }
+            };
+
+            console.log(`[Pagamento Direto] Processando pagamento para pedido #${orderId}...`);
+            const result = await payment.create(mpPayload);
+
+            // Atualiza o status do pedido no banco de acordo com a resposta imediata
+            let newStatus = ORDER_STATUS.PENDING;
+            if (result.status === 'approved') {
+                newStatus = ORDER_STATUS.PAYMENT_APPROVED;
+            } else if (result.status === 'rejected') {
+                newStatus = ORDER_STATUS.PAYMENT_REJECTED;
+            }
+
+            // Atualiza os detalhes técnicos (Gateway ID, etc)
+            await connection.query(
+                "UPDATE orders SET payment_status = ?, payment_gateway_id = ? WHERE id = ?",
+                [result.status, result.id, orderId]
+            );
+
+            // Se já foi aprovado ou recusado de cara, roda a função principal de update
+            if (newStatus !== ORDER_STATUS.PENDING) {
+                 await updateOrderStatus(orderId, newStatus, connection, `Pagamento processado via Brick. Status MP: ${result.status}`);
+            }
+
+            res.json({ status: result.status, paymentId: result.id });
+
+        } finally {
+            connection.release();
+        }
+
+    } catch (error) {
+        console.error('Erro ao processar pagamento via Brick do Mercado Pago:', error?.cause || error);
+        res.status(500).json({ message: 'Falha ao processar o pagamento. Tente novamente ou use outro método.' });
+    }
+});
 
 app.get('/api/mercadopago/installments', checkMaintenanceMode, async (req, res) => {
     const { amount } = req.query;
