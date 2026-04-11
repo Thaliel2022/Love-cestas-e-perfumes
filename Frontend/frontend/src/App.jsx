@@ -3,6 +3,7 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { initMercadoPago, Payment } from '@mercadopago/sdk-react';
 
 // --- Constante da API ---
 const API_URL = process.env.REACT_APP_API_URL || 'https://love-cestas-e-perfumes.onrender.com/api';
@@ -6229,10 +6230,17 @@ const CheckoutPage = ({ onNavigate }) => {
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
     const [whatsapp, setWhatsapp] = useState(''); 
 
-    // --- ESTADOS PARA O CHECKOUT BRICKS ---
+    // --- ESTADOS PARA O CHECKOUT BRICKS COM REACT SDK ---
     const [showPaymentBrick, setShowPaymentBrick] = useState(false);
     const [currentPreferenceId, setCurrentPreferenceId] = useState(null);
     const [createdOrderId, setCreatedOrderId] = useState(null);
+
+    // Inicializa o SDK do Mercado Pago de forma nativa com React
+    useEffect(() => {
+        // INSERIR SUA PUBLIC KEY AQUI OU NO .ENV
+        const mpPublicKey = process.env.REACT_APP_MP_PUBLIC_KEY || 'SUA_PUBLIC_KEY_AQUI'; 
+        initMercadoPago(mpPublicKey, { locale: 'pt-BR' });
+    }, []);
 
     useEffect(() => {
         const pendingOrderId = localStorage.getItem('pendingOrderId');
@@ -6394,17 +6402,16 @@ const CheckoutPage = ({ onNavigate }) => {
                 phone: whatsapp.replace(/\D/g, '')
             };
             
-            // Cria o pedido no banco de dados
+            // 1. Cria o pedido no banco de dados com status "Pendente"
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
             setCreatedOrderId(orderId);
 
             if (paymentMethod === 'mercadopago') {
-                // Solicita a Preference ID para alimentar o Brick
+                // 2. Cria a Preference para gerar o token do Brick
                 const { preferenceId } = await apiService('/create-mercadopago-payment', 'POST', { orderId });
                 if (preferenceId) {
                     setCurrentPreferenceId(preferenceId);
                     setShowPaymentBrick(true);
-                    // O loading será desativado pelo onReady do Brick
                 } else {
                     throw new Error("Link de pagamento não obtido.");
                 }
@@ -6418,97 +6425,71 @@ const CheckoutPage = ({ onNavigate }) => {
         }
     };
 
-    // --- EFFECT PARA RENDERIZAR O CHECKOUT BRICK ---
-    useEffect(() => {
-        let brickController;
-        
-        if (showPaymentBrick && currentPreferenceId && window.MercadoPago) {
-            // INSERIR SUA PUBLIC KEY AQUI
-            const mpPublicKey = process.env.REACT_APP_MP_PUBLIC_KEY || 'APP_USR-f349ba38-eb78-43da-91ca-6df4a938c6ab'; 
-            const mp = new window.MercadoPago(mpPublicKey, { locale: 'pt-BR' });
-            const bricksBuilder = mp.bricks();
-
-            const renderPaymentBrick = async () => {
-                const settings = {
-                    initialization: {
-                        amount: total,
-                        preferenceId: currentPreferenceId,
-                        payer: {
-                            email: user?.email || '',
-                            // identification não é estritamente obrigatório na inicialização se o usuário preencher no brick
-                        }
-                    },
-                    customization: {
-                        visual: {
-                            style: {
-                                theme: 'dark', // Design Premium Amazon Level
-                                customVariables: {
-                                    textPrimaryColor: '#ffffff',
-                                    textSecondaryColor: '#9ca3af',
-                                    inputBackgroundColor: '#1f2937',
-                                    formBackgroundColor: '#111827',
-                                    baseColor: '#fbbf24', // Amber 400
-                                    baseColorFirstVariant: '#f59e0b',
-                                    baseColorSecondVariant: '#d97706',
-                                    errorColor: '#ef4444',
-                                    successColor: '#10b981'
-                                }
-                            }
-                        },
-                        paymentMethods: {
-                            creditCard: "all",
-                            pix: "all",
-                            ticket: "all"
-                        }
-                    },
-                    callbacks: {
-                        onReady: () => {
-                            setIsLoading(false);
-                        },
-                        onSubmit: ({ selectedPaymentMethod, formData }) => {
-                            // Este callback é disparado quando o usuário clica em pagar no Brick
-                            setIsLoading(true);
-                            return new Promise((resolve, reject) => {
-                                // Envia o token e os dados para a nova rota do nosso backend
-                                apiService('/process_payment', 'POST', {
-                                    payment_data: formData,
-                                    orderId: createdOrderId
-                                })
-                                .then(() => {
-                                    resolve();
-                                    clearOrderState();
-                                    onNavigate(`order-success/${createdOrderId}`);
-                                })
-                                .catch((error) => {
-                                    reject();
-                                    setIsLoading(false);
-                                    notification.show("Erro ao processar o pagamento. Verifique os dados e tente novamente.", "error");
-                                });
-                            });
-                        },
-                        onError: (error) => {
-                            console.error("Erro no Payment Brick:", error);
-                            setIsLoading(false);
-                        }
-                    }
-                };
-
-                brickController = await bricksBuilder.create('payment', 'paymentBrick_container', settings);
-            };
-
-            renderPaymentBrick();
+    // --- CALLBACKS DO REACT SDK (BRICK) ---
+    const handlePaymentSubmit = async ({ selectedPaymentMethod, formData }) => {
+        setIsLoading(true);
+        try {
+            // Envia os dados encapsulados do Brick para a rota de processamento de pagamento
+            await apiService('/process_payment', 'POST', {
+                payment_data: formData,
+                orderId: createdOrderId
+            });
+            
+            clearOrderState();
+            onNavigate(`order-success/${createdOrderId}`);
+        } catch (error) {
+            setIsLoading(false);
+            notification.show("Erro ao processar o pagamento. Verifique os dados e tente novamente.", "error");
         }
+    };
 
-        return () => {
-            if (brickController) brickController.unmount();
-        };
-    }, [showPaymentBrick, currentPreferenceId, total, user, createdOrderId, clearOrderState, onNavigate, notification]);
+    const handlePaymentReady = () => {
+        setIsLoading(false);
+    };
+
+    const handlePaymentError = (error) => {
+        console.error("Erro no Payment Brick:", error);
+        setIsLoading(false);
+    };
 
     const pAddress = pickupConfig?.address;
     const isPAddressObj = typeof pAddress === 'object' && pAddress !== null;
 
-    // --- SE A TELA DO BRICK ESTIVER ATIVA, RENDERIZA APENAS ELA ---
-    if (showPaymentBrick) {
+    // --- SE A TELA DO BRICK ESTIVER ATIVA, RENDERIZA APENAS O COMPONENTE DO SDK ---
+    if (showPaymentBrick && currentPreferenceId) {
+        // Objeto de customização do Brick (Design Premium Nível Amazon)
+        const customization = {
+            visual: {
+                style: {
+                    theme: 'dark', 
+                    customVariables: {
+                        textPrimaryColor: '#ffffff',
+                        textSecondaryColor: '#9ca3af',
+                        inputBackgroundColor: '#1f2937',
+                        formBackgroundColor: '#111827',
+                        baseColor: '#fbbf24', 
+                        baseColorFirstVariant: '#f59e0b',
+                        baseColorSecondVariant: '#d97706',
+                        errorColor: '#ef4444',
+                        successColor: '#10b981'
+                    }
+                }
+            },
+            paymentMethods: {
+                creditCard: "all",
+                pix: "all",
+                ticket: "all"
+            }
+        };
+
+        const initialization = {
+            amount: total,
+            preferenceId: currentPreferenceId,
+            payer: {
+                email: user?.email || '',
+            }
+        };
+
         return (
             <div className="bg-black min-h-screen text-white pt-8 pb-28 sm:pt-12 sm:pb-12 flex flex-col items-center">
                 <div className="w-full max-w-3xl px-4">
@@ -6538,8 +6519,16 @@ const CheckoutPage = ({ onNavigate }) => {
                             </div>
                         )}
                         
-                        {/* Container obrigatório para o Mercado Pago renderizar o Brick */}
-                        <div id="paymentBrick_container" className={isLoading ? "hidden" : "block w-full"}></div>
+                        {/* RENDERIZA O BRICK NATIVO DO REACT SDK */}
+                        <div className={isLoading ? "hidden" : "block w-full"}>
+                            <Payment
+                                initialization={initialization}
+                                customization={customization}
+                                onSubmit={handlePaymentSubmit}
+                                onReady={handlePaymentReady}
+                                onError={handlePaymentError}
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -6758,6 +6747,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                     </div>
                                 </div>
 
+                                {/* --- NOVO: CAMPO DE CUPOM ADICIONADO AQUI --- */}
                                 <div className="mt-5 border-t border-gray-700 pt-5">
                                     {!appliedCoupon ? (
                                         <>
