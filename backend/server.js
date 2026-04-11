@@ -3503,6 +3503,89 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
     }
 });
 
+// --- ROTA DE PROCESSAMENTO DIRETO (CHECKOUT BRICKS) ---
+app.post('/api/process_payment', verifyToken, async (req, res) => {
+    const { payment_data, orderId } = req.body;
+
+    if (!payment_data || !orderId) {
+        return res.status(400).json({ message: "Dados de pagamento e ID do pedido são obrigatórios." });
+    }
+
+    try {
+        // Inicializa o cliente do MP e o módulo de Pagamento
+        const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
+        const payment = new Payment(client);
+
+        // Cria o pagamento utilizando os dados gerados pelo Brick
+        const paymentResult = await payment.create({
+            body: {
+                transaction_amount: payment_data.transaction_amount,
+                token: payment_data.token,
+                description: `Pedido #${orderId} - Love Cestas e Perfumes`,
+                installments: payment_data.installments,
+                payment_method_id: payment_data.payment_method_id,
+                issuer_id: payment_data.issuer_id,
+                payer: {
+                    email: payment_data.payer.email,
+                    identification: payment_data.payer.identification
+                }
+            }
+        });
+
+        // Mapeia o status do MP para o status do nosso banco de dados
+        let dbStatus = ORDER_STATUS.PENDING;
+        if (paymentResult.status === 'approved') {
+            dbStatus = ORDER_STATUS.PAYMENT_APPROVED;
+        } else if (paymentResult.status === 'rejected' || paymentResult.status === 'cancelled') {
+            dbStatus = ORDER_STATUS.PAYMENT_REJECTED;
+        }
+
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
+
+            // Extrai detalhes do cartão para salvar no banco
+            let paymentDetailsPayload = null;
+            if (payment_data.payment_method_id) {
+                paymentDetailsPayload = {
+                    method: payment_data.payment_method_id === 'pix' ? 'pix' : (payment_data.payment_method_id.includes('ticket') ? 'boleto' : 'credit_card'),
+                    card_brand: paymentResult.payment_method_id,
+                    installments: paymentResult.installments
+                };
+            }
+
+            // Atualiza o pedido com os dados do pagamento aprovado/recusado
+            await connection.query(
+                "UPDATE orders SET payment_status = ?, payment_gateway_id = ?, status = ?, payment_details = ? WHERE id = ?",
+                [paymentResult.status, paymentResult.id, dbStatus, JSON.stringify(paymentDetailsPayload), orderId]
+            );
+
+            // Atualiza a timeline (history)
+            if (dbStatus !== ORDER_STATUS.PENDING) {
+                await updateOrderStatus(orderId, dbStatus, connection, "Processado via Checkout Bricks.");
+            }
+
+            await connection.commit();
+
+            res.json({
+                status: paymentResult.status,
+                status_detail: paymentResult.status_detail,
+                id: paymentResult.id
+            });
+
+        } catch (dbErr) {
+            await connection.rollback();
+            throw dbErr;
+        } finally {
+            connection.release();
+        }
+
+    } catch (error) {
+        console.error("[BRICKS] Erro ao processar pagamento:", error);
+        res.status(500).json({ message: "Erro ao processar pagamento direto na API." });
+    }
+});
+
 
 app.get('/api/mercadopago/installments', checkMaintenanceMode, async (req, res) => {
     const { amount } = req.query;

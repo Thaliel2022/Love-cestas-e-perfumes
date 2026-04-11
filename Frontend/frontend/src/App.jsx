@@ -6214,7 +6214,6 @@ const CheckoutPage = ({ onNavigate }) => {
         cart, autoCalculatedShipping, appliedCoupon, clearOrderState, addresses,
         fetchAddresses, shippingLocation, setShippingLocation, shippingOptions,
         setAutoCalculatedShipping, setSelectedShippingName, pickupConfig,
-        // Trazendo as funções de cupom do contexto global
         couponCode, setCouponCode, applyCoupon, removeCoupon, couponMessage
     } = useShop();
     const notification = useNotification();
@@ -6229,6 +6228,11 @@ const CheckoutPage = ({ onNavigate }) => {
     const [pickupPersonName, setPickupPersonName] = useState('');
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
     const [whatsapp, setWhatsapp] = useState(''); 
+
+    // --- ESTADOS PARA O CHECKOUT BRICKS ---
+    const [showPaymentBrick, setShowPaymentBrick] = useState(false);
+    const [currentPreferenceId, setCurrentPreferenceId] = useState(null);
+    const [createdOrderId, setCreatedOrderId] = useState(null);
 
     useEffect(() => {
         const pendingOrderId = localStorage.getItem('pendingOrderId');
@@ -6390,13 +6394,20 @@ const CheckoutPage = ({ onNavigate }) => {
                 phone: whatsapp.replace(/\D/g, '')
             };
             
+            // Cria o pedido no banco de dados
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
+            setCreatedOrderId(orderId);
 
             if (paymentMethod === 'mercadopago') {
-                localStorage.setItem('pendingOrderId', orderId);
-                const { init_point } = await apiService('/create-mercadopago-payment', 'POST', { orderId });
-                if (init_point) window.location.assign(init_point);
-                else throw new Error("Link de pagamento não obtido.");
+                // Solicita a Preference ID para alimentar o Brick
+                const { preferenceId } = await apiService('/create-mercadopago-payment', 'POST', { orderId });
+                if (preferenceId) {
+                    setCurrentPreferenceId(preferenceId);
+                    setShowPaymentBrick(true);
+                    // O loading será desativado pelo onReady do Brick
+                } else {
+                    throw new Error("Link de pagamento não obtido.");
+                }
             } else {
                 clearOrderState();
                 onNavigate(`order-success/${orderId}`);
@@ -6407,19 +6418,143 @@ const CheckoutPage = ({ onNavigate }) => {
         }
     };
 
+    // --- EFFECT PARA RENDERIZAR O CHECKOUT BRICK ---
+    useEffect(() => {
+        let brickController;
+        
+        if (showPaymentBrick && currentPreferenceId && window.MercadoPago) {
+            // INSERIR SUA PUBLIC KEY AQUI
+            const mpPublicKey = process.env.REACT_APP_MP_PUBLIC_KEY || 'APP_USR-f349ba38-eb78-43da-91ca-6df4a938c6ab'; 
+            const mp = new window.MercadoPago(mpPublicKey, { locale: 'pt-BR' });
+            const bricksBuilder = mp.bricks();
+
+            const renderPaymentBrick = async () => {
+                const settings = {
+                    initialization: {
+                        amount: total,
+                        preferenceId: currentPreferenceId,
+                        payer: {
+                            email: user?.email || '',
+                            // identification não é estritamente obrigatório na inicialização se o usuário preencher no brick
+                        }
+                    },
+                    customization: {
+                        visual: {
+                            style: {
+                                theme: 'dark', // Design Premium Amazon Level
+                                customVariables: {
+                                    textPrimaryColor: '#ffffff',
+                                    textSecondaryColor: '#9ca3af',
+                                    inputBackgroundColor: '#1f2937',
+                                    formBackgroundColor: '#111827',
+                                    baseColor: '#fbbf24', // Amber 400
+                                    baseColorFirstVariant: '#f59e0b',
+                                    baseColorSecondVariant: '#d97706',
+                                    errorColor: '#ef4444',
+                                    successColor: '#10b981'
+                                }
+                            }
+                        },
+                        paymentMethods: {
+                            creditCard: "all",
+                            pix: "all",
+                            ticket: "all"
+                        }
+                    },
+                    callbacks: {
+                        onReady: () => {
+                            setIsLoading(false);
+                        },
+                        onSubmit: ({ selectedPaymentMethod, formData }) => {
+                            // Este callback é disparado quando o usuário clica em pagar no Brick
+                            setIsLoading(true);
+                            return new Promise((resolve, reject) => {
+                                // Envia o token e os dados para a nova rota do nosso backend
+                                apiService('/process_payment', 'POST', {
+                                    payment_data: formData,
+                                    orderId: createdOrderId
+                                })
+                                .then(() => {
+                                    resolve();
+                                    clearOrderState();
+                                    onNavigate(`order-success/${createdOrderId}`);
+                                })
+                                .catch((error) => {
+                                    reject();
+                                    setIsLoading(false);
+                                    notification.show("Erro ao processar o pagamento. Verifique os dados e tente novamente.", "error");
+                                });
+                            });
+                        },
+                        onError: (error) => {
+                            console.error("Erro no Payment Brick:", error);
+                            setIsLoading(false);
+                        }
+                    }
+                };
+
+                brickController = await bricksBuilder.create('payment', 'paymentBrick_container', settings);
+            };
+
+            renderPaymentBrick();
+        }
+
+        return () => {
+            if (brickController) brickController.unmount();
+        };
+    }, [showPaymentBrick, currentPreferenceId, total, user, createdOrderId, clearOrderState, onNavigate, notification]);
+
     const pAddress = pickupConfig?.address;
     const isPAddressObj = typeof pAddress === 'object' && pAddress !== null;
+
+    // --- SE A TELA DO BRICK ESTIVER ATIVA, RENDERIZA APENAS ELA ---
+    if (showPaymentBrick) {
+        return (
+            <div className="bg-black min-h-screen text-white pt-8 pb-28 sm:pt-12 sm:pb-12 flex flex-col items-center">
+                <div className="w-full max-w-3xl px-4">
+                    <button 
+                        onClick={() => {
+                            setShowPaymentBrick(false);
+                            setCurrentPreferenceId(null);
+                        }} 
+                        className="text-sm text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 mb-6 w-fit bg-gray-800/50 hover:bg-gray-700/50 px-3 py-1.5 rounded-md border border-gray-700"
+                    >
+                        <ArrowUturnLeftIcon className="h-4 w-4"/> Voltar e Revisar Pedido
+                    </button>
+
+                    <div className="bg-gray-900 rounded-xl border border-gray-800 shadow-2xl p-6 md:p-10">
+                        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-800">
+                            <ShieldCheckIcon className="h-8 w-8 text-green-500" />
+                            <div>
+                                <h2 className="text-2xl font-bold text-white">Pagamento Seguro</h2>
+                                <p className="text-sm text-gray-400">Ambiente criptografado. Total a pagar: <span className="text-amber-400 font-bold">R$ {total.toFixed(2)}</span></p>
+                            </div>
+                        </div>
+
+                        {isLoading && (
+                            <div className="flex flex-col items-center justify-center py-10">
+                                <SpinnerIcon className="h-10 w-10 text-amber-500 animate-spin mb-4" />
+                                <p className="text-gray-400 animate-pulse">Carregando ambiente seguro...</p>
+                            </div>
+                        )}
+                        
+                        {/* Container obrigatório para o Mercado Pago renderizar o Brick */}
+                        <div id="paymentBrick_container" className={isLoading ? "hidden" : "block w-full"}></div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <>
             <AnimatePresence>
-                {isLoading && (
+                {isLoading && !showPaymentBrick && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/80 backdrop-blur-md">
                         <div className="bg-gray-900 border border-gray-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center transform transition-all ring-1 ring-amber-500/30">
                             <SpinnerIcon className="h-16 w-16 text-amber-400 mb-6 animate-spin" />
-                            <h3 className="text-2xl font-extrabold text-white mb-2">Processando Pedido</h3>
-                            <p className="text-sm font-medium text-gray-300">Estamos gerando seu link de pagamento seguro no Mercado Pago...</p>
-                            <p className="text-xs text-red-400 mt-5 font-bold uppercase tracking-widest animate-pulse">Por favor, não feche esta janela</p>
+                            <h3 className="text-2xl font-extrabold text-white mb-2">Preparando Pagamento</h3>
+                            <p className="text-sm font-medium text-gray-300">Estamos gerando seu ambiente seguro...</p>
                         </div>
                     </motion.div>
                 )}
@@ -6561,18 +6696,18 @@ const CheckoutPage = ({ onNavigate }) => {
                                 </CheckoutSection>
                             )}
 
+                            {/* O passo 3 agora apenas avisa que o pagamento é integrado */}
                             <CheckoutSection title="Forma de Pagamento" step={3} icon={CreditCardIcon}>
                                 <div className="space-y-3">
-                                    <div onClick={() => setPaymentMethod('mercadopago')}
-                                         className={`relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center gap-4 ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-gray-800 shadow-inner' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}>
+                                    <div className="relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center gap-4 border-amber-400 bg-gray-800 shadow-inner">
                                         <div className="absolute top-3 left-3 w-5 h-5 flex items-center justify-center">
-                                            <div className={`w-4 h-4 rounded-full border-2 ${paymentMethod === 'mercadopago' ? 'border-amber-400' : 'border-gray-500'}`}>
-                                                {paymentMethod === 'mercadopago' && <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-400"></div></div>}
+                                            <div className="w-4 h-4 rounded-full border-2 border-amber-400">
+                                                <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-400"></div></div>
                                             </div>
                                         </div>
                                         <div className="pl-8 flex-grow">
-                                            <span className="font-bold text-base text-white">Mercado Pago</span>
-                                            <p className="text-xs text-gray-400 mt-0.5">Cartão de Crédito, Pix ou Boleto.</p>
+                                            <span className="font-bold text-base text-white">Pagamento Seguro (Checkout Integrado)</span>
+                                            <p className="text-xs text-gray-400 mt-0.5">Cartão de Crédito, Pix ou Boleto. Você inserirá os dados na próxima etapa sem sair do site.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -6623,7 +6758,6 @@ const CheckoutPage = ({ onNavigate }) => {
                                     </div>
                                 </div>
 
-                                {/* --- NOVO: CAMPO DE CUPOM ADICIONADO AQUI --- */}
                                 <div className="mt-5 border-t border-gray-700 pt-5">
                                     {!appliedCoupon ? (
                                         <>
@@ -6659,8 +6793,8 @@ const CheckoutPage = ({ onNavigate }) => {
                                             : 'bg-gradient-to-r from-amber-400 to-amber-500 text-black hover:from-amber-300 hover:to-amber-400 hover:shadow-lg'
                                         }`}
                                 >
-                                    <CheckBadgeIcon className="h-5 w-5" />
-                                    Finalizar Compra
+                                    {isLoading ? <SpinnerIcon className="h-5 w-5" /> : <CheckBadgeIcon className="h-5 w-5" />}
+                                    {isLoading ? 'Iniciando...' : 'Ir para Pagamento'}
                                 </button>
                                 {(!canPlaceOrder && !autoCalculatedShipping?.isPickup && !isLoading) && (
                                     <p className="text-center text-xs text-red-400 mt-3 font-semibold">
