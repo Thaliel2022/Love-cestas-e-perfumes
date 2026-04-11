@@ -6223,7 +6223,6 @@ const CheckoutPage = ({ onNavigate }) => {
     const notification = useNotification();
 
     const [displayAddress, setDisplayAddress] = useState(null);
-    const [paymentMethod, setPaymentMethod] = useState('mercadopago');
     const [isLoading, setIsLoading] = useState(false);
     const [isAddressLoading, setIsAddressLoading] = useState(true);
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
@@ -6233,10 +6232,12 @@ const CheckoutPage = ({ onNavigate }) => {
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
     const [whatsapp, setWhatsapp] = useState(''); 
 
-    // --- ESTADOS PARA O CHECKOUT BRICKS COM REACT SDK ---
-    const [showPaymentBrick, setShowPaymentBrick] = useState(false);
+    // --- ESTADOS PARA O CHECKOUT BRICKS INTEGRADO ---
+    // Removemos a necessidade de 'paymentMethod' antigo, pois o Brick cuida disso.
     const [currentPreferenceId, setCurrentPreferenceId] = useState(null);
     const [createdOrderId, setCreatedOrderId] = useState(null);
+    // Controla se o Brick terminou de renderizar para liberar o botão/UI
+    const [isBrickReady, setIsBrickReady] = useState(false);
 
     useEffect(() => {
         const pendingOrderId = localStorage.getItem('pendingOrderId');
@@ -6369,7 +6370,9 @@ const CheckoutPage = ({ onNavigate }) => {
                !displayAddress.is_incomplete;
     }, [displayAddress, autoCalculatedShipping, isSomeoneElsePickingUp, pickupPersonName, pickupPersonCpf]);
 
-    const handlePlaceOrderAndPay = async () => {
+    // --- NOVA LÓGICA: CRIAÇÃO DO PEDIDO (ANTES DO PAGAMENTO) ---
+    // Agora o botão da lateral direita chama isso para gerar a PreferenceID e exibir o Brick
+    const handlePrepareCheckout = async () => {
         const isPickup = autoCalculatedShipping?.isPickup;
         if (!canPlaceOrder && !isPickup) {
              notification.show("Por favor, complete o endereço de entrega (Rua, Número e Bairro) para continuar.", 'error');
@@ -6391,9 +6394,10 @@ const CheckoutPage = ({ onNavigate }) => {
             const cpfToSend = (isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf)?.replace(/\D/g, '') || '';
             const nameToSend = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
 
+            // Cria o payload do pedido marcando como pagamento via 'mercadopago_bricks'
             const orderPayload = {
                 items: cart.map(item => ({ id: item.id, qty: item.qty, price: (item.is_on_sale && item.sale_price ? item.sale_price : item.price), variation: item.variation })),
-                total, shippingAddress: finalShippingAddress, paymentMethod, shipping_method: autoCalculatedShipping.name, shipping_cost: shippingCost,
+                total, shippingAddress: finalShippingAddress, paymentMethod: 'mercadopago_bricks', shipping_method: autoCalculatedShipping.name, shipping_cost: shippingCost,
                 coupon_code: appliedCoupon?.code || null, discount_amount: discount, pickup_details: isPickup ? JSON.stringify({ personName: nameToSend, personCpf: cpfToSend }) : null,
                 phone: whatsapp.replace(/\D/g, '')
             };
@@ -6402,28 +6406,28 @@ const CheckoutPage = ({ onNavigate }) => {
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
             setCreatedOrderId(orderId);
 
-            if (paymentMethod === 'mercadopago') {
-                // 2. Cria a Preference para gerar o token do Brick
-                const { preferenceId } = await apiService('/create-mercadopago-payment', 'POST', { orderId });
-                if (preferenceId) {
-                    setCurrentPreferenceId(preferenceId);
-                    setShowPaymentBrick(true);
-                } else {
-                    throw new Error("Link de pagamento não obtido.");
-                }
+            // 2. Cria a Preference para gerar o token do Brick
+            const { preferenceId } = await apiService('/create-mercadopago-payment', 'POST', { orderId });
+            if (preferenceId) {
+                setCurrentPreferenceId(preferenceId);
+                // Rola suavemente até a seção de pagamento
+                setTimeout(() => {
+                    const paymentElement = document.getElementById('payment-section');
+                    if (paymentElement) paymentElement.scrollIntoView({ behavior: 'smooth' });
+                }, 100);
             } else {
-                clearOrderState();
-                onNavigate(`order-success/${orderId}`);
+                throw new Error("Link de pagamento não obtido.");
             }
         } catch (error) {
             notification.show(`Erro: ${error.message}`, 'error');
+            setCurrentPreferenceId(null);
+        } finally {
             setIsLoading(false);
         }
     };
 
     // --- CALLBACKS DO REACT SDK (BRICK) ---
     const handlePaymentSubmit = async ({ selectedPaymentMethod, formData }) => {
-        // Bloqueia a tela assim que o cliente clica em "Pagar"
         setIsLoading(true);
         try {
             // Envia os dados encapsulados do Brick para a rota de processamento de pagamento
@@ -6433,6 +6437,7 @@ const CheckoutPage = ({ onNavigate }) => {
             });
             
             clearOrderState();
+            // A TELA DE CONFIRMAÇÃO VAI APARECER NORMALMENTE!
             onNavigate(`order-success/${createdOrderId}`);
         } catch (error) {
             setIsLoading(false);
@@ -6441,109 +6446,60 @@ const CheckoutPage = ({ onNavigate }) => {
     };
 
     const handlePaymentReady = () => {
-        // Remove a tela de "Preparando Pagamento" apenas quando o formulário do MP termina de carregar na tela
-        setIsLoading(false);
+        setIsBrickReady(true);
     };
 
     const handlePaymentError = (error) => {
         console.error("Erro no Payment Brick:", error);
-        setIsLoading(false);
-        notification.show("Não foi possível carregar o módulo de pagamento. Atualize a página.", "error");
+        notification.show("Ocorreu um erro na interface de pagamento.", "error");
     };
 
     const pAddress = pickupConfig?.address;
     const isPAddressObj = typeof pAddress === 'object' && pAddress !== null;
 
-    // --- SE A TELA DO BRICK ESTIVER ATIVA, RENDERIZA APENAS O COMPONENTE DO SDK ---
-    if (showPaymentBrick && currentPreferenceId) {
-        // Objeto de customização do Brick (Design Premium Nível Amazon)
-        const customization = {
-            visual: {
-                style: {
-                    theme: 'dark', 
-                    customVariables: {
-                        textPrimaryColor: '#ffffff',
-                        textSecondaryColor: '#9ca3af',
-                        inputBackgroundColor: '#1f2937',
-                        formBackgroundColor: '#111827',
-                        baseColor: '#fbbf24', 
-                        baseColorFirstVariant: '#f59e0b',
-                        baseColorSecondVariant: '#d97706',
-                        errorColor: '#ef4444',
-                        successColor: '#10b981'
-                    }
+    // --- CONFIGURAÇÃO DO BRICK ---
+    const customization = {
+        visual: {
+            style: {
+                theme: 'dark', 
+                customVariables: {
+                    textPrimaryColor: '#ffffff',
+                    textSecondaryColor: '#9ca3af',
+                    inputBackgroundColor: '#1f2937',
+                    formBackgroundColor: '#111827',
+                    baseColor: '#fbbf24', 
+                    baseColorFirstVariant: '#f59e0b',
+                    baseColorSecondVariant: '#d97706',
+                    errorColor: '#ef4444',
+                    successColor: '#10b981'
                 }
-            },
-            paymentMethods: {
-                creditCard: "all",
-                bankTransfer: "all", // CORREÇÃO: Essa é a chave correta para habilitar o Pix no Brick!
-                ticket: "all"
             }
-        };
+        },
+        paymentMethods: {
+            creditCard: "all",
+            bankTransfer: "all", // Garante que o Pix apareça
+            ticket: "all"
+        }
+    };
 
-        const initialization = {
-            amount: total,
-            preferenceId: currentPreferenceId,
-            payer: {
-                email: user?.email || '',
-                entityType: 'individual' // CORREÇÃO: Resolve o aviso amarelo no console "entityType only receives..."
-            }
-        };
-
-        return (
-            <div className="bg-black min-h-screen text-white pt-8 pb-28 sm:pt-12 sm:pb-12 flex flex-col items-center">
-                <div className="w-full max-w-3xl px-4">
-                    <button 
-                        onClick={() => {
-                            setShowPaymentBrick(false);
-                            setCurrentPreferenceId(null);
-                        }} 
-                        className="text-sm text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 mb-6 w-fit bg-gray-800/50 hover:bg-gray-700/50 px-3 py-1.5 rounded-md border border-gray-700"
-                    >
-                        <ArrowUturnLeftIcon className="h-4 w-4"/> Voltar e Revisar Pedido
-                    </button>
-
-                    <div className="bg-gray-900 rounded-xl border border-gray-800 shadow-2xl p-6 md:p-10">
-                        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-800">
-                            <ShieldCheckIcon className="h-8 w-8 text-green-500" />
-                            <div>
-                                <h2 className="text-2xl font-bold text-white">Pagamento Seguro</h2>
-                                <p className="text-sm text-gray-400">Ambiente criptografado. Total a pagar: <span className="text-amber-400 font-bold">R$ {total.toFixed(2)}</span></p>
-                            </div>
-                        </div>
-
-                        {isLoading && (
-                            <div className="flex flex-col items-center justify-center py-10">
-                                <SpinnerIcon className="h-10 w-10 text-amber-500 animate-spin mb-4" />
-                                <p className="text-gray-400 animate-pulse">Carregando ambiente seguro...</p>
-                            </div>
-                        )}
-                        
-                        {/* RENDERIZA O BRICK NATIVO DO REACT SDK */}
-                        <div className={isLoading ? "hidden" : "block w-full"}>
-                            <Payment
-                                initialization={initialization}
-                                customization={customization}
-                                onSubmit={handlePaymentSubmit}
-                                onReady={handlePaymentReady}
-                                onError={handlePaymentError}
-                            />
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    const initialization = {
+        amount: total,
+        preferenceId: currentPreferenceId,
+        payer: {
+            email: user?.email || '',
+            entityType: 'individual' // Resolve o aviso amarelo no console
+        }
+    };
 
     return (
         <>
             <AnimatePresence>
-                {isLoading && !showPaymentBrick && (
+                {isLoading && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/80 backdrop-blur-md">
                         <div className="bg-gray-900 border border-gray-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center transform transition-all ring-1 ring-amber-500/30">
                             <SpinnerIcon className="h-16 w-16 text-amber-400 mb-6 animate-spin" />
-                            <h3 className="text-2xl font-extrabold text-white mb-2">Preparando Pagamento</h3>
-                            <p className="text-sm font-medium text-gray-300">Estamos gerando seu ambiente seguro...</p>
+                            <h3 className="text-2xl font-extrabold text-white mb-2">Processando...</h3>
+                            <p className="text-sm font-medium text-gray-300">Aguarde um momento.</p>
                         </div>
                     </motion.div>
                 )}
@@ -6685,22 +6641,50 @@ const CheckoutPage = ({ onNavigate }) => {
                                 </CheckoutSection>
                             )}
 
-                            {/* O passo 3 agora apenas avisa que o pagamento é integrado */}
-                            <CheckoutSection title="Forma de Pagamento" step={3} icon={CreditCardIcon}>
-                                <div className="space-y-3">
-                                    <div className="relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center gap-4 border-amber-400 bg-gray-800 shadow-inner">
-                                        <div className="absolute top-3 left-3 w-5 h-5 flex items-center justify-center">
-                                            <div className="w-4 h-4 rounded-full border-2 border-amber-400">
-                                                <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-400"></div></div>
+                            {/* --- SEÇÃO 3: O BRICK AGORA VIVE AQUI --- */}
+                            <div id="payment-section">
+                                <CheckoutSection title="Forma de Pagamento" step={3} icon={CreditCardIcon}>
+                                    {!currentPreferenceId ? (
+                                        // Estágio 1: Avisando que vai abrir o pagamento
+                                        <div className="text-center py-6">
+                                            <p className="text-gray-400 mb-4">Complete os passos acima e verifique o resumo do pedido à direita para liberar a forma de pagamento segura.</p>
+                                            <button
+                                                onClick={handlePrepareCheckout}
+                                                disabled={(!canPlaceOrder && !autoCalculatedShipping?.isPickup) || !autoCalculatedShipping || isLoading}
+                                                className={`px-8 py-3 rounded-xl font-bold shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 mx-auto
+                                                    ${(!canPlaceOrder && !autoCalculatedShipping?.isPickup) || !autoCalculatedShipping || isLoading 
+                                                        ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
+                                                        : 'bg-gradient-to-r from-amber-400 to-amber-500 text-black hover:from-amber-300 hover:to-amber-400'
+                                                    }`}
+                                            >
+                                                {isLoading ? <SpinnerIcon className="h-5 w-5" /> : <LockClosedIcon className="h-5 w-5" />}
+                                                {isLoading ? 'Iniciando...' : 'Abrir Pagamento Seguro'}
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        // Estágio 2: O Brick foi renderizado nativamente AQUI dentro
+                                        <div className="w-full">
+                                            {!isBrickReady && (
+                                                 <div className="flex flex-col items-center justify-center py-6">
+                                                    <SpinnerIcon className="h-8 w-8 text-amber-500 animate-spin mb-3" />
+                                                    <p className="text-gray-400 text-sm">Carregando opções de pagamento...</p>
+                                                </div>
+                                            )}
+                                            {/* Container do Brick do Mercado Pago */}
+                                            <div className={`transition-opacity duration-500 ${isBrickReady ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
+                                                <Payment
+                                                    initialization={initialization}
+                                                    customization={customization}
+                                                    onSubmit={handlePaymentSubmit}
+                                                    onReady={handlePaymentReady}
+                                                    onError={handlePaymentError}
+                                                />
                                             </div>
                                         </div>
-                                        <div className="pl-8 flex-grow">
-                                            <span className="font-bold text-base text-white">Pagamento Seguro (Checkout Integrado)</span>
-                                            <p className="text-xs text-gray-400 mt-0.5">Cartão de Crédito, Pix ou Boleto. Você inserirá os dados na próxima etapa sem sair do site.</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </CheckoutSection>
+                                    )}
+                                </CheckoutSection>
+                            </div>
+
                         </div> 
 
                         <div className="lg:col-span-1">
@@ -6759,8 +6743,9 @@ const CheckoutPage = ({ onNavigate }) => {
                                                     type="text" 
                                                     placeholder="Digite o código" 
                                                     className="w-full p-2.5 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-sm text-white placeholder-gray-500 font-mono" 
+                                                    disabled={currentPreferenceId !== null} // Trava se o pagamento já estiver aberto
                                                 />
-                                                <button type="submit" className="px-4 bg-gray-800 border border-gray-600 text-amber-400 font-bold rounded-md hover:bg-gray-700 hover:text-amber-300 text-sm transition-colors">
+                                                <button type="submit" disabled={currentPreferenceId !== null} className="px-4 bg-gray-800 border border-gray-600 text-amber-400 font-bold rounded-md hover:bg-gray-700 hover:text-amber-300 text-sm transition-colors disabled:opacity-50">
                                                     Aplicar
                                                 </button>
                                             </form>
@@ -6769,23 +6754,14 @@ const CheckoutPage = ({ onNavigate }) => {
                                     ) : (
                                         <div className="flex justify-between items-center bg-green-900/20 p-3 rounded-md border border-green-800">
                                             <p className="text-sm text-green-400 flex items-center gap-2 font-medium"><CheckCircleIcon className="h-5 w-5"/> Cupom <strong>{appliedCoupon.code}</strong> aplicado!</p>
-                                            <button onClick={removeCoupon} className="text-xs text-red-400 hover:text-red-300 hover:underline flex-shrink-0 font-medium">Remover</button>
+                                            <button onClick={removeCoupon} disabled={currentPreferenceId !== null} className="text-xs text-red-400 hover:text-red-300 hover:underline flex-shrink-0 font-medium disabled:opacity-50 disabled:no-underline">Remover</button>
                                         </div>
                                     )}
+                                    {currentPreferenceId !== null && (
+                                        <p className="text-[10px] text-amber-500 mt-2 text-center">O cupom não pode ser alterado durante o pagamento. Volte e atualize se necessário.</p>
+                                    )}
                                 </div>
-
-                                <button
-                                    onClick={handlePlaceOrderAndPay}
-                                    disabled={(!canPlaceOrder && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading}
-                                    className={`w-full mt-6 py-3 rounded-md font-bold text-lg shadow-md transition-all duration-300 flex items-center justify-center gap-2
-                                        ${(!canPlaceOrder && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading 
-                                            ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
-                                            : 'bg-gradient-to-r from-amber-400 to-amber-500 text-black hover:from-amber-300 hover:to-amber-400 hover:shadow-lg'
-                                        }`}
-                                >
-                                    {isLoading ? <SpinnerIcon className="h-5 w-5" /> : <CheckBadgeIcon className="h-5 w-5" />}
-                                    {isLoading ? 'Iniciando...' : 'Ir para Pagamento'}
-                                </button>
+                                
                                 {(!canPlaceOrder && !autoCalculatedShipping?.isPickup && !isLoading) && (
                                     <p className="text-center text-xs text-red-400 mt-3 font-semibold">
                                         ⚠️ Complete o endereço de entrega para continuar.
