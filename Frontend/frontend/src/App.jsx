@@ -4,6 +4,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from 
 import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { initMercadoPago, Payment } from '@mercadopago/sdk-react';
+initMercadoPago('APP_USR-fe8bcd59-da54-4fb5-a3d0-8b8f749097be', { locale: 'pt-BR' });
 
 // --- Constante da API ---
 const API_URL = process.env.REACT_APP_API_URL || 'https://love-cestas-e-perfumes.onrender.com/api';
@@ -6235,13 +6236,6 @@ const CheckoutPage = ({ onNavigate }) => {
     const [currentPreferenceId, setCurrentPreferenceId] = useState(null);
     const [createdOrderId, setCreatedOrderId] = useState(null);
 
-    // Inicializa o SDK do Mercado Pago de forma nativa com React
-    useEffect(() => {
-        // INSERIR SUA PUBLIC KEY AQUI OU NO .ENV
-        const mpPublicKey = process.env.REACT_APP_MP_PUBLIC_KEY || 'SUA_PUBLIC_KEY_AQUI'; 
-        initMercadoPago(mpPublicKey, { locale: 'pt-BR' });
-    }, []);
-
     useEffect(() => {
         const pendingOrderId = localStorage.getItem('pendingOrderId');
         if (pendingOrderId) {
@@ -6427,6 +6421,7 @@ const CheckoutPage = ({ onNavigate }) => {
 
     // --- CALLBACKS DO REACT SDK (BRICK) ---
     const handlePaymentSubmit = async ({ selectedPaymentMethod, formData }) => {
+        // Bloqueia a tela assim que o cliente clica em "Pagar"
         setIsLoading(true);
         try {
             // Envia os dados encapsulados do Brick para a rota de processamento de pagamento
@@ -6444,12 +6439,14 @@ const CheckoutPage = ({ onNavigate }) => {
     };
 
     const handlePaymentReady = () => {
+        // Remove a tela de "Preparando Pagamento" apenas quando o formulário do MP termina de carregar na tela
         setIsLoading(false);
     };
 
     const handlePaymentError = (error) => {
         console.error("Erro no Payment Brick:", error);
         setIsLoading(false);
+        notification.show("Não foi possível carregar o módulo de pagamento. Atualize a página.", "error");
     };
 
     const pAddress = pickupConfig?.address;
@@ -6685,7 +6682,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                 </CheckoutSection>
                             )}
 
-                            {/* O passo 3 agora apenas avisa que o pagamento é integrado */}
+                            {/* Passo 3: Pagamento (Informa que é na próxima tela) */}
                             <CheckoutSection title="Forma de Pagamento" step={3} icon={CreditCardIcon}>
                                 <div className="space-y-3">
                                     <div className="relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center gap-4 border-amber-400 bg-gray-800 shadow-inner">
@@ -6747,7 +6744,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                     </div>
                                 </div>
 
-                                {/* --- NOVO: CAMPO DE CUPOM ADICIONADO AQUI --- */}
+                                {/* Campo de Cupom */}
                                 <div className="mt-5 border-t border-gray-700 pt-5">
                                     {!appliedCoupon ? (
                                         <>
