@@ -3515,18 +3515,14 @@ app.post('/api/process-payment', verifyToken, async (req, res) => {
         const connection = await db.getConnection();
         
         try {
-            // Verifica se o pedido existe e pertence ao usuário
             const [orderResult] = await connection.query("SELECT * FROM orders WHERE id = ? AND user_id = ?", [orderId, req.user.id]);
             if (!orderResult.length) {
                 return res.status(404).json({ message: "Pedido não encontrado ou acesso negado."});
             }
             const order = orderResult[0];
 
-            // Instancia a classe de Pagamento
             const payment = new Payment(mpClient);
 
-            // Prepara o payload para a API do MP mesclando os dados do Brick
-            // Forçamos o valor da transação ser igual ao do banco de dados (Segurança antifraude)
             const mpPayload = {
                 body: {
                     ...paymentData,
@@ -3536,14 +3532,13 @@ app.post('/api/process-payment', verifyToken, async (req, res) => {
                     notification_url: `${backendUrl}/api/mercadopago-webhook`
                 },
                 requestOptions: {
-                    idempotencyKey: crypto.randomUUID() // Exigência do MP para evitar cobrança duplicada
+                    idempotencyKey: crypto.randomUUID()
                 }
             };
 
             console.log(`[Pagamento Direto] Processando pagamento para pedido #${orderId} no valor de R$${order.total}...`);
             const result = await payment.create(mpPayload);
 
-            // Atualiza o status do pedido no banco de acordo com a resposta imediata
             let newStatus = ORDER_STATUS.PENDING;
             if (result.status === 'approved') {
                 newStatus = ORDER_STATUS.PAYMENT_APPROVED;
@@ -3551,17 +3546,45 @@ app.post('/api/process-payment', verifyToken, async (req, res) => {
                 newStatus = ORDER_STATUS.PAYMENT_REJECTED;
             }
 
-            // Atualiza os detalhes técnicos (Gateway ID, etc)
+            // --- ATUALIZAÇÃO IMPORTANTE AQUI ---
+            // Vamos montar os detalhes técnicos do pagamento, capturando os dados do Pix e do Boleto
+            let paymentDetailsPayload = {
+                method: paymentData.payment_method_id, // ex: 'pix', 'bolbradesco', 'master'
+                type: result.payment_type_id // ex: 'credit_card', 'ticket', 'bank_transfer'
+            };
+
+            // Se for Pix, salva a chave copia e cola e o QRCode em Base64
+            if (result.payment_method_id === 'pix' && result.point_of_interaction?.transaction_data) {
+                paymentDetailsPayload.qr_code = result.point_of_interaction.transaction_data.qr_code;
+                paymentDetailsPayload.qr_code_base64 = result.point_of_interaction.transaction_data.qr_code_base64;
+                paymentDetailsPayload.ticket_url = result.point_of_interaction.transaction_data.ticket_url; // Link do comprovante do MP
+            }
+            
+            // Se for Boleto ou Lotérica, salva o link do PDF/Código de barras
+            if (result.payment_type_id === 'ticket' && result.transaction_details) {
+                paymentDetailsPayload.external_resource_url = result.transaction_details.external_resource_url;
+                paymentDetailsPayload.barcode = result.barcode?.content;
+            }
+
+            // Se for cartão, salva os dados do cartão
+            if (result.payment_type_id === 'credit_card' && result.card) {
+                paymentDetailsPayload.card_brand = result.payment_method_id;
+                paymentDetailsPayload.card_last_four = result.card.last_four_digits;
+                paymentDetailsPayload.installments = result.installments;
+            }
+
+            // Atualiza os detalhes no banco
             await connection.query(
-                "UPDATE orders SET payment_status = ?, payment_gateway_id = ? WHERE id = ?",
-                [result.status, result.id, orderId]
+                "UPDATE orders SET payment_status = ?, payment_gateway_id = ?, payment_details = ? WHERE id = ?",
+                [result.status, result.id, JSON.stringify(paymentDetailsPayload), orderId]
             );
 
-            // Se já foi aprovado ou recusado de cara, roda a função principal de update
+            // Atualiza status global do pedido (se aprovado ou rejeitado de imediato)
             if (newStatus !== ORDER_STATUS.PENDING) {
                  await updateOrderStatus(orderId, newStatus, connection, `Pagamento processado via Brick. Status MP: ${result.status}`);
             }
 
+            // Devolve o status da API do MP para o frontend
             res.json({ status: result.status, paymentId: result.id });
 
         } finally {
@@ -3569,7 +3592,6 @@ app.post('/api/process-payment', verifyToken, async (req, res) => {
         }
 
     } catch (error) {
-        // Tratamento aprimorado para capturar o erro exato do Mercado Pago e devolver para a tela
         console.error('Erro ao processar pagamento via Brick do Mercado Pago:', error?.cause || error?.message || error);
         const errorMessage = error?.cause?.message || error?.message || 'Falha ao processar o pagamento com a operadora.';
         res.status(500).json({ message: errorMessage });
