@@ -3526,16 +3526,21 @@ app.post('/api/process-payment', verifyToken, async (req, res) => {
             const payment = new Payment(mpClient);
 
             // Prepara o payload para a API do MP mesclando os dados do Brick
+            // Forçamos o valor da transação ser igual ao do banco de dados (Segurança antifraude)
             const mpPayload = {
                 body: {
                     ...paymentData,
+                    transaction_amount: Number(order.total),
                     external_reference: orderId.toString(),
                     description: `Pedido #${orderId} - Love Cestas e Perfumes`,
                     notification_url: `${backendUrl}/api/mercadopago-webhook`
+                },
+                requestOptions: {
+                    idempotencyKey: crypto.randomUUID() // Exigência do MP para evitar cobrança duplicada
                 }
             };
 
-            console.log(`[Pagamento Direto] Processando pagamento para pedido #${orderId}...`);
+            console.log(`[Pagamento Direto] Processando pagamento para pedido #${orderId} no valor de R$${order.total}...`);
             const result = await payment.create(mpPayload);
 
             // Atualiza o status do pedido no banco de acordo com a resposta imediata
@@ -3564,8 +3569,10 @@ app.post('/api/process-payment', verifyToken, async (req, res) => {
         }
 
     } catch (error) {
-        console.error('Erro ao processar pagamento via Brick do Mercado Pago:', error?.cause || error);
-        res.status(500).json({ message: 'Falha ao processar o pagamento. Tente novamente ou use outro método.' });
+        // Tratamento aprimorado para capturar o erro exato do Mercado Pago e devolver para a tela
+        console.error('Erro ao processar pagamento via Brick do Mercado Pago:', error?.cause || error?.message || error);
+        const errorMessage = error?.cause?.message || error?.message || 'Falha ao processar o pagamento com a operadora.';
+        res.status(500).json({ message: errorMessage });
     }
 });
 
