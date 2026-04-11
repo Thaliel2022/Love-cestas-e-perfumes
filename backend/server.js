@@ -3503,6 +3503,107 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
     }
 });
 
+// --- ROTA DE PROCESSAMENTO DIRETO (CHECKOUT BRICKS) ---
+app.post('/api/process_payment', verifyToken, async (req, res) => {
+    const { payment_data, orderId } = req.body;
+
+    if (!payment_data || !orderId) {
+        return res.status(400).json({ message: "Dados de pagamento incompletos." });
+    }
+
+    try {
+        // CORREÇÃO: Garante que o token usado é o MP_ACCESS_TOKEN configurado no Render
+        const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
+        const payment = new Payment(client);
+
+        // Tratamento para garantir que o e-mail e identificação existam (evita erro 500)
+        const payerEmail = payment_data.payer?.email || req.user.email;
+        const payerIDType = payment_data.payer?.identification?.type || 'CPF';
+        const payerIDNumber = payment_data.payer?.identification?.number || '';
+
+        const body = {
+            transaction_amount: Number(payment_data.transaction_amount),
+            token: payment_data.token,
+            description: `Pedido #${orderId} - Love Cestas e Perfumes`,
+            installments: Number(payment_data.installments) || 1,
+            payment_method_id: payment_data.payment_method_id,
+            issuer_id: payment_data.issuer_id,
+            payer: {
+                email: payerEmail,
+                identification: {
+                    type: payerIDType,
+                    number: payerIDNumber.replace(/\D/g, '') // Remove pontos/traços
+                }
+            }
+        };
+
+        const paymentResult = await payment.create({ body });
+
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
+
+            let dbStatus = ORDER_STATUS.PENDING;
+            if (paymentResult.status === 'approved') dbStatus = ORDER_STATUS.PAYMENT_APPROVED;
+            else if (['rejected', 'cancelled'].includes(paymentResult.status)) dbStatus = ORDER_STATUS.PAYMENT_REJECTED;
+
+            const paymentDetails = {
+                method: payment_data.payment_method_id === 'pix' ? 'pix' : (payment_data.payment_method_id.includes('ticket') ? 'boleto' : 'credit_card'),
+                card_brand: paymentResult.payment_method_id,
+                installments: paymentResult.installments,
+                qr_code: paymentResult.point_of_interaction?.transaction_data?.qr_code || null,
+                qr_code_base64: paymentResult.point_of_interaction?.transaction_data?.qr_code_base64 || null,
+                ticket_url: paymentResult.point_of_interaction?.transaction_data?.ticket_url || null
+            };
+
+            await connection.query(
+                "UPDATE orders SET payment_status = ?, payment_gateway_id = ?, status = ?, payment_details = ? WHERE id = ?",
+                [paymentResult.status, paymentResult.id, dbStatus, JSON.stringify(paymentDetails), orderId]
+            );
+
+            await updateOrderStatus(orderId, dbStatus, connection, "Processado via Bricks");
+            await connection.commit();
+
+            res.json({
+                status: paymentResult.status,
+                id: paymentResult.id
+            });
+
+        } catch (dbErr) {
+            await connection.rollback();
+            throw dbErr;
+        } finally {
+            connection.release();
+        }
+    } catch (error) {
+        console.error("ERRO DETALHADO MP:", error.message, error.cause);
+        res.status(500).json({ message: error.message || "Erro no processamento." });
+    }
+});
+
+// --- ROTA DE STATUS DO PEDIDO ---
+app.get('/api/orders/:id/status', verifyToken, async (req, res) => {
+    const { id } = req.params;
+    const userId = req.user.id;
+    try {
+        const [orderResult] = await db.query("SELECT status, user_id, payment_details FROM orders WHERE id = ?", [id]);
+        if (orderResult.length === 0) {
+            return res.status(404).json({ message: 'Pedido não encontrado.' });
+        }
+        if (orderResult[0].user_id !== userId && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Acesso negado a este pedido.' });
+        }
+        // Agora envia também os detalhes do pagamento (Onde está o QR Code)
+        res.json({ 
+            status: orderResult[0].status,
+            payment_details: orderResult[0].payment_details 
+        });
+    } catch(err) {
+        console.error(`Erro ao buscar status do pedido ${id}:`, err);
+        res.status(500).json({ message: 'Erro ao consultar o status do pedido.' });
+    }
+});
+
 
 app.get('/api/mercadopago/installments', checkMaintenanceMode, async (req, res) => {
     const { amount } = req.query;
