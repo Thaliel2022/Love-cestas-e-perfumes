@@ -6209,9 +6209,11 @@ const CheckoutSection = ({ title, step, children, icon: Icon }) => (
         </div>
     </div>
 );
-
-// Inicialização limpa fora do componente
-initMercadoPago('APP_USR-fe8bcd59-da54-4fb5-a3d0-8b8f749097be', { locale: 'pt-BR' });
+// Inicialização do SDK do Mercado Pago com trava para evitar erros de duplicidade no Console
+if (!window.mercadoPagoInitialized) {
+    initMercadoPago('APP_USR-fe8bcd59-da54-4fb5-a3d0-8b8f749097be', { locale: 'pt-BR' });
+    window.mercadoPagoInitialized = true;
+}
 
 const CheckoutPage = ({ onNavigate }) => {
     const { user } = useAuth();
@@ -6273,20 +6275,6 @@ const CheckoutPage = ({ onNavigate }) => {
     const handleSelectShipping = (option) => {
         setAutoCalculatedShipping(option);
         setSelectedShippingName(option.name);
-        if(option.isPickup) {
-            setDisplayAddress(null);
-            if (!isSomeoneElsePickingUp && user) {
-                setPickupPersonName(user.name || ''); setPickupPersonCpf(maskCPF(user.cpf || '')); 
-            } else {
-                 setPickupPersonName(''); setPickupPersonCpf('');
-            }
-        } else if (!displayAddress && addresses.length > 0) {
-             const defaultOrFirst = addresses.find(addr => addr.is_default) || addresses[0];
-             if (defaultOrFirst) {
-                setDisplayAddress(defaultOrFirst);
-                setShippingLocation({ cep: defaultOrFirst.cep, city: defaultOrFirst.localidade, state: defaultOrFirst.uf, alias: defaultOrFirst.alias });
-             }
-        }
     };
 
     const handleAddressSelection = (address) => {
@@ -6324,17 +6312,13 @@ const CheckoutPage = ({ onNavigate }) => {
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
         let val = 0;
-        const couponValue = Number(appliedCoupon.value) || 0;
-        const currentSubtotal = Number(subtotal) || 0;
-        const currentShippingCost = Number(shippingCost) || 0;
-        if (appliedCoupon.type === 'percentage') val = currentSubtotal * (couponValue / 100);
-        else if (appliedCoupon.type === 'fixed') val = couponValue;
-        else if (appliedCoupon.type === 'free_shipping') val = currentShippingCost;
-        const currentTotalBeforeDiscount = currentSubtotal + currentShippingCost;
-        return Math.max(0, (appliedCoupon.type !== 'free_shipping' && val > currentTotalBeforeDiscount) ? currentTotalBeforeDiscount : val);
+        if (appliedCoupon.type === 'percentage') val = subtotal * (Number(appliedCoupon.value) / 100);
+        else if (appliedCoupon.type === 'fixed') val = Number(appliedCoupon.value);
+        else if (appliedCoupon.type === 'free_shipping') val = shippingCost;
+        return val;
     }, [appliedCoupon, subtotal, shippingCost]);
     
-    const total = useMemo(() => Math.max(0, (Number(subtotal) || 0) - (Number(discount) || 0) + (Number(shippingCost) || 0)), [subtotal, discount, shippingCost]);
+    const total = useMemo(() => Math.max(0, subtotal - discount + shippingCost), [subtotal, discount, shippingCost]);
 
     const getDeliveryDateText = (deliveryTime) => {
         if (typeof deliveryTime === 'string' && deliveryTime.includes('Receba até')) return `${deliveryTime} (1 dia útil)`;
@@ -6365,10 +6349,14 @@ const CheckoutPage = ({ onNavigate }) => {
                !displayAddress.is_incomplete;
     }, [displayAddress, autoCalculatedShipping, isSomeoneElsePickingUp, pickupPersonName, pickupPersonCpf]);
 
-    // --- NOVA LÓGICA: CRIA TUDO QUANDO CLICA EM "PAGAR" NO BRICK ---
+    // --- NOVA LÓGICA: CRIA TUDO QUANDO CLICA EM "PAGAR" DENTRO DO BRICK ---
     const handlePaymentSubmit = async ({ selectedPaymentMethod, formData }) => {
-        if (!canPlaceOrder && !autoCalculatedShipping?.isPickup) {
+        const isPickup = autoCalculatedShipping?.isPickup;
+        
+        // 1. Validações antes de tentar processar
+        if (!canPlaceOrder && !isPickup) {
              notification.show("Por favor, complete o endereço de entrega para continuar.", 'error');
+             setIsNewAddressModalOpen(true);
              return Promise.reject();
         }
         if (!whatsapp || !validatePhone(whatsapp)) { 
@@ -6376,37 +6364,50 @@ const CheckoutPage = ({ onNavigate }) => {
              return Promise.reject(); 
         }
         
+        const nameToCheck = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
+        const cpfToCheck = isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf;
+        
+        if (isPickup && (!nameToCheck || !validateCPF(cpfToCheck))) {
+            notification.show("Preencha nome e CPF válidos para quem vai retirar.", 'error');
+            return Promise.reject();
+        }
+
         setIsLoading(true);
         try {
-            const isPickup = autoCalculatedShipping?.isPickup;
             const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
             const cpfToSend = (isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf)?.replace(/\D/g, '') || '';
             const nameToSend = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
 
-            // 1. Prepara o Pedido
+            // 2. Prepara o payload do pedido
             const orderPayload = {
                 items: cart.map(item => ({ id: item.id, qty: item.qty, price: (item.is_on_sale && item.sale_price ? item.sale_price : item.price), variation: item.variation })),
-                total, shippingAddress: finalShippingAddress, paymentMethod: 'mercadopago_bricks', shipping_method: autoCalculatedShipping.name, shipping_cost: shippingCost,
-                coupon_code: appliedCoupon?.code || null, discount_amount: discount, pickup_details: isPickup ? JSON.stringify({ personName: nameToSend, personCpf: cpfToSend }) : null,
+                total, 
+                shippingAddress: finalShippingAddress, 
+                paymentMethod: 'mercadopago_bricks', 
+                shipping_method: autoCalculatedShipping.name, 
+                shipping_cost: shippingCost,
+                coupon_code: appliedCoupon?.code || null, 
+                discount_amount: discount, 
+                pickup_details: isPickup ? JSON.stringify({ personName: nameToSend, personCpf: cpfToSend }) : null,
                 phone: whatsapp.replace(/\D/g, '')
             };
             
-            // 2. Salva no Banco de Dados
+            // 3. Cria o pedido no banco de dados primeiro
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
 
-            // 3. Processa o Pagamento no Mercado Pago
+            // 4. Manda o token do cartão/pix para processar e atrelar ao pedido gerado
             await apiService('/process_payment', 'POST', {
                 payment_data: formData,
                 orderId: orderId
             });
             
+            // 5. Sucesso! Limpa o carrinho e vai pra tela do Pix/Confirmação
             clearOrderState();
-            // Leva pra tela de sucesso onde o QR Code será exibido
             onNavigate(`order-success/${orderId}`);
         } catch (error) {
             setIsLoading(false);
-            notification.show("Erro ao processar o pagamento. Verifique seus dados.", "error");
-            return Promise.reject(); // Para o Brick entender que falhou
+            notification.show(error.message || "Erro ao processar o pagamento. Verifique seus dados.", "error");
+            return Promise.reject(); // Rejeita a promise para o botão do Brick voltar ao normal
         }
     };
 
@@ -6419,7 +6420,7 @@ const CheckoutPage = ({ onNavigate }) => {
     const pAddress = pickupConfig?.address;
     const isPAddressObj = typeof pAddress === 'object' && pAddress !== null;
 
-    // --- CONFIGURAÇÃO DO BRICK NO MODO PURO (SEM PREFERENCE ID) ---
+    // --- CONFIGURAÇÃO DO BRICK NÍVEL AMAZON ---
     const customization = {
         visual: {
             style: {
@@ -6428,7 +6429,7 @@ const CheckoutPage = ({ onNavigate }) => {
                     textPrimaryColor: '#ffffff',
                     textSecondaryColor: '#9ca3af',
                     inputBackgroundColor: '#1f2937',
-                    formBackgroundColor: '#111827',
+                    formBackgroundColor: 'transparent',
                     baseColor: '#fbbf24', 
                     baseColorFirstVariant: '#f59e0b',
                     baseColorSecondVariant: '#d97706',
@@ -6439,7 +6440,7 @@ const CheckoutPage = ({ onNavigate }) => {
         },
         paymentMethods: {
             creditCard: "all",
-            bankTransfer: "all", // Garante o Pix
+            bankTransfer: "all", 
             ticket: "all"
         }
     };
@@ -6452,6 +6453,7 @@ const CheckoutPage = ({ onNavigate }) => {
         }
     };
 
+    // AQUI INICIA O RETORNO DA PÁGINA (Com as tags corretas <>)
     return (
         <>
             <AnimatePresence>
@@ -6469,228 +6471,209 @@ const CheckoutPage = ({ onNavigate }) => {
             <AddressSelectionModal isOpen={isAddressModalOpen} onClose={() => setIsAddressModalOpen(false)} addresses={addresses} onSelectAddress={handleAddressSelection} onAddNewAddress={handleAddNewAddress} />
             <Modal isOpen={isNewAddressModalOpen} onClose={() => setIsNewAddressModalOpen(false)} title="Adicionar Novo Endereço"><AddressForm onSave={handleSaveNewAddress} onCancel={() => setIsNewAddressModalOpen(false)} /></Modal>
 
-            <div className="bg-black text-white pt-8 pb-28 sm:pt-12 sm:pb-12">
-                <div className="container mx-auto px-4">
-                    <button onClick={() => onNavigate('cart')} className="text-sm text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 mb-6 w-fit bg-gray-800/50 hover:bg-gray-700/50 px-3 py-1.5 rounded-md border border-gray-700">
+            <div className="bg-[#050505] text-white min-h-screen pt-8 pb-24">
+                <div className="container mx-auto px-4 max-w-6xl">
+                    <button onClick={() => onNavigate('cart')} className="text-sm text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 mb-6 w-fit bg-gray-900/50 hover:bg-gray-800/50 px-3 py-1.5 rounded-md border border-gray-800">
                         <ArrowUturnLeftIcon className="h-4 w-4"/> Voltar ao Carrinho
                     </button>
 
-                    <h1 className="text-3xl md:text-4xl font-bold mb-8 text-center sm:text-left">Finalizar Pedido</h1>
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12 items-start">
-
-                        <div className="lg:col-span-2 space-y-8">
-                            <CheckoutSection title="Contato para Status" step={1} icon={WhatsappIcon}>
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">WhatsApp para notificações do pedido <span className="text-red-500">*</span></label>
-                                        <div className="relative">
-                                            <input type="text" value={whatsapp} onChange={handleWhatsappChange} placeholder="(00) 00000-0000" className="w-full pl-10 p-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 text-white" />
-                                            <WhatsappIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-green-500" />
-                                        </div>
+                    <h1 className="text-2xl md:text-4xl font-black mb-8 tracking-tighter italic">CHECKOUT <span className="text-amber-500">PREMIUM</span></h1>
+                    
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                        <div className="lg:col-span-8 space-y-6">
+                            
+                            {/* PASSO 1: CONTATO */}
+                            <div className="bg-gray-900/50 backdrop-blur-md rounded-2xl border border-white/5 overflow-hidden shadow-lg">
+                                <div className="p-5 border-b border-white/5 flex items-center gap-3">
+                                    <div className="bg-amber-500 text-black w-7 h-7 rounded-md flex items-center justify-center font-black text-sm">1</div>
+                                    <h2 className="text-lg font-bold">Contato e Entrega</h2>
+                                </div>
+                                <div className="p-5">
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">WhatsApp</label>
+                                    <div className="relative">
+                                        <input type="text" value={whatsapp} onChange={handleWhatsappChange} placeholder="(00) 00000-0000" className="w-full pl-12 p-4 bg-gray-900 border border-gray-800 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none transition-all text-white" />
+                                        <WhatsappIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-green-500" />
                                     </div>
                                 </div>
-                            </CheckoutSection>
+                            </div>
 
-                            <CheckoutSection title="Forma de Entrega" step={2} icon={TruckIcon}>
-                                <div className="space-y-3">
-                                    {shippingOptions.map(option => (
-                                        <div key={option.name} onClick={() => handleSelectShipping(option)} className={`relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center justify-between gap-4 ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-gray-800 shadow-inner' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}>
-                                            <div className="absolute top-3 left-3 w-5 h-5 flex items-center justify-center">
-                                                <div className={`w-4 h-4 rounded-full border-2 ${autoCalculatedShipping?.name === option.name ? 'border-amber-400' : 'border-gray-500'}`}>
-                                                    {autoCalculatedShipping?.name === option.name && <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-400"></div></div>}
-                                                </div>
-                                            </div>
-                                            <div className="pl-8 flex-grow">
-                                                <span className="font-bold text-base">{option.name}</span>
-                                                <p className="text-xs text-gray-400 mt-0.5">{option.isPickup ? `Retire em nosso endereço físico.` : getDeliveryDateText(option.delivery_time)}</p>
-                                            </div>
-                                            <span className="font-bold text-amber-400 text-lg flex-shrink-0">{option.price > 0 ? `R$ ${option.price.toFixed(2)}` : 'Grátis'}</span>
-                                        </div>
-                                    ))}
+                            {/* PASSO 2: ENTREGA */}
+                            <div className="bg-gray-900/50 backdrop-blur-md rounded-2xl border border-white/5 overflow-hidden shadow-lg">
+                                <div className="p-5 border-b border-white/5 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-amber-500 text-black w-7 h-7 rounded-md flex items-center justify-center font-black text-sm">2</div>
+                                        <h2 className="text-lg font-bold">Entrega</h2>
+                                    </div>
                                 </div>
-                            </CheckoutSection>
-
-                            {autoCalculatedShipping?.isPickup ? (
-                                <CheckoutSection title="Detalhes da Retirada" icon={BoxIcon}>
-                                     <div className="text-sm bg-gray-800 p-4 rounded-md space-y-4 border border-gray-700">
-                                        <div className="flex items-start gap-2">
-                                            <MapPinIcon className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
-                                            <div className="w-full">
-                                                <p className="font-bold text-white mb-2">Endereço de Retirada:</p>
-                                                {isPAddressObj ? (
-                                                    <div className="space-y-1 bg-gray-900 p-3 rounded-md border border-gray-700">
-                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">Rua:</span> <span className="text-gray-200">{pAddress.rua}</span></div>
-                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">Nº:</span> <span className="text-gray-200">{pAddress.numero}</span></div>
-                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">Bairro:</span> <span className="text-gray-200">{pAddress.bairro}</span></div>
-                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">Cidade:</span> <span className="text-gray-200">{pAddress.cidade}</span></div>
-                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">Estado:</span> <span className="text-gray-200">{pAddress.estado || pAddress.uf}</span></div>
-                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">CEP:</span> <span className="text-gray-200 font-mono">{pAddress.cep}</span></div>
+                                <div className="p-5 space-y-4">
+                                    {/* Opções de Frete */}
+                                    <div className="space-y-3">
+                                        {shippingOptions.map(option => (
+                                            <div key={option.name} onClick={() => handleSelectShipping(option)} className={`relative p-4 rounded-xl border-2 transition cursor-pointer flex items-center justify-between gap-4 ${autoCalculatedShipping?.name === option.name ? 'border-amber-500 bg-gray-800 shadow-inner' : 'border-gray-800 hover:border-gray-700 bg-gray-900/50'}`}>
+                                                <div className="absolute top-4 left-4 w-5 h-5 flex items-center justify-center">
+                                                    <div className={`w-4 h-4 rounded-full border-2 ${autoCalculatedShipping?.name === option.name ? 'border-amber-500' : 'border-gray-600'}`}>
+                                                        {autoCalculatedShipping?.name === option.name && <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-500"></div></div>}
                                                     </div>
-                                                ) : (
-                                                    <p className="text-gray-300">{pAddress || 'Endereço não configurado'}</p>
-                                                )}
+                                                </div>
+                                                <div className="pl-8 flex-grow">
+                                                    <span className="font-bold text-base">{option.name}</span>
+                                                    <p className="text-xs text-gray-400 mt-0.5">{option.isPickup ? `Retire em nosso endereço físico.` : getDeliveryDateText(option.delivery_time)}</p>
+                                                </div>
+                                                <span className="font-bold text-amber-400 text-lg flex-shrink-0">{option.price > 0 ? `R$ ${option.price.toFixed(2)}` : 'Grátis'}</span>
                                             </div>
-                                        </div>
+                                        ))}
                                     </div>
-                                    <div className="mt-5 space-y-3">
-                                        <div className="flex items-center">
-                                            <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
-                                            <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
-                                        </div>
-                                        {isSomeoneElsePickingUp && (
-                                            <div key={isSomeoneElsePickingUp ? "pickup-form-on" : "pickup-form-off"} className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
-                                                <input type="text" defaultValue={pickupPersonName} onBlur={handlePickupNameBlur} placeholder="Nome completo de quem vai retirar" className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"/>
-                                                <input type="text" defaultValue={pickupPersonCpf} onInput={handleCpfInputChangeMask} onBlur={handlePickupCpfBlur} placeholder="CPF de quem vai retirar" maxLength="14" className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"/>
-                                            </div>
-                                        )}
-                                    </div>
-                                </CheckoutSection>
-                            ) : (
-                                <CheckoutSection title="Endereço de Entrega" icon={MapPinIcon}>
-                                     {isAddressLoading ? (
-                                        <div className="flex justify-center items-center h-24"><SpinnerIcon className="h-6 w-6 text-amber-400"/></div>
-                                    ) : displayAddress && !displayAddress.is_incomplete ? (
-                                        <div className="p-4 bg-gray-800 rounded-md border border-gray-700 relative">
-                                            <div className="flex justify-between items-start">
-                                                <p className="font-bold text-lg mb-2 text-white">{displayAddress.alias}</p>
-                                                {!!displayAddress.is_default && <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full font-semibold">Padrão</span>}
-                                            </div>
-                                            <div className="space-y-1 text-gray-300 text-sm">
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Rua:</span> {displayAddress.logradouro}</p>
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Nº:</span> {displayAddress.numero} {displayAddress.complemento && `- ${displayAddress.complemento}`}</p>
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Bairro:</span> {displayAddress.bairro}</p>
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Cidade:</span> {displayAddress.localidade} - {displayAddress.uf}</p>
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">CEP:</span> {displayAddress.cep}</p>
-                                            </div>
-                                            <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:text-amber-300 mt-4 font-semibold text-sm flex items-center gap-1">
-                                                <EditIcon className="h-4 w-4"/> Alterar Endereço
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="text-center p-6 bg-red-900/20 rounded-md border border-red-800">
-                                            <MapPinIcon className="h-10 w-10 mx-auto text-red-500 mb-3"/>
-                                            <p className="text-red-200 font-bold mb-2 text-sm">Endereço Incompleto</p>
-                                            <p className="text-gray-400 mb-4 text-xs">Precisamos do nome da rua e número para entregar.</p>
-                                            <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-5 py-2 rounded-md hover:bg-amber-400 font-bold text-sm flex items-center gap-2 mx-auto animate-pulse">
-                                                <PlusIcon className="h-4 w-4"/> Preencher Endereço
-                                            </button>
-                                        </div>
-                                    )}
-                                </CheckoutSection>
-                            )}
 
-                            {/* --- SEÇÃO 3: O BRICK NATIVO ESTÁ AQUI --- */}
-                            <CheckoutSection title="Forma de Pagamento" step={3} icon={CreditCardIcon}>
-                                {(!canPlaceOrder && !autoCalculatedShipping?.isPickup) ? (
-                                    <div className="text-center py-8 bg-gray-800/50 rounded-lg border border-dashed border-gray-700">
-                                        <MapPinIcon className="h-8 w-8 text-gray-500 mx-auto mb-3" />
-                                        <p className="text-gray-400 font-medium">Preencha o endereço de entrega acima para liberar o pagamento.</p>
-                                    </div>
-                                ) : !autoCalculatedShipping ? (
-                                     <div className="text-center py-8 bg-gray-800/50 rounded-lg border border-dashed border-gray-700">
-                                        <TruckIcon className="h-8 w-8 text-gray-500 mx-auto mb-3" />
-                                        <p className="text-gray-400 font-medium">Selecione uma forma de entrega para continuar.</p>
-                                    </div>
-                                ) : (
-                                    <div className="w-full relative min-h-[300px]">
-                                        {!isBrickReady && (
-                                             <div className="absolute inset-0 flex flex-col items-center justify-center py-6 bg-gray-900 z-10 rounded-lg">
-                                                <SpinnerIcon className="h-8 w-8 text-amber-500 animate-spin mb-3" />
-                                                <p className="text-gray-400 text-sm">Carregando ambiente seguro...</p>
-                                            </div>
-                                        )}
-                                        <div className={`transition-opacity duration-500 ${isBrickReady ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
-                                            <Payment
-                                                initialization={initialization}
-                                                customization={customization}
-                                                onSubmit={handlePaymentSubmit}
-                                                onReady={handlePaymentReady}
-                                                onError={handlePaymentError}
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-                            </CheckoutSection>
-                        </div> 
-
-                        {/* --- LATERAL DIREITA: RESUMO DO PEDIDO --- */}
-                        <div className="lg:col-span-1">
-                             <div className="bg-gray-900 rounded-lg border border-gray-800 p-5 lg:p-6 shadow-lg h-fit lg:sticky lg:top-24">
-                                <h2 className="text-xl font-bold mb-5 text-amber-400 border-b border-gray-700 pb-3">Resumo do Pedido</h2>
-                                <div className="space-y-2 mb-4 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                                    {cart.map(item => (
-                                        <div key={item.cartItemId} className="flex justify-between items-start text-gray-300 text-sm py-2 gap-2 border-b border-gray-800 last:border-0">
-                                            <div className="flex items-start gap-3 overflow-hidden">
-                                                 <img src={getFirstImage(item.images)} alt={item.name} className="w-10 h-10 object-contain bg-white rounded flex-shrink-0"/>
-                                                <div>
-                                                    <span className="block font-semibold text-white truncate max-w-[150px]">{item.qty}x {item.name}</span>
-                                                    {item.variation && (
-                                                        <div className="text-xs text-gray-400 mt-0.5 flex flex-col">
-                                                            <span>Cor: {item.variation.color}</span>
-                                                            <span>Tam: {item.variation.size}</span>
+                                    {/* Detalhes do Endereço de acordo com a escolha */}
+                                    {autoCalculatedShipping && (
+                                        <div className="mt-4 pt-4 border-t border-gray-800">
+                                            {autoCalculatedShipping.isPickup ? (
+                                                <div className="text-sm bg-black/30 p-5 rounded-xl border border-gray-800">
+                                                    <div className="flex items-start gap-2 mb-4">
+                                                        <MapPinIcon className="h-5 w-5 text-amber-500 flex-shrink-0" />
+                                                        <div>
+                                                            <p className="font-bold text-white mb-1">Local de Retirada:</p>
+                                                            <p className="text-gray-400">{isPAddressObj ? `${pAddress.rua}, ${pAddress.numero} - ${pAddress.bairro}, ${pAddress.cidade}` : pAddress}</p>
+                                                            <p className="text-gray-400 mt-2"><strong>Horário:</strong> {pickupConfig?.hours}</p>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div className="flex items-center mb-3">
+                                                        <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-700 bg-gray-800 text-amber-500 focus:ring-amber-500"/>
+                                                        <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300 font-medium cursor-pointer">Outra pessoa vai retirar?</label>
+                                                    </div>
+                                                    {isSomeoneElsePickingUp && (
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                                                            <input type="text" defaultValue={pickupPersonName} onBlur={handlePickupNameBlur} placeholder="Nome completo" className="w-full p-3 bg-gray-900 border border-gray-700 rounded-lg text-sm outline-none focus:border-amber-500"/>
+                                                            <input type="text" defaultValue={pickupPersonCpf} onInput={handleCpfInputChangeMask} onBlur={handlePickupCpfBlur} placeholder="CPF" maxLength="14" className="w-full p-3 bg-gray-900 border border-gray-700 rounded-lg text-sm outline-none focus:border-amber-500"/>
                                                         </div>
                                                     )}
                                                 </div>
+                                            ) : (
+                                                <>
+                                                    {isAddressLoading ? (
+                                                        <div className="flex justify-center py-4"><SpinnerIcon className="h-6 w-6 text-amber-500 animate-spin"/></div>
+                                                    ) : displayAddress && !displayAddress.is_incomplete ? (
+                                                        <div className="p-5 bg-black/30 rounded-xl border border-gray-800 flex justify-between items-center">
+                                                            <div>
+                                                                <p className="font-bold text-white mb-1">{displayAddress.alias}</p>
+                                                                <p className="text-sm text-gray-400">{displayAddress.logradouro}, {displayAddress.numero}</p>
+                                                                <p className="text-sm text-gray-400">{displayAddress.bairro}, {displayAddress.localidade} - {displayAddress.uf}</p>
+                                                            </div>
+                                                            <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-500 hover:text-amber-400 font-bold text-sm bg-amber-500/10 px-4 py-2 rounded-lg transition-colors">
+                                                                Alterar
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-center p-6 bg-red-900/10 rounded-xl border border-red-900/50">
+                                                            <MapPinIcon className="h-8 w-8 mx-auto text-red-500 mb-2"/>
+                                                            <p className="text-red-400 font-bold mb-3 text-sm">Falta o endereço de entrega</p>
+                                                            <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-6 py-2.5 rounded-lg font-bold text-sm mx-auto hover:bg-amber-400 transition-colors">
+                                                                Preencher Endereço
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* PASSO 3: PAGAMENTO (BRICK NATIVO) */}
+                            <div id="payment-section" className="scroll-mt-20">
+                                <div className="bg-gray-900/50 backdrop-blur-md rounded-2xl border border-white/5 overflow-hidden shadow-2xl">
+                                    <div className="p-5 border-b border-white/5 flex items-center justify-between bg-gradient-to-r from-gray-900 to-transparent">
+                                        <h2 className="text-lg font-bold flex items-center gap-3">
+                                            <div className="bg-amber-500 text-black w-7 h-7 rounded-md flex items-center justify-center font-black text-sm">3</div>
+                                            Pagamento
+                                        </h2>
+                                        <ShieldCheckIcon className="h-6 w-6 text-green-500 opacity-80"/>
+                                    </div>
+
+                                    <div className="p-4 sm:p-6">
+                                        {/* Só libera o Brick se tiver escolhido o frete */}
+                                        {!autoCalculatedShipping ? (
+                                            <div className="text-center py-10 bg-black/40 rounded-xl border border-dashed border-gray-700">
+                                                <TruckIcon className="h-10 w-10 text-gray-600 mx-auto mb-3" />
+                                                <p className="text-gray-400 font-medium">Selecione uma forma de entrega no Passo 2 para liberar o pagamento.</p>
                                             </div>
-                                            <span className="font-medium flex-shrink-0">R$ {( (Number(item.is_on_sale && item.sale_price ? item.sale_price : item.price) || 0) * (Number(item.qty) || 0) ).toFixed(2)}</span>
+                                        ) : (
+                                            <div className="animate-fade-in w-full relative min-h-[300px]">
+                                                {!isBrickReady && (
+                                                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/80 z-10 rounded-xl">
+                                                        <SpinnerIcon className="h-8 w-8 text-amber-500 animate-spin mb-3"/>
+                                                        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Protegendo sua conexão...</p>
+                                                    </div>
+                                                )}
+                                                <div className={isBrickReady ? "opacity-100 transition-opacity duration-700" : "opacity-0 h-0 overflow-hidden"}>
+                                                    {/* O BRICK É RENDERIZADO AQUI */}
+                                                    <Payment
+                                                        initialization={initialization}
+                                                        customization={customization}
+                                                        onSubmit={handlePaymentSubmit}
+                                                        onReady={handlePaymentReady}
+                                                        onError={handlePaymentError}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* RESUMO LATERAL - NÍVEL AMAZON */}
+                        <div className="lg:col-span-4 sticky top-24">
+                            <div className="bg-white text-black rounded-3xl p-6 sm:p-8 shadow-2xl transform lg:rotate-1">
+                                <h3 className="font-black text-2xl mb-6 border-b-4 border-black pb-2 italic tracking-tighter">RESUMO</h3>
+                                
+                                <div className="space-y-4 font-bold text-sm">
+                                    {cart.map(item => (
+                                        <div key={item.cartItemId} className="flex justify-between items-center text-xs text-gray-600 border-b border-gray-100 pb-2">
+                                            <span className="truncate pr-2">{item.qty}x {item.name}</span>
+                                            <span>R$ {((Number(item.is_on_sale && item.sale_price ? item.sale_price : item.price) || 0) * item.qty).toFixed(2)}</span>
                                         </div>
                                     ))}
-                                </div>
-                                <div className="border-t border-gray-700 pt-4 space-y-2 text-sm">
-                                    <div className="flex justify-between text-gray-400"><span>Subtotal</span><span className="font-medium text-gray-300">R$ {subtotal.toFixed(2)}</span></div>
-                                    {autoCalculatedShipping ? (
-                                        <div className="flex justify-between text-gray-400">
-                                            <span>Frete ({autoCalculatedShipping.name.includes('PAC') ? 'PAC' : autoCalculatedShipping.name})</span>
-                                            <span className="font-medium text-gray-300">{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
-                                        </div>
-                                    ) : (
-                                        <div className="text-gray-500 text-center py-1">Calcule o frete</div>
-                                    )}
-                                    {appliedCoupon && (
-                                        <div className="flex justify-between text-green-400">
-                                            <span>Desconto ({appliedCoupon.code})</span>
-                                            <span className="font-medium">- R$ {discount.toFixed(2)}</span>
-                                        </div>
-                                    )}
-                                    <div className="flex justify-between font-bold text-lg text-white border-t border-gray-700 pt-3 mt-3">
-                                        <span>Total</span>
-                                        <span className="text-amber-400">R$ {total.toFixed(2)}</span>
+                                    <div className="flex justify-between pt-2"><span>PRODUTOS</span><span>R$ {subtotal.toFixed(2)}</span></div>
+                                    <div className="flex justify-between text-gray-500">
+                                        <span>FRETE {autoCalculatedShipping && `(${autoCalculatedShipping.name})`}</span>
+                                        <span>{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : (autoCalculatedShipping ? 'GRÁTIS' : '---')}</span>
+                                    </div>
+                                    {discount > 0 && <div className="flex justify-between text-green-600"><span>CUPOM</span><span>- R$ {discount.toFixed(2)}</span></div>}
+                                    <div className="pt-6 border-t-4 border-black flex justify-between text-2xl sm:text-3xl font-black italic">
+                                        <span>TOTAL</span>
+                                        <span>R$ {total.toFixed(2)}</span>
                                     </div>
                                 </div>
 
-                                <div className="mt-5 border-t border-gray-700 pt-5">
+                                {/* Campo de Cupom Compacto */}
+                                <div className="mt-6 border-t border-gray-200 pt-6">
                                     {!appliedCoupon ? (
-                                        <>
-                                            <label className="block text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wide">Possui um cupom de desconto?</label>
-                                            <form onSubmit={handleApplyCoupon} className="flex space-x-2">
-                                                <input 
-                                                    value={couponCode} 
-                                                    onChange={e => setCouponCode(e.target.value.toUpperCase())} 
-                                                    type="text" 
-                                                    placeholder="Digite o código" 
-                                                    className="w-full p-2.5 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-sm text-white placeholder-gray-500 font-mono" 
-                                                />
-                                                <button type="submit" className="px-4 bg-gray-800 border border-gray-600 text-amber-400 font-bold rounded-md hover:bg-gray-700 hover:text-amber-300 text-sm transition-colors">
-                                                    Aplicar
-                                                </button>
-                                            </form>
-                                            {couponMessage && <p className={`text-xs mt-2 font-medium ${couponMessage.includes('aplicado') ? 'text-green-400' : 'text-red-400'}`}>{couponMessage}</p>}
-                                        </>
+                                        <form onSubmit={handleApplyCoupon} className="flex bg-gray-100 p-1 rounded-lg">
+                                            <input 
+                                                value={couponCode} 
+                                                onChange={e => setCouponCode(e.target.value.toUpperCase())} 
+                                                type="text" 
+                                                placeholder="CUPOM DE DESCONTO" 
+                                                className="w-full p-2 bg-transparent text-sm font-bold text-black placeholder-gray-400 outline-none" 
+                                            />
+                                            <button type="submit" className="bg-black text-white px-4 py-2 rounded-md text-xs font-bold hover:bg-gray-800 transition-colors">
+                                                APLICAR
+                                            </button>
+                                        </form>
                                     ) : (
-                                        <div className="flex justify-between items-center bg-green-900/20 p-3 rounded-md border border-green-800">
-                                            <p className="text-sm text-green-400 flex items-center gap-2 font-medium"><CheckCircleIcon className="h-5 w-5"/> Cupom <strong>{appliedCoupon.code}</strong> aplicado!</p>
-                                            <button onClick={removeCoupon} className="text-xs text-red-400 hover:text-red-300 hover:underline flex-shrink-0 font-medium">Remover</button>
+                                        <div className="flex justify-between items-center bg-green-50 p-3 rounded-lg border border-green-200">
+                                            <p className="text-sm text-green-700 font-bold flex items-center gap-1"><CheckCircleIcon className="h-4 w-4"/> {appliedCoupon.code}</p>
+                                            <button onClick={removeCoupon} className="text-xs text-red-500 font-bold hover:underline">REMOVER</button>
                                         </div>
                                     )}
+                                    {couponMessage && <p className={`text-xs mt-2 text-center font-bold ${couponMessage.includes('aplicado') ? 'text-green-600' : 'text-red-500'}`}>{couponMessage}</p>}
                                 </div>
 
-                                {/* Como o pagamento agora é na etapa 3, o botão grande some e colocamos um aviso amigável */}
-                                <div className="mt-6 p-4 bg-blue-900/20 border border-blue-800/50 rounded-xl text-center">
-                                    <ShieldCheckIcon className="h-8 w-8 text-blue-400 mx-auto mb-2" />
-                                    <p className="text-sm text-blue-200">
-                                        Sua compra está protegida. O pagamento deve ser concluído no formulário à esquerda.
-                                    </p>
-                                </div>
+                                <p className="text-[9px] mt-6 text-center text-gray-400 font-bold uppercase tracking-tighter flex items-center justify-center gap-1">
+                                    <LockClosedIcon className="h-3 w-3"/> Compra Criptografada
+                                </p>
                             </div>
                         </div>
                     </div>

@@ -3504,6 +3504,7 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
 });
 
 // --- ROTA DE PROCESSAMENTO DIRETO (CHECKOUT BRICKS) ---
+// --- ROTA DE PROCESSAMENTO DIRETO (CHECKOUT BRICKS) ---
 app.post('/api/process_payment', verifyToken, async (req, res) => {
     const { payment_data, orderId } = req.body;
 
@@ -3511,73 +3512,90 @@ app.post('/api/process_payment', verifyToken, async (req, res) => {
         return res.status(400).json({ message: "Dados de pagamento incompletos." });
     }
 
+    const connection = await db.getConnection();
     try {
-        // CORREÇÃO: Garante que o token usado é o MP_ACCESS_TOKEN configurado no Render
+        // 1. Busca os dados do usuário no Banco de Dados para garantir que o Mercado Pago tenha CPF e Email
+        const [users] = await connection.query("SELECT email, cpf, name FROM users WHERE id = ?", [req.user.id]);
+        if (users.length === 0) throw new Error("Usuário não encontrado.");
+        const dbUser = users[0];
+
         const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
         const payment = new Payment(client);
 
-        // Tratamento para garantir que o e-mail e identificação existam (evita erro 500)
-        const payerEmail = payment_data.payer?.email || req.user.email;
+        // Prepara os dados do pagador garantindo fallback para o Banco de Dados
+        const payerEmail = payment_data.payer?.email || dbUser.email;
         const payerIDType = payment_data.payer?.identification?.type || 'CPF';
-        const payerIDNumber = payment_data.payer?.identification?.number || '';
+        let payerIDNumber = payment_data.payer?.identification?.number || dbUser.cpf || '';
+        payerIDNumber = String(payerIDNumber).replace(/\D/g, ''); // Limpa pontos e traços
 
+        // Monta o Payload Base (Funciona para todos)
         const body = {
             transaction_amount: Number(payment_data.transaction_amount),
-            token: payment_data.token,
             description: `Pedido #${orderId} - Love Cestas e Perfumes`,
-            installments: Number(payment_data.installments) || 1,
             payment_method_id: payment_data.payment_method_id,
-            issuer_id: payment_data.issuer_id,
             payer: {
                 email: payerEmail,
+                first_name: dbUser.name ? dbUser.name.split(' ')[0] : undefined,
                 identification: {
                     type: payerIDType,
-                    number: payerIDNumber.replace(/\D/g, '') // Remove pontos/traços
+                    number: payerIDNumber
                 }
             }
         };
 
+        // Adiciona campos de Cartão APENAS se eles existirem (Evita Erro 500 no Pix)
+        if (payment_data.token) body.token = payment_data.token;
+        if (payment_data.installments) body.installments = Number(payment_data.installments);
+        if (payment_data.issuer_id) body.issuer_id = payment_data.issuer_id;
+
+        // 2. Processa o pagamento na API do Mercado Pago
         const paymentResult = await payment.create({ body });
 
-        const connection = await db.getConnection();
-        try {
-            await connection.beginTransaction();
+        // 3. Atualiza o banco de dados
+        await connection.beginTransaction();
 
-            let dbStatus = ORDER_STATUS.PENDING;
-            if (paymentResult.status === 'approved') dbStatus = ORDER_STATUS.PAYMENT_APPROVED;
-            else if (['rejected', 'cancelled'].includes(paymentResult.status)) dbStatus = ORDER_STATUS.PAYMENT_REJECTED;
+        let dbStatus = ORDER_STATUS.PENDING;
+        if (paymentResult.status === 'approved') {
+            dbStatus = ORDER_STATUS.PAYMENT_APPROVED;
+        } else if (paymentResult.status === 'rejected' || paymentResult.status === 'cancelled') {
+            dbStatus = ORDER_STATUS.PAYMENT_REJECTED;
+        }
 
-            const paymentDetails = {
+        let paymentDetailsPayload = null;
+        if (payment_data.payment_method_id) {
+            paymentDetailsPayload = {
                 method: payment_data.payment_method_id === 'pix' ? 'pix' : (payment_data.payment_method_id.includes('ticket') ? 'boleto' : 'credit_card'),
                 card_brand: paymentResult.payment_method_id,
-                installments: paymentResult.installments,
+                installments: paymentResult.installments || 1,
                 qr_code: paymentResult.point_of_interaction?.transaction_data?.qr_code || null,
                 qr_code_base64: paymentResult.point_of_interaction?.transaction_data?.qr_code_base64 || null,
                 ticket_url: paymentResult.point_of_interaction?.transaction_data?.ticket_url || null
             };
-
-            await connection.query(
-                "UPDATE orders SET payment_status = ?, payment_gateway_id = ?, status = ?, payment_details = ? WHERE id = ?",
-                [paymentResult.status, paymentResult.id, dbStatus, JSON.stringify(paymentDetails), orderId]
-            );
-
-            await updateOrderStatus(orderId, dbStatus, connection, "Processado via Bricks");
-            await connection.commit();
-
-            res.json({
-                status: paymentResult.status,
-                id: paymentResult.id
-            });
-
-        } catch (dbErr) {
-            await connection.rollback();
-            throw dbErr;
-        } finally {
-            connection.release();
         }
+
+        await connection.query(
+            "UPDATE orders SET payment_status = ?, payment_gateway_id = ?, status = ?, payment_details = ? WHERE id = ?",
+            [paymentResult.status, paymentResult.id, dbStatus, JSON.stringify(paymentDetailsPayload), orderId]
+        );
+
+        if (dbStatus !== ORDER_STATUS.PENDING) {
+            await updateOrderStatus(orderId, dbStatus, connection, "Processado via Checkout Bricks.");
+        }
+
+        await connection.commit();
+
+        res.json({
+            status: paymentResult.status,
+            status_detail: paymentResult.status_detail,
+            id: paymentResult.id
+        });
+
     } catch (error) {
-        console.error("ERRO DETALHADO MP:", error.message, error.cause);
-        res.status(500).json({ message: error.message || "Erro no processamento." });
+        if (connection) await connection.rollback();
+        console.error("[BRICKS] Erro ao processar pagamento:", error.message || error);
+        res.status(500).json({ message: "Ocorreu um erro ao processar o pagamento com seu cartão ou banco. Verifique seus dados." });
+    } finally {
+        if (connection) connection.release();
     }
 });
 
