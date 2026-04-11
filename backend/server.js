@@ -3515,17 +3515,46 @@ app.post('/api/process-payment', verifyToken, async (req, res) => {
         const connection = await db.getConnection();
         
         try {
+            // 1. Verifica se o pedido existe e pertence ao usuário
             const [orderResult] = await connection.query("SELECT * FROM orders WHERE id = ? AND user_id = ?", [orderId, req.user.id]);
             if (!orderResult.length) {
                 return res.status(404).json({ message: "Pedido não encontrado ou acesso negado."});
             }
             const order = orderResult[0];
 
+            // 2. Busca os dados reais do usuário no banco para forçar a geração do PIX
+            const [users] = await connection.query("SELECT email, name, cpf FROM users WHERE id = ?", [req.user.id]);
+            const userDb = users[0];
+            
+            // Divide o nome do usuário
+            const nameParts = userDb.name.trim().split(' ');
+            const firstName = nameParts[0];
+            const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Cliente';
+
+            // Instancia a classe de Pagamento
             const payment = new Payment(mpClient);
 
+            // 3. Monta o Payer blindado (Garante que o MP tenha tudo para gerar o PIX)
+            const finalPayer = {
+                ...paymentData.payer,
+                email: paymentData.payer?.email || userDb.email,
+                first_name: paymentData.payer?.first_name || firstName,
+                last_name: paymentData.payer?.last_name || lastName,
+            };
+
+            // Se o cliente tem CPF e o Brick não mandou, nós injetamos!
+            if (userDb.cpf && !finalPayer.identification) {
+                finalPayer.identification = {
+                    type: "CPF",
+                    number: userDb.cpf.replace(/\D/g, '')
+                };
+            }
+
+            // 4. Prepara o payload para a API do MP
             const mpPayload = {
                 body: {
                     ...paymentData,
+                    payer: finalPayer, // <-- Enviando o pagador garantido
                     transaction_amount: Number(order.total),
                     external_reference: orderId.toString(),
                     description: `Pedido #${orderId} - Love Cestas e Perfumes`,
@@ -3539,6 +3568,7 @@ app.post('/api/process-payment', verifyToken, async (req, res) => {
             console.log(`[Pagamento Direto] Processando pagamento para pedido #${orderId} no valor de R$${order.total}...`);
             const result = await payment.create(mpPayload);
 
+            // Atualiza o status do pedido no banco
             let newStatus = ORDER_STATUS.PENDING;
             if (result.status === 'approved') {
                 newStatus = ORDER_STATUS.PAYMENT_APPROVED;
@@ -3546,27 +3576,28 @@ app.post('/api/process-payment', verifyToken, async (req, res) => {
                 newStatus = ORDER_STATUS.PAYMENT_REJECTED;
             }
 
-            // --- ATUALIZAÇÃO IMPORTANTE AQUI ---
-            // Vamos montar os detalhes técnicos do pagamento, capturando os dados do Pix e do Boleto
+            // Define o método exato retornado
+            const methodId = paymentData.payment_method_id || result.payment_method_id;
+
             let paymentDetailsPayload = {
-                method: paymentData.payment_method_id, // ex: 'pix', 'bolbradesco', 'master'
-                type: result.payment_type_id // ex: 'credit_card', 'ticket', 'bank_transfer'
+                method: methodId, 
+                type: result.payment_type_id 
             };
 
-            // Se for Pix, salva a chave copia e cola e o QRCode em Base64
-            if (result.payment_method_id === 'pix' && result.point_of_interaction?.transaction_data) {
+            // 5. Trata a resposta do Pix e pega o QR Code
+            if (methodId === 'pix' && result.point_of_interaction?.transaction_data) {
                 paymentDetailsPayload.qr_code = result.point_of_interaction.transaction_data.qr_code;
                 paymentDetailsPayload.qr_code_base64 = result.point_of_interaction.transaction_data.qr_code_base64;
-                paymentDetailsPayload.ticket_url = result.point_of_interaction.transaction_data.ticket_url; // Link do comprovante do MP
+                paymentDetailsPayload.ticket_url = result.point_of_interaction.transaction_data.ticket_url; 
             }
             
-            // Se for Boleto ou Lotérica, salva o link do PDF/Código de barras
+            // Trata a resposta do Boleto
             if (result.payment_type_id === 'ticket' && result.transaction_details) {
                 paymentDetailsPayload.external_resource_url = result.transaction_details.external_resource_url;
                 paymentDetailsPayload.barcode = result.barcode?.content;
             }
 
-            // Se for cartão, salva os dados do cartão
+            // Trata a resposta de Cartão
             if (result.payment_type_id === 'credit_card' && result.card) {
                 paymentDetailsPayload.card_brand = result.payment_method_id;
                 paymentDetailsPayload.card_last_four = result.card.last_four_digits;
@@ -3579,12 +3610,11 @@ app.post('/api/process-payment', verifyToken, async (req, res) => {
                 [result.status, result.id, JSON.stringify(paymentDetailsPayload), orderId]
             );
 
-            // Atualiza status global do pedido (se aprovado ou rejeitado de imediato)
+            // Se já foi aprovado ou recusado de cara
             if (newStatus !== ORDER_STATUS.PENDING) {
                  await updateOrderStatus(orderId, newStatus, connection, `Pagamento processado via Brick. Status MP: ${result.status}`);
             }
 
-            // Devolve o status da API do MP para o frontend
             res.json({ status: result.status, paymentId: result.id });
 
         } finally {
