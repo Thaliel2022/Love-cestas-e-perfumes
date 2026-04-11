@@ -20,7 +20,6 @@ const webpush = require('web-push');
 const { z } = require('zod'); // Substitui express-validator
 const compression = require('compression'); 
 const { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } = require('@simplewebauthn/server');
-const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
 
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
