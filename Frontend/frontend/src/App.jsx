@@ -6650,56 +6650,59 @@ const CheckoutPage = ({ onNavigate }) => {
 const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
     const { clearOrderState } = useShop();
     const notification = useNotification();
-    const [pageStatus, setPageStatus] = useState('processing'); // 'processing', 'success', 'timeout', 'pending_action'
-    const [finalOrderStatus, setFinalOrderStatus] = useState('');
-    const [isRetryingPayment, setIsRetryingPayment] = useState(false);
-    const [isCheckingManual, setIsCheckingManual] = useState(false); // Novo estado para o botão "Já Paguei"
+    
+    // Status principais da página
+    const [pageStatus, setPageStatus] = useState('processing'); // 'processing', 'success', 'timeout', 'pending_action', 'pix_pending', 'ticket_pending'
+    const [paymentDetails, setPaymentDetails] = useState(null); // Dados do Pix/Boleto
+    const [isCheckingManual, setIsCheckingManual] = useState(false);
+    const [copied, setCopied] = useState(false);
 
     const statusRef = useRef(pageStatus);
     const pollsCount = useRef(0);
 
-    // Detecta se está no navegador padrão ou dentro do PWA (Standalone)
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
 
     useEffect(() => {
         statusRef.current = pageStatus;
     }, [pageStatus]);
 
+    // Função principal que verifica o status do pedido e decide qual tela mostrar
     const pollStatus = useCallback(async (isManualCheck = false) => {
-        console.log(`Verificando status do pedido #${orderId}... (Manual: ${isManualCheck})`);
-        
-        // 1. Verificação via URL (Lê apenas se NÃO for uma checagem manual pelo botão)
-        const hashParts = window.location.hash.split('?');
-        if (hashParts.length > 1 && !isManualCheck) {
-            const params = new URLSearchParams(hashParts[1]);
-            const mpStatus = params.get('status') || params.get('collection_status');
-            
-            if (mpStatus === 'approved') {
-                setFinalOrderStatus('Pagamento Aprovado');
-                setPageStatus('success');
-                window.location.hash = hashParts[0]; // Limpa a URL para não prender em loops
-                return true; 
-            } else if (mpStatus === 'rejected' || mpStatus === 'null' || mpStatus === 'cancelled') {
-                setFinalOrderStatus('Pagamento Recusado');
-                setPageStatus('pending_action');
-                window.location.hash = hashParts[0]; // Limpa a URL
-                return true;
-            }
-        }
-
-        // 2. Verificação Real via API (Anti-Cache)
         try {
-            const response = await apiService(`/orders/${orderId}/status?_t=${Date.now()}`);
-            if (response.status && response.status !== 'Pendente') {
-                setFinalOrderStatus(response.status);
-                
-                if (response.status === 'Pagamento Recusado' || response.status === 'Cancelado') {
+            // 1. Busca o status "Macro" do pedido
+            const statusResponse = await apiService(`/orders/${orderId}/status?_t=${Date.now()}`);
+            
+            if (statusResponse.status) {
+                // Se foi cancelado ou recusado
+                if (statusResponse.status === 'Pagamento Recusado' || statusResponse.status === 'Cancelado') {
                     setPageStatus('pending_action');
                     return true;
                 }
                 
-                setPageStatus('success');
-                return true; 
+                // Se foi aprovado (Cartão de Crédito ou Pix pago rápido)
+                if (statusResponse.status !== 'Pendente') {
+                    setPageStatus('success');
+                    return true; 
+                }
+
+                // Se o status macro for 'Pendente', precisamos investigar os detalhes do pagamento (se é Pix ou Boleto)
+                if (statusResponse.status === 'Pendente') {
+                    const detailsResponse = await apiService(`/orders/${orderId}/payment-details?_t=${Date.now()}`);
+                    
+                    if (detailsResponse && detailsResponse.payment_details) {
+                        const details = detailsResponse.payment_details;
+                        setPaymentDetails(details);
+                        
+                        // Direciona para a interface correta de acordo com o método
+                        if (details.method === 'pix') {
+                            setPageStatus('pix_pending');
+                            return false; // Continua fazendo polling para ver se o pix foi pago
+                        } else if (details.type === 'ticket') {
+                            setPageStatus('ticket_pending');
+                            return false; // Continua o polling para o boleto
+                        }
+                    }
+                }
             }
         } catch (err) {
             console.error("Erro ao verificar status na API.", err);
@@ -6707,60 +6710,31 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
         return false; 
     }, [orderId]);
 
-    const handleRetryPayment = async () => {
-        setIsRetryingPayment(true);
-        try {
-            const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
-            if (paymentResult && paymentResult.init_point) {
-                localStorage.setItem('pendingOrderId', orderId);
-                window.location.assign(paymentResult.init_point);
-            } else {
-                throw new Error("Não foi possível obter o link de pagamento.");
-            }
-        } catch (error) {
-            notification.show(`Erro ao tentar abrir o pagamento: ${error.message}`, 'error');
-            setIsRetryingPayment(false);
-        }
-    };
-
     const handleManualCheck = async () => {
         setIsCheckingManual(true);
-        
         try {
-            // true indica que o usuário clicou no botão (ignora URL antiga)
             const isFinished = await pollStatus(true);
-            
-            // Trava um tempo mínimo de UX para o usuário ver que a ação foi realizada
             await new Promise(resolve => setTimeout(resolve, 1500));
 
-            if (!isFinished) {
-                 if (statusRef.current !== 'success') {
-                    setPageStatus('pending_action');
-                    notification.show("Ainda não confirmado. Boleto/Pix podem levar alguns instantes.", "error");
-                 }
+            if (!isFinished && statusRef.current !== 'success') {
+                notification.show("Ainda não confirmado. Se acabou de pagar, pode levar alguns minutos.", "error");
+            } else if (isFinished && statusRef.current === 'success') {
+                notification.show("Pagamento identificado com sucesso!", "success");
             }
         } finally {
             setIsCheckingManual(false);
         }
     };
 
-    useEffect(() => {
-        const resetPaymentState = () => {
-            if (document.visibilityState === 'visible') {
-                setIsRetryingPayment(false);
-            }
-        };
-
-        window.addEventListener('focus', resetPaymentState);
-        window.addEventListener('pageshow', resetPaymentState);
-        document.addEventListener('visibilitychange', resetPaymentState);
-
-        return () => {
-            window.removeEventListener('focus', resetPaymentState);
-            window.removeEventListener('pageshow', resetPaymentState);
-            document.removeEventListener('visibilitychange', resetPaymentState);
-        };
-    }, []);
+    // Copiar chave PIX
+    const copyToClipboard = () => {
+        if (paymentDetails && paymentDetails.qr_code) {
+            navigator.clipboard.writeText(paymentDetails.qr_code);
+            setCopied(true);
+            notification.show("Código Pix copiado para a área de transferência!", "success");
+            setTimeout(() => setCopied(false), 3000);
+        }
+    };
 
     useEffect(() => {
         clearOrderState(); 
@@ -6769,56 +6743,42 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
         let pollInterval;
         let timeout;
 
-        const forceCheck = () => {
-            if (statusRef.current === 'processing' || statusRef.current === 'pending_action') {
-                // Ao voltar para a tela, não reseta a visualização se já estiver pendente, apenas checa silenciosamente
-                pollStatus().then(isFinished => {
-                    if (!isFinished && pollsCount.current > 2 && statusRef.current === 'processing') {
-                         setPageStatus('pending_action');
-                    }
-                });
-            }
-        };
-
         const startPolling = async () => {
             const isFinished = await pollStatus();
             if (isFinished) return; 
 
+            // Verifica a cada 5 segundos (útil para ver o Pix aprovar na hora)
             pollInterval = setInterval(async () => {
                  pollsCount.current += 1;
                  const finished = await pollStatus();
                  if (finished) {
                      clearInterval(pollInterval);
                      clearTimeout(timeout);
-                 } else if (pollsCount.current >= 3 && statusRef.current === 'processing') {
-                     setPageStatus('pending_action');
+                 } 
+                 // Se passar 45 segundos e ainda for cartão processando (não caiu em pix nem boleto)
+                 else if (pollsCount.current >= 9 && statusRef.current === 'processing') {
+                     setPageStatus('timeout');
                  }
             }, 5000);
             
+            // Timeout de segurança após 1 minuto de processamento cego
             timeout = setTimeout(() => {
                 clearInterval(pollInterval);
                 if (statusRef.current === 'processing') {
                     setPageStatus('timeout');
                 }
-            }, 45000);
+            }, 60000);
         };
 
         startPolling();
 
-        window.addEventListener('focus', forceCheck);
-        window.addEventListener('pageshow', forceCheck);
-        document.addEventListener('visibilitychange', forceCheck);
-
         return () => {
             clearInterval(pollInterval);
             clearTimeout(timeout);
-            window.removeEventListener('focus', forceCheck);
-            window.removeEventListener('pageshow', forceCheck);
-            document.removeEventListener('visibilitychange', forceCheck);
         };
     }, [orderId, clearOrderState, pollStatus]); 
 
-    // --- DESIGN PREMIUM ---
+    // --- DESIGN PREMIUM POR ESTADO ---
     const renderContent = () => {
         switch (pageStatus) {
             case 'success':
@@ -6832,44 +6792,137 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
                     subtitle: "Tudo certo com o seu pedido 🎉",
                     message: `O pedido #${orderId} foi confirmado em nosso sistema. Já estamos preparando seus produtos para envio com muito carinho!`,
                     actions: (
-                        <button onClick={() => onNavigate('account')} className="bg-gradient-to-r from-amber-400 to-amber-500 text-black px-8 py-3.5 rounded-xl font-extrabold text-base sm:text-lg hover:from-amber-300 hover:to-amber-400 w-full shadow-lg hover:shadow-amber-500/25 transition-all transform active:scale-95">
+                        <button onClick={() => onNavigate('account/orders')} className="bg-gradient-to-r from-amber-400 to-amber-500 text-black px-8 py-3.5 rounded-xl font-extrabold text-base sm:text-lg hover:from-amber-300 hover:to-amber-400 w-full shadow-lg hover:shadow-amber-500/25 transition-all transform active:scale-95">
                             Acompanhar Pedido
                         </button>
                     ),
                     borderColor: "border-green-500/30"
                 };
-            case 'pending_action':
+
+            case 'pix_pending':
                 return {
                     icon: (
-                        <div className="w-20 h-20 sm:w-24 sm:h-24 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_40px_rgba(245,158,11,0.2)]">
-                            <ExclamationCircleIcon className="h-10 w-10 sm:h-12 sm:w-12 text-amber-500" />
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 bg-teal-500/10 rounded-full flex items-center justify-center mx-auto mb-4 shadow-[0_0_40px_rgba(20,184,166,0.2)]">
+                            <PixIcon className="h-10 w-10 sm:h-12 sm:w-12 text-teal-400" />
                         </div>
                     ),
                     title: "Aguardando Pagamento",
-                    subtitle: "FINALIZE A COMPRA PARA GARANTIRMOS O ESTOQUE.",
-                    message: `Ainda não recebemos a confirmação do pagamento para o pedido #${orderId}. Se você fechou a janela do Mercado Pago ou precisa gerar o Pix/Boleto novamente, clique abaixo.`,
+                    subtitle: "Falta pouco! Pague via Pix para aprovação imediata.",
+                    message: null, // Custom content below
+                    customBody: (
+                        <div className="bg-black/40 rounded-2xl p-4 sm:p-6 mb-6 border border-gray-800/50">
+                            {paymentDetails?.qr_code_base64 && (
+                                <div className="bg-white p-3 rounded-xl w-fit mx-auto mb-5 shadow-lg">
+                                    <img src={`data:image/jpeg;base64,${paymentDetails.qr_code_base64}`} alt="QR Code Pix" className="w-40 h-40 sm:w-48 sm:h-48 object-contain" />
+                                </div>
+                            )}
+                            
+                            <p className="text-gray-300 text-sm mb-2 font-medium">Ou utilize o código Copia e Cola:</p>
+                            
+                            <div className="flex items-stretch bg-gray-900 border border-gray-700 rounded-lg overflow-hidden h-12 shadow-inner">
+                                <input 
+                                    type="text" 
+                                    readOnly 
+                                    value={paymentDetails?.qr_code || 'Gerando código...'} 
+                                    className="bg-transparent text-gray-400 text-xs sm:text-sm px-3 w-full outline-none select-all"
+                                />
+                                <button 
+                                    onClick={copyToClipboard}
+                                    className={`px-4 sm:px-6 font-bold text-xs sm:text-sm transition-colors flex items-center gap-2 ${copied ? 'bg-green-600 text-white' : 'bg-teal-600 text-white hover:bg-teal-500'}`}
+                                >
+                                    {copied ? <><CheckIcon className="h-4 w-4"/> Copiado</> : 'COPIAR'}
+                                </button>
+                            </div>
+                            <p className="text-gray-500 text-[10px] sm:text-xs mt-4">
+                                Após o pagamento, esta tela será atualizada automaticamente em alguns segundos.
+                            </p>
+                        </div>
+                    ),
                     actions: (
-                        <div className="flex flex-col gap-4 w-full">
-                             <button 
-                                onClick={handleRetryPayment} 
-                                disabled={isRetryingPayment}
-                                className={`px-6 py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2 w-full transition-all shadow-lg ${isRetryingPayment ? 'bg-green-800/50 text-gray-300 cursor-not-allowed' : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-green-500/30 active:scale-95'}`}
-                            >
-                                {isRetryingPayment ? <SpinnerIcon className="h-5 w-5"/> : <CreditCardIcon className="h-5 w-5"/>}
-                                {isRetryingPayment ? 'Abrindo...' : 'Realizar Pagamento'}
-                            </button>
-                            <button 
-                                onClick={handleManualCheck}
-                                disabled={isCheckingManual}
-                                className="bg-gray-800/80 backdrop-blur text-white border border-gray-600 px-6 py-3.5 rounded-xl font-bold hover:bg-gray-700 w-full transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95"
-                            >
+                        <div className="flex flex-col gap-3 w-full">
+                            <button onClick={handleManualCheck} disabled={isCheckingManual} className="bg-gray-800/80 backdrop-blur text-white border border-gray-600 px-6 py-3.5 rounded-xl font-bold hover:bg-gray-700 w-full transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95">
                                 {isCheckingManual ? <SpinnerIcon className="h-5 w-5"/> : <ArrowUturnLeftIcon className="h-5 w-5" />} 
-                                {isCheckingManual ? 'Verificando...' : 'Já Paguei (Atualizar)'}
+                                {isCheckingManual ? 'Verificando...' : 'Já Paguei (Atualizar Tela)'}
                             </button>
                         </div>
                     ),
-                    borderColor: "border-amber-500/30"
+                    borderColor: "border-teal-500/30"
                 };
+
+            case 'ticket_pending':
+                return {
+                    icon: (
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-500/10 rounded-full flex items-center justify-center mx-auto mb-4 shadow-[0_0_40px_rgba(156,163,175,0.2)]">
+                            <BoletoIcon className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400" />
+                        </div>
+                    ),
+                    title: "Boleto Gerado",
+                    subtitle: "Pedido reservado. Efetue o pagamento para concluir.",
+                    message: null,
+                    customBody: (
+                        <div className="bg-black/40 rounded-2xl p-4 sm:p-6 mb-6 border border-gray-800/50 text-center">
+                            <p className="text-gray-300 text-sm mb-4 leading-relaxed">
+                                Seu boleto bancário foi gerado com sucesso. O pagamento pode levar de <strong>1 a 2 dias úteis</strong> para ser compensado após ser efetuado.
+                            </p>
+
+                            {paymentDetails?.barcode && (
+                                <div className="mb-5 text-left">
+                                    <p className="text-gray-400 text-xs font-bold uppercase mb-1">Código de Barras:</p>
+                                    <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 text-white font-mono text-xs sm:text-sm break-all shadow-inner">
+                                        {paymentDetails.barcode}
+                                    </div>
+                                </div>
+                            )}
+
+                            {paymentDetails?.external_resource_url && (
+                                <a 
+                                    href={paymentDetails.external_resource_url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center gap-2 bg-gray-200 text-black px-6 py-3 rounded-xl font-bold hover:bg-white transition-colors w-full sm:w-auto shadow-md"
+                                >
+                                    <DownloadIcon className="h-5 w-5" /> Abrir Boleto (PDF)
+                                </a>
+                            )}
+                        </div>
+                    ),
+                    actions: (
+                        <div className="flex flex-col gap-3 w-full">
+                            <button onClick={() => onNavigate('account/orders')} className="bg-gradient-to-r from-amber-400 to-amber-500 text-black px-8 py-3.5 rounded-xl font-extrabold text-base sm:text-lg hover:from-amber-300 hover:to-amber-400 w-full shadow-lg transition-all transform active:scale-95">
+                                Acompanhar em "Meus Pedidos"
+                            </button>
+                            <button onClick={handleManualCheck} disabled={isCheckingManual} className="bg-gray-800/80 backdrop-blur text-white border border-gray-600 px-6 py-3.5 rounded-xl font-bold hover:bg-gray-700 w-full transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95">
+                                {isCheckingManual ? <SpinnerIcon className="h-5 w-5"/> : <ArrowUturnLeftIcon className="h-5 w-5" />} 
+                                {isCheckingManual ? 'Verificando...' : 'Atualizar Status'}
+                            </button>
+                        </div>
+                    ),
+                    borderColor: "border-gray-500/30"
+                };
+
+            case 'pending_action':
+                return {
+                    icon: (
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_40px_rgba(239,68,68,0.2)]">
+                            <XCircleIcon className="h-10 w-10 sm:h-12 sm:w-12 text-red-500" />
+                        </div>
+                    ),
+                    title: "Pagamento Recusado",
+                    subtitle: "NÃO CONSEGUIMOS PROCESSAR SEU PAGAMENTO.",
+                    message: `A operadora do seu cartão recusou o pagamento do pedido #${orderId}. Fique tranquilo, você não foi cobrado. Por favor, tente utilizar outro cartão de crédito ou gere um Pix.`,
+                    actions: (
+                        <div className="flex flex-col gap-4 w-full">
+                             <button 
+                                onClick={() => onNavigate(`account/orders/${orderId}`)} 
+                                className={`px-6 py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2 w-full transition-all shadow-lg bg-gradient-to-r from-amber-400 to-amber-500 text-black hover:shadow-amber-500/30 active:scale-95`}
+                            >
+                                Tentar Pagar Novamente
+                            </button>
+                        </div>
+                    ),
+                    borderColor: "border-red-500/30"
+                };
+
             case 'timeout':
                 return {
                     icon: (
@@ -6879,14 +6932,15 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
                     ),
                     title: "Processando Pagamento...",
                     subtitle: "Isso pode levar alguns minutos.",
-                    message: `O pedido #${orderId} foi registrado. Estamos aguardando a confirmação da operadora. Assim que for processado, atualizaremos automaticamente a seção Meus Pedidos.`,
+                    message: `O pedido #${orderId} foi registrado. Estamos aguardando a confirmação final da operadora do seu cartão. Assim que for processado, atualizaremos automaticamente a seção Meus Pedidos.`,
                     actions: (
-                        <button onClick={() => onNavigate('account')} className="bg-gray-800 border border-gray-700 text-white px-8 py-3.5 rounded-xl font-bold text-base sm:text-lg hover:bg-gray-700 w-full shadow-lg transition-all active:scale-95">
+                        <button onClick={() => onNavigate('account/orders')} className="bg-gray-800 border border-gray-700 text-white px-8 py-3.5 rounded-xl font-bold text-base sm:text-lg hover:bg-gray-700 w-full shadow-lg transition-all active:scale-95">
                             Ir para Meus Pedidos
                         </button>
                     ),
                     borderColor: "border-gray-600/30"
                 };
+
             case 'processing':
             default:
                 return {
@@ -6899,14 +6953,14 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
                     ),
                     title: "Confirmando Pagamento",
                     subtitle: "POR FAVOR, NÃO FECHE ESTA JANELA.",
-                    message: "Estamos verificando com o Mercado Pago a situação do seu pedido. Isso leva apenas alguns segundos.",
+                    message: "Estamos validando seu pagamento com o Mercado Pago. Isso leva apenas alguns segundos.",
                     actions: null,
                     borderColor: "border-amber-500/30"
                 };
         }
     };
 
-    const { icon, title, subtitle, message, actions, borderColor } = renderContent();
+    const { icon, title, subtitle, message, customBody, actions, borderColor } = renderContent();
     const displayName = appName || 'Love Cestas';
 
     return (
@@ -6926,13 +6980,17 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
                 <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-2 tracking-tight">{title}</h1>
                 <p className="text-amber-400 font-bold mb-6 uppercase tracking-widest text-[10px] sm:text-xs">{subtitle}</p>
                 
-                <div className="bg-black/50 rounded-2xl p-5 mb-8 border border-gray-800/50 shadow-inner">
-                    <p className="text-gray-300 leading-relaxed text-sm sm:text-base">
-                        {message}
-                    </p>
-                </div>
+                {customBody ? customBody : (
+                    message && (
+                        <div className="bg-black/50 rounded-2xl p-5 mb-8 border border-gray-800/50 shadow-inner">
+                            <p className="text-gray-300 leading-relaxed text-sm sm:text-base">
+                                {message}
+                            </p>
+                        </div>
+                    )
+                )}
                 
-                <div className="flex flex-col items-center gap-4 w-full">
+                <div className="flex flex-col items-center gap-4 w-full mt-2">
                     {actions}
                     
                     {pageStatus !== 'processing' && (

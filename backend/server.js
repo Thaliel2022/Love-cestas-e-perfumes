@@ -6203,6 +6203,40 @@ app.post('/api/webauthn/verify-authentication', async (req, res) => {
     }
 });
 
+// --- NOVA ROTA: Obter detalhes do pagamento para a tela de Sucesso (Pix/Boleto) ---
+app.get('/api/orders/:id/payment-details', verifyToken, async (req, res) => {
+    const { id } = req.params;
+    const userId = req.user.id;
+    
+    try {
+        const [orderResult] = await db.query("SELECT payment_status, payment_details FROM orders WHERE id = ? AND user_id = ?", [id, userId]);
+        
+        if (orderResult.length === 0) {
+            return res.status(404).json({ message: 'Pedido não encontrado.' });
+        }
+        
+        const order = orderResult[0];
+        let paymentDetails = null;
+        
+        if (order.payment_details) {
+            try {
+                paymentDetails = JSON.parse(order.payment_details);
+            } catch (e) {
+                console.error("Erro ao fazer parse dos detalhes do pagamento:", e);
+            }
+        }
+        
+        res.json({ 
+            payment_status: order.payment_status,
+            payment_details: paymentDetails
+        });
+        
+    } catch(err) {
+        console.error(`Erro ao buscar detalhes de pagamento do pedido ${id}:`, err);
+        res.status(500).json({ message: 'Erro ao consultar detalhes do pagamento.' });
+    }
+});
+
 // Middleware Global de Tratamento de Erros
 app.use((err, req, res, next) => {
     // ATUALIZAÇÃO: Intercepta erros do Multer (arquivos não suportados) para não gerar erro 500
