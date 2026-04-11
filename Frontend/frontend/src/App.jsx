@@ -6361,7 +6361,8 @@ const CheckoutPage = ({ onNavigate }) => {
                !displayAddress.is_incomplete;
     }, [displayAddress, autoCalculatedShipping, isSomeoneElsePickingUp, pickupPersonName, pickupPersonCpf]);
 
-    const handlePaymentSubmit = async (paymentFormData) => {
+    // --- CORREÇÃO: O SDK injeta os dados direto em formData (removido formData.formData) ---
+    const handlePaymentSubmit = async (formData) => {
         const isPickup = autoCalculatedShipping?.isPickup;
         if (!canPlaceOrder && !isPickup) {
              notification.show("Por favor, complete o endereço de entrega para continuar.", 'error');
@@ -6379,6 +6380,7 @@ const CheckoutPage = ({ onNavigate }) => {
 
         setIsLoading(true);
         try {
+            // 1. Cria o pedido no banco primeiro (Status: Pendente)
             const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
             const cpfToSend = (isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf)?.replace(/\D/g, '') || '';
             const nameToSend = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
@@ -6392,9 +6394,10 @@ const CheckoutPage = ({ onNavigate }) => {
             
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
 
+            // 2. Envia os dados corretos do Brick para o Backend
             const paymentPayload = {
                 orderId,
-                paymentData: paymentFormData.formData
+                paymentData: formData // CORREÇÃO APLICADA AQUI
             };
 
             const paymentResult = await apiService('/process-payment', 'POST', paymentPayload);
@@ -6592,7 +6595,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                     </div>
                                 </div>
 
-                                {/* --- RENDERIZAÇÃO DO CHECKOUT BRICKS --- */}
+                                {/* --- RENDERIZAÇÃO DO CHECKOUT BRICKS COM E-MAIL PRÉ-PREENCHIDO --- */}
                                 {(!canPlaceOrder || !autoCalculatedShipping || cart.length === 0) ? (
                                     <div className="text-center p-4 bg-gray-800 border border-gray-700 rounded-lg">
                                         <p className="text-sm text-gray-400">Preencha o contato e a forma de entrega para liberar o pagamento.</p>
@@ -6600,7 +6603,13 @@ const CheckoutPage = ({ onNavigate }) => {
                                 ) : (
                                     <div className="mt-4 pt-4 border-t border-gray-700">
                                         <MercadoPagoPayment
-                                            initialization={{ amount: total }}
+                                            initialization={{ 
+                                                amount: total,
+                                                // CORREÇÃO: Preenche automaticamente o e-mail do cliente
+                                                payer: {
+                                                    email: user?.email || '', 
+                                                }
+                                            }}
                                             customization={{
                                                 paymentMethods: {
                                                     ticket: "all",
@@ -6611,7 +6620,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                                 },
                                                 visual: {
                                                     style: {
-                                                        theme: 'dark', // Corrigido para tema escuro nativo do MP Bricks
+                                                        theme: 'dark', // Usa o tema Dark nativo do MP
                                                         customVariables: {
                                                             formBackgroundColor: '#1f2937', 
                                                             baseColor: '#fbbf24', 
