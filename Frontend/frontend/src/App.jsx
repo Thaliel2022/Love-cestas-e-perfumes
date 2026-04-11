@@ -6210,6 +6210,8 @@ const CheckoutSection = ({ title, step, children, icon: Icon }) => (
     </div>
 );
 
+initMercadoPago('APP_USR-fe8bcd59-da54-4fb5-a3d0-8b8f749097be', { locale: 'pt-BR' });
+
 const CheckoutPage = ({ onNavigate }) => {
     const { user } = useAuth();
     const {
