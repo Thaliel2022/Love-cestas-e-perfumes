@@ -3504,7 +3504,6 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
 });
 
 // --- ROTA DE PROCESSAMENTO DIRETO (CHECKOUT BRICKS) ---
-// --- ROTA DE PROCESSAMENTO DIRETO (CHECKOUT BRICKS) ---
 app.post('/api/process_payment', verifyToken, async (req, res) => {
     const { payment_data, orderId } = req.body;
 
