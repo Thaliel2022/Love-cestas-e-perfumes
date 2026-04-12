@@ -6594,7 +6594,6 @@ const CheckoutPage = ({ onNavigate }) => {
                                     </div>
                                 </div>
 
-                                {/* AQUI FOI INSERIDO O CAMPO DE CUPOM QUE ESTAVA FALTANDO */}
                                 <div className="mb-6">
                                     {!appliedCoupon ? (
                                         <>
@@ -6618,6 +6617,12 @@ const CheckoutPage = ({ onNavigate }) => {
                                     </div>
                                 ) : (
                                     <div className="mt-4 pt-4 border-t border-gray-700">
+                                        <div className="mb-4 bg-blue-900/20 border border-blue-800/50 rounded-xl p-4 flex items-start gap-3">
+                                            <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                                            <p className="text-xs text-blue-200 leading-relaxed">
+                                                <strong>Atenção:</strong> Selecione uma forma de pagamento abaixo (Cartão, Pix ou Boleto) e preencha os dados solicitados antes de clicar em "Pagar".
+                                            </p>
+                                        </div>
                                         <MercadoPagoPayment
                                             initialization={{ 
                                                 amount: Number(total.toFixed(2)),
@@ -6641,6 +6646,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                                             baseColor: '#fbbf24', 
                                                             baseColorFirstVariant: '#f59e0b', 
                                                             baseColorSecondVariant: '#d97706',
+                                                            errorColor: '#ef4444', 
                                                         }
                                                     }
                                                 }
@@ -6649,7 +6655,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                             onError={(error) => {
                                                 if(error?.message && error.message.includes("createObjectStore")) return;
                                                 console.error("Mercado Pago Bricks Error:", error);
-                                                notification.show("Por favor, selecione uma forma de pagamento e preencha todos os campos obrigatórios no formulário do Mercado Pago.", "error");
+                                                notification.show("Por favor, selecione uma forma de pagamento e preencha todos os campos obrigatórios.", "error");
                                             }}
                                         />
                                     </div>
@@ -6661,7 +6667,7 @@ const CheckoutPage = ({ onNavigate }) => {
             </div>
         </>
     );
-};;
+};
 
 const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
     const { clearOrderState } = useShop();
@@ -16507,6 +16513,12 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                     {/* Lado Esquerdo no Desktop / Baixo no Mobile: Formulário do Mercado Pago */}
                     <div className="lg:col-span-7 order-2 lg:order-1">
                         <div className="bg-gray-900 rounded-3xl border border-gray-800 p-2 sm:p-4 shadow-2xl">
+                            <div className="mb-4 bg-blue-900/20 border border-blue-800/50 rounded-xl p-4 flex items-start gap-3">
+                                <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                                <p className="text-xs text-blue-200 leading-relaxed">
+                                    <strong>Atenção:</strong> Selecione uma forma de pagamento abaixo (Cartão, Pix ou Boleto) e preencha os dados solicitados antes de clicar em "Pagar".
+                                </p>
+                            </div>
                             <MercadoPagoPayment
                                 initialization={{ 
                                     amount: Number(order.total),
@@ -16530,6 +16542,7 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                                                 baseColor: '#fbbf24', 
                                                 baseColorFirstVariant: '#f59e0b', 
                                                 baseColorSecondVariant: '#d97706',
+                                                errorColor: '#ef4444',
                                             }
                                         }
                                     }
@@ -16538,7 +16551,7 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                                 onError={(error) => {
                                     if(error?.message && error.message.includes("createObjectStore")) return;
                                     console.error("Mercado Pago Bricks Error:", error);
-                                    notification.show("Por favor, selecione uma forma de pagamento e preencha todos os campos obrigatórios no formulário do Mercado Pago.", "error");
+                                    notification.show("Por favor, selecione uma forma de pagamento e preencha todos os campos obrigatórios.", "error");
                                 }}
                             />
                         </div>
