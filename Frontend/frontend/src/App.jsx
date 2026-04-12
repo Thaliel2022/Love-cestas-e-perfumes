@@ -3706,13 +3706,17 @@ const HomePage = ({ onNavigate }) => {
     useEffect(() => {
         // --- BUSCA DE PRODUTOS ---
         const controller = new AbortController();
-        apiService('/products', 'GET', null, { signal: controller.signal })
+        // Aumentado o limit para 100 para garantir que a home tenha produtos suficientes para os carrosséis
+        apiService('/products?limit=100', 'GET', null, { signal: controller.signal })
             .then(data => {
-                const sortedByDate = [...data].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-                const sortedBySales = [...data].sort((a, b) => (b.sales || 0) - (a.sales || 0));
+                // CORREÇÃO: Extrai o array 'products' do objeto de paginação retornado pelo novo backend
+                const productsArray = Array.isArray(data) ? data : (data.products || []);
+
+                const sortedByDate = [...productsArray].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                const sortedBySales = [...productsArray].sort((a, b) => (b.sales || 0) - (a.sales || 0));
                 
-                const clothingProducts = data.filter(p => p.product_type === 'clothing');
-                const perfumeProducts = data.filter(p => p.product_type === 'perfume');
+                const clothingProducts = productsArray.filter(p => p.product_type === 'clothing');
+                const perfumeProducts = productsArray.filter(p => p.product_type === 'perfume');
 
                 setProducts({
                     newArrivals: sortedByDate,
@@ -3754,7 +3758,6 @@ const HomePage = ({ onNavigate }) => {
     }, []);
 
     return (
-      // CORREÇÃO: Alterado pb-0 para pb-24 md:pb-0 para liberar o espaço do menu inferior
       <div className="bg-black min-h-screen pb-24 md:pb-0 overflow-x-hidden">
         {/* Banner Principal Rotativo */}
         {isLoadingBanners ? (
