@@ -3698,7 +3698,7 @@ const HomePage = ({ onNavigate }) => {
     // Estado unificado para banners
     const [banners, setBanners] = useState({
         carousel: [],
-        promo: [], // Agora é um array para suportar múltiplos destaques
+        promo: [], 
         cards: []
     });
     const [isLoadingBanners, setIsLoadingBanners] = useState(true);
@@ -3706,10 +3706,10 @@ const HomePage = ({ onNavigate }) => {
     useEffect(() => {
         // --- BUSCA DE PRODUTOS ---
         const controller = new AbortController();
-        // Aumentado o limit para 100 para garantir que a home tenha produtos suficientes para os carrosséis
+        // Busca os produtos usando a nova rota paginada (trazendo até 100 para a Home)
         apiService('/products?limit=100', 'GET', null, { signal: controller.signal })
             .then(data => {
-                // CORREÇÃO: Extrai o array 'products' do objeto de paginação retornado pelo novo backend
+                // CORREÇÃO CRÍTICA: Extrai o array 'products' do novo objeto de paginação
                 const productsArray = Array.isArray(data) ? data : (data.products || []);
 
                 const sortedByDate = [...productsArray].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -3733,13 +3733,8 @@ const HomePage = ({ onNavigate }) => {
         apiService('/banners', 'GET', null, { signal: controller.signal })
             .then(data => {
                 if (Array.isArray(data)) {
-                    // SEPARAÇÃO POR ORDEM:
                     const carousel = data.filter(b => b.display_order < 50).sort((a, b) => a.display_order - b.display_order);
-                    
-                    // Pega TODOS os banners de destaque (ordem 50) para rotacionar
-                    // O backend já garante que só vêm os ativos e dentro da data
                     const promo = data.filter(b => b.display_order === 50);
-                    
                     const cards = data.filter(b => b.display_order >= 60).sort((a, b) => a.display_order - b.display_order).slice(0, 2);
 
                     setBanners({
