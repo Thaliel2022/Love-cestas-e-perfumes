@@ -6267,19 +6267,24 @@ const CheckoutPage = ({ onNavigate }) => {
         }).finally(() => setIsAddressLoading(false));
     }, [fetchAddresses, shippingLocation, setShippingLocation, user]);
 
-    // Inicializa os dados de quem vai retirar com os dados do usuário logado por padrão
     useEffect(() => {
-        if (user) {
-            setPickupPersonName(prev => prev || user.name || '');
-            setPickupPersonCpf(prev => prev || maskCPF(user.cpf || '')); 
+        if (user && !isSomeoneElsePickingUp) {
+            setPickupPersonName(user.name || ''); setPickupPersonCpf(maskCPF(user.cpf || '')); 
+        } else {
+            setPickupPersonName(''); setPickupPersonCpf('');
         }
-    }, [user]);
+    }, [user, isSomeoneElsePickingUp]);
 
     const handleSelectShipping = (option) => {
         setAutoCalculatedShipping(option);
         setSelectedShippingName(option.name);
         if(option.isPickup) {
             setDisplayAddress(null);
+            if (!isSomeoneElsePickingUp && user) {
+                setPickupPersonName(user.name || ''); setPickupPersonCpf(maskCPF(user.cpf || '')); 
+            } else {
+                 setPickupPersonName(''); setPickupPersonCpf('');
+            }
         } else if (!displayAddress && addresses.length > 0) {
              const defaultOrFirst = addresses.find(addr => addr.is_default) || addresses[0];
              if (defaultOrFirst) {
@@ -6336,15 +6341,42 @@ const CheckoutPage = ({ onNavigate }) => {
     
     const total = useMemo(() => Math.max(0, (Number(subtotal) || 0) - (Number(discount) || 0) + (Number(shippingCost) || 0)), [subtotal, discount, shippingCost]);
 
+    // OTIMIZAÇÃO: Injeção de dados automáticos do cliente no Mercado Pago para não precisar digitar CEP/Nome/CPF de novo
     const mpInitialization = useMemo(() => {
+        const payer = {
+            email: user?.email || '',
+            entityType: 'individual'
+        };
+
+        if (user?.name) {
+            const nameParts = user.name.trim().split(' ');
+            payer.firstName = nameParts[0];
+            payer.lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Cliente';
+        }
+        
+        if (user?.cpf) {
+            payer.identification = {
+                type: 'CPF',
+                number: user.cpf.replace(/\D/g, '')
+            };
+        }
+        
+        if (displayAddress && displayAddress.cep) {
+            payer.address = {
+                zipCode: displayAddress.cep.replace(/\D/g, ''),
+                streetName: displayAddress.logradouro || '',
+                streetNumber: displayAddress.numero || '',
+                neighborhood: displayAddress.bairro || '',
+                city: displayAddress.localidade || '',
+                federalUnit: displayAddress.uf || ''
+            };
+        }
+
         return {
             amount: Number(total.toFixed(2)),
-            payer: {
-                email: user?.email || '',
-                entityType: 'individual'
-            }
+            payer: payer
         };
-    }, [total, user?.email]);
+    }, [total, user, displayAddress]);
 
     const mpCustomization = useMemo(() => {
         return {
@@ -6384,6 +6416,10 @@ const CheckoutPage = ({ onNavigate }) => {
         }
         return `Previsão: ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
     };
+
+    const handlePickupNameBlur = (e) => setPickupPersonName(e.target.value);
+    const handleCpfInputChangeMask = (e) => e.target.value = maskCPF(e.target.value);
+    const handlePickupCpfBlur = (e) => setPickupPersonCpf(maskCPF(e.target.value));
 
     const canPlaceOrder = useMemo(() => {
         if (autoCalculatedShipping?.isPickup) {
@@ -6684,7 +6720,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                     </div>
                                 </div>
 
-                                <div className="mb-6">
+                                <div className="mb-6 mt-6">
                                     {!appliedCoupon ? (
                                         <>
                                         <form onSubmit={handleApplyCoupon} className="flex space-x-2">
@@ -6719,9 +6755,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                             customization={mpCustomization}
                                             onSubmit={handlePaymentSubmit}
                                             onError={(error) => {
-                                                if(error?.message && error.message.includes("createObjectStore")) return;
                                                 console.error("Mercado Pago Bricks Error:", error);
-                                                notification.show("Por favor, selecione uma forma de pagamento e preencha todos os campos obrigatórios no formulário do Mercado Pago.", "error");
                                             }}
                                         />
                                     </div>
@@ -16475,14 +16509,45 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
     };
 
     const mpInitialization = useMemo(() => {
+        const payer = {
+            email: user?.email || '',
+            entityType: 'individual'
+        };
+
+        if (user?.name) {
+            const nameParts = user.name.trim().split(' ');
+            payer.firstName = nameParts[0];
+            payer.lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Cliente';
+        }
+        
+        if (user?.cpf) {
+            payer.identification = {
+                type: 'CPF',
+                number: user.cpf.replace(/\D/g, '')
+            };
+        }
+        
+        if (order?.shipping_address) {
+            try {
+                const addr = JSON.parse(order.shipping_address);
+                if (addr && addr.cep) {
+                    payer.address = {
+                        zipCode: addr.cep.replace(/\D/g, ''),
+                        streetName: addr.logradouro || '',
+                        streetNumber: addr.numero || '',
+                        neighborhood: addr.bairro || '',
+                        city: addr.localidade || '',
+                        federalUnit: addr.uf || ''
+                    };
+                }
+            } catch (e) {}
+        }
+
         return {
             amount: Number(order?.total || 0),
-            payer: {
-                email: user?.email || '',
-                entityType: 'individual'
-            }
+            payer: payer
         };
-    }, [order?.total, user?.email]);
+    }, [order?.total, order?.shipping_address, user]);
 
     const mpCustomization = useMemo(() => {
         return {
@@ -16623,9 +16688,7 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                                 customization={mpCustomization}
                                 onSubmit={handlePaymentSubmit}
                                 onError={(error) => {
-                                    if(error?.message && error.message.includes("createObjectStore")) return;
                                     console.error("Mercado Pago Bricks Error:", error);
-                                    notification.show("Por favor, selecione uma forma de pagamento e preencha todos os campos obrigatórios.", "error");
                                 }}
                             />
                         </div>
