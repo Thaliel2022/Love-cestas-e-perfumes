@@ -6594,6 +6594,24 @@ const CheckoutPage = ({ onNavigate }) => {
                                     </div>
                                 </div>
 
+                                {/* AQUI FOI INSERIDO O CAMPO DE CUPOM QUE ESTAVA FALTANDO */}
+                                <div className="mb-6">
+                                    {!appliedCoupon ? (
+                                        <>
+                                        <form onSubmit={handleApplyCoupon} className="flex space-x-2">
+                                            <input value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())} type="text" placeholder="Código do Cupom" className="w-full p-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-sm text-white" />
+                                            <button type="submit" className="px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 text-sm transition-colors">Aplicar</button>
+                                        </form>
+                                        {couponMessage && <p className={`text-xs mt-2 text-center ${couponMessage.includes('aplicado') ? 'text-green-400' : 'text-red-400'}`}>{couponMessage}</p>}
+                                        </>
+                                    ) : (
+                                        <div className="flex justify-between items-center bg-green-900/50 p-3 rounded-md border border-green-700">
+                                            <p className="text-sm text-green-300 flex items-center gap-2"><CheckCircleIcon className="h-5 w-5"/> Cupom <strong>{appliedCoupon.code}</strong> aplicado!</p>
+                                            <button onClick={removeCoupon} className="text-xs text-red-400 hover:underline flex-shrink-0">Remover</button>
+                                        </div>
+                                    )}
+                                </div>
+
                                 {(!canPlaceOrder || !autoCalculatedShipping || cart.length === 0) ? (
                                     <div className="text-center p-4 bg-gray-800 border border-gray-700 rounded-lg">
                                         <p className="text-sm text-gray-400">Preencha o contato e a forma de entrega para liberar o pagamento.</p>
@@ -6631,7 +6649,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                             onError={(error) => {
                                                 if(error?.message && error.message.includes("createObjectStore")) return;
                                                 console.error("Mercado Pago Bricks Error:", error);
-                                                notification.show("Por favor, selecione uma forma de pagamento e preencha todos os campos obrigatórios no formulário.", "error");
+                                                notification.show("Por favor, selecione uma forma de pagamento e preencha todos os campos obrigatórios no formulário do Mercado Pago.", "error");
                                             }}
                                         />
                                     </div>
@@ -6643,7 +6661,7 @@ const CheckoutPage = ({ onNavigate }) => {
             </div>
         </>
     );
-};
+};;
 
 const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
     const { clearOrderState } = useShop();
@@ -8121,16 +8139,16 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                     </div>
 
                                     <div className="flex-shrink-0 w-full sm:w-auto flex flex-col items-stretch gap-2 mt-2 sm:mt-0">
+                                        {/* CORREÇÃO DO REDIRECIONAMENTO: Sempre vai para detalhes do pedido primeiro */}
                                         <button 
-                                            onClick={() => onNavigate(order.status === 'Pendente' ? `order-payment/${order.id}` : `account/orders/${order.id}`)} 
+                                            onClick={() => onNavigate(`account/orders/${order.id}`)} 
                                             className={`w-full sm:w-auto font-bold px-4 py-2 rounded-md transition shadow-md active:scale-95 text-xs sm:text-sm border ${
-                                                // CORREÇÃO DA COR: Pendente ou Nova Notificação ficam Âmbar
                                                 (order.status === 'Pendente' || hasNotification)
                                                     ? 'bg-amber-400 text-black border-amber-400 hover:bg-amber-300' 
                                                     : 'bg-[#374151] text-gray-200 border-gray-600 hover:bg-gray-600 hover:text-white'
                                             }`}
                                         >
-                                            {order.status === 'Pendente' ? 'Pagar Agora' : hasNotification ? 'Ver Atualização' : 'Ver Detalhes'}
+                                            {order.status === 'Pendente' ? 'Pagar / Ver Detalhes' : hasNotification ? 'Ver Atualização' : 'Ver Detalhes'}
                                         </button>
                                         
                                         {canReviewOrder && (
