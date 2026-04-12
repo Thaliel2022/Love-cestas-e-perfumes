@@ -16733,21 +16733,23 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                     <div className="lg:col-span-7 order-2 lg:order-1">
                         <div className="bg-gray-900 rounded-3xl border border-gray-800 p-2 sm:p-4 shadow-2xl mp-custom-styles">
                             <style>{`
-                                .mp-custom-styles button[type="submit"],
-                                .mp-custom-styles [data-testid="submit-button"],
-                                .mp-custom-styles .mp-button {
-                                    width: 100% !important;
-                                    max-width: 350px !important;
-                                    margin-left: auto !important;
-                                    margin-right: auto !important;
-                                    display: block !important;
-                                }
-                                
-                                .mp-custom-styles .mp-formAction,
-                                .mp-custom-styles [class*="formAction"] {
-                                    display: flex !important;
-                                    justify-content: center !important;
-                                    width: 100% !important;
+                                @media (min-width: 1024px) {
+                                    .mp-custom-styles .mp-formAction,
+                                    .mp-custom-styles [class*="formAction"] {
+                                        display: flex !important;
+                                        justify-content: center !important;
+                                        width: 100% !important;
+                                    }
+
+                                    .mp-custom-styles button[type="submit"],
+                                    .mp-custom-styles [data-testid="submit-button"],
+                                    .mp-custom-styles .mp-button {
+                                        width: 100% !important;
+                                        max-width: 350px !important;
+                                        margin-left: auto !important;
+                                        margin-right: auto !important;
+                                        border-radius: 8px !important;
+                                    }
                                 }
                             `}</style>
                             {/* AVISO DO PIX ADICIONADO AQUI */}
