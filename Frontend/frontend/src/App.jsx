@@ -6392,6 +6392,9 @@ const CheckoutPage = ({ onNavigate }) => {
                 mercadoPago: "all",
             },
             visual: {
+                texts: {
+                    formSubmit: 'Confirmar Pagamento', // Alteração solicitada para um texto mais universal
+                },
                 style: {
                     theme: 'dark',
                     customVariables: {
@@ -6766,7 +6769,6 @@ const CheckoutPage = ({ onNavigate }) => {
                                                 }
                                             }
                                         `}</style>
-                                        {/* AVISO DO PIX ADICIONADO AQUI */}
                                         <div className="mb-4 p-3.5 bg-blue-900/30 border border-blue-800/50 rounded-xl flex items-start gap-3">
                                             <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
                                             <div className="text-xs text-blue-200 leading-relaxed">
