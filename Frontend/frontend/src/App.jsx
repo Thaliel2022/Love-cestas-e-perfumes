@@ -9544,7 +9544,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
        {
             title: "Sistema",
             items: [
-                { key: 'theme', label: 'Tema e Cores', icon: <SparklesIcon className="h-5 w-5"/> }, // NOVO ITEM AQUI
+                { key: 'theme', label: 'Tema e Cores', icon: <SparklesIcon className="h-5 w-5"/> },
                 { key: 'app-icons', label: 'Ícones e Nomes', icon: <CameraIcon className="h-5 w-5"/> }, 
                 { key: 'shipping', label: 'Frete Local', icon: <TruckIcon className="h-5 w-5"/> }, 
                 { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
@@ -9554,26 +9554,27 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     ];
 
     return (
-        <div className="h-screen flex overflow-hidden bg-gray-50 text-slate-800 font-sans selection:bg-indigo-100 selection:text-indigo-700">
-            {isSidebarOpen && <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
+        <div className="h-screen flex overflow-hidden bg-gray-50 text-gray-800 font-sans selection:bg-amber-200 selection:text-black">
+            {isSidebarOpen && <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
 
-            <aside className={`bg-white w-72 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 flex flex-col border-r border-gray-200 shadow-xl lg:shadow-none`}>
-                <div className="h-16 flex items-center px-6 border-b border-gray-100 flex-shrink-0 bg-white">
-                    <div className="flex items-center gap-3 text-indigo-600">
-                        <div className="p-1.5 bg-indigo-600 rounded-lg">
-                            <AdminIcon className="h-5 w-5 text-white"/>
+            {/* Sidebar com visual Premium (Dark Mode) */}
+            <aside className={`bg-gray-900 w-72 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 flex flex-col border-r border-gray-800 shadow-2xl lg:shadow-none`}>
+                <div className="h-16 flex items-center px-6 border-b border-gray-800 flex-shrink-0 bg-black">
+                    <div className="flex items-center gap-3 text-amber-400">
+                        <div className="p-1.5 bg-amber-500/10 rounded-lg border border-amber-500/20">
+                            <AdminIcon className="h-5 w-5 text-amber-400"/>
                         </div>
-                        <span className="text-lg font-extrabold tracking-tight text-slate-900">ADMINISTRAÇÃO</span>
+                        <span className="text-lg font-black tracking-widest text-white uppercase">Admin</span>
                     </div>
-                    <button className="lg:hidden ml-auto text-gray-400 hover:text-gray-600" onClick={() => setIsSidebarOpen(false)}>
+                    <button className="lg:hidden ml-auto text-gray-400 hover:text-white" onClick={() => setIsSidebarOpen(false)}>
                         <CloseIcon className="h-6 w-6"/>
                     </button>
                 </div>
 
-                <nav className="flex-grow p-4 space-y-6 overflow-y-auto custom-scrollbar">
+                <nav className="flex-grow p-4 space-y-6 overflow-y-auto custom-scrollbar bg-gray-900">
                     {menuGroups.map((group, idx) => (
                         <div key={idx}>
-                            <h3 className="px-3 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{group.title}</h3>
+                            <h3 className="px-3 text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">{group.title}</h3>
                             <div className="space-y-1">
                                 {group.items.map(item => {
                                     const isActive = activePage.startsWith(item.key);
@@ -9582,20 +9583,20 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                                             href="#" 
                                             key={item.key} 
                                             onClick={(e) => { e.preventDefault(); onNavigate(`admin/${item.key}`); setIsSidebarOpen(false); }} 
-                                            className={`group flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium ${
+                                            className={`group flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${
                                                 isActive 
-                                                ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' 
-                                                : 'text-slate-600 hover:bg-gray-50 hover:text-slate-900'
+                                                ? 'bg-amber-500 text-black shadow-md font-bold' 
+                                                : 'text-gray-400 font-medium hover:bg-gray-800 hover:text-white'
                                             }`}
                                         >
                                             <div className="flex items-center gap-3">
-                                                <span className={`transition-colors ${isActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`}>
+                                                <span className={`transition-colors ${isActive ? 'text-black' : 'text-gray-500 group-hover:text-amber-400'}`}>
                                                     {item.icon}
                                                 </span>
                                                 <span>{item.label}</span>
                                             </div>
                                             {item.badge > 0 && (
-                                                <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm border ${isActive ? 'bg-black text-amber-500 border-black' : 'bg-red-500 text-white border-red-600'}`}>
                                                     {item.badge}
                                                 </span>
                                             )}
@@ -9607,34 +9608,34 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                     ))}
                 </nav>
 
-                <div className="p-4 border-t border-gray-100 bg-gray-50/50">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold border border-indigo-200">
+                <div className="p-4 border-t border-gray-800 bg-black">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-amber-400 font-bold border border-gray-700 shadow-inner">
                             {user?.name?.charAt(0).toUpperCase()}
                         </div>
                         <div className="overflow-hidden">
-                            <p className="text-sm font-bold text-slate-800 truncate">{user?.name}</p>
-                            <p className="text-xs text-slate-500 truncate">Administrador</p>
+                            <p className="text-sm font-bold text-white truncate">{user?.name}</p>
+                            <p className="text-xs text-amber-500/70 font-semibold truncate uppercase tracking-wider">Administrador</p>
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                        <button onClick={() => onNavigate('home')} className="flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-white border border-gray-200 text-slate-600 text-xs font-semibold hover:bg-gray-50 hover:text-indigo-600 transition-all shadow-sm">
-                            <EyeIcon className="h-3 w-3"/> Ver Loja
+                        <button onClick={() => onNavigate('home')} className="flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-gray-800 border border-gray-700 text-gray-300 text-xs font-bold hover:bg-gray-700 hover:text-amber-400 transition-all shadow-sm">
+                            <EyeIcon className="h-4 w-4"/> Ver Loja
                         </button>
-                        <button onClick={handleLogout} className="flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-white border border-red-100 text-red-600 text-xs font-semibold hover:bg-red-50 hover:border-red-200 transition-all shadow-sm">
-                            <ArrowUturnLeftIcon className="h-3 w-3"/> Sair
+                        <button onClick={handleLogout} className="flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-red-950/30 border border-red-900/50 text-red-400 text-xs font-bold hover:bg-red-900/50 hover:text-red-300 transition-all shadow-sm">
+                            <ArrowUturnLeftIcon className="h-4 w-4"/> Sair
                         </button>
                     </div>
                 </div>
             </aside>
 
-            <div className="flex-1 flex flex-col overflow-hidden relative">
-                <header className="bg-white/80 backdrop-blur-md h-16 flex items-center justify-between px-6 sm:px-8 flex-shrink-0 z-20 border-b border-gray-200 sticky top-0">
+            <div className="flex-1 flex flex-col overflow-hidden relative bg-gray-50">
+                <header className="bg-white/90 backdrop-blur-md h-16 flex items-center justify-between px-6 sm:px-8 flex-shrink-0 z-20 border-b border-gray-200 sticky top-0 shadow-sm">
                      <div className="flex items-center gap-4">
-                         <button onClick={() => setIsSidebarOpen(true)} className="p-2 lg:hidden text-slate-500 hover:bg-gray-100 rounded-md">
+                         <button onClick={() => setIsSidebarOpen(true)} className="p-2 lg:hidden text-gray-600 hover:bg-gray-100 rounded-md transition-colors">
                             <MenuIcon className="h-6 w-6"/>
                          </button>
-                         <h1 className="text-xl font-bold text-slate-800 capitalize tracking-tight hidden sm:block">
+                         <h1 className="text-xl font-extrabold text-black capitalize tracking-tight hidden sm:block">
                             {activePage.split('/')[0].replace('-', ' ')}
                          </h1>
                      </div>
@@ -9648,7 +9649,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                                 <span className="text-xs font-bold tracking-wide">EM MANUTENÇÃO</span>
                             </div>
                         ) : (
-                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-full border border-green-100 shadow-sm">
+                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-full border border-green-200 shadow-sm">
                                 <span className="relative flex h-2 w-2">
                                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
@@ -9659,7 +9660,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                      </div>
                 </header>
 
-                <main ref={mainContentRef} className="flex-grow p-6 sm:p-8 overflow-y-auto bg-gray-50">
+                <main ref={mainContentRef} className="flex-grow p-6 sm:p-8 overflow-y-auto">
                     <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
                         {children}
                     </div>
@@ -10132,8 +10133,8 @@ const AdminDashboard = ({ onNavigate }) => {
                 maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
                 scales: {
-                    x: { grid: { display: false }, ticks: { font: { size: 10, family: 'sans-serif' }, color: '#64748b' } },
-                    y: { grid: { borderDash: [2, 4], color: '#f1f5f9' }, ticks: { font: { size: 10 }, color: '#64748b' }, beginAtZero: true }
+                    x: { grid: { display: false }, ticks: { font: { size: 10, family: 'sans-serif' }, color: '#6b7280' } },
+                    y: { grid: { borderDash: [2, 4], color: '#f3f4f6' }, ticks: { font: { size: 10 }, color: '#6b7280' }, beginAtZero: true }
                 }
             };
 
@@ -10148,33 +10149,39 @@ const AdminDashboard = ({ onNavigate }) => {
                 return dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
             });
 
+            // Estilização Premium do Gráfico de Linha (Âmbar/Dourado)
             renderChart('dailySalesChart', 'line', {
                 labels: safeLabels,
                 datasets: [{
                     label: 'Faturamento',
                     data: dailySalesData.map(d => d.daily_total),
-                    borderColor: '#4f46e5', // Indigo 600
+                    borderColor: '#f59e0b', // amber-500
                     backgroundColor: (context) => {
                         const ctx = context.chart.ctx;
                         const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-                        gradient.addColorStop(0, 'rgba(79, 70, 229, 0.2)');
-                        gradient.addColorStop(1, 'rgba(79, 70, 229, 0.0)');
+                        gradient.addColorStop(0, 'rgba(245, 158, 11, 0.3)');
+                        gradient.addColorStop(1, 'rgba(245, 158, 11, 0.0)');
                         return gradient;
                     },
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    pointHoverRadius: 4,
+                    borderWidth: 3,
+                    pointBackgroundColor: '#fbbf24',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
                     fill: true,
                     tension: 0.4
                 }]
             }, commonOptions);
 
+            // Estilização Premium do Gráfico de Barras (Preto/Cinza Escuro)
             renderChart('bestSellersChart', 'bar', {
                 labels: bestSellersData.map(p => p.name.substring(0, 15) + '...'),
                 datasets: [{
                     label: 'Vendas',
                     data: bestSellersData.map(p => p.sales || 0),
-                    backgroundColor: '#0ea5e9', // Sky 500
+                    backgroundColor: '#111827', // gray-900
+                    hoverBackgroundColor: '#f59e0b', // amber-500 no hover
                     borderRadius: 4,
                     barThickness: 20
                 }]
@@ -10202,23 +10209,23 @@ const AdminDashboard = ({ onNavigate }) => {
         <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-start justify-between hover:shadow-md transition-all duration-300"
+            className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-start justify-between hover:shadow-md transition-all duration-300"
         >
             <div>
-                <p className="text-sm font-semibold text-gray-500 mb-1 tracking-wide uppercase text-[10px]">{title}</p>
-                <h4 className="text-2xl font-extrabold text-slate-800">{value}</h4>
+                <p className="text-sm font-bold text-gray-500 mb-1 tracking-wider uppercase text-[10px]">{title}</p>
+                <h4 className="text-2xl font-black text-black">{value}</h4>
                 {(growth || subtext) && (
                     <div className="flex items-center gap-2 mt-2">
                         {growth && (
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${growth.isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${growth.isPositive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                 {growth.text}
                             </span>
                         )}
-                        {subtext && <span className="text-xs text-gray-400">{subtext}</span>}
+                        {subtext && <span className="text-xs font-medium text-gray-400">{subtext}</span>}
                     </div>
                 )}
             </div>
-            <div className={`p-3 rounded-lg ${iconBg}`}>
+            <div className={`p-3 rounded-xl border ${iconBg}`}>
                 <Icon className={`h-6 w-6 ${iconColor}`} />
             </div>
         </motion.div>
@@ -10229,24 +10236,24 @@ const AdminDashboard = ({ onNavigate }) => {
         const filtered = lowStockProducts.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
         return (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col h-full overflow-hidden">
-                <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                    <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 flex flex-col h-full overflow-hidden">
+                <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <h3 className="font-bold text-black flex items-center gap-2 text-sm">
                         <ExclamationCircleIcon className="h-5 w-5 text-amber-500" />
                         Reposição Necessária
                     </h3>
-                    <span className="text-xs font-bold bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full">{lowStockProducts.length}</span>
+                    <span className="text-xs font-black bg-amber-500 text-black px-2.5 py-0.5 rounded-full">{lowStockProducts.length}</span>
                 </div>
-                <div className="p-3 bg-white border-b border-gray-50">
+                <div className="p-3 bg-white border-b border-gray-100">
                     <div className="relative">
                         <input 
                             type="text" 
                             placeholder="Buscar produto..." 
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                            className="w-full pl-9 pr-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-amber-400 outline-none transition-all"
                         />
-                        <SearchIcon className="absolute left-3 top-2 h-3.5 w-3.5 text-gray-400" />
+                        <SearchIcon className="absolute left-3 top-2.5 h-3.5 w-3.5 text-gray-400" />
                     </div>
                 </div>
                 <div className="flex-grow overflow-y-auto max-h-[320px] p-2 space-y-1 custom-scrollbar">
@@ -10254,21 +10261,21 @@ const AdminDashboard = ({ onNavigate }) => {
                         <div 
                             key={item.id + item.name} 
                             onClick={() => { setSelectedStockItem(item); setIsStockModalOpen(true); }}
-                            className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors group border border-transparent hover:border-gray-100 cursor-pointer"
+                            className="flex items-center justify-between p-3 hover:bg-amber-50/50 rounded-xl transition-colors group border border-transparent hover:border-amber-200 cursor-pointer"
                         >
                             <div className="flex items-center gap-3 overflow-hidden">
-                                <div className="w-8 h-8 rounded bg-gray-100 flex-shrink-0 border border-gray-200 p-0.5">
+                                <div className="w-10 h-10 rounded-lg bg-gray-50 flex-shrink-0 border border-gray-200 p-1">
                                     <img src={getFirstImage(item.images)} alt={item.name} className="w-full h-full object-contain rounded-sm" />
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-xs font-semibold text-slate-700 truncate">{item.name}</p>
-                                    <p className="text-[10px] text-slate-400">{item.brand}</p>
+                                    <p className="text-xs font-bold text-black truncate">{item.name}</p>
+                                    <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mt-0.5">{item.brand}</p>
                                 </div>
                             </div>
                             <div className="text-right flex-shrink-0 flex flex-col items-end">
-                                <span className="text-xs font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">{item.stock} un.</span>
+                                <span className="text-xs font-black text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-md">{item.stock} un.</span>
                                 <span 
-                                    className="text-[10px] text-indigo-600 font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="text-[10px] text-amber-600 font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
                                     Repor
                                 </span>
@@ -10276,8 +10283,8 @@ const AdminDashboard = ({ onNavigate }) => {
                         </div>
                     )) : (
                         <div className="flex flex-col items-center justify-center py-10 text-gray-400">
-                            <CheckCircleIcon className="h-8 w-8 text-green-100 mb-2"/>
-                            <p className="text-xs">Estoque saudável!</p>
+                            <CheckCircleIcon className="h-8 w-8 text-green-500 mb-2 opacity-50"/>
+                            <p className="text-xs font-bold">Estoque saudável!</p>
                         </div>
                     )}
                 </div>
@@ -10296,17 +10303,17 @@ const AdminDashboard = ({ onNavigate }) => {
             {/* Header com Filtros */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-gray-200 pb-5">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Dashboard</h2>
-                    <p className="text-slate-500 text-sm mt-1">Bem-vindo de volta, {user?.name.split(' ')[0]}. Aqui está o que está acontecendo hoje.</p>
+                    <h2 className="text-2xl font-black text-black tracking-tight">Dashboard</h2>
+                    <p className="text-gray-500 text-sm mt-1 font-medium">Bem-vindo de volta, {user?.name.split(' ')[0]}. Resumo do seu negócio.</p>
                 </div>
-                <div className="flex bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
+                <div className="flex bg-white p-1 rounded-xl border border-gray-200 shadow-sm">
                     {['today', 'week', 'month', 'year'].map(f => {
                         const labels = { today: 'Hoje', week: '7 Dias', month: 'Este Mês', year: 'Este Ano' };
                         return (
                             <button
                                 key={f}
                                 onClick={() => setActiveFilter(f)}
-                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeFilter === f ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-gray-50'}`}
+                                className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeFilter === f ? 'bg-black text-amber-400 shadow-md' : 'text-gray-500 hover:text-black hover:bg-gray-100'}`}
                             >
                                 {labels[f]}
                             </button>
@@ -10316,62 +10323,62 @@ const AdminDashboard = ({ onNavigate }) => {
             </div>
 
             {isLoadingData ? (
-                <div className="flex justify-center py-20"><SpinnerIcon className="h-10 w-10 text-indigo-500 animate-spin"/></div>
+                <div className="flex justify-center py-20"><SpinnerIcon className="h-10 w-10 text-amber-500 animate-spin"/></div>
             ) : (
                 <>
-                    {/* Cards de KPIs */}
+                    {/* Cards de KPIs (Cores Premium) */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <StatCard 
                             title="Faturamento Total" 
                             value={`R$ ${Number(stats.totalRevenue).toFixed(2)}`} 
                             growth={growth}
-                            subtext="vs. período anterior"
+                            subtext="vs. anterior"
                             icon={CurrencyDollarIcon}
-                            iconBg="bg-green-100"
+                            iconBg="bg-green-50 border-green-200"
                             iconColor="text-green-600"
                         />
                         <StatCard 
                             title="Vendas Realizadas" 
                             value={stats.totalSales} 
                             icon={BoxIcon}
-                            iconBg="bg-blue-100"
+                            iconBg="bg-blue-50 border-blue-200"
                             iconColor="text-blue-600"
                         />
                         <StatCard 
                             title="Novos Clientes" 
                             value={stats.newCustomers} 
                             icon={UsersIcon}
-                            iconBg="bg-purple-100"
+                            iconBg="bg-purple-50 border-purple-200"
                             iconColor="text-purple-600"
                         />
                         <StatCard 
                             title="Pedidos Pendentes" 
                             value={stats.pendingOrders} 
                             icon={ClockIcon}
-                            iconBg="bg-amber-100"
+                            iconBg="bg-amber-50 border-amber-200"
                             iconColor="text-amber-600"
                         />
                     </div>
 
                     {/* Seção de Exportação */}
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                        <h3 className="font-bold text-slate-800 text-lg mb-4">Exportar Relatórios</h3>
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                        <h3 className="font-bold text-black text-lg mb-4">Exportar Relatórios</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <button 
                                 onClick={() => handleSalesExport('excel')} 
-                                className="bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
+                                className="bg-white border-2 border-green-600 text-green-700 hover:bg-green-50 py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
                             >
                                 <DownloadIcon className="h-5 w-5"/> <span>Vendas (Excel)</span>
                             </button>
                             <button 
                                 onClick={() => handleStockExport('excel')} 
-                                className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
+                                className="bg-white border-2 border-blue-600 text-blue-700 hover:bg-blue-50 py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
                             >
                                 <DownloadIcon className="h-5 w-5"/> <span>Estoque (Excel)</span>
                             </button>
                             <button 
                                 onClick={() => handleSalesExport('pdf')} 
-                                className="bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
+                                className="bg-white border-2 border-red-600 text-red-700 hover:bg-red-50 py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
                             >
                                 <DownloadIcon className="h-5 w-5"/> <span>Vendas (PDF)</span>
                             </button>
@@ -10381,11 +10388,11 @@ const AdminDashboard = ({ onNavigate }) => {
                     {/* Área Principal: Gráfico e Estoque */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Gráfico Principal */}
-                        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                            <div className="flex justify-between items-center mb-6">
+                        <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                            <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
                                 <div>
-                                    <h3 className="font-bold text-slate-800 text-lg">Performance de Vendas</h3>
-                                    <p className="text-xs text-gray-400">Receita bruta ao longo do tempo</p>
+                                    <h3 className="font-bold text-black text-lg">Performance de Vendas</h3>
+                                    <p className="text-xs text-gray-500 font-medium mt-1">Receita bruta ao longo do tempo</p>
                                 </div>
                             </div>
                             <div className="h-80 w-full relative">
@@ -10404,38 +10411,38 @@ const AdminDashboard = ({ onNavigate }) => {
                     {/* Área Inferior: Ações e Secundários */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Gráfico Secundário */}
-                        <div className="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                            <h3 className="font-bold text-slate-800 text-lg mb-4">Top 5 Mais Vendidos</h3>
-                            <div className="h-64 relative">
+                        <div className="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                            <h3 className="font-bold text-black text-lg mb-4 border-b border-gray-100 pb-3">Top 5 Mais Vendidos</h3>
+                            <div className="h-64 relative mt-4">
                                 <canvas id="bestSellersChart"></canvas>
                             </div>
                         </div>
                         
                         {/* Manutenção e Ações Rápidas */}
                         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-                             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
-                                <h3 className="font-bold text-slate-800 mb-2">Status da Loja</h3>
+                             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-center">
+                                <h3 className="font-bold text-black mb-2">Status da Loja</h3>
                                 <MaintenanceModeToggle />
                             </div>
 
-                            <div className="bg-gradient-to-br from-indigo-900 to-slate-900 p-6 rounded-xl shadow-lg text-white">
+                            <div className="bg-black p-6 rounded-2xl shadow-xl text-white border border-gray-800">
                                 <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
                                     <SparklesIcon className="h-5 w-5 text-amber-400"/> Ações Rápidas
                                 </h3>
                                 <div className="grid grid-cols-2 gap-3">
-                                    <button onClick={() => onNavigate('admin/products')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
+                                    <button onClick={() => onNavigate('admin/products')} className="bg-gray-900 hover:bg-gray-800 p-3.5 rounded-xl text-left transition-all hover:scale-105 border border-gray-700">
                                         <PlusIcon className="h-5 w-5 mb-2 text-green-400"/>
                                         <span className="text-xs font-bold block text-gray-200">Novo Produto</span>
                                     </button>
-                                    <button onClick={() => onNavigate('admin/banners')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
+                                    <button onClick={() => onNavigate('admin/banners')} className="bg-gray-900 hover:bg-gray-800 p-3.5 rounded-xl text-left transition-all hover:scale-105 border border-gray-700">
                                         <PhotoIcon className="h-5 w-5 mb-2 text-blue-400"/>
-                                        <span className="text-xs font-bold block text-gray-200">Banners</span>
+                                        <span className="text-xs font-bold block text-gray-200">Visual</span>
                                     </button>
-                                    <button onClick={() => handleStockExport('excel')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
+                                    <button onClick={() => handleStockExport('excel')} className="bg-gray-900 hover:bg-gray-800 p-3.5 rounded-xl text-left transition-all hover:scale-105 border border-gray-700">
                                         <FileIcon className="h-5 w-5 mb-2 text-amber-400"/>
                                         <span className="text-xs font-bold block text-gray-200">Rel. Estoque</span>
                                     </button>
-                                    <button onClick={() => onNavigate('admin/coupons')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
+                                    <button onClick={() => onNavigate('admin/coupons')} className="bg-gray-900 hover:bg-gray-800 p-3.5 rounded-xl text-left transition-all hover:scale-105 border border-gray-700">
                                         <TagIcon className="h-5 w-5 mb-2 text-pink-400"/>
                                         <span className="text-xs font-bold block text-gray-200">Cupom</span>
                                     </button>
