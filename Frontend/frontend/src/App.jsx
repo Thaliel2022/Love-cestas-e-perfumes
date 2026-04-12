@@ -16407,7 +16407,7 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
         return (
             <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-4">
                 <SpinnerIcon className="h-12 w-12 text-amber-500 animate-spin" />
-                <p className="text-amber-400 font-bold tracking-widest uppercase text-sm animate-pulse">Preparando Pagamento Segurto</p>
+                <p className="text-amber-400 font-bold tracking-widest uppercase text-sm animate-pulse">Preparando Pagamento Seguro</p>
             </div>
         );
     }
@@ -16445,8 +16445,8 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
                     
-                    {/* Lado Esquerdo: Resumo Fixo Premium */}
-                    <div className="lg:col-span-5 lg:sticky lg:top-24 order-2 lg:order-1">
+                    {/* Lado Direito no Desktop / Cima no Mobile: Resumo Fixo Premium */}
+                    <div className="lg:col-span-5 lg:sticky lg:top-24 order-1 lg:order-2">
                         <div className="bg-gray-900/80 backdrop-blur-xl rounded-3xl border border-gray-800 p-6 sm:p-8 shadow-2xl">
                             <h2 className="text-xl font-bold mb-6 text-white flex items-center gap-3">
                                 <PackageIcon className="h-6 w-6 text-amber-500" />
@@ -16504,8 +16504,8 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                         </div>
                     </div>
 
-                    {/* Lado Direito: Formulário do Mercado Pago */}
-                    <div className="lg:col-span-7 order-1 lg:order-2">
+                    {/* Lado Esquerdo no Desktop / Baixo no Mobile: Formulário do Mercado Pago */}
+                    <div className="lg:col-span-7 order-2 lg:order-1">
                         <div className="bg-gray-900 rounded-3xl border border-gray-800 p-2 sm:p-4 shadow-2xl">
                             <MercadoPagoPayment
                                 initialization={{ 
@@ -16538,7 +16538,7 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                                 onError={(error) => {
                                     if(error?.message && error.message.includes("createObjectStore")) return;
                                     console.error("Mercado Pago Bricks Error:", error);
-                                    notification.show("Por favor, selecione uma forma de pagamento e preencha todos os campos obrigatórios no formulário.", "error");
+                                    notification.show("Por favor, selecione uma forma de pagamento e preencha todos os campos obrigatórios no formulário do Mercado Pago.", "error");
                                 }}
                             />
                         </div>
