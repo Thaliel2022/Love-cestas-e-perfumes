@@ -358,12 +358,15 @@ const AuthProvider = ({ children }) => {
             console.error("Erro na API de logout.", error);
         } finally {
             setUser(null);
-            // Limpa os tokens do localStorage no logout
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
-            
-            // CORREÇÃO: Limpa o cache de localização para não vazar o endereço/alias do usuário que acabou de deslogar
             localStorage.removeItem('lovecestas_cached_location');
+            
+            // CORREÇÃO: Limpa o carrinho local ao sair da conta
+            localStorage.removeItem('lovecestas_cart');
+            
+            // CORREÇÃO: Dispara um evento global para o ShopProvider resetar todos os estados
+            window.dispatchEvent(new Event('user-logged-out'));
             
             if (window.location.hash !== '#home' && window.location.hash !== '') {
                  window.location.hash = '#login';
@@ -399,7 +402,6 @@ const AuthProvider = ({ children }) => {
         const response = await apiService('/login', 'POST', { email, password });
         if (response && response.user) {
             setUser(response.user);
-            // Salva os tokens no localStorage para navegadores mobile restritos
             if (response.accessToken) localStorage.setItem('accessToken', response.accessToken);
             if (response.refreshToken) localStorage.setItem('refreshToken', response.refreshToken);
         }
