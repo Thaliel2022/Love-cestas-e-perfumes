@@ -2062,11 +2062,46 @@ const Minicart = memo(({ onNavigate }) => {
         removeFromCart
     } = useShop();
 
-    const subtotal = useMemo(() => cart.reduce((sum, item) => {
+    // --- INTELIGÊNCIA DE ESTOQUE (NÍVEL AMAZON) PARA O MINICART ---
+    const cartWithStockInfo = useMemo(() => {
+        return cart.map(item => {
+            let currentAvailableStock = Number(item.stock) || 0;
+            
+            // Se for roupa, busca o estoque exato da variação (cor/tamanho)
+            if (item.product_type === 'clothing' && item.variation) {
+                try {
+                    const allVariations = typeof item.variations === 'string' ? JSON.parse(item.variations) : (item.variations || []);
+                    const currentVar = allVariations.find(v => v.color === item.variation.color && v.size === item.variation.size);
+                    if (currentVar) {
+                        currentAvailableStock = Number(currentVar.stock) || 0;
+                    } else {
+                        currentAvailableStock = 0; // Variação foi deletada do banco
+                    }
+                } catch(e) {
+                    currentAvailableStock = 0;
+                }
+            }
+
+            const isOutOfStock = currentAvailableStock === 0;
+            const isInsufficient = currentAvailableStock > 0 && item.qty > currentAvailableStock;
+
+            return { 
+                ...item, 
+                currentAvailableStock, 
+                isOutOfStock, 
+                isInsufficient 
+            };
+        });
+    }, [cart]);
+
+    // Conta quantos itens estão bloqueando o checkout
+    const blockingItemsCount = cartWithStockInfo.filter(i => i.isOutOfStock || i.isInsufficient).length;
+
+    const subtotal = useMemo(() => cartWithStockInfo.reduce((sum, item) => {
         const isOnSale = !!item.is_on_sale && item.sale_price > 0;
         const price = isOnSale ? item.sale_price : item.price;
         return sum + price * item.qty;
-    }, 0), [cart]);
+    }, 0), [cartWithStockInfo]);
 
     // Bloqueia o scroll do fundo quando o carrinho está aberto no mobile
     useEffect(() => {
@@ -2118,7 +2153,26 @@ const Minicart = memo(({ onNavigate }) => {
 
                         {/* Conteúdo (Itens) */}
                         <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-gradient-to-b from-[#0a0a0a] to-[#111]">
-                            {cart.length === 0 ? (
+                            {/* ALERTA DE ESTOQUE GLOBAL */}
+                            <AnimatePresence>
+                                {blockingItemsCount > 0 && (
+                                    <motion.div 
+                                        initial={{ opacity: 0, y: -10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="bg-red-900/30 border border-red-800/50 p-3 rounded-xl flex items-start gap-2.5 shadow-lg"
+                                    >
+                                        <ExclamationCircleIcon className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                                        <div>
+                                            <h4 className="text-red-400 font-bold text-sm">Atenção ao estoque</h4>
+                                            <p className="text-red-200 text-xs mt-0.5 leading-tight">
+                                                Identificamos que {blockingItemsCount === 1 ? '1 item esgotou' : `${blockingItemsCount} itens esgotaram`} ou não têm a quantidade desejada. Ajuste para finalizar a compra.
+                                            </p>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            {cartWithStockInfo.length === 0 ? (
                                 <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-6 py-20 relative">
                                     {/* Efeito de luz sutil no fundo vazio */}
                                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-amber-500/5 rounded-full blur-3xl"></div>
@@ -2137,15 +2191,14 @@ const Minicart = memo(({ onNavigate }) => {
                                     </div>
                                 </div>
                             ) : (
-                                cart.map(item => {
-                                    // CORREÇÃO: Força o booleano aqui para evitar imprimir "0"
+                                cartWithStockInfo.map(item => {
                                     const isOnSale = !!item.is_on_sale && item.sale_price > 0;
                                     const currentPrice = isOnSale ? item.sale_price : item.price;
                                     
                                     return (
-                                        <div key={item.cartItemId} className="flex gap-4 bg-white/5 p-3.5 rounded-2xl border border-white/5 shadow-sm relative group hover:bg-white/10 transition-all duration-300">
+                                        <div key={item.cartItemId} className={`flex gap-4 p-3.5 rounded-2xl border relative group transition-all duration-300 ${item.isOutOfStock ? 'bg-black/40 border-gray-800 opacity-70' : 'bg-white/5 border-white/5 shadow-sm hover:bg-white/10'}`}>
                                             {/* Imagem do Produto */}
-                                            <div className="w-24 h-28 bg-white rounded-xl p-1.5 flex-shrink-0 cursor-pointer overflow-hidden shadow-inner" onClick={() => {setIsMinicartOpen(false); onNavigate(`product/${item.id}`);}}>
+                                            <div className={`w-24 h-28 bg-white rounded-xl p-1.5 flex-shrink-0 cursor-pointer overflow-hidden shadow-inner ${item.isOutOfStock ? 'grayscale' : ''}`} onClick={() => {setIsMinicartOpen(false); onNavigate(`product/${item.id}`);}}>
                                                 <img src={getFirstImage(item.images)} alt={item.name} className="w-full h-full object-contain transform group-hover:scale-105 transition-transform duration-500" />
                                             </div>
                                             
@@ -2153,7 +2206,7 @@ const Minicart = memo(({ onNavigate }) => {
                                             <div className="flex-1 flex flex-col justify-between min-w-0 py-0.5">
                                                 <div className="flex justify-between items-start gap-2">
                                                     <div className="min-w-0 pr-2">
-                                                        <p className="text-sm font-bold text-gray-100 line-clamp-2 cursor-pointer hover:text-amber-400 transition-colors leading-tight" onClick={() => {setIsMinicartOpen(false); onNavigate(`product/${item.id}`);}}>
+                                                        <p className={`text-sm font-bold line-clamp-2 cursor-pointer transition-colors leading-tight ${item.isOutOfStock ? 'text-gray-500 line-through' : 'text-gray-100 hover:text-amber-400'}`} onClick={() => {setIsMinicartOpen(false); onNavigate(`product/${item.id}`);}}>
                                                             {item.name}
                                                         </p>
                                                         {item.variation && (
@@ -2173,21 +2226,41 @@ const Minicart = memo(({ onNavigate }) => {
                                                     </button>
                                                 </div>
 
-                                                <div className="flex items-end justify-between mt-3">
-                                                    {/* Controle de Quantidade em Pílula */}
-                                                    <div className="flex items-center bg-black/40 rounded-full border border-white/10 p-0.5">
-                                                        <button onClick={() => updateQuantity(item.cartItemId, item.qty - 1)} className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white rounded-full hover:bg-white/10 transition-colors">-</button>
-                                                        <span className="w-6 text-center text-xs font-bold text-white">{item.qty}</span>
-                                                        <button onClick={() => updateQuantity(item.cartItemId, item.qty + 1)} className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white rounded-full hover:bg-white/10 transition-colors">+</button>
-                                                    </div>
-                                                    
-                                                    {/* Preço */}
-                                                    <div className="text-right">
-                                                        {/* CORREÇÃO: Usando a constante booleana */}
-                                                        {isOnSale && (
-                                                            <p className="text-[10px] text-gray-500 line-through">R$ {Number(item.price * item.qty).toFixed(2).replace('.', ',')}</p>
+                                                <div className="flex flex-col mt-2">
+                                                    {/* Feedbacks Visuais Individuais */}
+                                                    {item.isOutOfStock ? (
+                                                        <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest mt-1 mb-2">Esgotado</span>
+                                                    ) : item.isInsufficient ? (
+                                                        <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest mt-1 mb-2">Apenas {item.currentAvailableStock} un. disp.</span>
+                                                    ) : null}
+
+                                                    <div className="flex items-end justify-between mt-1">
+                                                        {/* Controle de Quantidade em Pílula */}
+                                                        {!item.isOutOfStock ? (
+                                                            <div className={`flex items-center rounded-full border p-0.5 ${item.isInsufficient ? 'bg-orange-900/20 border-orange-500/50' : 'bg-black/40 border-white/10'}`}>
+                                                                <button onClick={() => updateQuantity(item.cartItemId, item.qty - 1)} className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white rounded-full hover:bg-white/10 transition-colors">-</button>
+                                                                <span className={`w-6 text-center text-xs font-bold ${item.isInsufficient ? 'text-orange-400' : 'text-white'}`}>{item.qty}</span>
+                                                                <button 
+                                                                    onClick={() => updateQuantity(item.cartItemId, item.qty + 1)} 
+                                                                    disabled={item.qty >= item.currentAvailableStock}
+                                                                    className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white rounded-full hover:bg-white/10 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+                                                                >
+                                                                    +
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="h-7"></div> // Spacer para manter o layout alinhado
                                                         )}
-                                                        <p className="font-extrabold text-white text-base tracking-tight">R$ {Number(currentPrice * item.qty).toFixed(2).replace('.', ',')}</p>
+                                                        
+                                                        {/* Preço */}
+                                                        <div className="text-right">
+                                                            {isOnSale && !item.isOutOfStock && (
+                                                                <p className="text-[10px] text-gray-500 line-through">R$ {Number(item.price * item.qty).toFixed(2).replace('.', ',')}</p>
+                                                            )}
+                                                            <p className={`font-extrabold text-base tracking-tight ${item.isOutOfStock ? 'text-gray-600 line-through' : 'text-white'}`}>
+                                                                R$ {Number(currentPrice * item.qty).toFixed(2).replace('.', ',')}
+                                                            </p>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -2198,7 +2271,7 @@ const Minicart = memo(({ onNavigate }) => {
                         </div>
 
                         {/* Footer do Minicart Premium */}
-                        {cart.length > 0 && (
+                        {cartWithStockInfo.length > 0 && (
                             <div className="p-6 bg-[#0a0a0a]/90 backdrop-blur-xl border-t border-white/5 z-20 pb-safe">
                                 <div className="flex justify-between items-end mb-6">
                                     <span className="text-gray-400 text-sm font-medium">Subtotal</span>
@@ -2207,9 +2280,18 @@ const Minicart = memo(({ onNavigate }) => {
                                 <div className="flex flex-col gap-3">
                                     <button 
                                         onClick={() => { setIsMinicartOpen(false); onNavigate('checkout'); }} 
-                                        className="w-full py-4 bg-gradient-to-r from-amber-400 to-amber-500 text-black rounded-xl font-extrabold text-base hover:from-amber-300 hover:to-amber-400 transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(251,191,36,0.15)] hover:shadow-[0_0_25px_rgba(251,191,36,0.3)] active:scale-[0.98]"
+                                        disabled={blockingItemsCount > 0}
+                                        className={`w-full py-4 rounded-xl font-extrabold text-base transition-all flex items-center justify-center gap-2 
+                                            ${blockingItemsCount > 0 
+                                                ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' 
+                                                : 'bg-gradient-to-r from-amber-400 to-amber-500 text-black hover:from-amber-300 hover:to-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.15)] hover:shadow-[0_0_25px_rgba(251,191,36,0.3)] active:scale-[0.98]'
+                                            }`}
                                     >
-                                        <CheckBadgeIcon className="h-6 w-6" /> Finalizar Compra
+                                        {blockingItemsCount > 0 ? (
+                                            <><ExclamationCircleIcon className="h-6 w-6" /> Revisar Itens</>
+                                        ) : (
+                                            <><CheckBadgeIcon className="h-6 w-6" /> Finalizar Compra</>
+                                        )}
                                     </button>
                                     <button 
                                         onClick={() => { setIsMinicartOpen(false); onNavigate('cart'); }} 
