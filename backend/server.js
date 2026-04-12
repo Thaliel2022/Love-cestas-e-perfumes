@@ -1654,10 +1654,54 @@ app.post('/api/shipping/calculate', checkMaintenanceMode, async (req, res) => {
     }
 });
 
-// --- ROTAS DE PRODUTOS ---
+// --- ROTA DE PRODUTOS COM PAGINAÇÃO E FILTROS NO BACKEND ---
 app.get('/api/products', checkMaintenanceMode, async (req, res) => {
-    try {
-       const sql = `
+    try {
+        // Captura parâmetros de paginação e filtros
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 12;
+        const offset = (page - 1) * limit;
+
+        const search = req.query.search || '';
+        const category = req.query.category || '';
+        const promo = req.query.promo === 'true';
+
+        let whereClauses = ["p.is_active = 1"];
+        let queryParams = [];
+
+        // Filtro de Busca
+        if (search) {
+            whereClauses.push("(p.name LIKE ? OR p.brand LIKE ?)");
+            const searchTerm = `%${search}%`;
+            queryParams.push(searchTerm, searchTerm);
+        }
+
+        // Filtro de Categoria
+        if (category) {
+            if (category === 'Roupas') {
+                whereClauses.push("p.product_type = 'clothing'");
+            } else if (category === 'Perfumes') {
+                whereClauses.push("p.product_type = 'perfume'");
+            } else {
+                whereClauses.push("p.category = ?");
+                queryParams.push(category);
+            }
+        }
+
+        // Filtro de Promoção
+        if (promo) {
+            whereClauses.push("p.is_on_sale = 1");
+        }
+
+        const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+        // 1. Consulta para contar o total de itens (necessário para a paginação no front)
+        const countSql = `SELECT COUNT(*) as total FROM products p ${whereSql}`;
+        const [countResult] = await db.query(countSql, queryParams);
+        const totalItems = countResult[0].total;
+
+        // 2. Consulta dos produtos paginados
+        const sql = `
             SELECT 
                 p.*,
                 r_agg.avg_rating,
@@ -1673,17 +1717,27 @@ app.get('/api/products', checkMaintenanceMode, async (req, res) => {
                     reviews 
                 GROUP BY 
                     product_id) AS r_agg ON p.id = r_agg.product_id
-            WHERE 
-                p.is_active = 1
+            ${whereSql}
             ORDER BY 
-                p.created_at DESC;
+                p.created_at DESC
+            LIMIT ? OFFSET ?;
         `;
-        const [products] = await db.query(sql);
-        res.json(products);
-    } catch (err) {
-        console.error("Erro ao buscar produtos:", err);
-        res.status(500).json({ message: "Erro ao buscar produtos." });
-    }
+        
+        // Adiciona limit e offset aos parâmetros
+        queryParams.push(limit, offset);
+
+        const [products] = await db.query(sql, queryParams);
+
+        res.json({
+            products,
+            totalItems,
+            totalPages: Math.ceil(totalItems / limit),
+            currentPage: page
+        });
+    } catch (err) {
+        console.error("Erro ao buscar produtos paginados:", err);
+        res.status(500).json({ message: "Erro ao buscar produtos." });
+    }
 });
 
 app.get('/api/products/all', verifyToken, verifyAdmin, async (req, res) => {
