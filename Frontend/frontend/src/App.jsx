@@ -6731,7 +6731,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                             <span className="font-medium">- R$ {discount.toFixed(2)}</span>
                                         </div>
                                     )}
-                                    <div className="flex justify-between font-bold text-lg text-white border-t border-gray-700 pt-3 mt-3 mb-4">
+                                    <div className="flex justify-between font-bold text-xl mb-6">
                                         <span>Total</span>
                                         <span className="text-amber-400">R$ {total.toFixed(2)}</span>
                                     </div>
@@ -6780,7 +6780,6 @@ const CheckoutPage = ({ onNavigate }) => {
                                                 }
                                             }
                                         `}</style>
-                                        {/* AVISO DO PIX ADICIONADO AQUI */}
                                         <div className="mb-4 p-3.5 bg-blue-900/30 border border-blue-800/50 rounded-xl flex items-start gap-3">
                                             <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
                                             <div className="text-xs text-blue-200 leading-relaxed">
@@ -6789,7 +6788,6 @@ const CheckoutPage = ({ onNavigate }) => {
                                             </div>
                                         </div>
                                         <MercadoPagoPayment
-                                            key={`mp-payment-checkout-${total.toFixed(2)}-${displayAddress?.id || 'none'}-${autoCalculatedShipping?.name || 'none'}`}
                                             initialization={mpInitialization}
                                             customization={mpCustomization}
                                             onSubmit={handlePaymentSubmit}
