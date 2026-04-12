@@ -1654,54 +1654,10 @@ app.post('/api/shipping/calculate', checkMaintenanceMode, async (req, res) => {
     }
 });
 
-// --- ROTA DE PRODUTOS COM PAGINAÇÃO E FILTROS NO BACKEND ---
+// --- ROTAS DE PRODUTOS ---
 app.get('/api/products', checkMaintenanceMode, async (req, res) => {
-    try {
-        // Captura parâmetros de paginação e filtros
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 12;
-        const offset = (page - 1) * limit;
-
-        const search = req.query.search || '';
-        const category = req.query.category || '';
-        const promo = req.query.promo === 'true';
-
-        let whereClauses = ["p.is_active = 1"];
-        let queryParams = [];
-
-        // Filtro de Busca
-        if (search) {
-            whereClauses.push("(p.name LIKE ? OR p.brand LIKE ?)");
-            const searchTerm = `%${search}%`;
-            queryParams.push(searchTerm, searchTerm);
-        }
-
-        // Filtro de Categoria
-        if (category) {
-            if (category === 'Roupas') {
-                whereClauses.push("p.product_type = 'clothing'");
-            } else if (category === 'Perfumes') {
-                whereClauses.push("p.product_type = 'perfume'");
-            } else {
-                whereClauses.push("p.category = ?");
-                queryParams.push(category);
-            }
-        }
-
-        // Filtro de Promoção
-        if (promo) {
-            whereClauses.push("p.is_on_sale = 1");
-        }
-
-        const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
-
-        // 1. Consulta para contar o total de itens (necessário para a paginação no front)
-        const countSql = `SELECT COUNT(*) as total FROM products p ${whereSql}`;
-        const [countResult] = await db.query(countSql, queryParams);
-        const totalItems = countResult[0].total;
-
-        // 2. Consulta dos produtos paginados
-        const sql = `
+    try {
+       const sql = `
             SELECT 
                 p.*,
                 r_agg.avg_rating,
@@ -1717,27 +1673,17 @@ app.get('/api/products', checkMaintenanceMode, async (req, res) => {
                     reviews 
                 GROUP BY 
                     product_id) AS r_agg ON p.id = r_agg.product_id
-            ${whereSql}
+            WHERE 
+                p.is_active = 1
             ORDER BY 
-                p.created_at DESC
-            LIMIT ? OFFSET ?;
+                p.created_at DESC;
         `;
-        
-        // Adiciona limit e offset aos parâmetros
-        queryParams.push(limit, offset);
-
-        const [products] = await db.query(sql, queryParams);
-
-        res.json({
-            products,
-            totalItems,
-            totalPages: Math.ceil(totalItems / limit),
-            currentPage: page
-        });
-    } catch (err) {
-        console.error("Erro ao buscar produtos paginados:", err);
-        res.status(500).json({ message: "Erro ao buscar produtos." });
-    }
+        const [products] = await db.query(sql);
+        res.json(products);
+    } catch (err) {
+        console.error("Erro ao buscar produtos:", err);
+        res.status(500).json({ message: "Erro ao buscar produtos." });
+    }
 });
 
 app.get('/api/products/all', verifyToken, verifyAdmin, async (req, res) => {
@@ -5556,93 +5502,73 @@ app.get('/api/reports/detailed', verifyToken, verifyAdmin, async (req, res) => {
 
 // --- ROTA PARA TAREFAS AGENDADAS (CRON JOB) ---
 app.post('/api/tasks/cancel-pending-orders', async (req, res) => {
-    const { secret } = req.body;
-    if (secret !== process.env.CRON_SECRET) {
-        return res.status(403).json({ message: 'Acesso negado.' });
-    }
+    const { secret } = req.body;
+    if (secret !== process.env.CRON_SECRET) {
+        return res.status(403).json({ message: 'Acesso negado.' });
+    }
 
-    console.log('[CRON] Iniciando tarefa de cancelamento de pedidos pendentes...');
-    const PENDING_ORDER_TIMEOUT_HOURS = 2;
-    const connection = await db.getConnection();
+    console.log('[CRON] Iniciando tarefa de cancelamento de pedidos pendentes...');
+    const PENDING_ORDER_TIMEOUT_HOURS = 2;
+    const connection = await db.getConnection();
 
-    try {
-        await connection.beginTransaction();
+    try {
+        await connection.beginTransaction();
 
-        const timeout = new Date();
-        timeout.setHours(timeout.getHours() - PENDING_ORDER_TIMEOUT_HOURS);
+        const timeout = new Date();
+        timeout.setHours(timeout.getHours() - PENDING_ORDER_TIMEOUT_HOURS);
 
-        // Busca apenas os IDs dos pedidos que parecem estar pendentes
-        const [pendingOrders] = await connection.query(
-            "SELECT id FROM orders WHERE status = ? AND date < ?",
-            [ORDER_STATUS.PENDING, timeout]
-        );
+        const [pendingOrders] = await connection.query(
+            "SELECT id FROM orders WHERE status = ? AND date < ?",
+            [ORDER_STATUS.PENDING, timeout]
+        );
 
-        if (pendingOrders.length === 0) {
-            console.log('[CRON] Nenhum pedido pendente para cancelar.');
-            await connection.commit();
-            return res.status(200).json({ message: "Nenhum pedido pendente para cancelar." });
-        }
+        if (pendingOrders.length === 0) {
+            console.log('[CRON] Nenhum pedido pendente para cancelar.');
+            await connection.commit();
+            return res.status(200).json({ message: "Nenhum pedido pendente para cancelar." });
+        }
 
-        console.log(`[CRON] Encontrados possíveis ${pendingOrders.length} pedidos pendentes para cancelar.`);
-        
-        let canceledCount = 0;
+        console.log(`[CRON] Encontrados ${pendingOrders.length} pedidos pendentes para cancelar.`);
 
-        for (const order of pendingOrders) {
-            const orderId = order.id;
-            
-            // --- CORREÇÃO DE SEGURANÇA: RACE CONDITION (PESSIMISTIC LOCK) ---
-            // Antes de mexer no estoque, travamos a linha específica deste pedido no banco 
-            // e verificamos se ele REALMENTE ainda está pendente.
-            const [checkOrder] = await connection.query(
-                "SELECT status FROM orders WHERE id = ? FOR UPDATE", 
-                [orderId]
-            );
+        for (const order of pendingOrders) {
+            const orderId = order.id;
+            console.log(`[CRON] Processando cancelamento do pedido #${orderId}`);
+            
+            // Reverte o estoque
+            const [itemsToReturn] = await connection.query("SELECT product_id, quantity, variation_details FROM order_items WHERE order_id = ?", [orderId]);
+            for (const item of itemsToReturn) {
+                const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.product_id]);
+                const product = productResult[0];
+                if (product.product_type === 'clothing' && item.variation_details) {
+                    const variation = JSON.parse(item.variation_details);
+                    let variations = JSON.parse(product.variations || '[]');
+                    const variationIndex = variations.findIndex(v => v.color === variation.color && v.size === variation.size);
+                    if (variationIndex !== -1) {
+                        variations[variationIndex].stock += item.quantity;
+                        const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
+                        await connection.query("UPDATE products SET variations = ?, stock = ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.quantity, item.product_id]);
+                    }
+                } else {
+                    await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
+                }
+            }
+            console.log(`[CRON] Estoque do pedido #${orderId} revertido.`);
+            
+            // Atualiza status do pedido para Cancelado
+            await updateOrderStatus(orderId, ORDER_STATUS.CANCELLED, connection, "Cancelado automaticamente por falta de pagamento.");
+        }
 
-            // Se o Webhook do Mercado Pago atualizou o pedido no meio tempo, nós pulamos o cancelamento!
-            if (checkOrder.length === 0 || checkOrder[0].status !== ORDER_STATUS.PENDING) {
-                console.log(`[CRON] Pedido #${orderId} mudou de status (agora é '${checkOrder[0]?.status}') durante o processamento. Cancelamento ignorado para preservar a venda.`);
-                continue; 
-            }
-            // ---------------------------------------------------------------
+        await connection.commit();
+        console.log(`[CRON] Tarefa concluída. ${pendingOrders.length} pedidos cancelados.`);
+        res.status(200).json({ message: `${pendingOrders.length} pedidos pendentes foram cancelados com sucesso.` });
 
-            console.log(`[CRON] Processando cancelamento do pedido #${orderId}`);
-            
-            // Reverte o estoque
-            const [itemsToReturn] = await connection.query("SELECT product_id, quantity, variation_details FROM order_items WHERE order_id = ?", [orderId]);
-            for (const item of itemsToReturn) {
-                const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.product_id]);
-                const product = productResult[0];
-                if (product.product_type === 'clothing' && item.variation_details) {
-                    const variation = JSON.parse(item.variation_details);
-                    let variations = JSON.parse(product.variations || '[]');
-                    const variationIndex = variations.findIndex(v => v.color === variation.color && v.size === variation.size);
-                    if (variationIndex !== -1) {
-                        variations[variationIndex].stock += item.quantity;
-                        const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
-                        await connection.query("UPDATE products SET variations = ?, stock = ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.quantity, item.product_id]);
-                    }
-                } else {
-                    await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
-                }
-            }
-            console.log(`[CRON] Estoque do pedido #${orderId} revertido.`);
-            
-            // Atualiza status do pedido para Cancelado
-            await updateOrderStatus(orderId, ORDER_STATUS.CANCELLED, connection, "Cancelado automaticamente por expiração de tempo para pagamento.");
-            canceledCount++;
-        }
-
-        await connection.commit();
-        console.log(`[CRON] Tarefa concluída. ${canceledCount} pedidos efetivamente cancelados.`);
-        res.status(200).json({ message: `${canceledCount} pedidos pendentes foram cancelados com segurança.` });
-
-    } catch (err) {
-        await connection.rollback();
-        console.error('[CRON] Erro ao executar a tarefa de cancelamento:', err);
-        res.status(500).json({ message: "Erro interno ao executar a tarefa." });
-    } finally {
-        connection.release();
-    }
+    } catch (err) {
+        await connection.rollback();
+        console.error('[CRON] Erro ao executar a tarefa de cancelamento:', err);
+        res.status(500).json({ message: "Erro interno ao executar a tarefa." });
+    } finally {
+        connection.release();
+    }
 });
 
 // --- ROTAS DO SISTEMA DE REEMBOLSO (Admin) ---

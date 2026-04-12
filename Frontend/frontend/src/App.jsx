@@ -131,26 +131,30 @@ const maskCEP = (value) => {
 let isRefreshing = false;
 let failedQueue = [];
 
-const processQueue = (error) => {
+const processQueue = (error, token = null) => {
     failedQueue.forEach(prom => {
         if (error) {
             prom.reject(error);
         } else {
-            prom.resolve();
+            prom.resolve(token);
         }
     });
     failedQueue = [];
 };
 
 async function apiService(endpoint, method = 'GET', body = null, options = {}) {
-    // REMOVIDO: A busca e envio manual do token do localStorage.
-    // Agora confiamos 100% nos Cookies HttpOnly blindados.
+    // Pega o token do localStorage para enviar no header (corrige bloqueios de cookies no mobile)
+    const token = localStorage.getItem('accessToken');
     const headers = { 'Content-Type': 'application/json' };
+    
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
 
     const config = {
         method,
         headers,
-        credentials: 'include', // Essencial para o navegador enviar e receber os cookies HttpOnly
+        credentials: 'include', // Essencial para enviar cookies caso o navegador permita
         signal: options.signal,
     };
 
@@ -171,7 +175,7 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
         }
 
         if (!response.ok) {
-            // Se o token expirou, tenta renová-lo silenciosamente
+            // Se o token expirou, tenta renová-lo
             if (response.status === 401 && data.message && data.message.includes('Token expirado')) {
                 if (isRefreshing) {
                     return new Promise((resolve, reject) => {
@@ -181,10 +185,17 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
 
                 isRefreshing = true;
                 return new Promise((resolve, reject) => {
-                    // O navegador envia o cookie refreshToken automaticamente
-                    apiService('/refresh-token', 'POST')
-                        .then(() => {
-                            // O backend já atualizou os cookies HttpOnly na resposta com sucesso
+                    const currentRefreshToken = localStorage.getItem('refreshToken');
+                    // Envia o refreshToken no body como fallback para navegadores restritos
+                    apiService('/refresh-token', 'POST', { refreshToken: currentRefreshToken })
+                        .then((refreshData) => {
+                            // Salva os novos tokens
+                            if (refreshData && refreshData.accessToken) {
+                                localStorage.setItem('accessToken', refreshData.accessToken);
+                                if (refreshData.refreshToken) {
+                                    localStorage.setItem('refreshToken', refreshData.refreshToken);
+                                }
+                            }
                             processQueue(null);
                             resolve(apiService(endpoint, method, body, options));
                         })
@@ -223,58 +234,6 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
         if (error instanceof TypeError) {
             throw new Error('Não foi possível conectar ao servidor. Verifique sua conexão e se o backend está rodando.');
         }
-        throw error;
-    }
-}
-
-async function apiUploadService(endpoint, file) {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const config = {
-        method: 'POST',
-        credentials: 'include', // Essencial para cookies HttpOnly
-        body: formData,
-    };
-
-    try {
-        const response = await fetch(`${API_URL}${endpoint}`, config);
-        const responseData = await response.json();
-        if (!response.ok) {
-            if (response.status === 401 || response.status === 403) {
-                window.dispatchEvent(new Event('auth-error'));
-            }
-            throw new Error(responseData.message || `Erro ${response.status}`);
-        }
-        return responseData;
-    } catch (error) {
-        console.error(`Erro no upload (${endpoint}):`, error);
-        throw error;
-    }
-}
-
-async function apiImageUploadService(endpoint, file) {
-    const formData = new FormData();
-    formData.append('image', file);
-
-    const config = {
-        method: 'POST',
-        credentials: 'include', // Essencial para cookies HttpOnly
-        body: formData,
-    };
-
-    try {
-        const response = await fetch(`${API_URL}${endpoint}`, config);
-        const responseData = await response.json();
-        if (!response.ok) {
-            if (response.status === 401 || response.status === 403) {
-                window.dispatchEvent(new Event('auth-error'));
-            }
-            throw new Error(responseData.message || `Erro ${response.status}`);
-        }
-        return responseData;
-    } catch (error) {
-        console.error(`Erro no upload da imagem (${endpoint}):`, error);
         throw error;
     }
 }
@@ -399,9 +358,12 @@ const AuthProvider = ({ children }) => {
             console.error("Erro na API de logout.", error);
         } finally {
             setUser(null);
-            // Limpa o cache de localização para não vazar o endereço do usuário deslogado
+            // Limpa os tokens do localStorage no logout
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            
+            // CORREÇÃO: Limpa o cache de localização para não vazar o endereço/alias do usuário que acabou de deslogar
             localStorage.removeItem('lovecestas_cached_location');
-            localStorage.removeItem('user'); // Limpa dados locais residuais
             
             if (window.location.hash !== '#home' && window.location.hash !== '') {
                  window.location.hash = '#login';
@@ -411,7 +373,6 @@ const AuthProvider = ({ children }) => {
 
     const fetchUserProfile = useCallback(async () => {
         try {
-            // O cookie HttpOnly será enviado e o backend nos devolverá quem é o usuário
             const userData = await apiService('/users/me', 'GET', null, { suppressAuthError: true });
             setUser(userData);
         } catch (error) {
@@ -438,8 +399,9 @@ const AuthProvider = ({ children }) => {
         const response = await apiService('/login', 'POST', { email, password });
         if (response && response.user) {
             setUser(response.user);
-            // Tokens agora são gerenciados e protegidos exclusivamente pelo navegador (Cookies HttpOnly).
-            // Nenhuma chave será deixada exposta no localStorage.
+            // Salva os tokens no localStorage para navegadores mobile restritos
+            if (response.accessToken) localStorage.setItem('accessToken', response.accessToken);
+            if (response.refreshToken) localStorage.setItem('refreshToken', response.refreshToken);
         }
         return response;
     };
@@ -3695,33 +3657,24 @@ const HomePage = ({ onNavigate }) => {
         perfumes: []
     });
     
+    // Estado unificado para banners
     const [banners, setBanners] = useState({
         carousel: [],
-        promo: [], 
+        promo: [], // Agora é um array para suportar múltiplos destaques
         cards: []
     });
     const [isLoadingBanners, setIsLoadingBanners] = useState(true);
 
     useEffect(() => {
+        // --- BUSCA DE PRODUTOS ---
         const controller = new AbortController();
-        
-        apiService('/products?limit=100', 'GET', null, { signal: controller.signal })
+        apiService('/products', 'GET', null, { signal: controller.signal })
             .then(data => {
-                // TRAVA DE SEGURANÇA: Aceita tanto o formato antigo (Array direto) quanto o novo (Objeto com paginação)
-                let productsArray = [];
-                if (Array.isArray(data)) {
-                    productsArray = data;
-                } else if (data && Array.isArray(data.products)) {
-                    productsArray = data.products;
-                } else {
-                    console.warn("Formato de dados inesperado:", data);
-                }
-
-                const sortedByDate = [...productsArray].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-                const sortedBySales = [...productsArray].sort((a, b) => (b.sales || 0) - (a.sales || 0));
+                const sortedByDate = [...data].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                const sortedBySales = [...data].sort((a, b) => (b.sales || 0) - (a.sales || 0));
                 
-                const clothingProducts = productsArray.filter(p => p.product_type === 'clothing');
-                const perfumeProducts = productsArray.filter(p => p.product_type === 'perfume');
+                const clothingProducts = data.filter(p => p.product_type === 'clothing');
+                const perfumeProducts = data.filter(p => p.product_type === 'perfume');
 
                 setProducts({
                     newArrivals: sortedByDate,
@@ -3734,11 +3687,17 @@ const HomePage = ({ onNavigate }) => {
                 if (err.name !== 'AbortError') console.error("Falha ao buscar produtos:", err);
             });
 
+        // --- BUSCA DE BANNERS ---
         apiService('/banners', 'GET', null, { signal: controller.signal })
             .then(data => {
                 if (Array.isArray(data)) {
+                    // SEPARAÇÃO POR ORDEM:
                     const carousel = data.filter(b => b.display_order < 50).sort((a, b) => a.display_order - b.display_order);
+                    
+                    // Pega TODOS os banners de destaque (ordem 50) para rotacionar
+                    // O backend já garante que só vêm os ativos e dentro da data
                     const promo = data.filter(b => b.display_order === 50);
+                    
                     const cards = data.filter(b => b.display_order >= 60).sort((a, b) => a.display_order - b.display_order).slice(0, 2);
 
                     setBanners({
@@ -3757,7 +3716,9 @@ const HomePage = ({ onNavigate }) => {
     }, []);
 
     return (
+      // CORREÇÃO: Alterado pb-0 para pb-24 md:pb-0 para liberar o espaço do menu inferior
       <div className="bg-black min-h-screen pb-24 md:pb-0 overflow-x-hidden">
+        {/* Banner Principal Rotativo */}
         {isLoadingBanners ? (
             <div className="relative h-[55vh] sm:h-[70vh] bg-gray-900 flex items-center justify-center">
                 <SpinnerIcon className="h-10 w-10 text-amber-400" />
@@ -3768,12 +3729,15 @@ const HomePage = ({ onNavigate }) => {
         
         <BenefitsBar />
         
+        {/* Carrossel de Categorias */}
         <div className="py-8 md:py-12 bg-black">
              <CollectionsCarousel onNavigate={onNavigate} title="Coleções" />
         </div>
 
+        {/* Destaque Visual (Carrossel de Campanhas) */}
         <PromoBannerSection customBanners={banners.promo} onNavigate={onNavigate} />
 
+        {/* Seção Lançamentos */}
         <section className="bg-black text-white py-8 md:py-12">
           <div className="container mx-auto px-4">
               <div className="flex items-end justify-between mb-6 md:mb-10 border-b border-gray-800 pb-4">
@@ -3792,6 +3756,7 @@ const HomePage = ({ onNavigate }) => {
           </div>
         </section>
         
+        {/* Seção Mais Vendidos */}
         <section className="bg-gray-900/50 py-10 md:py-16 my-4 md:my-8 border-y border-gray-800 relative">
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5"></div>
           <div className="container mx-auto px-4 relative z-10">
@@ -3805,8 +3770,10 @@ const HomePage = ({ onNavigate }) => {
           </div>
         </section>
 
+        {/* Cards de Categoria (Inferior) */}
         <CategoryCardsSection customCards={banners.cards} onNavigate={onNavigate} />
         
+        {/* Vitrine Roupas */}
         <section className="bg-black text-white py-8 md:py-10 border-t border-gray-800">
           <div className="container mx-auto px-4">
               <div className="flex items-end justify-between mb-6 md:mb-8">
@@ -3844,79 +3811,75 @@ const HomePage = ({ onNavigate }) => {
     );
 };
 
+// ===== ATUALIZAÇÃO PROMOÇÕES =====
 const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', initialBrand = '', initialIsPromo = false }) => {
-    const [products, setProducts] = useState([]);
-    const [totalItems, setTotalItems] = useState(0);
-    const [totalPages, setTotalPages] = useState(1);
+    const [allProducts, setAllProducts] = useState([]);
+    const [filteredProducts, setFilteredProducts] = useState([]);
+    const [filters, setFilters] = useState({ search: initialSearch, brand: initialBrand, category: initialCategory });
     const [currentPage, setCurrentPage] = useState(1);
     const [isLoading, setIsLoading] = useState(true);
-    
-    const [filters, setFilters] = useState({ 
-        search: initialSearch, 
-        brand: initialBrand, 
-        category: initialCategory,
-        promo: initialIsPromo 
-    });
-    
     const [uniqueCategories, setUniqueCategories] = useState([]);
-    const [uniqueBrands, setUniqueBrands] = useState([]);
     const productsPerPage = 12;
 
     useEffect(() => {
-        apiService('/collections')
-            .then(data => {
-                const activeCategories = Array.isArray(data) ? data.map(cat => cat.filter) : [];
-                setUniqueCategories([...new Set(activeCategories)].sort());
-            }).catch(console.error);
-
-        apiService('/products/search-suggestions?q=')
-            .then(data => {
-                const brands = Array.isArray(data) ? data.map(p => p.brand) : [];
-                setUniqueBrands([...new Set(brands)].sort());
-            }).catch(console.error);
-    }, []);
-
-    const fetchPaginatedProducts = useCallback(async () => {
+        const controller = new AbortController();
         setIsLoading(true);
-        try {
-            const query = new URLSearchParams({
-                page: currentPage,
-                limit: productsPerPage,
-                search: filters.search,
-                category: filters.category,
-                promo: filters.promo
-            }).toString();
-
-            const data = await apiService(`/products?${query}`);
-            
-            // TRAVA DE SEGURANÇA PARA A PAGINAÇÃO
-            if (Array.isArray(data)) {
-                setProducts(data);
-                setTotalItems(data.length);
-                setTotalPages(1);
-            } else if (data && data.products) {
-                setProducts(data.products);
-                setTotalItems(data.totalItems);
-                setTotalPages(data.totalPages);
-            } else {
-                setProducts([]);
-            }
-        } catch (err) {
-            console.error("Falha ao buscar produtos:", err);
-        } finally {
+        
+        Promise.all([
+            apiService('/products', 'GET', null, { signal: controller.signal }),
+            apiService('/collections', 'GET', null, { signal: controller.signal })
+        ]).then(([productsData, collectionsData]) => {
+            setAllProducts(productsData);
+            const activeCategories = collectionsData.map(cat => cat.filter);
+            setUniqueCategories([...new Set(activeCategories)].sort());
+        }).catch(err => {
+            if (err.name !== 'AbortError') console.error("Falha ao buscar dados da página de produtos:", err);
+        }).finally(() => {
             setIsLoading(false);
-        }
-    }, [currentPage, filters]);
+        });
+
+        return () => controller.abort();
+    }, []);
+    
+    useEffect(() => {
+        setFilters(prev => ({...prev, search: initialSearch, category: initialCategory, brand: initialBrand}));
+    }, [initialSearch, initialCategory, initialBrand]);
 
     useEffect(() => {
-        fetchPaginatedProducts();
-    }, [fetchPaginatedProducts]);
+        let result = [...allProducts];
 
-    const handleFilterChange = (newFilters) => {
-        setFilters(prev => ({ ...prev, ...newFilters }));
+        if (initialIsPromo) {
+            result = result.filter(p => p.is_on_sale);
+        }
+
+        if (filters.search) {
+            result = result.filter(p => 
+                p.name.toLowerCase().includes(filters.search.toLowerCase()) || 
+                p.brand.toLowerCase().includes(filters.search.toLowerCase())
+            );
+        }
+        if (filters.brand) {
+            result = result.filter(p => p.brand === filters.brand);
+        }
+        if (filters.category) {
+            if (filters.category === 'Roupas') {
+                result = result.filter(p => p.product_type === 'clothing');
+            } else if (filters.category === 'Perfumes') {
+                result = result.filter(p => p.product_type === 'perfume');
+            } else {
+                result = result.filter(p => p.category === filters.category);
+            }
+        }
+        setFilteredProducts(result);
         setCurrentPage(1);
-    };
-
+    }, [filters, allProducts, initialIsPromo]);
+    
+    const uniqueBrands = [...new Set(allProducts.map(p => p.brand))];
+    const indexOfLastProduct = currentPage * productsPerPage;
+    const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
+    const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
+    const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
+    
     const ProductSkeleton = () => (
         <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col h-full animate-pulse">
             <div className="h-64 bg-gray-700"></div>
@@ -3924,6 +3887,7 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
                 <div className="h-4 bg-gray-700 rounded w-1/4 mb-2"></div>
                 <div className="h-6 bg-gray-700 rounded w-3/4 mb-4"></div>
                 <div className="h-5 bg-gray-700 rounded w-1/2 mb-auto"></div>
+                <div className="h-8 bg-gray-700 rounded w-1/3 mt-4"></div>
                 <div className="mt-4 flex items-stretch space-x-2">
                     <div className="h-10 bg-gray-700 rounded flex-grow"></div>
                     <div className="h-10 w-12 bg-gray-700 rounded"></div>
@@ -3934,45 +3898,36 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
     
     const gridContainerVariants = {
         hidden: { opacity: 0 },
-        visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
+        visible: {
+            opacity: 1,
+            transition: { staggerChildren: 0.1 }
+        }
     };
 
+    const pageTitle = initialIsPromo ? 'Produtos em Promoção' : 'Nossa Coleção';
+
     return (
+        // CORREÇÃO AQUI: pt-12 pb-28 md:pb-12 para liberar espaço do navbar mobile
         <div className="bg-black text-white min-h-screen pt-12 pb-28 md:pb-12">
             <div className="container mx-auto px-4">
-                <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
-                    {filters.promo ? 'Promoções Imperdíveis' : 'Nossa Coleção'}
-                </h2>
-
+                <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">{pageTitle}</h2>
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                     <aside className="lg:col-span-1 bg-gray-900 p-6 rounded-lg shadow-md h-fit lg:sticky lg:top-28">
                         <h3 className="text-xl font-bold mb-4 text-amber-400">Filtros</h3>
                         <div className="space-y-4">
-                            <input 
-                                type="text" 
-                                placeholder="Pesquisar..." 
-                                value={filters.search} 
-                                onChange={e => handleFilterChange({ search: e.target.value })} 
-                                className="w-full p-2 bg-gray-800 border border-gray-700 rounded text-white focus:ring-1 focus:ring-amber-500 outline-none" 
-                            />
-                            <select 
-                                value={filters.category} 
-                                onChange={e => handleFilterChange({ category: e.target.value })} 
-                                className="w-full p-2 bg-gray-800 border border-gray-700 rounded text-white"
-                            >
+                            <input type="text" placeholder="Buscar por nome..." value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} className="w-full p-2 bg-gray-800 border border-gray-700 rounded" />
+                             <select value={filters.brand} onChange={e => setFilters({...filters, brand: e.target.value})} className="w-full p-2 bg-gray-800 border border-gray-700 rounded">
+                                <option value="">Todas as Marcas</option>
+                                {uniqueBrands.map(b => <option key={b} value={b}>{b}</option>)}
+                            </select>
+                            <select value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})} className="w-full p-2 bg-gray-800 border border-gray-700 rounded">
                                 <option value="">Todas as Categorias</option>
                                 <option value="Roupas">Roupas (Geral)</option>
                                 <option value="Perfumes">Perfumes (Geral)</option>
                                 {uniqueCategories.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                         </div>
-                        {totalItems > 0 && (
-                            <p className="mt-6 text-xs text-gray-500 font-medium uppercase tracking-wider">
-                                {totalItems} {totalItems === 1 ? 'produto encontrado' : 'produtos encontrados'}
-                            </p>
-                        )}
                     </aside>
-
                     <main className="lg:col-span-3">
                         <motion.div 
                             variants={gridContainerVariants}
@@ -3982,45 +3937,17 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
                         >
                            {isLoading ? (
                                 Array.from({ length: 6 }).map((_, i) => <ProductSkeleton key={i} />)
-                            ) : products.length > 0 ? (
-                                products.map(p => <ProductCard key={p.id} product={p} onNavigate={onNavigate} />)
+                            ) : currentProducts.length > 0 ? (
+                                currentProducts.map(p => <ProductCard key={p.id} product={p} onNavigate={onNavigate} />)
                             ) : (
-                                <div className="col-span-full py-20 text-center">
-                                    <p className="text-gray-500 text-lg">Não encontrámos resultados para a sua pesquisa.</p>
-                                    <button onClick={() => handleFilterChange({ search: '', category: '', promo: false })} className="mt-4 text-amber-400 underline font-bold">Limpar Filtros</button>
-                                </div>
+                                <p className="col-span-full text-center text-gray-500">Nenhum produto encontrado para sua busca.</p>
                             )}
                         </motion.div>
-
                         {totalPages > 1 && (
-                            <div className="flex justify-center mt-12 items-center space-x-2">
-                                <button 
-                                    onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} 
-                                    disabled={currentPage === 1 || isLoading} 
-                                    className="px-4 py-2 bg-gray-800 rounded-lg disabled:opacity-30 font-bold hover:bg-gray-700 transition-colors"
-                                >
-                                    Anterior
-                                </button>
-                                
-                                <div className="flex space-x-1">
-                                    {[...Array(totalPages)].map((_, i) => (
-                                        <button
-                                            key={i + 1}
-                                            onClick={() => setCurrentPage(i + 1)}
-                                            className={`w-10 h-10 rounded-lg font-bold transition-all ${currentPage === i + 1 ? 'bg-amber-500 text-black' : 'bg-gray-900 text-gray-400 hover:bg-gray-800'}`}
-                                        >
-                                            {i + 1}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                <button 
-                                    onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} 
-                                    disabled={currentPage === totalPages || isLoading} 
-                                    className="px-4 py-2 bg-gray-800 rounded-lg disabled:opacity-30 font-bold hover:bg-gray-700 transition-colors"
-                                >
-                                    Próxima
-                                </button>
+                            <div className="flex justify-center mt-8 items-center space-x-2 sm:space-x-4">
+                                <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-3 sm:px-4 py-2 bg-gray-800 rounded disabled:opacity-50">Anterior</button>
+                                <span className="text-sm sm:text-base">Página {currentPage} de {totalPages}</span>
+                                <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-3 sm:px-4 py-2 bg-gray-800 rounded disabled:opacity-50">Próxima</button>
                             </div>
                         )}
                     </main>
@@ -4029,6 +3956,7 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
         </div>
     );
 };
+// ===================================
 
 const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
     if (!isOpen || !installments || installments.length === 0) return null;
@@ -4550,8 +4478,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             const [productData, reviewsData, allProductsData, crossSellData] = await Promise.all([
                 apiService(`/products/${id}`, 'GET', null, { signal }),
                 apiService(`/products/${id}/reviews`, 'GET', null, { signal }),
-                // CORREÇÃO: Buscamos uma lista limitada de produtos (paginada) em vez de `/products/all` que requer Admin
-                apiService('/products?limit=50', 'GET', null, { signal }),
+                apiService('/products', 'GET', null, { signal }),
                 apiService(`/products/${id}/related-by-purchase`, 'GET', null, { signal }).catch(() => [])
             ]);
 
@@ -4566,10 +4493,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             setCrossSellProducts(Array.isArray(crossSellData) ? crossSellData : []);
 
             if (productData && allProductsData) {
-                // CORREÇÃO: Puxando do objeto `products` que a nova rota paginada do backend entrega
-                const productsList = Array.isArray(allProductsData) ? allProductsData : (allProductsData.products || []);
-                
-                const related = productsList.filter(p => p.id !== productData.id && (p.brand === productData.brand || p.category === productData.category)).slice(0, 8);
+                const related = allProductsData.filter(p => p.id !== productData.id && (p.brand === productData.brand || p.category === productData.category)).slice(0, 8);
                 setRelatedProducts(related);
             }
         } catch (err) {
@@ -4642,6 +4566,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         setIsSelectionModalOpen(false);
     };
 
+    // --- CORREÇÃO: No Mobile, não abre gaveta, apenas notifica.
     const processAddToCart = async (action) => {
         try {
             await addToCart(product, quantity, selectedVariation);
@@ -5232,6 +5157,7 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
             setRememberEmail(true);
         }
 
+        // Puxa a logo do sistema para exibir no login
         apiService('/settings/app-icons')
             .then(data => {
                 if (data && data.pwa_icon && data.pwa_icon.current) {
@@ -5239,7 +5165,7 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
                     localStorage.setItem('lovecestas_app_logo', data.pwa_icon.current);
                 }
             })
-            .catch(() => {});
+            .catch(() => {}); // Ignora silenciosamente se der erro
     }, []);
 
     // Efeito que verifica se o e-mail digitado possui biometria cadastrada
@@ -5287,6 +5213,7 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
         try {
             const response = await login(email, password);
 
+            // Grava a decisão de lembrar o e-mail
             handleSaveEmailChoice();
 
             if (response.twoFactorEnabled) {
@@ -5310,11 +5237,12 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
         setIsLoading(true);
         try {
             const response = await apiService('/login/2fa/verify', 'POST', { token: twoFactorCode, tempAuthToken });
-            const { user } = response;
+            const { user, accessToken, refreshToken } = response;
 
             setUser(user);
             localStorage.setItem('user', JSON.stringify(user));
-            // Os tokens são entregues via HttpOnly cookie e protegidos pelo navegador
+            if (accessToken) localStorage.setItem('accessToken', accessToken);
+            if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
 
             notification.show('Login bem-sucedido!');
             handleSuccessRedirect();
@@ -5355,16 +5283,18 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
                 sessionId: optionsResp.sessionId
             });
 
+            // Grava a decisão de lembrar o e-mail
             handleSaveEmailChoice();
 
             if (verificationResp.twoFactorEnabled) {
                 setTempAuthToken(verificationResp.token);
                 setIsTwoFactorStep(true);
             } else {
-                const { user } = verificationResp;
+                const { user, accessToken, refreshToken } = verificationResp;
                 setUser(user);
                 localStorage.setItem('user', JSON.stringify(user));
-                // Os tokens são entregues via HttpOnly cookie e protegidos pelo navegador
+                if (accessToken) localStorage.setItem('accessToken', accessToken);
+                if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
                 
                 notification.show('Login biométrico bem-sucedido!');
                 handleSuccessRedirect();
@@ -5415,6 +5345,7 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
                                 <div>
                                     <label className="text-xs sm:text-sm font-medium text-gray-400 mb-1 block">Senha</label>
                                     <div className="relative">
+                                        {/* CORREÇÃO: placeholder alterado para "Digite sua senha" */}
                                         <input type={isPasswordVisible ? 'text' : 'password'} placeholder="Digite sua senha" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 pr-10 text-sm sm:text-base" />
                                        <button type="button" onClick={() => setIsPasswordVisible(v => !v)} className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-amber-400">
                                             {isPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
@@ -9552,7 +9483,7 @@ const AdminNewsletter = ({ appName }) => {
         setIsLoading(true);
         Promise.all([
             apiService('/newsletter/subscribers'),
-            apiService('/products/all') // CORREÇÃO: Busca do endpoint "all" porque agora "products" é paginado
+            apiService('/products') // Busca produtos para o dropdown
         ])
         .then(([subsData, productsData]) => {
             setSubscribers(subsData || []);
@@ -9582,7 +9513,7 @@ const AdminNewsletter = ({ appName }) => {
                         message,
                         ctaLink,
                         ctaText,
-                        productId: selectedProductId || null, 
+                        productId: selectedProductId || null, // Envia o ID se selecionado
                         discountText
                     });
                     notification.show(response.message, 'success');
@@ -9603,7 +9534,7 @@ const AdminNewsletter = ({ appName }) => {
             { 
                 confirmText: "ENVIAR CAMPANHA", 
                 confirmColor: "bg-green-600 hover:bg-green-700",
-                requiresAuth: true 
+                requiresAuth: true // Exige Senha/2FA para enviar
             }
         );
     };
@@ -9673,7 +9604,7 @@ const AdminNewsletter = ({ appName }) => {
                             />
                         </div>
 
-                        {/* --- DESTAQUE DE PRODUTO --- */}
+                        {/* --- NOVO BLOCO: DESTAQUE DE PRODUTO --- */}
                         <div className="bg-blue-50 p-4 rounded-md border border-blue-200">
                             <h4 className="font-bold text-blue-800 text-sm mb-3 flex items-center gap-2">
                                 <TagIcon className="h-4 w-4"/> Destaque de Produto (Opcional)
