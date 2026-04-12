@@ -432,7 +432,6 @@ const ShopProvider = ({ children }) => {
     const [couponMessage, setCouponMessage] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState(null);
 
-    // --- NOVO ESTADO: Controle do Minicart ---
     const [isMinicartOpen, setIsMinicartOpen] = useState(false);
 
     const [localShippingConfig, setLocalShippingConfig] = useState({ base_price: 20, rules: [] });
@@ -446,6 +445,24 @@ const ShopProvider = ({ children }) => {
         if (Array.isArray(val)) return val;
         try { return JSON.parse(val) || []; } catch { return []; }
     };
+
+    // CORREÇÃO: Escuta o evento de logout para limpar todos os estados sensíveis
+    useEffect(() => {
+        const handleLogoutEvent = () => {
+            setCart([]);
+            setWishlist([]);
+            setAddresses([]);
+            setShippingLocation({ cep: '', city: '', state: '', alias: '' });
+            setAutoCalculatedShipping(null);
+            setShippingOptions([]);
+            setCouponCode('');
+            setAppliedCoupon(null);
+            setCouponMessage('');
+            setOrderNotificationCount(0);
+        };
+        window.addEventListener('user-logged-out', handleLogoutEvent);
+        return () => window.removeEventListener('user-logged-out', handleLogoutEvent);
+    }, []);
 
     const checkNotifications = useCallback(async () => {
         if (!isAuthenticated) { setOrderNotificationCount(0); return; }
@@ -575,7 +592,7 @@ const ShopProvider = ({ children }) => {
             const localItems = JSON.parse(localCartStr);
             if (Array.isArray(localItems) && localItems.length > 0) {
                 const promises = localItems
-                    .filter(item => item && item.id) // PROTEÇÃO ADICIONAL: Impede sincronizar itens corrompidos gerando erro 500
+                    .filter(item => item && item.id)
                     .map(item => {
                         const payload = { productId: item.id, quantity: item.qty, variationId: item.variation?.id, variation: item.variation, variation_details: item.variation ? JSON.stringify(item.variation) : null };
                         return apiService('/cart', 'POST', payload).catch(err => console.warn("Item duplicado/erro sync:", err));
@@ -707,7 +724,6 @@ const ShopProvider = ({ children }) => {
             } else {
                 const localCart = localStorage.getItem('lovecestas_cart');
                 if (localCart) { try { const parsed = JSON.parse(localCart); if (Array.isArray(parsed)) setCart(parsed); } catch (e) { setCart([]); } }
-                setWishlist([]); setAddresses([]); setShippingLocation({ cep: '', city: '', state: '', alias: '' }); setAutoCalculatedShipping(null); setCouponCode(''); setAppliedCoupon(null); setCouponMessage(''); 
                 determineShippingLocation(); 
                 setOrderNotificationCount(0);
             }
@@ -6502,6 +6518,9 @@ const CheckoutPage = ({ onNavigate }) => {
     const [pickupPersonName, setPickupPersonName] = useState('');
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
     const [whatsapp, setWhatsapp] = useState(''); 
+    
+    // CORREÇÃO: Lógica para forçar a destruição e recriação do Mercado Pago
+    const [showBrick, setShowBrick] = useState(false);
 
     useEffect(() => {
         const pendingOrderId = localStorage.getItem('pendingOrderId');
@@ -6701,6 +6720,17 @@ const CheckoutPage = ({ onNavigate }) => {
                displayAddress.bairro && displayAddress.bairro !== 'N/A' && displayAddress.bairro.trim() !== '' &&
                !displayAddress.is_incomplete;
     }, [displayAddress, autoCalculatedShipping, isSomeoneElsePickingUp, pickupPersonName, pickupPersonCpf]);
+
+    // CORREÇÃO: Lógica para montar o Brick de forma segura
+    useEffect(() => {
+        setShowBrick(false);
+        const timer = setTimeout(() => {
+            if (canPlaceOrder && autoCalculatedShipping && cart.length > 0) {
+                setShowBrick(true);
+            }
+        }, 500); // Aguarda a estabilização da tela para montar
+        return () => clearTimeout(timer);
+    }, [total, canPlaceOrder, autoCalculatedShipping, cart.length]);
 
     const handlePaymentSubmit = async (mpResponse) => {
         const isPickup = autoCalculatedShipping?.isPickup;
@@ -7050,11 +7080,21 @@ const CheckoutPage = ({ onNavigate }) => {
                                                 O código Copia e Cola e o QR Code serão gerados <strong>aqui mesmo na tela</strong> no próximo passo, logo após você confirmar. O e-mail solicitado abaixo serve apenas para enviarmos o seu comprovante de pagamento.
                                             </div>
                                         </div>
-                                        <MercadoPagoPayment
-                                            initialization={mpInitialization}
-                                            customization={mpCustomization}
-                                            onSubmit={handlePaymentSubmit}
-                                        />
+                                        
+                                        {/* CORREÇÃO: Renderização do Brick controlada para evitar duplicação */}
+                                        {showBrick ? (
+                                            <MercadoPagoPayment
+                                                initialization={mpInitialization}
+                                                customization={mpCustomization}
+                                                onSubmit={handlePaymentSubmit}
+                                            />
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center py-6 px-4 gap-3 bg-gray-800 rounded-xl border border-gray-700">
+                                                <SpinnerIcon className="h-8 w-8 text-amber-500 animate-spin" />
+                                                <p className="text-xs font-bold text-gray-400 text-center">Preparando ambiente seguro de pagamento...</p>
+                                            </div>
+                                        )}
+
                                     </div>
                                 )}
                             </div>
@@ -16755,6 +16795,9 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
     const [order, setOrder] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+    
+    // CORREÇÃO: Lógica para forçar a destruição e recriação do Mercado Pago
+    const [showBrick, setShowBrick] = useState(false);
 
     useEffect(() => {
         setIsLoading(true);
@@ -16888,6 +16931,16 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
         };
     }, []);
 
+    // CORREÇÃO: Lógica para montar o Brick de forma segura
+    useEffect(() => {
+        if (!order) return;
+        setShowBrick(false);
+        const timer = setTimeout(() => {
+            setShowBrick(true);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [order]);
+
     if (isLoading) {
         return (
             <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-4">
@@ -17019,11 +17072,21 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                                     O código Copia e Cola e o QR Code serão gerados <strong>aqui mesmo na tela</strong> no próximo passo, logo após você confirmar. O e-mail solicitado abaixo serve apenas para enviarmos o seu comprovante de pagamento.
                                 </div>
                             </div>
-                            <MercadoPagoPayment
-                                initialization={mpInitialization}
-                                customization={mpCustomization}
-                                onSubmit={handlePaymentSubmit}
-                            />
+                            
+                            {/* CORREÇÃO: Renderização do Brick controlada para evitar duplicação */}
+                            {showBrick ? (
+                                <MercadoPagoPayment
+                                    initialization={mpInitialization}
+                                    customization={mpCustomization}
+                                    onSubmit={handlePaymentSubmit}
+                                />
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-6 px-4 gap-3 bg-gray-800 rounded-xl border border-gray-700">
+                                    <SpinnerIcon className="h-8 w-8 text-amber-500 animate-spin" />
+                                    <p className="text-xs font-bold text-gray-400 text-center">Carregando módulos de pagamento...</p>
+                                </div>
+                            )}
+
                         </div>
                     </div>
 
