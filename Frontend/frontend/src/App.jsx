@@ -6220,6 +6220,7 @@ const CheckoutPage = ({ onNavigate }) => {
     const notification = useNotification();
 
     const [displayAddress, setDisplayAddress] = useState(null);
+    const [paymentMethod, setPaymentMethod] = useState('mercadopago');
     const [isLoading, setIsLoading] = useState(false);
     const [isAddressLoading, setIsAddressLoading] = useState(true);
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
@@ -6360,6 +6361,7 @@ const CheckoutPage = ({ onNavigate }) => {
                !displayAddress.is_incomplete;
     }, [displayAddress, autoCalculatedShipping, isSomeoneElsePickingUp, pickupPersonName, pickupPersonCpf]);
 
+    // --- CORREÇÃO DO PAGAMENTO E EXPORTAÇÃO DOS DADOS (mpResponse) ---
     const handlePaymentSubmit = async (mpResponse) => {
         const isPickup = autoCalculatedShipping?.isPickup;
         if (!canPlaceOrder && !isPickup) {
@@ -6378,28 +6380,21 @@ const CheckoutPage = ({ onNavigate }) => {
 
         setIsLoading(true);
         try {
+            // 1. Cria o pedido no banco primeiro (Status: Pendente)
             const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
             const cpfToSend = (isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf)?.replace(/\D/g, '') || '';
             const nameToSend = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
 
-            // O método principal que engloba a transação
-            const primaryPaymentMethod = mpResponse.payment_method_id || 'mercadopago';
-
             const orderPayload = {
                 items: cart.map(item => ({ id: item.id, qty: item.qty, price: (item.is_on_sale && item.sale_price ? item.sale_price : item.price), variation: item.variation })),
-                total, 
-                shippingAddress: finalShippingAddress, 
-                paymentMethod: primaryPaymentMethod, 
-                shipping_method: autoCalculatedShipping.name, 
-                shipping_cost: shippingCost,
-                coupon_code: appliedCoupon?.code || null, 
-                discount_amount: discount, 
-                pickup_details: isPickup ? JSON.stringify({ personName: nameToSend, personCpf: cpfToSend }) : null,
+                total, shippingAddress: finalShippingAddress, paymentMethod, shipping_method: autoCalculatedShipping.name, shipping_cost: shippingCost,
+                coupon_code: appliedCoupon?.code || null, discount_amount: discount, pickup_details: isPickup ? JSON.stringify({ personName: nameToSend, personCpf: cpfToSend }) : null,
                 phone: whatsapp.replace(/\D/g, '')
             };
             
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
 
+            // CORREÇÃO: Extrai corretamente os dados limpos gerados pelo Brick (formData)
             const actualPaymentData = mpResponse.formData || mpResponse;
 
             const paymentPayload = {
@@ -6407,8 +6402,10 @@ const CheckoutPage = ({ onNavigate }) => {
                 paymentData: actualPaymentData 
             };
 
+            // 2. Processa o pagamento via Backend
             const paymentResult = await apiService('/process-payment', 'POST', paymentPayload);
 
+            // 3. Valida os status de sucesso do MP
             if (['approved', 'in_process', 'pending'].includes(paymentResult.status)) {
                 clearOrderState();
                 onNavigate(`order-success/${orderId}`);
@@ -6416,7 +6413,7 @@ const CheckoutPage = ({ onNavigate }) => {
                 notification.show(`Pagamento recusado pela operadora. Tente outro cartão ou método.`, 'error');
             }
         } catch (error) {
-            notification.show(`Erro: ${error.message}`, 'error');
+            notification.show(`Erro ao processar: ${error.message}`, 'error');
         } finally {
             setIsLoading(false);
         }
@@ -6521,7 +6518,8 @@ const CheckoutPage = ({ onNavigate }) => {
                                                 <input type="text" defaultValue={pickupPersonCpf} onInput={handleCpfInputChangeMask} onBlur={handlePickupCpfBlur} placeholder="CPF de quem vai retirar" maxLength="14" className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"/>
                                             </div>
                                         )}
-                                    </CheckoutSection>
+                                    </div>
+                                </CheckoutSection>
                             ) : (
                                 <CheckoutSection title="Endereço de Entrega" icon={MapPinIcon}>
                                      {isAddressLoading ? (
@@ -6601,20 +6599,13 @@ const CheckoutPage = ({ onNavigate }) => {
                                     </div>
                                 </div>
 
-                                {/* --- RENDERIZAÇÃO DO CHECKOUT BRICKS COM TEMA ESCURO E INSTRUÇÃO --- */}
+                                {/* --- RENDERIZAÇÃO DO CHECKOUT BRICKS COM TEMA ESCURO NATIVO E E-MAIL PRÉ-PREENCHIDO --- */}
                                 {(!canPlaceOrder || !autoCalculatedShipping || cart.length === 0) ? (
                                     <div className="text-center p-4 bg-gray-800 border border-gray-700 rounded-lg">
                                         <p className="text-sm text-gray-400">Preencha o contato e a forma de entrega para liberar o pagamento.</p>
                                     </div>
                                 ) : (
                                     <div className="mt-4 pt-4 border-t border-gray-700">
-                                        {/* INSTRUÇÃO VISUAL ACIONÁVEL */}
-                                        <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-center shadow-inner">
-                                            <p className="text-amber-400 text-xs font-bold uppercase tracking-wide">
-                                                👇 Selecione uma forma de pagamento para habilitar o botão
-                                            </p>
-                                        </div>
-
                                         <MercadoPagoPayment
                                             initialization={{ 
                                                 amount: Number(total.toFixed(2)),
@@ -6633,15 +6624,14 @@ const CheckoutPage = ({ onNavigate }) => {
                                                 },
                                                 visual: {
                                                     style: {
-                                                        theme: 'dark', // Mantém o tema escuro nativo perfeito
-                                                        customVariables: {
-                                                            baseColor: '#fbbf24' // Apenas a cor primária (âmbar) sem quebrar o SVG
-                                                        }
+                                                        theme: 'dark' // Apenas isto é suficiente. Removemos as customVariables que causavam o erro de SVG.
                                                     }
                                                 }
                                             }}
                                             onSubmit={handlePaymentSubmit}
                                             onError={(error) => {
+                                                // Ignora silenciosamente o erro de IndexedDB que não afeta a usabilidade, 
+                                                // pois ele é apenas um aviso do React StrictMode com o SDK do MP.
                                                 if(error?.message && error.message.includes("createObjectStore")) return;
                                                 console.error("Mercado Pago Bricks Error:", error);
                                             }}
