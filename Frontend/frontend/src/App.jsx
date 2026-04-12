@@ -7868,35 +7868,34 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         setIsStatusModalOpen(true);
     };
 
-    // Redireciona para a NOVA tela de pagamento exclusiva
     const handleRetryPayment = () => {
         onNavigate(`order-payment/${order.id}`);
     };
 
-    const handleRepeatOrder = (orderItems) => {
+    // CORREÇÃO: Busca o produto completo para evitar dados faltantes (categoria/marca) que limpam o carrinho
+    const handleRepeatOrder = async (orderItems) => {
         if (!orderItems) return;
         
-        const promises = (Array.isArray(orderItems) ? orderItems : []).map(item => {
+        let count = 0;
+        for (const item of (Array.isArray(orderItems) ? orderItems : [])) {
             if (item.product_type === 'clothing') {
                 notification.show(`Para adicionar "${item.name}" novamente, por favor, visite a página do produto.`, 'error');
-                return Promise.resolve(0);
+                continue;
             }
-            const product = { id: item.product_id, name: item.name, price: item.price, images: item.images, stock: item.stock, variations: item.variations, is_on_sale: item.is_on_sale, sale_price: item.sale_price };
-            return addToCart(product, item.quantity, item.variation)
-                .then(() => 1) 
-                .catch(err => {
-                    notification.show(`Não foi possível adicionar "${item.name}": ${err.message}`, 'error');
-                    return 0; 
-                });
-        });
+            try {
+                // Busca o produto atualizado e completo do banco de dados
+                const fullProduct = await apiService(`/products/${item.product_id}`);
+                await addToCart(fullProduct, item.quantity, item.variation);
+                count++;
+            } catch (err) {
+                notification.show(`Não foi possível adicionar "${item.name}": Produto esgotado ou indisponível.`, 'error');
+            }
+        }
 
-        Promise.all(promises).then(results => {
-            const count = results.reduce((sum, val) => sum + val, 0);
-            if (count > 0) {
-                notification.show(`${count} item(ns) adicionado(s) ao carrinho!`);
-                onNavigate('cart');
-            }
-        });
+        if (count > 0) {
+            notification.show(`${count} item(ns) adicionado(s) ao carrinho!`, 'success');
+            onNavigate('cart');
+        }
     };
     
     const handleRequestRefund = async (e) => {
@@ -8733,35 +8732,34 @@ const MyOrdersSection = ({ onNavigate }) => {
             .finally(() => setIsLoading(false));
     }, [notification]);
 
-    // --- NOVA LÓGICA DE REDIRECIONAMENTO ---
     const handleRetryPayment = (orderId) => {
         onNavigate(`account/orders/${orderId}`);
     };
 
-    const handleRepeatOrder = (orderItems) => {
+    // CORREÇÃO: Busca o produto completo para evitar dados faltantes (categoria/marca) que limpam o carrinho
+    const handleRepeatOrder = async (orderItems) => {
         if (!orderItems) return;
         
-        const promises = (Array.isArray(orderItems) ? orderItems : []).map(item => {
+        let count = 0;
+        for (const item of (Array.isArray(orderItems) ? orderItems : [])) {
             if (item.product_type === 'clothing') {
-                notification.show(`Para adicionar "${item.name}" novamente, por favor, visite a página do produto para selecionar cor e tamanho.`, 'error');
-                return Promise.resolve(0);
+                notification.show(`Para adicionar "${item.name}" novamente, por favor, visite a página do produto.`, 'error');
+                continue;
             }
-            const product = { id: item.product_id, name: item.name, price: item.price, images: item.images, stock: item.stock, variations: item.variations, is_on_sale: item.is_on_sale, sale_price: item.sale_price };
-            return addToCart(product, item.quantity, item.variation)
-                .then(() => 1) 
-                .catch(err => {
-                    notification.show(`Não foi possível adicionar "${item.name}": ${err.message}`, 'error');
-                    return 0; 
-                });
-        });
+            try {
+                // Busca o produto atualizado e completo do banco de dados
+                const fullProduct = await apiService(`/products/${item.product_id}`);
+                await addToCart(fullProduct, item.quantity, item.variation);
+                count++;
+            } catch (err) {
+                notification.show(`Não foi possível adicionar "${item.name}": Produto esgotado ou indisponível.`, 'error');
+            }
+        }
 
-        Promise.all(promises).then(results => {
-            const count = results.reduce((sum, val) => sum + val, 0);
-            if (count > 0) {
-                notification.show(`${count} item(ns) adicionado(s) ao carrinho!`);
-                onNavigate('cart');
-            }
-        });
+        if (count > 0) {
+            notification.show(`${count} item(ns) adicionado(s) ao carrinho!`, 'success');
+            onNavigate('cart');
+        }
     };
 
     const handleOpenStatusModal = (statusDetails) => {
