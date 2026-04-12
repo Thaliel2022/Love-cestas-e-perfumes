@@ -6361,7 +6361,6 @@ const CheckoutPage = ({ onNavigate }) => {
                !displayAddress.is_incomplete;
     }, [displayAddress, autoCalculatedShipping, isSomeoneElsePickingUp, pickupPersonName, pickupPersonCpf]);
 
-    // --- CORREÇÃO DO PAGAMENTO E EXPORTAÇÃO DOS DADOS (mpResponse) ---
     const handlePaymentSubmit = async (mpResponse) => {
         const isPickup = autoCalculatedShipping?.isPickup;
         if (!canPlaceOrder && !isPickup) {
@@ -6380,7 +6379,6 @@ const CheckoutPage = ({ onNavigate }) => {
 
         setIsLoading(true);
         try {
-            // 1. Cria o pedido no banco primeiro (Status: Pendente)
             const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
             const cpfToSend = (isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf)?.replace(/\D/g, '') || '';
             const nameToSend = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
@@ -6394,7 +6392,6 @@ const CheckoutPage = ({ onNavigate }) => {
             
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
 
-            // CORREÇÃO: Extrai corretamente os dados limpos gerados pelo Brick (formData)
             const actualPaymentData = mpResponse.formData || mpResponse;
 
             const paymentPayload = {
@@ -6402,10 +6399,8 @@ const CheckoutPage = ({ onNavigate }) => {
                 paymentData: actualPaymentData 
             };
 
-            // 2. Processa o pagamento via Backend
             const paymentResult = await apiService('/process-payment', 'POST', paymentPayload);
 
-            // 3. Valida os status de sucesso do MP
             if (['approved', 'in_process', 'pending'].includes(paymentResult.status)) {
                 clearOrderState();
                 onNavigate(`order-success/${orderId}`);
@@ -6599,7 +6594,6 @@ const CheckoutPage = ({ onNavigate }) => {
                                     </div>
                                 </div>
 
-                                {/* --- RENDERIZAÇÃO DO CHECKOUT BRICKS COM TEMA ESCURO NATIVO E E-MAIL PRÉ-PREENCHIDO --- */}
                                 {(!canPlaceOrder || !autoCalculatedShipping || cart.length === 0) ? (
                                     <div className="text-center p-4 bg-gray-800 border border-gray-700 rounded-lg">
                                         <p className="text-sm text-gray-400">Preencha o contato e a forma de entrega para liberar o pagamento.</p>
@@ -6624,16 +6618,20 @@ const CheckoutPage = ({ onNavigate }) => {
                                                 },
                                                 visual: {
                                                     style: {
-                                                        theme: 'dark' // Apenas isto é suficiente. Removemos as customVariables que causavam o erro de SVG.
+                                                        theme: 'dark',
+                                                        customVariables: {
+                                                            baseColor: '#fbbf24', 
+                                                            baseColorFirstVariant: '#f59e0b', 
+                                                            baseColorSecondVariant: '#d97706',
+                                                        }
                                                     }
                                                 }
                                             }}
                                             onSubmit={handlePaymentSubmit}
                                             onError={(error) => {
-                                                // Ignora silenciosamente o erro de IndexedDB que não afeta a usabilidade, 
-                                                // pois ele é apenas um aviso do React StrictMode com o SDK do MP.
                                                 if(error?.message && error.message.includes("createObjectStore")) return;
                                                 console.error("Mercado Pago Bricks Error:", error);
+                                                notification.show("Por favor, selecione uma forma de pagamento e preencha todos os campos obrigatórios no formulário.", "error");
                                             }}
                                         />
                                     </div>
