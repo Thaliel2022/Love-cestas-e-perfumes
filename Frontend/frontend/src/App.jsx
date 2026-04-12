@@ -6651,7 +6651,6 @@ const CheckoutPage = ({ onNavigate }) => {
                 bankTransfer: "all",
                 creditCard: "all",
                 debitCard: "all",
-                // REMOVIDO: mercadoPago: "all" para evitar o erro "preferenceId and mercadoPago must be provided together"
             },
             visual: {
                 texts: {
@@ -7050,7 +7049,6 @@ const CheckoutPage = ({ onNavigate }) => {
                                             </div>
                                         </div>
                                         <MercadoPagoPayment
-                                            key={`mp-brick-checkout-${total}-${displayAddress?.cep || 'no-cep'}`} // Chave atrelada aos dados críticos
                                             initialization={mpInitialization}
                                             customization={mpCustomization}
                                             onSubmit={handlePaymentSubmit}
