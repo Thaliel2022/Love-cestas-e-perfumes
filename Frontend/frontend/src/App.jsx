@@ -16507,7 +16507,12 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                                     },
                                     visual: {
                                         style: {
-                                            theme: 'dark' // Tema escuro nativo para combinar com o site
+                                            theme: 'dark',
+                                            customVariables: {
+                                                baseColor: '#fbbf24', 
+                                                baseColorFirstVariant: '#f59e0b', 
+                                                baseColorSecondVariant: '#d97706',
+                                            }
                                         }
                                     }
                                 }}
@@ -16515,6 +16520,7 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                                 onError={(error) => {
                                     if(error?.message && error.message.includes("createObjectStore")) return;
                                     console.error("Mercado Pago Bricks Error:", error);
+                                    notification.show("Por favor, selecione uma forma de pagamento e preencha todos os campos obrigatórios no formulário.", "error");
                                 }}
                             />
                         </div>
