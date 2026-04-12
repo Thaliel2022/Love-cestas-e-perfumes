@@ -16870,7 +16870,7 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                 bankTransfer: "all",
                 creditCard: "all",
                 debitCard: "all",
-                mercadoPago: "all",
+                // REMOVIDO: mercadoPago: "all" para evitar o erro de preferenceId no SDK
             },
             visual: {
                 texts: {
@@ -17013,7 +17013,6 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                                     }
                                 }
                             `}</style>
-                            {/* AVISO DO PIX ADICIONADO AQUI */}
                             <div className="mb-4 p-3.5 bg-blue-900/30 border border-blue-800/50 rounded-xl flex items-start gap-3">
                                 <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
                                 <div className="text-xs text-blue-200 leading-relaxed">
@@ -17022,6 +17021,7 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                                 </div>
                             </div>
                             <MercadoPagoPayment
+                                key={`mp-brick-order-${order.id}-${order.total}`} // Chave atrelada aos dados críticos para evitar duplicidade
                                 initialization={mpInitialization}
                                 customization={mpCustomization}
                                 onSubmit={handlePaymentSubmit}
