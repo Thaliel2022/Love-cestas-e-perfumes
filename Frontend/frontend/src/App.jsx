@@ -9554,8 +9554,8 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     ];
 
     return (
-        <div className="h-screen flex overflow-hidden bg-gray-50 text-gray-800 font-sans selection:bg-amber-200 selection:text-black">
-            {isSidebarOpen && <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
+        <div className="h-screen flex overflow-hidden bg-black text-gray-200 font-sans selection:bg-amber-400 selection:text-black">
+            {isSidebarOpen && <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
 
             {/* Sidebar com visual Premium (Dark Mode) */}
             <aside className={`bg-gray-900 w-72 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 flex flex-col border-r border-gray-800 shadow-2xl lg:shadow-none`}>
@@ -9629,19 +9629,20 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                 </div>
             </aside>
 
-            <div className="flex-1 flex flex-col overflow-hidden relative bg-gray-50">
-                <header className="bg-white/90 backdrop-blur-md h-16 flex items-center justify-between px-6 sm:px-8 flex-shrink-0 z-20 border-b border-gray-200 sticky top-0 shadow-sm">
+            {/* Main Content Wrapper - Dark Theme */}
+            <div className="flex-1 flex flex-col overflow-hidden relative bg-black">
+                <header className="bg-gray-900/90 backdrop-blur-md h-16 flex items-center justify-between px-6 sm:px-8 flex-shrink-0 z-20 border-b border-gray-800 sticky top-0 shadow-sm">
                      <div className="flex items-center gap-4">
-                         <button onClick={() => setIsSidebarOpen(true)} className="p-2 lg:hidden text-gray-600 hover:bg-gray-100 rounded-md transition-colors">
+                         <button onClick={() => setIsSidebarOpen(true)} className="p-2 lg:hidden text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition-colors">
                             <MenuIcon className="h-6 w-6"/>
                          </button>
-                         <h1 className="text-xl font-extrabold text-black capitalize tracking-tight hidden sm:block">
+                         <h1 className="text-xl font-extrabold text-white capitalize tracking-tight hidden sm:block">
                             {activePage.split('/')[0].replace('-', ' ')}
                          </h1>
                      </div>
                      <div className="flex items-center gap-4">
                         {isMaintenance ? (
-                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full border border-amber-200 shadow-sm">
+                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-amber-900/30 text-amber-400 rounded-full border border-amber-700/50 shadow-sm">
                                 <span className="relative flex h-2 w-2">
                                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                                   <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
@@ -9649,7 +9650,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                                 <span className="text-xs font-bold tracking-wide">EM MANUTENÇÃO</span>
                             </div>
                         ) : (
-                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-full border border-green-200 shadow-sm">
+                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-900/30 text-green-400 rounded-full border border-green-700/50 shadow-sm">
                                 <span className="relative flex h-2 w-2">
                                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
