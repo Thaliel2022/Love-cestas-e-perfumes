@@ -6341,7 +6341,7 @@ const CheckoutPage = ({ onNavigate }) => {
     
     const total = useMemo(() => Math.max(0, (Number(subtotal) || 0) - (Number(discount) || 0) + (Number(shippingCost) || 0)), [subtotal, discount, shippingCost]);
 
-    // OTIMIZAÇÃO: Injeção de dados automáticos do cliente no Mercado Pago para não precisar digitar CEP/Nome/CPF de novo
+    // OTIMIZAÇÃO: Injeção de dados completos para o Mercado Pago
     const mpInitialization = useMemo(() => {
         const payer = {
             email: user?.email || '',
@@ -6361,14 +6361,17 @@ const CheckoutPage = ({ onNavigate }) => {
             };
         }
         
-        if (displayAddress && displayAddress.cep) {
+        // Se houver endereço preenchido no site, injeta no Mercado Pago para não pedir de novo
+        const billingAddress = displayAddress || addresses?.find(a => a.is_default) || addresses?.[0];
+        
+        if (billingAddress && billingAddress.cep && billingAddress.logradouro) {
             payer.address = {
-                zipCode: displayAddress.cep.replace(/\D/g, ''),
-                streetName: displayAddress.logradouro || '',
-                streetNumber: displayAddress.numero || '',
-                neighborhood: displayAddress.bairro || '',
-                city: displayAddress.localidade || '',
-                federalUnit: displayAddress.uf || ''
+                zipCode: billingAddress.cep.replace(/\D/g, ''),
+                streetName: billingAddress.logradouro || '',
+                streetNumber: billingAddress.numero || '',
+                neighborhood: billingAddress.bairro || '',
+                city: billingAddress.localidade || '',
+                federalUnit: billingAddress.uf || ''
             };
         }
 
@@ -6376,7 +6379,7 @@ const CheckoutPage = ({ onNavigate }) => {
             amount: Number(total.toFixed(2)),
             payer: payer
         };
-    }, [total, user, displayAddress]);
+    }, [total, user, displayAddress, addresses]);
 
     const mpCustomization = useMemo(() => {
         return {
@@ -6750,11 +6753,12 @@ const CheckoutPage = ({ onNavigate }) => {
                                             </p>
                                         </div>
                                         <MercadoPagoPayment
-                                            key={`mp-payment-checkout-${total.toFixed(2)}`}
+                                            key={`mp-payment-checkout-${total.toFixed(2)}-${displayAddress?.id || 'none'}-${autoCalculatedShipping?.name || 'none'}`}
                                             initialization={mpInitialization}
                                             customization={mpCustomization}
                                             onSubmit={handlePaymentSubmit}
                                             onError={(error) => {
+                                                if(error?.message && error.message.includes("createObjectStore")) return;
                                                 console.error("Mercado Pago Bricks Error:", error);
                                             }}
                                         />
@@ -16530,7 +16534,7 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
         if (order?.shipping_address) {
             try {
                 const addr = JSON.parse(order.shipping_address);
-                if (addr && addr.cep) {
+                if (addr && addr.cep && addr.logradouro) {
                     payer.address = {
                         zipCode: addr.cep.replace(/\D/g, ''),
                         streetName: addr.logradouro || '',
@@ -16683,11 +16687,12 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                                 </p>
                             </div>
                             <MercadoPagoPayment
-                                key={`mp-payment-order-${order.total}`}
+                                key={`mp-payment-order-${order.id}`}
                                 initialization={mpInitialization}
                                 customization={mpCustomization}
                                 onSubmit={handlePaymentSubmit}
                                 onError={(error) => {
+                                    if(error?.message && error.message.includes("createObjectStore")) return;
                                     console.error("Mercado Pago Bricks Error:", error);
                                 }}
                             />
