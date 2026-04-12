@@ -551,15 +551,15 @@ const ShopProvider = ({ children }) => {
             try { localCart = JSON.parse(localCartStr) || []; } catch(e){}
             const mergedCart = (dbCart || []).map(dbItem => {
                 if (dbItem.variation && dbItem.variation.color && dbItem.variation.size) {
-                    return { ...dbItem, cartItemId: `${dbItem.id}-${dbItem.variation.color}-${dbItem.variation.size}` };
+                    return { ...dbItem, cartItemId: String(`${dbItem.id}-${dbItem.variation.color}-${dbItem.variation.size}`) };
                 }
                 if (dbItem.product_type === 'clothing') {
-                    const localItem = localCart.find(li => li.id === dbItem.id && li.variation);
+                    const localItem = localCart.find(li => String(li.id) === String(dbItem.id) && li.variation);
                     if (localItem && localItem.variation) {
-                        return { ...dbItem, variation: localItem.variation, cartItemId: `${dbItem.id}-${localItem.variation.color}-${localItem.variation.size}` };
+                        return { ...dbItem, variation: localItem.variation, cartItemId: String(`${dbItem.id}-${localItem.variation.color}-${localItem.variation.size}`) };
                     }
                 }
-                return { ...dbItem, cartItemId: dbItem.cartItemId || String(dbItem.id) };
+                return { ...dbItem, cartItemId: String(dbItem.cartItemId || dbItem.id) };
             });
             setCart(mergedCart);
             localStorage.setItem('lovecestas_cart', JSON.stringify(mergedCart));
@@ -769,36 +769,45 @@ const ShopProvider = ({ children }) => {
         return () => clearTimeout(debounceTimer);
     }, [cart, shippingLocation, previewShippingItem, selectedShippingName, calculateLocalDeliveryPrice, calculateDeliveryDate]);
 
+    // CORREÇÃO AQUI: Forçando cartItemId a ser sempre String para evitar duplicidade na hora de dar o find/map
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
         setPreviewShippingItem(null);
-        const cartItemId = productToAdd.product_type === 'clothing' && variation ? `${productToAdd.id}-${variation.color}-${variation.size}` : productToAdd.id;
-        const existing = cart.find(item => item.cartItemId === cartItemId);
+        
+        const cartItemId = String(productToAdd.product_type === 'clothing' && variation ? `${productToAdd.id}-${variation.color}-${variation.size}` : productToAdd.id);
+        
+        const existing = cart.find(item => String(item.cartItemId) === cartItemId);
         const availableStock = variation ? variation.stock : productToAdd.stock;
         const currentQtyInCart = existing ? existing.qty : 0;
+        
         if (currentQtyInCart + qty > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unid.`);
+        
         setCart(currentCart => {
-            if (existing) return currentCart.map(item => item.cartItemId === cartItemId ? { ...item, qty: item.qty + qty } : item);
+            if (existing) return currentCart.map(item => String(item.cartItemId) === cartItemId ? { ...item, qty: item.qty + qty } : item);
             return [...currentCart, { ...productToAdd, qty, variation, cartItemId }];
         });
+        
         if (isAuthenticated) {
             apiService('/cart', 'POST', { productId: productToAdd.id, quantity: existing ? existing.qty + qty : qty, variationId: variation?.id, variation: variation, variation_details: variation ? JSON.stringify(variation) : null }).catch(console.error);
         }
     }, [cart, isAuthenticated]);
 
+    // CORREÇÃO AQUI: String explícita nas exclusões e edições
     const removeFromCart = useCallback(async (cartItemId) => {
-        const itemToRemove = cart.find(item => item.cartItemId === cartItemId);
+        const targetId = String(cartItemId);
+        const itemToRemove = cart.find(item => String(item.cartItemId) === targetId);
         if (!itemToRemove) return;
-        setCart(current => current.filter(item => item.cartItemId !== cartItemId));
+        setCart(current => current.filter(item => String(item.cartItemId) !== targetId));
         if (isAuthenticated) await apiService(`/cart/${itemToRemove.id}`, 'DELETE', { variation: itemToRemove.variation });
     }, [cart, isAuthenticated]);
 
     const updateQuantity = useCallback(async (cartItemId, newQuantity) => {
-        if (newQuantity < 1) { removeFromCart(cartItemId); return; }
-        const itemToUpdate = cart.find(item => item.cartItemId === cartItemId);
+        const targetId = String(cartItemId);
+        if (newQuantity < 1) { removeFromCart(targetId); return; }
+        const itemToUpdate = cart.find(item => String(item.cartItemId) === targetId);
         if (!itemToUpdate) return;
         const availableStock = itemToUpdate.variation ? itemToUpdate.variation.stock : itemToUpdate.stock;
         if (newQuantity > availableStock) throw new Error(`Estoque insuficiente.`);
-        setCart(current => current.map(item => item.cartItemId === cartItemId ? {...item, qty: newQuantity } : item));
+        setCart(current => current.map(item => String(item.cartItemId) === targetId ? {...item, qty: newQuantity } : item));
         if (isAuthenticated) apiService('/cart', 'POST', { productId: itemToUpdate.id, quantity: newQuantity, variationId: itemToUpdate.variation?.id, variation: itemToUpdate.variation });
     }, [cart, isAuthenticated, removeFromCart]);
 
@@ -881,7 +890,7 @@ const ShopProvider = ({ children }) => {
             calculateLocalDeliveryPrice, calculateDeliveryDate,
             orderNotificationCount, markOrderAsSeen, checkNotifications,
             pickupConfig,
-            isMinicartOpen, setIsMinicartOpen // Exposto para ser usado em qualquer lugar
+            isMinicartOpen, setIsMinicartOpen
         }}>
             {children}
         </ShopContext.Provider>
