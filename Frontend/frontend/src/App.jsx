@@ -3862,23 +3862,20 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
     const [uniqueBrands, setUniqueBrands] = useState([]);
     const productsPerPage = 12;
 
-    // Carrega metadados (Categorias e Marcas) apenas uma vez
     useEffect(() => {
         apiService('/collections')
             .then(data => {
-                const activeCategories = data.map(cat => cat.filter);
+                const activeCategories = Array.isArray(data) ? data.map(cat => cat.filter) : [];
                 setUniqueCategories([...new Set(activeCategories)].sort());
             }).catch(console.error);
 
-        // Busca marcas de forma otimizada (pode ser uma rota separada ou extraída de uma busca inicial)
         apiService('/products/search-suggestions?q=')
             .then(data => {
-                const brands = data.map(p => p.brand);
+                const brands = Array.isArray(data) ? data.map(p => p.brand) : [];
                 setUniqueBrands([...new Set(brands)].sort());
             }).catch(console.error);
     }, []);
 
-    // Busca produtos sempre que o filtro ou a página mudar
     const fetchPaginatedProducts = useCallback(async () => {
         setIsLoading(true);
         try {
@@ -3892,9 +3889,18 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
 
             const data = await apiService(`/products?${query}`);
             
-            setProducts(data.products);
-            setTotalItems(data.totalItems);
-            setTotalPages(data.totalPages);
+            // TRAVA DE SEGURANÇA PARA A PAGINAÇÃO
+            if (Array.isArray(data)) {
+                setProducts(data);
+                setTotalItems(data.length);
+                setTotalPages(1);
+            } else if (data && data.products) {
+                setProducts(data.products);
+                setTotalItems(data.totalItems);
+                setTotalPages(data.totalPages);
+            } else {
+                setProducts([]);
+            }
         } catch (err) {
             console.error("Falha ao buscar produtos:", err);
         } finally {
@@ -3906,7 +3912,6 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
         fetchPaginatedProducts();
     }, [fetchPaginatedProducts]);
 
-    // Reset da página ao mudar filtros
     const handleFilterChange = (newFilters) => {
         setFilters(prev => ({ ...prev, ...newFilters }));
         setCurrentPage(1);
