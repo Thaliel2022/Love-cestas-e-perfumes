@@ -9555,7 +9555,7 @@ const AdminNewsletter = ({ appName }) => {
         setIsLoading(true);
         Promise.all([
             apiService('/newsletter/subscribers'),
-            apiService('/products') // Busca produtos para o dropdown
+            apiService('/products/all') // CORREÇÃO: Busca do endpoint "all" porque agora "products" é paginado
         ])
         .then(([subsData, productsData]) => {
             setSubscribers(subsData || []);
@@ -9585,7 +9585,7 @@ const AdminNewsletter = ({ appName }) => {
                         message,
                         ctaLink,
                         ctaText,
-                        productId: selectedProductId || null, // Envia o ID se selecionado
+                        productId: selectedProductId || null, 
                         discountText
                     });
                     notification.show(response.message, 'success');
@@ -9606,7 +9606,7 @@ const AdminNewsletter = ({ appName }) => {
             { 
                 confirmText: "ENVIAR CAMPANHA", 
                 confirmColor: "bg-green-600 hover:bg-green-700",
-                requiresAuth: true // Exige Senha/2FA para enviar
+                requiresAuth: true 
             }
         );
     };
@@ -9676,7 +9676,7 @@ const AdminNewsletter = ({ appName }) => {
                             />
                         </div>
 
-                        {/* --- NOVO BLOCO: DESTAQUE DE PRODUTO --- */}
+                        {/* --- DESTAQUE DE PRODUTO --- */}
                         <div className="bg-blue-50 p-4 rounded-md border border-blue-200">
                             <h4 className="font-bold text-blue-800 text-sm mb-3 flex items-center gap-2">
                                 <TagIcon className="h-4 w-4"/> Destaque de Produto (Opcional)
