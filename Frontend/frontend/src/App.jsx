@@ -16868,7 +16868,6 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                 bankTransfer: "all",
                 creditCard: "all",
                 debitCard: "all",
-                // REMOVIDO: mercadoPago: "all" para evitar o erro de preferenceId no SDK
             },
             visual: {
                 texts: {
@@ -17019,7 +17018,6 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                                 </div>
                             </div>
                             <MercadoPagoPayment
-                                key={`mp-brick-order-${order.id}-${order.total}`} // Chave atrelada aos dados críticos para evitar duplicidade
                                 initialization={mpInitialization}
                                 customization={mpCustomization}
                                 onSubmit={handlePaymentSubmit}
