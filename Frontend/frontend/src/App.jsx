@@ -6761,21 +6761,23 @@ const CheckoutPage = ({ onNavigate }) => {
                                 ) : (
                                     <div className="mt-4 pt-4 border-t border-gray-700 mp-custom-styles">
                                         <style>{`
-                                            .mp-custom-styles button[type="submit"],
-                                            .mp-custom-styles [data-testid="submit-button"],
-                                            .mp-custom-styles .mp-button {
-                                                width: 100% !important;
-                                                max-width: 350px !important;
-                                                margin-left: auto !important;
-                                                margin-right: auto !important;
-                                                display: block !important;
-                                            }
-                                            
-                                            .mp-custom-styles .mp-formAction,
-                                            .mp-custom-styles [class*="formAction"] {
-                                                display: flex !important;
-                                                justify-content: center !important;
-                                                width: 100% !important;
+                                            @media (min-width: 1024px) {
+                                                .mp-custom-styles .mp-formAction,
+                                                .mp-custom-styles [class*="formAction"] {
+                                                    display: flex !important;
+                                                    justify-content: center !important;
+                                                    width: 100% !important;
+                                                }
+
+                                                .mp-custom-styles button[type="submit"],
+                                                .mp-custom-styles [data-testid="submit-button"],
+                                                .mp-custom-styles .mp-button {
+                                                    width: 100% !important;
+                                                    max-width: 350px !important;
+                                                    margin-left: auto !important;
+                                                    margin-right: auto !important;
+                                                    border-radius: 8px !important;
+                                                }
                                             }
                                         `}</style>
                                         {/* AVISO DO PIX ADICIONADO AQUI */}
