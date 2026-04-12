@@ -10129,13 +10129,14 @@ const AdminDashboard = ({ onNavigate }) => {
                 }
             };
 
+            // Estilos de Gráfico Premium (Fundo escuro, textos claros, linhas sutis)
             const commonOptions = {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
                 scales: {
-                    x: { grid: { display: false }, ticks: { font: { size: 10, family: 'sans-serif' }, color: '#6b7280' } },
-                    y: { grid: { borderDash: [2, 4], color: '#f3f4f6' }, ticks: { font: { size: 10 }, color: '#6b7280' }, beginAtZero: true }
+                    x: { grid: { display: false }, ticks: { font: { size: 10, family: 'sans-serif' }, color: '#9ca3af' } },
+                    y: { grid: { borderDash: [2, 4], color: '#374151' }, ticks: { font: { size: 10 }, color: '#9ca3af' }, beginAtZero: true }
                 }
             };
 
@@ -10150,23 +10151,23 @@ const AdminDashboard = ({ onNavigate }) => {
                 return dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
             });
 
-            // Estilização Premium do Gráfico de Linha (Âmbar/Dourado)
+            // Estilização Premium do Gráfico de Linha (Âmbar/Dourado no fundo escuro)
             renderChart('dailySalesChart', 'line', {
                 labels: safeLabels,
                 datasets: [{
                     label: 'Faturamento',
                     data: dailySalesData.map(d => d.daily_total),
-                    borderColor: '#f59e0b', // amber-500
+                    borderColor: '#fbbf24', // amber-400
                     backgroundColor: (context) => {
                         const ctx = context.chart.ctx;
                         const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-                        gradient.addColorStop(0, 'rgba(245, 158, 11, 0.3)');
-                        gradient.addColorStop(1, 'rgba(245, 158, 11, 0.0)');
+                        gradient.addColorStop(0, 'rgba(251, 191, 36, 0.4)');
+                        gradient.addColorStop(1, 'rgba(251, 191, 36, 0.0)');
                         return gradient;
                     },
                     borderWidth: 3,
-                    pointBackgroundColor: '#fbbf24',
-                    pointBorderColor: '#fff',
+                    pointBackgroundColor: '#f59e0b', // amber-500
+                    pointBorderColor: '#111827', // gray-900
                     pointBorderWidth: 2,
                     pointRadius: 4,
                     pointHoverRadius: 6,
@@ -10175,14 +10176,14 @@ const AdminDashboard = ({ onNavigate }) => {
                 }]
             }, commonOptions);
 
-            // Estilização Premium do Gráfico de Barras (Preto/Cinza Escuro)
+            // Estilização Premium do Gráfico de Barras (Cinza escuro, hover Âmbar)
             renderChart('bestSellersChart', 'bar', {
                 labels: bestSellersData.map(p => p.name.substring(0, 15) + '...'),
                 datasets: [{
                     label: 'Vendas',
                     data: bestSellersData.map(p => p.sales || 0),
-                    backgroundColor: '#111827', // gray-900
-                    hoverBackgroundColor: '#f59e0b', // amber-500 no hover
+                    backgroundColor: '#374151', // gray-700
+                    hoverBackgroundColor: '#fbbf24', // amber-400 no hover
                     borderRadius: 4,
                     barThickness: 20
                 }]
@@ -10210,19 +10211,19 @@ const AdminDashboard = ({ onNavigate }) => {
         <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-start justify-between hover:shadow-md transition-all duration-300"
+            className="bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-800 flex items-start justify-between hover:shadow-lg transition-all duration-300 hover:border-gray-700"
         >
             <div>
-                <p className="text-sm font-bold text-gray-500 mb-1 tracking-wider uppercase text-[10px]">{title}</p>
-                <h4 className="text-2xl font-black text-black">{value}</h4>
+                <p className="text-sm font-bold text-gray-400 mb-1 tracking-wider uppercase text-[10px]">{title}</p>
+                <h4 className="text-2xl font-black text-white">{value}</h4>
                 {(growth || subtext) && (
                     <div className="flex items-center gap-2 mt-2">
                         {growth && (
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${growth.isPositive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-md border ${growth.isPositive ? 'bg-green-900/30 text-green-400 border-green-800/50' : 'bg-red-900/30 text-red-400 border-red-800/50'}`}>
                                 {growth.text}
                             </span>
                         )}
-                        {subtext && <span className="text-xs font-medium text-gray-400">{subtext}</span>}
+                        {subtext && <span className="text-xs font-medium text-gray-500">{subtext}</span>}
                     </div>
                 )}
             </div>
@@ -10237,24 +10238,24 @@ const AdminDashboard = ({ onNavigate }) => {
         const filtered = lowStockProducts.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
         return (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 flex flex-col h-full overflow-hidden">
-                <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                    <h3 className="font-bold text-black flex items-center gap-2 text-sm">
+            <div className="bg-gray-900 rounded-2xl shadow-sm border border-gray-800 flex flex-col h-full overflow-hidden">
+                <div className="p-5 border-b border-gray-800 flex justify-between items-center bg-gray-900/50">
+                    <h3 className="font-bold text-white flex items-center gap-2 text-sm">
                         <ExclamationCircleIcon className="h-5 w-5 text-amber-500" />
                         Reposição Necessária
                     </h3>
-                    <span className="text-xs font-black bg-amber-500 text-black px-2.5 py-0.5 rounded-full">{lowStockProducts.length}</span>
+                    <span className="text-xs font-black bg-amber-500 text-black px-2.5 py-0.5 rounded-full shadow-sm">{lowStockProducts.length}</span>
                 </div>
-                <div className="p-3 bg-white border-b border-gray-100">
+                <div className="p-3 bg-gray-900 border-b border-gray-800">
                     <div className="relative">
                         <input 
                             type="text" 
                             placeholder="Buscar produto..." 
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-amber-400 outline-none transition-all"
+                            className="w-full pl-9 pr-3 py-2 text-xs bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-amber-500 text-white outline-none transition-all placeholder-gray-500"
                         />
-                        <SearchIcon className="absolute left-3 top-2.5 h-3.5 w-3.5 text-gray-400" />
+                        <SearchIcon className="absolute left-3 top-2.5 h-3.5 w-3.5 text-gray-500" />
                     </div>
                 </div>
                 <div className="flex-grow overflow-y-auto max-h-[320px] p-2 space-y-1 custom-scrollbar">
@@ -10262,29 +10263,29 @@ const AdminDashboard = ({ onNavigate }) => {
                         <div 
                             key={item.id + item.name} 
                             onClick={() => { setSelectedStockItem(item); setIsStockModalOpen(true); }}
-                            className="flex items-center justify-between p-3 hover:bg-amber-50/50 rounded-xl transition-colors group border border-transparent hover:border-amber-200 cursor-pointer"
+                            className="flex items-center justify-between p-3 hover:bg-gray-800 rounded-xl transition-colors group border border-transparent hover:border-gray-700 cursor-pointer"
                         >
                             <div className="flex items-center gap-3 overflow-hidden">
-                                <div className="w-10 h-10 rounded-lg bg-gray-50 flex-shrink-0 border border-gray-200 p-1">
+                                <div className="w-10 h-10 rounded-lg bg-white flex-shrink-0 border border-gray-700 p-1">
                                     <img src={getFirstImage(item.images)} alt={item.name} className="w-full h-full object-contain rounded-sm" />
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-xs font-bold text-black truncate">{item.name}</p>
-                                    <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mt-0.5">{item.brand}</p>
+                                    <p className="text-xs font-bold text-white truncate">{item.name}</p>
+                                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mt-0.5">{item.brand}</p>
                                 </div>
                             </div>
                             <div className="text-right flex-shrink-0 flex flex-col items-end">
-                                <span className="text-xs font-black text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-md">{item.stock} un.</span>
+                                <span className="text-[10px] font-black text-red-400 bg-red-900/30 border border-red-800/50 px-2 py-0.5 rounded-md">{item.stock} un.</span>
                                 <span 
-                                    className="text-[10px] text-amber-600 font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="text-[10px] text-amber-500 font-bold mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
                                     Repor
                                 </span>
                             </div>
                         </div>
                     )) : (
-                        <div className="flex flex-col items-center justify-center py-10 text-gray-400">
-                            <CheckCircleIcon className="h-8 w-8 text-green-500 mb-2 opacity-50"/>
+                        <div className="flex flex-col items-center justify-center py-10 text-gray-500">
+                            <CheckCircleIcon className="h-8 w-8 text-green-500/50 mb-2 opacity-50"/>
                             <p className="text-xs font-bold">Estoque saudável!</p>
                         </div>
                     )}
@@ -10301,20 +10302,20 @@ const AdminDashboard = ({ onNavigate }) => {
                 )}
             </AnimatePresence>
 
-            {/* Header com Filtros */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-gray-200 pb-5">
+            {/* Header com Filtros Premium */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-gray-800 pb-5">
                 <div>
-                    <h2 className="text-2xl font-black text-black tracking-tight">Dashboard</h2>
-                    <p className="text-gray-500 text-sm mt-1 font-medium">Bem-vindo de volta, {user?.name.split(' ')[0]}. Resumo do seu negócio.</p>
+                    <h2 className="text-2xl font-black text-white tracking-tight">Dashboard</h2>
+                    <p className="text-gray-400 text-sm mt-1 font-medium">Bem-vindo de volta, <span className="text-amber-400">{user?.name.split(' ')[0]}</span>. Resumo do seu negócio.</p>
                 </div>
-                <div className="flex bg-white p-1 rounded-xl border border-gray-200 shadow-sm">
+                <div className="flex bg-gray-900 p-1 rounded-xl border border-gray-800 shadow-sm">
                     {['today', 'week', 'month', 'year'].map(f => {
                         const labels = { today: 'Hoje', week: '7 Dias', month: 'Este Mês', year: 'Este Ano' };
                         return (
                             <button
                                 key={f}
                                 onClick={() => setActiveFilter(f)}
-                                className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeFilter === f ? 'bg-black text-amber-400 shadow-md' : 'text-gray-500 hover:text-black hover:bg-gray-100'}`}
+                                className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeFilter === f ? 'bg-amber-500 text-black shadow-md' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
                             >
                                 {labels[f]}
                             </button>
@@ -10327,7 +10328,7 @@ const AdminDashboard = ({ onNavigate }) => {
                 <div className="flex justify-center py-20"><SpinnerIcon className="h-10 w-10 text-amber-500 animate-spin"/></div>
             ) : (
                 <>
-                    {/* Cards de KPIs (Cores Premium) */}
+                    {/* Cards de KPIs (Cores Premium Dark Mode) */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <StatCard 
                             title="Faturamento Total" 
@@ -10335,51 +10336,51 @@ const AdminDashboard = ({ onNavigate }) => {
                             growth={growth}
                             subtext="vs. anterior"
                             icon={CurrencyDollarIcon}
-                            iconBg="bg-green-50 border-green-200"
-                            iconColor="text-green-600"
+                            iconBg="bg-green-900/30 border-green-800/50"
+                            iconColor="text-green-400"
                         />
                         <StatCard 
                             title="Vendas Realizadas" 
                             value={stats.totalSales} 
                             icon={BoxIcon}
-                            iconBg="bg-blue-50 border-blue-200"
-                            iconColor="text-blue-600"
+                            iconBg="bg-blue-900/30 border-blue-800/50"
+                            iconColor="text-blue-400"
                         />
                         <StatCard 
                             title="Novos Clientes" 
                             value={stats.newCustomers} 
                             icon={UsersIcon}
-                            iconBg="bg-purple-50 border-purple-200"
-                            iconColor="text-purple-600"
+                            iconBg="bg-purple-900/30 border-purple-800/50"
+                            iconColor="text-purple-400"
                         />
                         <StatCard 
                             title="Pedidos Pendentes" 
                             value={stats.pendingOrders} 
                             icon={ClockIcon}
-                            iconBg="bg-amber-50 border-amber-200"
-                            iconColor="text-amber-600"
+                            iconBg="bg-amber-900/30 border-amber-800/50"
+                            iconColor="text-amber-400"
                         />
                     </div>
 
                     {/* Seção de Exportação */}
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                        <h3 className="font-bold text-black text-lg mb-4">Exportar Relatórios</h3>
+                    <div className="bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-800">
+                        <h3 className="font-bold text-white text-lg mb-4">Exportar Relatórios</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <button 
                                 onClick={() => handleSalesExport('excel')} 
-                                className="bg-white border-2 border-green-600 text-green-700 hover:bg-green-50 py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
+                                className="bg-gray-800 border border-gray-700 text-white hover:bg-gray-700 hover:text-green-400 py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
                             >
                                 <DownloadIcon className="h-5 w-5"/> <span>Vendas (Excel)</span>
                             </button>
                             <button 
                                 onClick={() => handleStockExport('excel')} 
-                                className="bg-white border-2 border-blue-600 text-blue-700 hover:bg-blue-50 py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
+                                className="bg-gray-800 border border-gray-700 text-white hover:bg-gray-700 hover:text-blue-400 py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
                             >
                                 <DownloadIcon className="h-5 w-5"/> <span>Estoque (Excel)</span>
                             </button>
                             <button 
                                 onClick={() => handleSalesExport('pdf')} 
-                                className="bg-white border-2 border-red-600 text-red-700 hover:bg-red-50 py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
+                                className="bg-gray-800 border border-gray-700 text-white hover:bg-gray-700 hover:text-red-400 py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
                             >
                                 <DownloadIcon className="h-5 w-5"/> <span>Vendas (PDF)</span>
                             </button>
@@ -10389,11 +10390,11 @@ const AdminDashboard = ({ onNavigate }) => {
                     {/* Área Principal: Gráfico e Estoque */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Gráfico Principal */}
-                        <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                            <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                        <div className="lg:col-span-2 bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-800">
+                            <div className="flex justify-between items-center mb-6 border-b border-gray-800 pb-4">
                                 <div>
-                                    <h3 className="font-bold text-black text-lg">Performance de Vendas</h3>
-                                    <p className="text-xs text-gray-500 font-medium mt-1">Receita bruta ao longo do tempo</p>
+                                    <h3 className="font-bold text-white text-lg">Performance de Vendas</h3>
+                                    <p className="text-xs text-gray-400 font-medium mt-1">Receita bruta ao longo do tempo</p>
                                 </div>
                             </div>
                             <div className="h-80 w-full relative">
@@ -10412,8 +10413,8 @@ const AdminDashboard = ({ onNavigate }) => {
                     {/* Área Inferior: Ações e Secundários */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Gráfico Secundário */}
-                        <div className="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                            <h3 className="font-bold text-black text-lg mb-4 border-b border-gray-100 pb-3">Top 5 Mais Vendidos</h3>
+                        <div className="lg:col-span-1 bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-800">
+                            <h3 className="font-bold text-white text-lg mb-4 border-b border-gray-800 pb-3">Top 5 Mais Vendidos</h3>
                             <div className="h-64 relative mt-4">
                                 <canvas id="bestSellersChart"></canvas>
                             </div>
@@ -10421,29 +10422,32 @@ const AdminDashboard = ({ onNavigate }) => {
                         
                         {/* Manutenção e Ações Rápidas */}
                         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-                             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-center">
-                                <h3 className="font-bold text-black mb-2">Status da Loja</h3>
+                             <div className="bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-800 flex flex-col justify-center text-white">
+                                <h3 className="font-bold text-white mb-2">Status da Loja</h3>
                                 <MaintenanceModeToggle />
                             </div>
 
-                            <div className="bg-black p-6 rounded-2xl shadow-xl text-white border border-gray-800">
-                                <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                            <div className="bg-gradient-to-br from-gray-900 to-black p-6 rounded-2xl shadow-xl text-white border border-amber-500/20 relative overflow-hidden">
+                                {/* Detalhe visual de brilho no card de Ações Rápidas */}
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl"></div>
+                                
+                                <h3 className="font-bold text-lg mb-4 flex items-center gap-2 relative z-10 text-white">
                                     <SparklesIcon className="h-5 w-5 text-amber-400"/> Ações Rápidas
-                                </h3>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button onClick={() => onNavigate('admin/products')} className="bg-gray-900 hover:bg-gray-800 p-3.5 rounded-xl text-left transition-all hover:scale-105 border border-gray-700">
+                               </h3>
+                                <div className="grid grid-cols-2 gap-3 relative z-10">
+                                    <button onClick={() => onNavigate('admin/products')} className="bg-gray-800/80 hover:bg-gray-700 p-3.5 rounded-xl text-left transition-all hover:scale-105 border border-gray-700">
                                         <PlusIcon className="h-5 w-5 mb-2 text-green-400"/>
                                         <span className="text-xs font-bold block text-gray-200">Novo Produto</span>
                                     </button>
-                                    <button onClick={() => onNavigate('admin/banners')} className="bg-gray-900 hover:bg-gray-800 p-3.5 rounded-xl text-left transition-all hover:scale-105 border border-gray-700">
+                                    <button onClick={() => onNavigate('admin/banners')} className="bg-gray-800/80 hover:bg-gray-700 p-3.5 rounded-xl text-left transition-all hover:scale-105 border border-gray-700">
                                         <PhotoIcon className="h-5 w-5 mb-2 text-blue-400"/>
                                         <span className="text-xs font-bold block text-gray-200">Visual</span>
                                     </button>
-                                    <button onClick={() => handleStockExport('excel')} className="bg-gray-900 hover:bg-gray-800 p-3.5 rounded-xl text-left transition-all hover:scale-105 border border-gray-700">
+                                    <button onClick={() => handleStockExport('excel')} className="bg-gray-800/80 hover:bg-gray-700 p-3.5 rounded-xl text-left transition-all hover:scale-105 border border-gray-700">
                                         <FileIcon className="h-5 w-5 mb-2 text-amber-400"/>
                                         <span className="text-xs font-bold block text-gray-200">Rel. Estoque</span>
                                     </button>
-                                    <button onClick={() => onNavigate('admin/coupons')} className="bg-gray-900 hover:bg-gray-800 p-3.5 rounded-xl text-left transition-all hover:scale-105 border border-gray-700">
+                                    <button onClick={() => onNavigate('admin/coupons')} className="bg-gray-800/80 hover:bg-gray-700 p-3.5 rounded-xl text-left transition-all hover:scale-105 border border-gray-700">
                                         <TagIcon className="h-5 w-5 mb-2 text-pink-400"/>
                                         <span className="text-xs font-bold block text-gray-200">Cupom</span>
                                     </button>
