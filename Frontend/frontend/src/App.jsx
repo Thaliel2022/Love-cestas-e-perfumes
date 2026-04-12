@@ -4553,7 +4553,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             const [productData, reviewsData, allProductsData, crossSellData] = await Promise.all([
                 apiService(`/products/${id}`, 'GET', null, { signal }),
                 apiService(`/products/${id}/reviews`, 'GET', null, { signal }),
-                apiService('/products', 'GET', null, { signal }),
+                // CORREÇÃO: Buscamos uma lista limitada de produtos (paginada) em vez de `/products/all` que requer Admin
+                apiService('/products?limit=50', 'GET', null, { signal }),
                 apiService(`/products/${id}/related-by-purchase`, 'GET', null, { signal }).catch(() => [])
             ]);
 
@@ -4568,7 +4569,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             setCrossSellProducts(Array.isArray(crossSellData) ? crossSellData : []);
 
             if (productData && allProductsData) {
-                const related = allProductsData.filter(p => p.id !== productData.id && (p.brand === productData.brand || p.category === productData.category)).slice(0, 8);
+                // CORREÇÃO: Puxando do objeto `products` que a nova rota paginada do backend entrega
+                const productsList = Array.isArray(allProductsData) ? allProductsData : (allProductsData.products || []);
+                
+                const related = productsList.filter(p => p.id !== productData.id && (p.brand === productData.brand || p.category === productData.category)).slice(0, 8);
                 setRelatedProducts(related);
             }
         } catch (err) {
@@ -4641,7 +4645,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         setIsSelectionModalOpen(false);
     };
 
-    // --- CORREÇÃO: No Mobile, não abre gaveta, apenas notifica.
     const processAddToCart = async (action) => {
         try {
             await addToCart(product, quantity, selectedVariation);
