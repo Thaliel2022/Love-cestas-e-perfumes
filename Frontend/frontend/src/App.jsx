@@ -16460,6 +16460,39 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
         }
     };
 
+    const mpInitialization = useMemo(() => {
+        return {
+            amount: Number(order?.total || 0),
+            payer: {
+                email: user?.email || '',
+                entityType: 'individual'
+            }
+        };
+    }, [order?.total, user?.email]);
+
+    const mpCustomization = useMemo(() => {
+        return {
+            paymentMethods: {
+                ticket: "all",
+                bankTransfer: "all",
+                creditCard: "all",
+                debitCard: "all",
+                mercadoPago: "all",
+            },
+            visual: {
+                style: {
+                    theme: 'dark',
+                    customVariables: {
+                        baseColor: '#fbbf24', 
+                        baseColorFirstVariant: '#f59e0b', 
+                        baseColorSecondVariant: '#d97706',
+                        errorColor: '#ef4444', 
+                    }
+                }
+            }
+        };
+    }, []);
+
     if (isLoading) {
         return (
             <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-4">
@@ -16567,37 +16600,13 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                             <div className="mb-4 bg-blue-900/20 border border-blue-800/50 rounded-xl p-4 flex items-start gap-3">
                                 <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
                                 <p className="text-xs text-blue-200 leading-relaxed">
-                                    <strong>Atenção:</strong> Selecione uma forma de pagamento abaixo (Cartão, Pix ou Boleto) e preencha os dados solicitados antes de clicar em "Pagar".
+                                    <strong>Atenção:</strong> Selecione uma forma de pagamento abaixo e preencha os dados solicitados.
                                 </p>
                             </div>
                             <MercadoPagoPayment
-                                initialization={{ 
-                                    amount: Number(order.total),
-                                    payer: {
-                                        email: user?.email || '', 
-                                        entityType: 'individual'
-                                    }
-                                }}
-                                customization={{
-                                    paymentMethods: {
-                                        ticket: "all",
-                                        bankTransfer: "all",
-                                        creditCard: "all",
-                                        debitCard: "all",
-                                        mercadoPago: "all",
-                                    },
-                                    visual: {
-                                        style: {
-                                            theme: 'dark',
-                                            customVariables: {
-                                                baseColor: '#fbbf24', 
-                                                baseColorFirstVariant: '#f59e0b', 
-                                                baseColorSecondVariant: '#d97706',
-                                                errorColor: '#ef4444',
-                                            }
-                                        }
-                                    }
-                                }}
+                                key={`mp-payment-order-${order.total}`}
+                                initialization={mpInitialization}
+                                customization={mpCustomization}
                                 onSubmit={handlePaymentSubmit}
                                 onError={(error) => {
                                     if(error?.message && error.message.includes("createObjectStore")) return;
