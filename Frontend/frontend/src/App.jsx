@@ -6482,36 +6482,78 @@ const CheckoutPage = ({ onNavigate }) => {
 
                             {autoCalculatedShipping?.isPickup ? (
                                 <CheckoutSection title="Detalhes da Retirada" icon={BoxIcon}>
-                                     <div className="text-sm bg-gray-800 p-4 rounded-md space-y-4 border border-gray-700">
-                                        <div className="flex items-start gap-2">
-                                            <MapPinIcon className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
-                                            <div className="w-full">
-                                                <p className="font-bold text-white mb-2">Endereço de Retirada:</p>
-                                                {isPAddressObj ? (
-                                                    <div className="space-y-1 bg-gray-900 p-3 rounded-md border border-gray-700">
-                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">Rua:</span> <span className="text-gray-200">{pAddress.rua}</span></div>
-                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">Nº:</span> <span className="text-gray-200">{pAddress.numero}</span></div>
-                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">Bairro:</span> <span className="text-gray-200">{pAddress.bairro}</span></div>
-                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">Cidade:</span> <span className="text-gray-200">{pAddress.cidade}</span></div>
-                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">Estado:</span> <span className="text-gray-200">{pAddress.estado || pAddress.uf}</span></div>
-                                                        <div className="flex"><span className="font-semibold text-gray-500 w-16">CEP:</span> <span className="text-gray-200 font-mono">{pAddress.cep}</span></div>
-                                                    </div>
-                                                ) : (
-                                                    <p className="text-gray-300">{pAddress || 'Endereço não configurado'}</p>
-                                                )}
+                                    <div className="bg-gray-800/80 p-5 sm:p-6 rounded-xl border border-gray-700 mb-5">
+                                        <div className="mb-6">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <MapPinIcon className="h-5 w-5 text-amber-400" />
+                                                <h4 className="font-bold text-white">Endereço de Retirada:</h4>
                                             </div>
+                                            
+                                            {isPAddressObj ? (
+                                                <div className="bg-gray-900/80 p-4 rounded-lg border border-gray-800 ml-7 space-y-1.5 text-sm">
+                                                    <div className="flex"><span className="text-gray-500 w-16">Rua:</span> <span className="text-gray-200">{pAddress.rua}</span></div>
+                                                    <div className="flex"><span className="text-gray-500 w-16">Nº:</span> <span className="text-gray-200">{pAddress.numero}</span></div>
+                                                    <div className="flex"><span className="text-gray-500 w-16">Bairro:</span> <span className="text-gray-200">{pAddress.bairro}</span></div>
+                                                    <div className="flex"><span className="text-gray-500 w-16">Cidade:</span> <span className="text-gray-200">{pAddress.cidade}</span></div>
+                                                    <div className="flex"><span className="text-gray-500 w-16">Estado:</span> <span className="text-gray-200">{pAddress.estado || pAddress.uf}</span></div>
+                                                    <div className="flex"><span className="text-gray-500 w-16">CEP:</span> <span className="text-gray-200 font-mono">{pAddress.cep}</span></div>
+                                                </div>
+                                            ) : (
+                                                <p className="text-gray-300 ml-7 text-sm">{pAddress || 'Endereço não configurado'}</p>
+                                            )}
+
+                                            {pickupConfig?.mapsLink && (
+                                                <a 
+                                                    href={pickupConfig.mapsLink} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer" 
+                                                    className="ml-7 mt-4 inline-flex items-center gap-2 px-4 py-2 border border-amber-500/50 text-amber-400 text-sm font-semibold rounded-md hover:bg-amber-500/10 transition-colors"
+                                                >
+                                                    Ver localização no mapa <span className="text-lg leading-none mt-[-2px]">&rarr;</span>
+                                                </a>
+                                            )}
+                                        </div>
+
+                                        <div className="mb-4">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <ClockIcon className="h-5 w-5 text-gray-400" />
+                                                <h4 className="font-bold text-white">Horário de Funcionamento:</h4>
+                                            </div>
+                                            <p className="text-gray-300 text-sm ml-7">
+                                                {pickupConfig?.hours || 'Segunda a Sábado, das 9h às 11h30 e das 15h às 17h30 (exceto feriados).'}
+                                            </p>
+                                        </div>
+
+                                        <div className="ml-7 mt-4 bg-amber-900/20 border border-amber-700/50 rounded-md p-3 flex items-start sm:items-center gap-2">
+                                            <ExclamationCircleIcon className="h-5 w-5 text-amber-500 flex-shrink-0" />
+                                            <span className="text-amber-500 font-semibold text-sm">
+                                                Aguarde a notificação "Pronto para Retirada" antes de se dirigir ao local.
+                                            </span>
                                         </div>
                                     </div>
-                                    <div className="mt-5 space-y-3">
+
+                                    <div className="space-y-3 px-1">
                                         <div className="flex items-center">
-                                            <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
-                                            <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
+                                            <input 
+                                                type="checkbox" 
+                                                id="pickup-checkbox" 
+                                                checked={isSomeoneElsePickingUp} 
+                                                onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} 
+                                                className="h-5 w-5 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900 cursor-pointer"
+                                            />
+                                            <label htmlFor="pickup-checkbox" className="ml-3 text-sm text-gray-300 font-medium cursor-pointer select-none">
+                                                Outra pessoa vai retirar?
+                                            </label>
                                         </div>
                                         {isSomeoneElsePickingUp && (
-                                            <div key={isSomeoneElsePickingUp ? "pickup-form-on" : "pickup-form-off"} className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
-                                                <input type="text" defaultValue={pickupPersonName} onBlur={handlePickupNameBlur} placeholder="Nome completo de quem vai retirar" className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"/>
-                                                <input type="text" defaultValue={pickupPersonCpf} onInput={handleCpfInputChangeMask} onBlur={handlePickupCpfBlur} placeholder="CPF de quem vai retirar" maxLength="14" className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"/>
-                                            </div>
+                                            <motion.div 
+                                                initial={{ opacity: 0, height: 0 }}
+                                                animate={{ opacity: 1, height: 'auto' }}
+                                                className="space-y-3 overflow-hidden bg-gray-800 p-4 rounded-lg border border-gray-700 mt-2"
+                                            >
+                                                <input type="text" defaultValue={pickupPersonName} onBlur={handlePickupNameBlur} placeholder="Nome completo de quem vai retirar" className="w-full p-3 bg-gray-700 border-gray-600 border rounded-md text-sm text-white focus:ring-1 focus:ring-amber-500 outline-none"/>
+                                                <input type="text" defaultValue={pickupPersonCpf} onInput={handleCpfInputChangeMask} onBlur={handlePickupCpfBlur} placeholder="CPF de quem vai retirar" maxLength="14" className="w-full p-3 bg-gray-700 border-gray-600 border rounded-md text-sm text-white focus:ring-1 focus:ring-amber-500 outline-none"/>
+                                            </motion.div>
                                         )}
                                     </div>
                                 </CheckoutSection>
