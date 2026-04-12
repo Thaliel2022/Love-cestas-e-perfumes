@@ -5715,7 +5715,6 @@ const CartPage = ({ onNavigate }) => {
 
     return (
         <div className="bg-black text-white min-h-screen">
-            {/* CORREÇÃO AQUI: pt-12 pb-28 md:pb-12 para liberar espaço do navbar mobile */}
             <div className="container mx-auto px-4 pt-12 pb-28 md:pb-12"> 
                 <h1 className="text-3xl md:text-4xl font-bold mb-10 text-center">Meu Carrinho</h1> 
                 {cart.length === 0 ? (
@@ -5804,7 +5803,8 @@ const CartPage = ({ onNavigate }) => {
                                                     <button onClick={() => handleUpdateQuantity(item.cartItemId, item.qty + 1)} className="px-3 text-lg hover:bg-gray-700 transition-colors h-full flex items-center">+</button>
                                                 </div>
                                                 <p className="font-bold text-base w-24 text-right">R$ {itemSubtotal.toFixed(2)}</p>
-                                                <button onClick={() => removeFromCart(item.cartItemId)} className="text-gray-500 hover:text-red-500 transition-colors" title="Remover item">
+                                                {/* CORREÇÃO DO BOTÃO EXCLUIR: Usando classe explícita não substituída pelo Tailwind e adicionando fundo no hover para destaque visual */}
+                                                <button onClick={() => removeFromCart(item.cartItemId)} className="text-slate-400 hover:!text-red-500 hover:bg-red-900/30 p-2 rounded-full transition-all" title="Remover item">
                                                     <TrashIcon className="h-5 w-5"/>
                                                 </button>
                                             </div>
