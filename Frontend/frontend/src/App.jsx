@@ -3695,7 +3695,6 @@ const HomePage = ({ onNavigate }) => {
         perfumes: []
     });
     
-    // Estado unificado para banners
     const [banners, setBanners] = useState({
         carousel: [],
         promo: [], 
@@ -3704,13 +3703,19 @@ const HomePage = ({ onNavigate }) => {
     const [isLoadingBanners, setIsLoadingBanners] = useState(true);
 
     useEffect(() => {
-        // --- BUSCA DE PRODUTOS ---
         const controller = new AbortController();
-        // Busca os produtos usando a nova rota paginada (trazendo até 100 para a Home)
+        
         apiService('/products?limit=100', 'GET', null, { signal: controller.signal })
             .then(data => {
-                // CORREÇÃO CRÍTICA: Extrai o array 'products' do novo objeto de paginação
-                const productsArray = Array.isArray(data) ? data : (data.products || []);
+                // TRAVA DE SEGURANÇA: Aceita tanto o formato antigo (Array direto) quanto o novo (Objeto com paginação)
+                let productsArray = [];
+                if (Array.isArray(data)) {
+                    productsArray = data;
+                } else if (data && Array.isArray(data.products)) {
+                    productsArray = data.products;
+                } else {
+                    console.warn("Formato de dados inesperado:", data);
+                }
 
                 const sortedByDate = [...productsArray].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                 const sortedBySales = [...productsArray].sort((a, b) => (b.sales || 0) - (a.sales || 0));
@@ -3729,7 +3734,6 @@ const HomePage = ({ onNavigate }) => {
                 if (err.name !== 'AbortError') console.error("Falha ao buscar produtos:", err);
             });
 
-        // --- BUSCA DE BANNERS ---
         apiService('/banners', 'GET', null, { signal: controller.signal })
             .then(data => {
                 if (Array.isArray(data)) {
@@ -3754,7 +3758,6 @@ const HomePage = ({ onNavigate }) => {
 
     return (
       <div className="bg-black min-h-screen pb-24 md:pb-0 overflow-x-hidden">
-        {/* Banner Principal Rotativo */}
         {isLoadingBanners ? (
             <div className="relative h-[55vh] sm:h-[70vh] bg-gray-900 flex items-center justify-center">
                 <SpinnerIcon className="h-10 w-10 text-amber-400" />
@@ -3765,15 +3768,12 @@ const HomePage = ({ onNavigate }) => {
         
         <BenefitsBar />
         
-        {/* Carrossel de Categorias */}
         <div className="py-8 md:py-12 bg-black">
              <CollectionsCarousel onNavigate={onNavigate} title="Coleções" />
         </div>
 
-        {/* Destaque Visual (Carrossel de Campanhas) */}
         <PromoBannerSection customBanners={banners.promo} onNavigate={onNavigate} />
 
-        {/* Seção Lançamentos */}
         <section className="bg-black text-white py-8 md:py-12">
           <div className="container mx-auto px-4">
               <div className="flex items-end justify-between mb-6 md:mb-10 border-b border-gray-800 pb-4">
@@ -3792,7 +3792,6 @@ const HomePage = ({ onNavigate }) => {
           </div>
         </section>
         
-        {/* Seção Mais Vendidos */}
         <section className="bg-gray-900/50 py-10 md:py-16 my-4 md:my-8 border-y border-gray-800 relative">
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5"></div>
           <div className="container mx-auto px-4 relative z-10">
@@ -3806,10 +3805,8 @@ const HomePage = ({ onNavigate }) => {
           </div>
         </section>
 
-        {/* Cards de Categoria (Inferior) */}
         <CategoryCardsSection customCards={banners.cards} onNavigate={onNavigate} />
         
-        {/* Vitrine Roupas */}
         <section className="bg-black text-white py-8 md:py-10 border-t border-gray-800">
           <div className="container mx-auto px-4">
               <div className="flex items-end justify-between mb-6 md:mb-8">
