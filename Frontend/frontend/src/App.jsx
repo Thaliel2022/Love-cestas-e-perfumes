@@ -2056,11 +2056,15 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
 const Minicart = memo(({ onNavigate }) => {
     const {
         cart,
+        setCart,
         isMinicartOpen,
         setIsMinicartOpen,
         updateQuantity,
         removeFromCart
     } = useShop();
+    
+    const { isAuthenticated } = useAuth();
+    const notification = useNotification();
 
     // --- INTELIGÊNCIA DE ESTOQUE (NÍVEL AMAZON) PARA O MINICART ---
     const cartWithStockInfo = useMemo(() => {
@@ -2102,6 +2106,58 @@ const Minicart = memo(({ onNavigate }) => {
         const price = isOnSale ? item.sale_price : item.price;
         return sum + price * item.qty;
     }, 0), [cartWithStockInfo]);
+
+    // --- LÓGICA DE TROCA DE TAMANHO DIRETO NO MINICART ---
+    const handleSizeChange = async (item, newSize) => {
+        if (!item.variation || item.variation.size === newSize) return;
+
+        const allVariations = parseJsonString(item.variations, []);
+        const newVariation = allVariations.find(v => v.color === item.variation.color && v.size === newSize);
+
+        if (!newVariation) {
+            notification.show("Tamanho indisponível.", "error");
+            return;
+        }
+
+        if (newVariation.stock < item.qty) {
+            notification.show(`Estoque insuficiente para o tamanho ${newSize}.`, "error");
+            return;
+        }
+
+        const newCartItemId = `${item.id}-${newVariation.color}-${newVariation.size}`;
+        const existingItemIndex = cart.findIndex(i => i.cartItemId === newCartItemId);
+        let newCart = [...cart];
+
+        if (existingItemIndex > -1) {
+            newCart[existingItemIndex].qty += item.qty;
+            newCart = newCart.filter(i => i.cartItemId !== item.cartItemId);
+        } else {
+            newCart = newCart.map(i => {
+                if (i.cartItemId === item.cartItemId) {
+                    return { ...i, variation: newVariation, cartItemId: newCartItemId };
+                }
+                return i;
+            });
+        }
+
+        setCart(newCart);
+        notification.show(`Tamanho alterado para ${newSize}`);
+
+        if (isAuthenticated) {
+            try {
+                await apiService(`/cart/${item.id}`, 'DELETE', { variation: item.variation });
+                await apiService('/cart', 'POST', { 
+                    productId: item.id, 
+                    quantity: item.qty, 
+                    variationId: newVariation.id, 
+                    variation: newVariation,
+                    variation_details: JSON.stringify(newVariation)
+                });
+            } catch (error) {
+                console.error("Erro ao sincronizar troca de tamanho:", error);
+            }
+        }
+    };
 
     // Bloqueia o scroll do fundo quando o carrinho está aberto no mobile
     useEffect(() => {
@@ -2195,6 +2251,14 @@ const Minicart = memo(({ onNavigate }) => {
                                     const isOnSale = !!item.is_on_sale && item.sale_price > 0;
                                     const currentPrice = isOnSale ? item.sale_price : item.price;
                                     
+                                    let availableSizes = [];
+                                    if (item.product_type === 'clothing' && item.variation) {
+                                        const allVars = parseJsonString(item.variations, []);
+                                        availableSizes = allVars
+                                            .filter(v => v.color === item.variation.color && v.stock > 0)
+                                            .map(v => v.size);
+                                    }
+
                                     return (
                                         <div key={item.cartItemId} className={`flex gap-4 p-3.5 rounded-2xl border relative group transition-all duration-300 ${item.isOutOfStock ? 'bg-black/40 border-gray-800 opacity-70' : 'bg-white/5 border-white/5 shadow-sm hover:bg-white/10'}`}>
                                             {/* Imagem do Produto */}
@@ -2210,13 +2274,24 @@ const Minicart = memo(({ onNavigate }) => {
                                                             {item.name}
                                                         </p>
                                                         {item.variation && (
-                                                            <div className="flex flex-wrap gap-1.5 mt-2">
-                                                                <span className="text-[10px] font-medium text-amber-200 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                                                            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                                                                <span className="text-[10px] font-medium text-amber-200 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
                                                                     {item.variation.color}
                                                                 </span>
-                                                                <span className="text-[10px] font-medium text-gray-300 bg-white/10 px-2 py-0.5 rounded-full border border-white/10">
-                                                                    Tam: {item.variation.size}
-                                                                </span>
+                                                                <div className="flex items-center gap-1 bg-white/10 px-1.5 py-0.5 rounded border border-white/10">
+                                                                    <span className="text-[10px] font-medium text-gray-300">Tam:</span>
+                                                                    <select 
+                                                                        value={item.variation.size} 
+                                                                        onChange={(e) => handleSizeChange(item, e.target.value)}
+                                                                        disabled={item.isOutOfStock}
+                                                                        className="bg-transparent text-white text-[10px] font-bold focus:outline-none cursor-pointer disabled:opacity-50"
+                                                                    >
+                                                                        <option value={item.variation.size} className="bg-gray-900 text-white">{item.variation.size}</option>
+                                                                        {availableSizes.filter(s => s !== item.variation.size).map(size => (
+                                                                            <option key={size} value={size} className="bg-gray-900 text-white">{size}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                </div>
                                                             </div>
                                                         )}
                                                     </div>
