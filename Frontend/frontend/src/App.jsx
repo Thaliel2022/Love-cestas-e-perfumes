@@ -6393,7 +6393,7 @@ const CheckoutPage = ({ onNavigate }) => {
             },
             visual: {
                 texts: {
-                    formSubmit: 'Confirmar Pagamento', // Alteração solicitada para um texto mais universal
+                    formSubmit: 'Confirmar Pagamento',
                 },
                 style: {
                     theme: 'dark',
@@ -6761,14 +6761,24 @@ const CheckoutPage = ({ onNavigate }) => {
                                 ) : (
                                     <div className="mt-4 pt-4 border-t border-gray-700 mp-custom-styles">
                                         <style>{`
-                                            @media (min-width: 1024px) {
-                                                .mp-custom-styles .mp-button {
-                                                    margin-left: auto !important;
-                                                    margin-right: auto !important;
-                                                    display: block !important;
-                                                }
+                                            .mp-custom-styles button[type="submit"],
+                                            .mp-custom-styles [data-testid="submit-button"],
+                                            .mp-custom-styles .mp-button {
+                                                width: 100% !important;
+                                                max-width: 350px !important;
+                                                margin-left: auto !important;
+                                                margin-right: auto !important;
+                                                display: block !important;
+                                            }
+                                            
+                                            .mp-custom-styles .mp-formAction,
+                                            .mp-custom-styles [class*="formAction"] {
+                                                display: flex !important;
+                                                justify-content: center !important;
+                                                width: 100% !important;
                                             }
                                         `}</style>
+                                        {/* AVISO DO PIX ADICIONADO AQUI */}
                                         <div className="mb-4 p-3.5 bg-blue-900/30 border border-blue-800/50 rounded-xl flex items-start gap-3">
                                             <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
                                             <div className="text-xs text-blue-200 leading-relaxed">
@@ -16600,6 +16610,9 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                 mercadoPago: "all",
             },
             visual: {
+                texts: {
+                    formSubmit: 'Confirmar Pagamento',
+                },
                 style: {
                     theme: 'dark',
                     customVariables: {
@@ -16718,12 +16731,21 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                     <div className="lg:col-span-7 order-2 lg:order-1">
                         <div className="bg-gray-900 rounded-3xl border border-gray-800 p-2 sm:p-4 shadow-2xl mp-custom-styles">
                             <style>{`
-                                @media (min-width: 1024px) {
-                                    .mp-custom-styles .mp-button {
-                                        margin-left: auto !important;
-                                        margin-right: auto !important;
-                                        display: block !important;
-                                    }
+                                .mp-custom-styles button[type="submit"],
+                                .mp-custom-styles [data-testid="submit-button"],
+                                .mp-custom-styles .mp-button {
+                                    width: 100% !important;
+                                    max-width: 350px !important;
+                                    margin-left: auto !important;
+                                    margin-right: auto !important;
+                                    display: block !important;
+                                }
+                                
+                                .mp-custom-styles .mp-formAction,
+                                .mp-custom-styles [class*="formAction"] {
+                                    display: flex !important;
+                                    justify-content: center !important;
+                                    width: 100% !important;
                                 }
                             `}</style>
                             {/* AVISO DO PIX ADICIONADO AQUI */}
