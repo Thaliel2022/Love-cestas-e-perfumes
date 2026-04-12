@@ -8145,7 +8145,6 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                     </div>
 
                                     <div className="flex-shrink-0 w-full sm:w-auto flex flex-col items-stretch gap-2 mt-2 sm:mt-0">
-                                        {/* CORREÇÃO DO REDIRECIONAMENTO: Sempre vai para detalhes do pedido primeiro */}
                                         <button 
                                             onClick={() => onNavigate(`account/orders/${order.id}`)} 
                                             className={`w-full sm:w-auto font-bold px-4 py-2 rounded-md transition shadow-md active:scale-95 text-xs sm:text-sm border ${
