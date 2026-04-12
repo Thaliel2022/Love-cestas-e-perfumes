@@ -9020,8 +9020,13 @@ const MyProfileSection = () => {
 
     // Estados para o Modal de Senha
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+    const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [isPasswordLoading, setIsPasswordLoading] = useState(false);
+    
+    // Estados visuais do Modal de Senha
+    const [isCurrentPasswordVisible, setIsCurrentPasswordVisible] = useState(false);
+    const [isNewPasswordVisible, setIsNewPasswordVisible] = useState(false);
 
     // Estados para o Modal de 2FA
     const [is2faModalOpen, setIs2faModalOpen] = useState(false);
@@ -9036,16 +9041,40 @@ const MyProfileSection = () => {
     // Estado para Biometria
     const [isBiometricLoading, setIsBiometricLoading] = useState(false);
 
+    // Helper para calcular força da senha no Modal
+    const getPasswordStrength = (pass) => {
+        if (!pass) return { label: '', color: '' };
+        const hasLettersAndNumbers = /^(?=.*[A-Za-z])(?=.*\d)/.test(pass);
+        
+        if (pass.length < 8 || !hasLettersAndNumbers) return { label: 'Fraca (Mín. 8 + Letras e Números)', color: 'text-red-500' };
+        if (pass.length >= 8 && pass.length < 12 && hasLettersAndNumbers) return { label: 'Média', color: 'text-yellow-500' };
+        return { label: 'Forte', color: 'text-green-500' };
+    };
+
+    const passStrength = getPasswordStrength(newPassword);
+    const isNewPasswordValid = newPassword.length >= 8 && /^(?=.*[A-Za-z])(?=.*\d)/.test(newPassword);
+
     const handlePasswordChange = async (e) => {
         e.preventDefault();
-        if (newPassword.length < 8 || !/^(?=.*[A-Za-z])(?=.*\d)/.test(newPassword)) {
-            notification.show("A nova senha deve ter pelo menos 8 caracteres e conter letras e números.", "error");
+        
+        if (!currentPassword) {
+            notification.show("Digite sua senha atual.", "error");
             return;
         }
+
+        if (!isNewPasswordValid) {
+            notification.show("A nova senha não atende aos requisitos de segurança.", "error");
+            return;
+        }
+
         setIsPasswordLoading(true);
         try {
-            await apiService('/users/me/password', 'PUT', { password: newPassword });
+            await apiService('/users/me/password', 'PUT', { 
+                currentPassword: currentPassword,
+                newPassword: newPassword 
+            });
             notification.show('Senha alterada com sucesso!');
+            setCurrentPassword('');
             setNewPassword('');
             setIsPasswordModalOpen(false);
         } catch (error) {
@@ -9172,14 +9201,65 @@ const MyProfileSection = () => {
         <>
             <AnimatePresence>
                 {isPasswordModalOpen && (
-                    <Modal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} title="Alterar Senha">
+                    <Modal isOpen={isPasswordModalOpen} onClose={() => {
+                        setIsPasswordModalOpen(false);
+                        setCurrentPassword('');
+                        setNewPassword('');
+                    }} title="Alterar Senha de Acesso">
                         <form onSubmit={handlePasswordChange} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
-                                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 8 caracteres (letras e números)" className="w-full p-2 bg-gray-100 text-gray-900 border border-gray-300 rounded-md" />
+                            <div className="bg-gray-50 border border-gray-200 p-3 rounded-md mb-4 text-xs text-gray-600 flex gap-2 items-start">
+                                <ShieldCheckIcon className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                                <p>Para proteger sua conta, exigimos que você informe sua senha atual antes de cadastrar uma nova.</p>
                             </div>
-                            <button type="submit" disabled={isPasswordLoading} className="w-full bg-amber-500 text-black font-bold py-2 rounded-md hover:bg-amber-400 flex justify-center items-center disabled:opacity-50">
-                                {isPasswordLoading ? <SpinnerIcon/> : "Confirmar Alteração"}
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Senha Atual <span className="text-red-500">*</span></label>
+                                <div className="relative">
+                                    <input 
+                                        type={isCurrentPasswordVisible ? 'text' : 'password'} 
+                                        value={currentPassword} 
+                                        onChange={e => setCurrentPassword(e.target.value)} 
+                                        required
+                                        placeholder="Digite sua senha atual" 
+                                        className="w-full p-2.5 bg-white text-gray-900 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-400 outline-none pr-10" 
+                                    />
+                                    <button type="button" onClick={() => setIsCurrentPasswordVisible(!isCurrentPasswordVisible)} className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-amber-500">
+                                        {isCurrentPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Nova Senha <span className="text-red-500">*</span></label>
+                                <div className="relative">
+                                    <input 
+                                        type={isNewPasswordVisible ? 'text' : 'password'} 
+                                        value={newPassword} 
+                                        onChange={e => setNewPassword(e.target.value)} 
+                                        required
+                                        placeholder="Mínimo 8 caracteres (letras e números)" 
+                                        className={`w-full p-2.5 bg-white text-gray-900 border rounded-md focus:ring-2 outline-none pr-10 ${newPassword && !isNewPasswordValid ? 'border-red-400 focus:ring-red-400' : 'border-gray-300 focus:ring-amber-400'}`} 
+                                    />
+                                    <button type="button" onClick={() => setIsNewPasswordVisible(!isNewPasswordVisible)} className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-amber-500">
+                                        {isNewPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
+                                    </button>
+                                </div>
+                                <div className="flex justify-end items-center mt-1.5 px-1 min-h-[20px]">
+                                    {newPassword && (
+                                        <div className="text-right text-xs font-medium">
+                                            <span className="text-gray-500 mr-1">Força:</span>
+                                            <span className={`${passStrength.color} font-bold`}>{passStrength.label}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            
+                            <button 
+                                type="submit" 
+                                disabled={isPasswordLoading || !currentPassword || !isNewPasswordValid} 
+                                className="w-full bg-amber-500 text-black font-bold py-3 mt-2 rounded-md hover:bg-amber-400 flex justify-center items-center disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                            >
+                                {isPasswordLoading ? <SpinnerIcon className="h-5 w-5"/> : "Salvar Nova Senha"}
                             </button>
                         </form>
                     </Modal>

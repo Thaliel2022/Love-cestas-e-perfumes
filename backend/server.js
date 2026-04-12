@@ -4113,16 +4113,32 @@ app.put('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
 
 app.put('/api/users/me/password', verifyToken, async (req, res) => {
     const userId = req.user.id;
-    const { password } = req.body;
+    // Agora exigimos a senha atual e a nova senha
+    const { currentPassword, newPassword } = req.body;
     
-    // Nova validação de segurança de senha
-    if (!password || password.length < 8 || !/^(?=.*[A-Za-z])(?=.*\d)/.test(password)) {
-        return res.status(400).json({ message: "A senha deve ter no mínimo 8 caracteres e conter letras e números." });
+    if (!currentPassword) {
+        return res.status(400).json({ message: "A senha atual é obrigatória para realizar esta alteração." });
+    }
+
+    if (!newPassword || newPassword.length < 8 || !/^(?=.*[A-Za-z])(?=.*\d)/.test(newPassword)) {
+        return res.status(400).json({ message: "A nova senha deve ter no mínimo 8 caracteres e conter letras e números." });
     }
 
     try {
-        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        // 1. Busca o hash da senha atual do usuário no banco de dados
+        const [users] = await db.query("SELECT password FROM users WHERE id = ?", [userId]);
+        if (users.length === 0) return res.status(404).json({ message: "Usuário não encontrado." });
+
+        // 2. Verifica se a senha atual digitada bate com a salva no banco
+        const isMatch = await bcrypt.compare(currentPassword, users[0].password);
+        if (!isMatch) {
+            return res.status(401).json({ message: "A senha atual está incorreta." });
+        }
+
+        // 3. Se passou pela segurança, faz o hash da nova e salva
+        const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
         await db.query("UPDATE users SET password = ? WHERE id = ?", [hashedPassword, userId]);
+        
         logAdminAction(req.user, 'ALTEROU A PRÓPRIA SENHA', null, req.ip); 
         res.json({ message: "Senha atualizada com sucesso." });
     } catch(err) {
