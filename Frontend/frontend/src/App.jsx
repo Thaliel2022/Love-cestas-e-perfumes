@@ -12896,26 +12896,6 @@ const AdminOrders = ({ appName }) => {
         'Entregue', 'Pagamento Recusado', 'Cancelado'
     ];
 
-    // --- NOVA FUNÇÃO: Força a exibição correta do Reembolso na Listagem ---
-    const getDisplayStatus = (order) => {
-        if (!order) return '';
-        if (order.refund_status === 'pending_approval' || (order.refund_id && order.status !== 'Reembolsado')) {
-            return 'Reembolso Solicitado';
-        }
-        if (order.payment_status === 'refunded' || order.refund_status === 'processed') {
-            return 'Reembolsado';
-        }
-        return order.status;
-    };
-
-    const getStatusChipClass = (status) => {
-        const lowerStatus = status ? status.toLowerCase() : '';
-        if (lowerStatus.includes('entregue')) return 'bg-green-100 text-green-800';
-        if (lowerStatus.includes('cancelado') || lowerStatus.includes('recusado') || lowerStatus.includes('reembolsado') || lowerStatus.includes('reembolso')) return 'bg-red-100 text-red-800';
-        if (lowerStatus.includes('pendente')) return 'bg-yellow-100 text-yellow-800';
-        return 'bg-blue-100 text-blue-800';
-    };
-
     const getShippingDisplay = (method) => {
         const lower = method ? method.toLowerCase() : '';
         if (lower.includes('retirar') || lower.includes('loja')) {
@@ -12930,7 +12910,6 @@ const AdminOrders = ({ appName }) => {
     const TimelineDisplay = ({ order }) => {
         const isLocalDelivery = order.shipping_method && (order.shipping_method.toLowerCase().includes('motoboy') || order.shipping_method.toLowerCase().includes('entrega local'));
         const isPickup = order.shipping_method === 'Retirar na loja';
-        const displayStatus = getDisplayStatus(order);
         
         let timelineOrder = [];
         let displayLabels = {};
@@ -12946,12 +12925,12 @@ const AdminOrders = ({ appName }) => {
             displayLabels = { 'Pendente': 'Pendente', 'Pagamento Aprovado': 'Aprovado', 'Separando Pedido': 'Separando', 'Enviado': 'Enviado', 'Saiu para Entrega': 'Saiu p/ Entrega', 'Entregue': 'Entregue' };
         }
 
-        if (['Cancelado', 'Pagamento Recusado', 'Reembolsado', 'Reembolso Solicitado'].includes(displayStatus)) {
+        if (['Cancelado', 'Pagamento Recusado', 'Reembolsado'].includes(order.status)) {
             return (
                 <div className="w-full p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-center gap-3 mb-6">
                      <XCircleIcon className="h-6 w-6 text-red-600" />
                      <div className="text-center">
-                         <p className="font-bold text-red-800 text-lg uppercase tracking-wide">{displayStatus}</p>
+                         <p className="font-bold text-red-800 text-lg uppercase tracking-wide">{order.status}</p>
                          <p className="text-xs text-red-600">O fluxo deste pedido foi interrompido.</p>
                      </div>
                 </div>
@@ -13181,6 +13160,14 @@ const AdminOrders = ({ appName }) => {
     const applyFilters = useCallback(() => { /* Lógica de filtro reativa já trata */ }, []);
     const clearFilters = () => { setFilters({ startDate: '', endDate: '', status: '', minPrice: '', maxPrice: '' }); setSearchTerm(''); setCurrentPage(1); }
 
+    const getStatusChipClass = (status) => {
+        const lowerStatus = status ? status.toLowerCase() : '';
+        if (lowerStatus.includes('entregue')) return 'bg-green-100 text-green-800';
+        if (lowerStatus.includes('cancelado') || lowerStatus.includes('recusado') || lowerStatus.includes('reembolsado')) return 'bg-red-100 text-red-800';
+        if (lowerStatus.includes('pendente')) return 'bg-yellow-100 text-yellow-800';
+        return 'bg-blue-100 text-blue-800';
+    };
+
     const renderUpdateOrderForm = () => {
         const isLocalDelivery = editingOrder.shipping_method && (editingOrder.shipping_method.toLowerCase().includes('motoboy') || editingOrder.shipping_method.toLowerCase().includes('entrega local'));
         const isPickup = editingOrder.shipping_method === 'Retirar na loja';
@@ -13278,7 +13265,6 @@ const AdminOrders = ({ appName }) => {
                     const isPickup = editingOrder.shipping_method === 'Retirar na loja';
                     const pAddress = pickupConfig?.address;
                     const isPAddressObj = typeof pAddress === 'object' && pAddress !== null;
-                    const displayStatus = getDisplayStatus(editingOrder);
 
                     return (
                         <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Pedido #${editingOrder.id}`} size="3xl">
@@ -13291,13 +13277,12 @@ const AdminOrders = ({ appName }) => {
                                             <p className="text-xs text-gray-500 font-medium">Realizado em</p>
                                             <p className="text-sm font-bold text-gray-900">{new Date(editingOrder.date).toLocaleString('pt-BR')}</p>
                                         </div>
-                                        {/* AQUI A CORREÇÃO NO MODAL: Usa a função helper para a cor correta baseada no Refund/Status */}
                                         <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border self-start sm:self-auto ${
-                                            displayStatus === 'Entregue' ? 'bg-green-50 text-green-700 border-green-200' :
-                                            (displayStatus === 'Cancelado' || displayStatus === 'Reembolsado' || displayStatus === 'Reembolso Solicitado') ? 'bg-red-50 text-red-700 border-red-200' :
+                                            editingOrder.status === 'Entregue' ? 'bg-green-50 text-green-700 border-green-200' :
+                                            editingOrder.status === 'Cancelado' ? 'bg-red-50 text-red-700 border-red-200' :
                                             'bg-blue-50 text-blue-700 border-blue-200'
                                         }`}>
-                                            {displayStatus}
+                                            {editingOrder.status}
                                         </span>
                                     </div>
                                     <TimelineDisplay order={editingOrder} />
@@ -13461,7 +13446,7 @@ const AdminOrders = ({ appName }) => {
                                                     )}
                                                     
                                                     {pickupConfig?.mapsLink && (
-                                                        <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline font-bold mt-2 inline-block">Ver no Mapa →</a>
+                                                        <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline font-bold mt-2 inline-block">Ver no Mapa &rarr;</a>
                                                     )}
 
                                                     {editingOrder.pickup_details && (() => {
@@ -13532,8 +13517,8 @@ const AdminOrders = ({ appName }) => {
                                                             )}
                                                             <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center">
                                                                 <span className="text-xs text-gray-500">Status</span>
-                                                                <span className={`text-xs font-bold ${editingOrder.payment_status === 'approved' ? 'text-green-600' : editingOrder.payment_status === 'refunded' ? 'text-red-600' : 'text-amber-600'}`}>
-                                                                    {editingOrder.payment_status === 'approved' ? 'Aprovado' : editingOrder.payment_status === 'refunded' ? 'Reembolsado' : 'Pendente'}
+                                                                <span className={`text-xs font-bold ${editingOrder.payment_status === 'approved' ? 'text-green-600' : 'text-amber-600'}`}>
+                                                                    {editingOrder.payment_status === 'approved' ? 'Aprovado' : 'Pendente'}
                                                                 </span>
                                                             </div>
                                                         </>
@@ -13597,7 +13582,7 @@ const AdminOrders = ({ appName }) => {
                 </div>
             </div>
             
-            {/* Tabela de Listagem de Pedidos */}
+            {/* Tabela de Listagem de Pedidos (COM ESTADO VAZIO) */}
             <div className="bg-white shadow-md rounded-lg overflow-hidden">
                 <div className="hidden lg:block overflow-x-auto">
                      <table className="w-full text-left">
@@ -13616,8 +13601,6 @@ const AdminOrders = ({ appName }) => {
                             {currentOrders.length > 0 ? (
                                 currentOrders.map(o => {
                                     const shipInfo = getShippingDisplay(o.shipping_method);
-                                    // AQUI A CORREÇÃO NA TABELA: Exibe Reembolsado corretamente
-                                    const currentDisplayStatus = getDisplayStatus(o);
                                     return (
                                     <tr key={o.id} className="hover:bg-gray-50 transition-colors">
                                         <td className="p-4">
@@ -13645,7 +13628,7 @@ const AdminOrders = ({ appName }) => {
                                         </td>
                                         <td className="p-4 font-bold text-gray-800">R$ {Number(o.total).toFixed(2)}</td>
                                         <td className="p-4">
-                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClass(currentDisplayStatus)}`}>{currentDisplayStatus}</span>
+                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
                                         </td>
                                         <td className="p-4">
                                             <button onClick={() => handleOpenEditModal(o)} className="text-gray-500 hover:text-indigo-600 transition-colors p-2 rounded-full hover:bg-indigo-50" title="Ver Detalhes">
@@ -13678,7 +13661,6 @@ const AdminOrders = ({ appName }) => {
                     {currentOrders.length > 0 ? (
                         currentOrders.map(o => {
                             const shipInfo = getShippingDisplay(o.shipping_method);
-                            const currentDisplayStatus = getDisplayStatus(o);
                             return (
                             <div key={o.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm relative overflow-hidden">
                                 {/* Faixa lateral de status */}
@@ -13695,8 +13677,7 @@ const AdminOrders = ({ appName }) => {
                                         </div>
                                         <div className="text-right">
                                             <p className="font-bold text-gray-900">R$ {Number(o.total).toFixed(2)}</p>
-                                            {/* AQUI A CORREÇÃO NO CARD MOBILE */}
-                                            <span className={`inline-block mt-1 px-2 py-0.5 text-[10px] uppercase font-bold rounded-full ${getStatusChipClass(currentDisplayStatus)}`}>{currentDisplayStatus}</span>
+                                            <span className={`inline-block mt-1 px-2 py-0.5 text-[10px] uppercase font-bold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
                                         </div>
                                     </div>
 
