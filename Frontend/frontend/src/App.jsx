@@ -131,26 +131,30 @@ const maskCEP = (value) => {
 let isRefreshing = false;
 let failedQueue = [];
 
-const processQueue = (error) => {
+const processQueue = (error, token = null) => {
     failedQueue.forEach(prom => {
         if (error) {
             prom.reject(error);
         } else {
-            prom.resolve();
+            prom.resolve(token);
         }
     });
     failedQueue = [];
 };
 
 async function apiService(endpoint, method = 'GET', body = null, options = {}) {
-    // REMOVIDO: A busca e envio manual do token do localStorage.
-    // Agora confiamos 100% nos Cookies HttpOnly blindados.
+    // Pega o token do localStorage para enviar no header (corrige bloqueios de cookies no mobile)
+    const token = localStorage.getItem('accessToken');
     const headers = { 'Content-Type': 'application/json' };
+    
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
 
     const config = {
         method,
         headers,
-        credentials: 'include', // Essencial para o navegador enviar e receber os cookies HttpOnly
+        credentials: 'include', // Essencial para enviar cookies caso o navegador permita
         signal: options.signal,
     };
 
@@ -171,7 +175,7 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
         }
 
         if (!response.ok) {
-            // Se o token expirou, tenta renová-lo silenciosamente
+            // Se o token expirou, tenta renová-lo
             if (response.status === 401 && data.message && data.message.includes('Token expirado')) {
                 if (isRefreshing) {
                     return new Promise((resolve, reject) => {
@@ -181,10 +185,17 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
 
                 isRefreshing = true;
                 return new Promise((resolve, reject) => {
-                    // O navegador envia o cookie refreshToken automaticamente
-                    apiService('/refresh-token', 'POST')
-                        .then(() => {
-                            // O backend já atualizou os cookies HttpOnly na resposta com sucesso
+                    const currentRefreshToken = localStorage.getItem('refreshToken');
+                    // Envia o refreshToken no body como fallback para navegadores restritos
+                    apiService('/refresh-token', 'POST', { refreshToken: currentRefreshToken })
+                        .then((refreshData) => {
+                            // Salva os novos tokens
+                            if (refreshData && refreshData.accessToken) {
+                                localStorage.setItem('accessToken', refreshData.accessToken);
+                                if (refreshData.refreshToken) {
+                                    localStorage.setItem('refreshToken', refreshData.refreshToken);
+                                }
+                            }
                             processQueue(null);
                             resolve(apiService(endpoint, method, body, options));
                         })
@@ -223,58 +234,6 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
         if (error instanceof TypeError) {
             throw new Error('Não foi possível conectar ao servidor. Verifique sua conexão e se o backend está rodando.');
         }
-        throw error;
-    }
-}
-
-async function apiUploadService(endpoint, file) {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const config = {
-        method: 'POST',
-        credentials: 'include', // Essencial para cookies HttpOnly
-        body: formData,
-    };
-
-    try {
-        const response = await fetch(`${API_URL}${endpoint}`, config);
-        const responseData = await response.json();
-        if (!response.ok) {
-            if (response.status === 401 || response.status === 403) {
-                window.dispatchEvent(new Event('auth-error'));
-            }
-            throw new Error(responseData.message || `Erro ${response.status}`);
-        }
-        return responseData;
-    } catch (error) {
-        console.error(`Erro no upload (${endpoint}):`, error);
-        throw error;
-    }
-}
-
-async function apiImageUploadService(endpoint, file) {
-    const formData = new FormData();
-    formData.append('image', file);
-
-    const config = {
-        method: 'POST',
-        credentials: 'include', // Essencial para cookies HttpOnly
-        body: formData,
-    };
-
-    try {
-        const response = await fetch(`${API_URL}${endpoint}`, config);
-        const responseData = await response.json();
-        if (!response.ok) {
-            if (response.status === 401 || response.status === 403) {
-                window.dispatchEvent(new Event('auth-error'));
-            }
-            throw new Error(responseData.message || `Erro ${response.status}`);
-        }
-        return responseData;
-    } catch (error) {
-        console.error(`Erro no upload da imagem (${endpoint}):`, error);
         throw error;
     }
 }
@@ -399,9 +358,12 @@ const AuthProvider = ({ children }) => {
             console.error("Erro na API de logout.", error);
         } finally {
             setUser(null);
-            // Limpa o cache de localização para não vazar o endereço do usuário deslogado
+            // Limpa os tokens do localStorage no logout
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            
+            // CORREÇÃO: Limpa o cache de localização para não vazar o endereço/alias do usuário que acabou de deslogar
             localStorage.removeItem('lovecestas_cached_location');
-            localStorage.removeItem('user'); // Limpa dados locais residuais
             
             if (window.location.hash !== '#home' && window.location.hash !== '') {
                  window.location.hash = '#login';
@@ -411,7 +373,6 @@ const AuthProvider = ({ children }) => {
 
     const fetchUserProfile = useCallback(async () => {
         try {
-            // O cookie HttpOnly será enviado e o backend nos devolverá quem é o usuário
             const userData = await apiService('/users/me', 'GET', null, { suppressAuthError: true });
             setUser(userData);
         } catch (error) {
@@ -438,8 +399,9 @@ const AuthProvider = ({ children }) => {
         const response = await apiService('/login', 'POST', { email, password });
         if (response && response.user) {
             setUser(response.user);
-            // Tokens agora são gerenciados e protegidos exclusivamente pelo navegador (Cookies HttpOnly).
-            // Nenhuma chave será deixada exposta no localStorage.
+            // Salva os tokens no localStorage para navegadores mobile restritos
+            if (response.accessToken) localStorage.setItem('accessToken', response.accessToken);
+            if (response.refreshToken) localStorage.setItem('refreshToken', response.refreshToken);
         }
         return response;
     };
@@ -5195,6 +5157,7 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
             setRememberEmail(true);
         }
 
+        // Puxa a logo do sistema para exibir no login
         apiService('/settings/app-icons')
             .then(data => {
                 if (data && data.pwa_icon && data.pwa_icon.current) {
@@ -5202,7 +5165,7 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
                     localStorage.setItem('lovecestas_app_logo', data.pwa_icon.current);
                 }
             })
-            .catch(() => {});
+            .catch(() => {}); // Ignora silenciosamente se der erro
     }, []);
 
     // Efeito que verifica se o e-mail digitado possui biometria cadastrada
@@ -5250,6 +5213,7 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
         try {
             const response = await login(email, password);
 
+            // Grava a decisão de lembrar o e-mail
             handleSaveEmailChoice();
 
             if (response.twoFactorEnabled) {
@@ -5273,11 +5237,12 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
         setIsLoading(true);
         try {
             const response = await apiService('/login/2fa/verify', 'POST', { token: twoFactorCode, tempAuthToken });
-            const { user } = response;
+            const { user, accessToken, refreshToken } = response;
 
             setUser(user);
             localStorage.setItem('user', JSON.stringify(user));
-            // Os tokens são entregues via HttpOnly cookie e protegidos pelo navegador
+            if (accessToken) localStorage.setItem('accessToken', accessToken);
+            if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
 
             notification.show('Login bem-sucedido!');
             handleSuccessRedirect();
@@ -5318,16 +5283,18 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
                 sessionId: optionsResp.sessionId
             });
 
+            // Grava a decisão de lembrar o e-mail
             handleSaveEmailChoice();
 
             if (verificationResp.twoFactorEnabled) {
                 setTempAuthToken(verificationResp.token);
                 setIsTwoFactorStep(true);
             } else {
-                const { user } = verificationResp;
+                const { user, accessToken, refreshToken } = verificationResp;
                 setUser(user);
                 localStorage.setItem('user', JSON.stringify(user));
-                // Os tokens são entregues via HttpOnly cookie e protegidos pelo navegador
+                if (accessToken) localStorage.setItem('accessToken', accessToken);
+                if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
                 
                 notification.show('Login biométrico bem-sucedido!');
                 handleSuccessRedirect();
@@ -5378,6 +5345,7 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
                                 <div>
                                     <label className="text-xs sm:text-sm font-medium text-gray-400 mb-1 block">Senha</label>
                                     <div className="relative">
+                                        {/* CORREÇÃO: placeholder alterado para "Digite sua senha" */}
                                         <input type={isPasswordVisible ? 'text' : 'password'} placeholder="Digite sua senha" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 pr-10 text-sm sm:text-base" />
                                        <button type="button" onClick={() => setIsPasswordVisible(v => !v)} className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-amber-400">
                                             {isPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
