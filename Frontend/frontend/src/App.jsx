@@ -6756,7 +6756,16 @@ const CheckoutPage = ({ onNavigate }) => {
                                         <p className="text-sm text-gray-400">Preencha o contato e a forma de entrega para liberar o pagamento.</p>
                                     </div>
                                 ) : (
-                                    <div className="mt-4 pt-4 border-t border-gray-700">
+                                    <div className="mt-4 pt-4 border-t border-gray-700 mp-custom-styles">
+                                        <style>{`
+                                            @media (min-width: 1024px) {
+                                                .mp-custom-styles .mp-button {
+                                                    margin-left: auto !important;
+                                                    margin-right: auto !important;
+                                                    display: block !important;
+                                                }
+                                            }
+                                        `}</style>
                                         {/* AVISO DO PIX ADICIONADO AQUI */}
                                         <div className="mb-4 p-3.5 bg-blue-900/30 border border-blue-800/50 rounded-xl flex items-start gap-3">
                                             <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
@@ -16705,7 +16714,16 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
 
                     {/* Lado Esquerdo no Desktop / Baixo no Mobile: Formulário do Mercado Pago */}
                     <div className="lg:col-span-7 order-2 lg:order-1">
-                        <div className="bg-gray-900 rounded-3xl border border-gray-800 p-2 sm:p-4 shadow-2xl">
+                        <div className="bg-gray-900 rounded-3xl border border-gray-800 p-2 sm:p-4 shadow-2xl mp-custom-styles">
+                            <style>{`
+                                @media (min-width: 1024px) {
+                                    .mp-custom-styles .mp-button {
+                                        margin-left: auto !important;
+                                        margin-right: auto !important;
+                                        display: block !important;
+                                    }
+                                }
+                            `}</style>
                             {/* AVISO DO PIX ADICIONADO AQUI */}
                             <div className="mb-4 p-3.5 bg-blue-900/30 border border-blue-800/50 rounded-xl flex items-start gap-3">
                                 <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
