@@ -572,10 +572,12 @@ const ShopProvider = ({ children }) => {
         try {
             const localItems = JSON.parse(localCartStr);
             if (Array.isArray(localItems) && localItems.length > 0) {
-                const promises = localItems.map(item => {
-                    const payload = { productId: item.id, quantity: item.qty, variationId: item.variation?.id, variation: item.variation, variation_details: item.variation ? JSON.stringify(item.variation) : null };
-                    return apiService('/cart', 'POST', payload).catch(err => console.warn("Item duplicado/erro sync:", err));
-                });
+                const promises = localItems
+                    .filter(item => item && item.id) // PROTEÇÃO ADICIONAL: Impede sincronizar itens corrompidos gerando erro 500
+                    .map(item => {
+                        const payload = { productId: item.id, quantity: item.qty, variationId: item.variation?.id, variation: item.variation, variation_details: item.variation ? JSON.stringify(item.variation) : null };
+                        return apiService('/cart', 'POST', payload).catch(err => console.warn("Item duplicado/erro sync:", err));
+                    });
                 await Promise.all(promises);
             }
         } catch (e) { console.error("Erro sync carrinho:", e); }
@@ -769,7 +771,6 @@ const ShopProvider = ({ children }) => {
         return () => clearTimeout(debounceTimer);
     }, [cart, shippingLocation, previewShippingItem, selectedShippingName, calculateLocalDeliveryPrice, calculateDeliveryDate]);
 
-    // CORREÇÃO AQUI: Forçando cartItemId a ser sempre String para evitar duplicidade na hora de dar o find/map
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
         setPreviewShippingItem(null);
         
@@ -791,7 +792,6 @@ const ShopProvider = ({ children }) => {
         }
     }, [cart, isAuthenticated]);
 
-    // CORREÇÃO AQUI: String explícita nas exclusões e edições
     const removeFromCart = useCallback(async (cartItemId) => {
         const targetId = String(cartItemId);
         const itemToRemove = cart.find(item => String(item.cartItemId) === targetId);
@@ -6651,7 +6651,7 @@ const CheckoutPage = ({ onNavigate }) => {
                 bankTransfer: "all",
                 creditCard: "all",
                 debitCard: "all",
-                mercadoPago: "all",
+                // REMOVIDO: mercadoPago: "all" para evitar o erro "preferenceId and mercadoPago must be provided together"
             },
             visual: {
                 texts: {
@@ -7050,6 +7050,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                             </div>
                                         </div>
                                         <MercadoPagoPayment
+                                            key={`mp-brick-checkout-${total}-${displayAddress?.cep || 'no-cep'}`} // Chave atrelada aos dados críticos
                                             initialization={mpInitialization}
                                             customization={mpCustomization}
                                             onSubmit={handlePaymentSubmit}
