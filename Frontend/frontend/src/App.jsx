@@ -6341,7 +6341,7 @@ const CheckoutPage = ({ onNavigate }) => {
     
     const total = useMemo(() => Math.max(0, (Number(subtotal) || 0) - (Number(discount) || 0) + (Number(shippingCost) || 0)), [subtotal, discount, shippingCost]);
 
-    // OTIMIZAÇÃO: Injeção de dados completos para o Mercado Pago
+    // OTIMIZAÇÃO E CORREÇÃO DO MERCADO PAGO BRICKS
     const mpInitialization = useMemo(() => {
         const payer = {
             email: user?.email || '',
@@ -6361,17 +6361,20 @@ const CheckoutPage = ({ onNavigate }) => {
             };
         }
         
-        // Se houver endereço preenchido no site, injeta no Mercado Pago para não pedir de novo
         const billingAddress = displayAddress || addresses?.find(a => a.is_default) || addresses?.[0];
         
         if (billingAddress && billingAddress.cep && billingAddress.logradouro) {
+            // O Mercado Pago Brick exige que o número seja numérico, se contiver S/N ou texto, o Brick rejeita o preenchimento automático
+            const rawNumero = String(billingAddress.numero || '');
+            const safeNumero = rawNumero.replace(/\D/g, '') || '1';
+            
             payer.address = {
                 zipCode: billingAddress.cep.replace(/\D/g, ''),
-                streetName: billingAddress.logradouro || '',
-                streetNumber: billingAddress.numero || '',
-                neighborhood: billingAddress.bairro || '',
-                city: billingAddress.localidade || '',
-                federalUnit: billingAddress.uf || ''
+                streetName: billingAddress.logradouro || 'Rua',
+                streetNumber: safeNumero,
+                neighborhood: billingAddress.bairro || 'Bairro',
+                city: billingAddress.localidade || 'Cidade',
+                federalUnit: billingAddress.uf || 'PB'
             };
         }
 
@@ -6466,7 +6469,19 @@ const CheckoutPage = ({ onNavigate }) => {
             
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
 
-            const actualPaymentData = mpResponse.formData || mpResponse;
+            // INJEÇÃO DO ENDEREÇO REAL PARA GERAR O BOLETO CORRETO
+            const actualPaymentData = JSON.parse(JSON.stringify(mpResponse.formData || mpResponse));
+
+            if (actualPaymentData.payer && displayAddress && !isPickup) {
+                actualPaymentData.payer.address = {
+                    zip_code: displayAddress.cep.replace(/\D/g, ''),
+                    street_name: displayAddress.logradouro,
+                    street_number: String(displayAddress.numero),
+                    neighborhood: displayAddress.bairro,
+                    city: displayAddress.localidade,
+                    federal_unit: displayAddress.uf
+                };
+            }
 
             const paymentPayload = {
                 orderId,
@@ -6500,7 +6515,6 @@ const CheckoutPage = ({ onNavigate }) => {
                             <SpinnerIcon className="h-16 w-16 text-amber-400 mb-6 animate-spin" />
                             <h3 className="text-2xl font-extrabold text-white mb-2">Processando Pagamento</h3>
                             <p className="text-sm font-medium text-gray-300">Estamos validando seus dados de forma segura...</p>
-                            <p className="text-xs text-red-400 mt-5 font-bold uppercase tracking-widest animate-pulse">Por favor, não feche esta janela</p>
                         </div>
                     </motion.div>
                 )}
@@ -6746,21 +6760,11 @@ const CheckoutPage = ({ onNavigate }) => {
                                     </div>
                                 ) : (
                                     <div className="mt-4 pt-4 border-t border-gray-700">
-                                        <div className="mb-4 bg-blue-900/20 border border-blue-800/50 rounded-xl p-4 flex items-start gap-3">
-                                            <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                                            <p className="text-xs text-blue-200 leading-relaxed">
-                                                <strong>Atenção:</strong> Selecione uma forma de pagamento abaixo e preencha os dados solicitados.
-                                            </p>
-                                        </div>
                                         <MercadoPagoPayment
                                             key={`mp-payment-checkout-${total.toFixed(2)}-${displayAddress?.id || 'none'}-${autoCalculatedShipping?.name || 'none'}`}
                                             initialization={mpInitialization}
                                             customization={mpCustomization}
                                             onSubmit={handlePaymentSubmit}
-                                            onError={(error) => {
-                                                if(error?.message && error.message.includes("createObjectStore")) return;
-                                                console.error("Mercado Pago Bricks Error:", error);
-                                            }}
                                         />
                                     </div>
                                 )}
@@ -16490,7 +16494,21 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
     const handlePaymentSubmit = async (mpResponse) => {
         setIsProcessingPayment(true);
         try {
-            const actualPaymentData = mpResponse.formData || mpResponse;
+            const actualPaymentData = JSON.parse(JSON.stringify(mpResponse.formData || mpResponse));
+
+            if (actualPaymentData.payer && order?.shipping_address && order.shipping_method !== 'Retirar na loja') {
+                try {
+                    const addr = JSON.parse(order.shipping_address);
+                    actualPaymentData.payer.address = {
+                        zip_code: addr.cep.replace(/\D/g, ''),
+                        street_name: addr.logradouro,
+                        street_number: String(addr.numero),
+                        neighborhood: addr.bairro,
+                        city: addr.localidade,
+                        federal_unit: addr.uf
+                    };
+                } catch(e) {}
+            }
 
             const paymentPayload = {
                 orderId: order.id,
@@ -16531,17 +16549,20 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
             };
         }
         
-        if (order?.shipping_address) {
+        if (order?.shipping_address && order.shipping_method !== 'Retirar na loja') {
             try {
                 const addr = JSON.parse(order.shipping_address);
                 if (addr && addr.cep && addr.logradouro) {
+                    const rawNumero = String(addr.numero || '');
+                    const safeNumero = rawNumero.replace(/\D/g, '') || '1';
+                    
                     payer.address = {
                         zipCode: addr.cep.replace(/\D/g, ''),
-                        streetName: addr.logradouro || '',
-                        streetNumber: addr.numero || '',
-                        neighborhood: addr.bairro || '',
-                        city: addr.localidade || '',
-                        federalUnit: addr.uf || ''
+                        streetName: addr.logradouro || 'Rua',
+                        streetNumber: safeNumero,
+                        neighborhood: addr.bairro || 'Bairro',
+                        city: addr.localidade || 'Cidade',
+                        federalUnit: addr.uf || 'PB'
                     };
                 }
             } catch (e) {}
@@ -16551,7 +16572,7 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
             amount: Number(order?.total || 0),
             payer: payer
         };
-    }, [order?.total, order?.shipping_address, user]);
+    }, [order?.total, order?.shipping_address, order?.shipping_method, user]);
 
     const mpCustomization = useMemo(() => {
         return {
@@ -16680,21 +16701,11 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                     {/* Lado Esquerdo no Desktop / Baixo no Mobile: Formulário do Mercado Pago */}
                     <div className="lg:col-span-7 order-2 lg:order-1">
                         <div className="bg-gray-900 rounded-3xl border border-gray-800 p-2 sm:p-4 shadow-2xl">
-                            <div className="mb-4 bg-blue-900/20 border border-blue-800/50 rounded-xl p-4 flex items-start gap-3">
-                                <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                                <p className="text-xs text-blue-200 leading-relaxed">
-                                    <strong>Atenção:</strong> Selecione uma forma de pagamento abaixo e preencha os dados solicitados.
-                                </p>
-                            </div>
                             <MercadoPagoPayment
                                 key={`mp-payment-order-${order.id}`}
                                 initialization={mpInitialization}
                                 customization={mpCustomization}
                                 onSubmit={handlePaymentSubmit}
-                                onError={(error) => {
-                                    if(error?.message && error.message.includes("createObjectStore")) return;
-                                    console.error("Mercado Pago Bricks Error:", error);
-                                }}
                             />
                         </div>
                     </div>
