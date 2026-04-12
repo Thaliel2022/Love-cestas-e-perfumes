@@ -3849,75 +3849,74 @@ const HomePage = ({ onNavigate }) => {
     );
 };
 
-// ===== ATUALIZAÇÃO PROMOÇÕES =====
 const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', initialBrand = '', initialIsPromo = false }) => {
-    const [allProducts, setAllProducts] = useState([]);
-    const [filteredProducts, setFilteredProducts] = useState([]);
-    const [filters, setFilters] = useState({ search: initialSearch, brand: initialBrand, category: initialCategory });
+    const [products, setProducts] = useState([]);
+    const [totalItems, setTotalItems] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
     const [currentPage, setCurrentPage] = useState(1);
     const [isLoading, setIsLoading] = useState(true);
+    
+    const [filters, setFilters] = useState({ 
+        search: initialSearch, 
+        brand: initialBrand, 
+        category: initialCategory,
+        promo: initialIsPromo 
+    });
+    
     const [uniqueCategories, setUniqueCategories] = useState([]);
+    const [uniqueBrands, setUniqueBrands] = useState([]);
     const productsPerPage = 12;
 
+    // Carrega metadados (Categorias e Marcas) apenas uma vez
     useEffect(() => {
-        const controller = new AbortController();
-        setIsLoading(true);
-        
-        Promise.all([
-            apiService('/products', 'GET', null, { signal: controller.signal }),
-            apiService('/collections', 'GET', null, { signal: controller.signal })
-        ]).then(([productsData, collectionsData]) => {
-            setAllProducts(productsData);
-            const activeCategories = collectionsData.map(cat => cat.filter);
-            setUniqueCategories([...new Set(activeCategories)].sort());
-        }).catch(err => {
-            if (err.name !== 'AbortError') console.error("Falha ao buscar dados da página de produtos:", err);
-        }).finally(() => {
-            setIsLoading(false);
-        });
+        apiService('/collections')
+            .then(data => {
+                const activeCategories = data.map(cat => cat.filter);
+                setUniqueCategories([...new Set(activeCategories)].sort());
+            }).catch(console.error);
 
-        return () => controller.abort();
+        // Busca marcas de forma otimizada (pode ser uma rota separada ou extraída de uma busca inicial)
+        apiService('/products/search-suggestions?q=')
+            .then(data => {
+                const brands = data.map(p => p.brand);
+                setUniqueBrands([...new Set(brands)].sort());
+            }).catch(console.error);
     }, []);
-    
-    useEffect(() => {
-        setFilters(prev => ({...prev, search: initialSearch, category: initialCategory, brand: initialBrand}));
-    }, [initialSearch, initialCategory, initialBrand]);
+
+    // Busca produtos sempre que o filtro ou a página mudar
+    const fetchPaginatedProducts = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const query = new URLSearchParams({
+                page: currentPage,
+                limit: productsPerPage,
+                search: filters.search,
+                category: filters.category,
+                promo: filters.promo
+            }).toString();
+
+            const data = await apiService(`/products?${query}`);
+            
+            setProducts(data.products);
+            setTotalItems(data.totalItems);
+            setTotalPages(data.totalPages);
+        } catch (err) {
+            console.error("Falha ao buscar produtos:", err);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [currentPage, filters]);
 
     useEffect(() => {
-        let result = [...allProducts];
+        fetchPaginatedProducts();
+    }, [fetchPaginatedProducts]);
 
-        if (initialIsPromo) {
-            result = result.filter(p => p.is_on_sale);
-        }
-
-        if (filters.search) {
-            result = result.filter(p => 
-                p.name.toLowerCase().includes(filters.search.toLowerCase()) || 
-                p.brand.toLowerCase().includes(filters.search.toLowerCase())
-            );
-        }
-        if (filters.brand) {
-            result = result.filter(p => p.brand === filters.brand);
-        }
-        if (filters.category) {
-            if (filters.category === 'Roupas') {
-                result = result.filter(p => p.product_type === 'clothing');
-            } else if (filters.category === 'Perfumes') {
-                result = result.filter(p => p.product_type === 'perfume');
-            } else {
-                result = result.filter(p => p.category === filters.category);
-            }
-        }
-        setFilteredProducts(result);
+    // Reset da página ao mudar filtros
+    const handleFilterChange = (newFilters) => {
+        setFilters(prev => ({ ...prev, ...newFilters }));
         setCurrentPage(1);
-    }, [filters, allProducts, initialIsPromo]);
-    
-    const uniqueBrands = [...new Set(allProducts.map(p => p.brand))];
-    const indexOfLastProduct = currentPage * productsPerPage;
-    const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
-    const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
-    const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
-    
+    };
+
     const ProductSkeleton = () => (
         <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col h-full animate-pulse">
             <div className="h-64 bg-gray-700"></div>
@@ -3925,7 +3924,6 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
                 <div className="h-4 bg-gray-700 rounded w-1/4 mb-2"></div>
                 <div className="h-6 bg-gray-700 rounded w-3/4 mb-4"></div>
                 <div className="h-5 bg-gray-700 rounded w-1/2 mb-auto"></div>
-                <div className="h-8 bg-gray-700 rounded w-1/3 mt-4"></div>
                 <div className="mt-4 flex items-stretch space-x-2">
                     <div className="h-10 bg-gray-700 rounded flex-grow"></div>
                     <div className="h-10 w-12 bg-gray-700 rounded"></div>
@@ -3936,36 +3934,45 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
     
     const gridContainerVariants = {
         hidden: { opacity: 0 },
-        visible: {
-            opacity: 1,
-            transition: { staggerChildren: 0.1 }
-        }
+        visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
     };
 
-    const pageTitle = initialIsPromo ? 'Produtos em Promoção' : 'Nossa Coleção';
-
     return (
-        // CORREÇÃO AQUI: pt-12 pb-28 md:pb-12 para liberar espaço do navbar mobile
         <div className="bg-black text-white min-h-screen pt-12 pb-28 md:pb-12">
             <div className="container mx-auto px-4">
-                <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">{pageTitle}</h2>
+                <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
+                    {filters.promo ? 'Promoções Imperdíveis' : 'Nossa Coleção'}
+                </h2>
+
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                     <aside className="lg:col-span-1 bg-gray-900 p-6 rounded-lg shadow-md h-fit lg:sticky lg:top-28">
                         <h3 className="text-xl font-bold mb-4 text-amber-400">Filtros</h3>
                         <div className="space-y-4">
-                            <input type="text" placeholder="Buscar por nome..." value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} className="w-full p-2 bg-gray-800 border border-gray-700 rounded" />
-                             <select value={filters.brand} onChange={e => setFilters({...filters, brand: e.target.value})} className="w-full p-2 bg-gray-800 border border-gray-700 rounded">
-                                <option value="">Todas as Marcas</option>
-                                {uniqueBrands.map(b => <option key={b} value={b}>{b}</option>)}
-                            </select>
-                            <select value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})} className="w-full p-2 bg-gray-800 border border-gray-700 rounded">
+                            <input 
+                                type="text" 
+                                placeholder="Pesquisar..." 
+                                value={filters.search} 
+                                onChange={e => handleFilterChange({ search: e.target.value })} 
+                                className="w-full p-2 bg-gray-800 border border-gray-700 rounded text-white focus:ring-1 focus:ring-amber-500 outline-none" 
+                            />
+                            <select 
+                                value={filters.category} 
+                                onChange={e => handleFilterChange({ category: e.target.value })} 
+                                className="w-full p-2 bg-gray-800 border border-gray-700 rounded text-white"
+                            >
                                 <option value="">Todas as Categorias</option>
                                 <option value="Roupas">Roupas (Geral)</option>
                                 <option value="Perfumes">Perfumes (Geral)</option>
                                 {uniqueCategories.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                         </div>
+                        {totalItems > 0 && (
+                            <p className="mt-6 text-xs text-gray-500 font-medium uppercase tracking-wider">
+                                {totalItems} {totalItems === 1 ? 'produto encontrado' : 'produtos encontrados'}
+                            </p>
+                        )}
                     </aside>
+
                     <main className="lg:col-span-3">
                         <motion.div 
                             variants={gridContainerVariants}
@@ -3975,17 +3982,45 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
                         >
                            {isLoading ? (
                                 Array.from({ length: 6 }).map((_, i) => <ProductSkeleton key={i} />)
-                            ) : currentProducts.length > 0 ? (
-                                currentProducts.map(p => <ProductCard key={p.id} product={p} onNavigate={onNavigate} />)
+                            ) : products.length > 0 ? (
+                                products.map(p => <ProductCard key={p.id} product={p} onNavigate={onNavigate} />)
                             ) : (
-                                <p className="col-span-full text-center text-gray-500">Nenhum produto encontrado para sua busca.</p>
+                                <div className="col-span-full py-20 text-center">
+                                    <p className="text-gray-500 text-lg">Não encontrámos resultados para a sua pesquisa.</p>
+                                    <button onClick={() => handleFilterChange({ search: '', category: '', promo: false })} className="mt-4 text-amber-400 underline font-bold">Limpar Filtros</button>
+                                </div>
                             )}
                         </motion.div>
+
                         {totalPages > 1 && (
-                            <div className="flex justify-center mt-8 items-center space-x-2 sm:space-x-4">
-                                <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-3 sm:px-4 py-2 bg-gray-800 rounded disabled:opacity-50">Anterior</button>
-                                <span className="text-sm sm:text-base">Página {currentPage} de {totalPages}</span>
-                                <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-3 sm:px-4 py-2 bg-gray-800 rounded disabled:opacity-50">Próxima</button>
+                            <div className="flex justify-center mt-12 items-center space-x-2">
+                                <button 
+                                    onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} 
+                                    disabled={currentPage === 1 || isLoading} 
+                                    className="px-4 py-2 bg-gray-800 rounded-lg disabled:opacity-30 font-bold hover:bg-gray-700 transition-colors"
+                                >
+                                    Anterior
+                                </button>
+                                
+                                <div className="flex space-x-1">
+                                    {[...Array(totalPages)].map((_, i) => (
+                                        <button
+                                            key={i + 1}
+                                            onClick={() => setCurrentPage(i + 1)}
+                                            className={`w-10 h-10 rounded-lg font-bold transition-all ${currentPage === i + 1 ? 'bg-amber-500 text-black' : 'bg-gray-900 text-gray-400 hover:bg-gray-800'}`}
+                                        >
+                                            {i + 1}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <button 
+                                    onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} 
+                                    disabled={currentPage === totalPages || isLoading} 
+                                    className="px-4 py-2 bg-gray-800 rounded-lg disabled:opacity-30 font-bold hover:bg-gray-700 transition-colors"
+                                >
+                                    Próxima
+                                </button>
                             </div>
                         )}
                     </main>
@@ -3994,7 +4029,6 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
         </div>
     );
 };
-// ===================================
 
 const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
     if (!isOpen || !installments || installments.length === 0) return null;
