@@ -6341,7 +6341,6 @@ const CheckoutPage = ({ onNavigate }) => {
     
     const total = useMemo(() => Math.max(0, (Number(subtotal) || 0) - (Number(discount) || 0) + (Number(shippingCost) || 0)), [subtotal, discount, shippingCost]);
 
-    // OTIMIZAÇÃO E CORREÇÃO DO MERCADO PAGO BRICKS
     const mpInitialization = useMemo(() => {
         const payer = {
             email: user?.email || '',
@@ -6364,7 +6363,6 @@ const CheckoutPage = ({ onNavigate }) => {
         const billingAddress = displayAddress || addresses?.find(a => a.is_default) || addresses?.[0];
         
         if (billingAddress && billingAddress.cep && billingAddress.logradouro) {
-            // O Mercado Pago Brick exige que o número seja numérico, se contiver S/N ou texto, o Brick rejeita o preenchimento automático
             const rawNumero = String(billingAddress.numero || '');
             const safeNumero = rawNumero.replace(/\D/g, '') || '1';
             
@@ -6469,7 +6467,6 @@ const CheckoutPage = ({ onNavigate }) => {
             
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
 
-            // INJEÇÃO DO ENDEREÇO REAL PARA GERAR O BOLETO CORRETO
             const actualPaymentData = JSON.parse(JSON.stringify(mpResponse.formData || mpResponse));
 
             if (actualPaymentData.payer && displayAddress && !isPickup) {
@@ -6597,7 +6594,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                                     rel="noopener noreferrer" 
                                                     className="ml-7 mt-4 inline-flex items-center gap-2 px-4 py-2 border border-amber-500/50 text-amber-400 text-sm font-semibold rounded-md hover:bg-amber-500/10 transition-colors"
                                                 >
-                                                    Ver localização no mapa <span className="text-lg leading-none mt-[-2px]">&rarr;</span>
+                                                    Ver localização no mapa <span className="text-lg leading-none mt-[-2px]">→</span>
                                                 </a>
                                             )}
                                         </div>
@@ -6760,6 +6757,14 @@ const CheckoutPage = ({ onNavigate }) => {
                                     </div>
                                 ) : (
                                     <div className="mt-4 pt-4 border-t border-gray-700">
+                                        {/* AVISO DO PIX ADICIONADO AQUI */}
+                                        <div className="mb-4 p-3.5 bg-blue-900/30 border border-blue-800/50 rounded-xl flex items-start gap-3">
+                                            <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                                            <div className="text-xs text-blue-200 leading-relaxed">
+                                                <strong className="text-blue-300 block mb-1">Dica sobre o pagamento via Pix:</strong> 
+                                                O código Copia e Cola e o QR Code serão gerados <strong>aqui mesmo na tela</strong> no próximo passo, logo após você confirmar. O e-mail solicitado abaixo serve apenas para enviarmos o seu comprovante de pagamento.
+                                            </div>
+                                        </div>
                                         <MercadoPagoPayment
                                             key={`mp-payment-checkout-${total.toFixed(2)}-${displayAddress?.id || 'none'}-${autoCalculatedShipping?.name || 'none'}`}
                                             initialization={mpInitialization}
@@ -16701,6 +16706,14 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                     {/* Lado Esquerdo no Desktop / Baixo no Mobile: Formulário do Mercado Pago */}
                     <div className="lg:col-span-7 order-2 lg:order-1">
                         <div className="bg-gray-900 rounded-3xl border border-gray-800 p-2 sm:p-4 shadow-2xl">
+                            {/* AVISO DO PIX ADICIONADO AQUI */}
+                            <div className="mb-4 p-3.5 bg-blue-900/30 border border-blue-800/50 rounded-xl flex items-start gap-3">
+                                <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                                <div className="text-xs text-blue-200 leading-relaxed">
+                                    <strong className="text-blue-300 block mb-1">Dica sobre o pagamento via Pix:</strong> 
+                                    O código Copia e Cola e o QR Code serão gerados <strong>aqui mesmo na tela</strong> no próximo passo, logo após você confirmar. O e-mail solicitado abaixo serve apenas para enviarmos o seu comprovante de pagamento.
+                                </div>
+                            </div>
                             <MercadoPagoPayment
                                 key={`mp-payment-order-${order.id}`}
                                 initialization={mpInitialization}
