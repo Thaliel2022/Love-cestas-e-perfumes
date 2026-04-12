@@ -9544,7 +9544,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
        {
             title: "Sistema",
             items: [
-                { key: 'theme', label: 'Tema e Cores', icon: <SparklesIcon className="h-5 w-5"/> },
+                { key: 'theme', label: 'Tema e Cores', icon: <SparklesIcon className="h-5 w-5"/> }, // NOVO ITEM AQUI
                 { key: 'app-icons', label: 'Ícones e Nomes', icon: <CameraIcon className="h-5 w-5"/> }, 
                 { key: 'shipping', label: 'Frete Local', icon: <TruckIcon className="h-5 w-5"/> }, 
                 { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
@@ -9554,27 +9554,26 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     ];
 
     return (
-        <div className="h-screen flex overflow-hidden bg-black text-gray-200 font-sans selection:bg-amber-400 selection:text-black">
-            {isSidebarOpen && <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
+        <div className="h-screen flex overflow-hidden bg-gray-50 text-slate-800 font-sans selection:bg-indigo-100 selection:text-indigo-700">
+            {isSidebarOpen && <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
 
-            {/* Sidebar com visual Premium (Dark Mode) */}
-            <aside className={`bg-gray-900 w-72 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 flex flex-col border-r border-gray-800 shadow-2xl lg:shadow-none`}>
-                <div className="h-16 flex items-center px-6 border-b border-gray-800 flex-shrink-0 bg-black">
-                    <div className="flex items-center gap-3 text-amber-400">
-                        <div className="p-1.5 bg-amber-500/10 rounded-lg border border-amber-500/20">
-                            <AdminIcon className="h-5 w-5 text-amber-400"/>
+            <aside className={`bg-white w-72 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 flex flex-col border-r border-gray-200 shadow-xl lg:shadow-none`}>
+                <div className="h-16 flex items-center px-6 border-b border-gray-100 flex-shrink-0 bg-white">
+                    <div className="flex items-center gap-3 text-indigo-600">
+                        <div className="p-1.5 bg-indigo-600 rounded-lg">
+                            <AdminIcon className="h-5 w-5 text-white"/>
                         </div>
-                        <span className="text-lg font-black tracking-widest text-white uppercase">Admin</span>
+                        <span className="text-lg font-extrabold tracking-tight text-slate-900">ADMINISTRAÇÃO</span>
                     </div>
-                    <button className="lg:hidden ml-auto text-gray-400 hover:text-white" onClick={() => setIsSidebarOpen(false)}>
+                    <button className="lg:hidden ml-auto text-gray-400 hover:text-gray-600" onClick={() => setIsSidebarOpen(false)}>
                         <CloseIcon className="h-6 w-6"/>
                     </button>
                 </div>
 
-                <nav className="flex-grow p-4 space-y-6 overflow-y-auto custom-scrollbar bg-gray-900">
+                <nav className="flex-grow p-4 space-y-6 overflow-y-auto custom-scrollbar">
                     {menuGroups.map((group, idx) => (
                         <div key={idx}>
-                            <h3 className="px-3 text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">{group.title}</h3>
+                            <h3 className="px-3 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{group.title}</h3>
                             <div className="space-y-1">
                                 {group.items.map(item => {
                                     const isActive = activePage.startsWith(item.key);
@@ -9583,20 +9582,20 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                                             href="#" 
                                             key={item.key} 
                                             onClick={(e) => { e.preventDefault(); onNavigate(`admin/${item.key}`); setIsSidebarOpen(false); }} 
-                                            className={`group flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${
+                                            className={`group flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium ${
                                                 isActive 
-                                                ? 'bg-amber-500 text-black shadow-md font-bold' 
-                                                : 'text-gray-400 font-medium hover:bg-gray-800 hover:text-white'
+                                                ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' 
+                                                : 'text-slate-600 hover:bg-gray-50 hover:text-slate-900'
                                             }`}
                                         >
                                             <div className="flex items-center gap-3">
-                                                <span className={`transition-colors ${isActive ? 'text-black' : 'text-gray-500 group-hover:text-amber-400'}`}>
+                                                <span className={`transition-colors ${isActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`}>
                                                     {item.icon}
                                                 </span>
                                                 <span>{item.label}</span>
                                             </div>
                                             {item.badge > 0 && (
-                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm border ${isActive ? 'bg-black text-amber-500 border-black' : 'bg-red-500 text-white border-red-600'}`}>
+                                                <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
                                                     {item.badge}
                                                 </span>
                                             )}
@@ -9608,41 +9607,40 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                     ))}
                 </nav>
 
-                <div className="p-4 border-t border-gray-800 bg-black">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-amber-400 font-bold border border-gray-700 shadow-inner">
+                <div className="p-4 border-t border-gray-100 bg-gray-50/50">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold border border-indigo-200">
                             {user?.name?.charAt(0).toUpperCase()}
                         </div>
                         <div className="overflow-hidden">
-                            <p className="text-sm font-bold text-white truncate">{user?.name}</p>
-                            <p className="text-xs text-amber-500/70 font-semibold truncate uppercase tracking-wider">Administrador</p>
+                            <p className="text-sm font-bold text-slate-800 truncate">{user?.name}</p>
+                            <p className="text-xs text-slate-500 truncate">Administrador</p>
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                        <button onClick={() => onNavigate('home')} className="flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-gray-800 border border-gray-700 text-gray-300 text-xs font-bold hover:bg-gray-700 hover:text-amber-400 transition-all shadow-sm">
-                            <EyeIcon className="h-4 w-4"/> Ver Loja
+                        <button onClick={() => onNavigate('home')} className="flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-white border border-gray-200 text-slate-600 text-xs font-semibold hover:bg-gray-50 hover:text-indigo-600 transition-all shadow-sm">
+                            <EyeIcon className="h-3 w-3"/> Ver Loja
                         </button>
-                        <button onClick={handleLogout} className="flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-red-950/30 border border-red-900/50 text-red-400 text-xs font-bold hover:bg-red-900/50 hover:text-red-300 transition-all shadow-sm">
-                            <ArrowUturnLeftIcon className="h-4 w-4"/> Sair
+                        <button onClick={handleLogout} className="flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-white border border-red-100 text-red-600 text-xs font-semibold hover:bg-red-50 hover:border-red-200 transition-all shadow-sm">
+                            <ArrowUturnLeftIcon className="h-3 w-3"/> Sair
                         </button>
                     </div>
                 </div>
             </aside>
 
-            {/* Main Content Wrapper - Dark Theme */}
-            <div className="flex-1 flex flex-col overflow-hidden relative bg-black">
-                <header className="bg-gray-900/90 backdrop-blur-md h-16 flex items-center justify-between px-6 sm:px-8 flex-shrink-0 z-20 border-b border-gray-800 sticky top-0 shadow-sm">
+            <div className="flex-1 flex flex-col overflow-hidden relative">
+                <header className="bg-white/80 backdrop-blur-md h-16 flex items-center justify-between px-6 sm:px-8 flex-shrink-0 z-20 border-b border-gray-200 sticky top-0">
                      <div className="flex items-center gap-4">
-                         <button onClick={() => setIsSidebarOpen(true)} className="p-2 lg:hidden text-gray-400 hover:text-white hover:bg-gray-800 rounded-md transition-colors">
+                         <button onClick={() => setIsSidebarOpen(true)} className="p-2 lg:hidden text-slate-500 hover:bg-gray-100 rounded-md">
                             <MenuIcon className="h-6 w-6"/>
                          </button>
-                         <h1 className="text-xl font-extrabold text-white capitalize tracking-tight hidden sm:block">
+                         <h1 className="text-xl font-bold text-slate-800 capitalize tracking-tight hidden sm:block">
                             {activePage.split('/')[0].replace('-', ' ')}
                          </h1>
                      </div>
                      <div className="flex items-center gap-4">
                         {isMaintenance ? (
-                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-amber-900/30 text-amber-400 rounded-full border border-amber-700/50 shadow-sm">
+                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full border border-amber-200 shadow-sm">
                                 <span className="relative flex h-2 w-2">
                                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                                   <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
@@ -9650,7 +9648,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                                 <span className="text-xs font-bold tracking-wide">EM MANUTENÇÃO</span>
                             </div>
                         ) : (
-                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-900/30 text-green-400 rounded-full border border-green-700/50 shadow-sm">
+                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-full border border-green-100 shadow-sm">
                                 <span className="relative flex h-2 w-2">
                                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
@@ -9661,7 +9659,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                      </div>
                 </header>
 
-                <main ref={mainContentRef} className="flex-grow p-6 sm:p-8 overflow-y-auto">
+                <main ref={mainContentRef} className="flex-grow p-6 sm:p-8 overflow-y-auto bg-gray-50">
                     <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
                         {children}
                     </div>
@@ -10129,14 +10127,13 @@ const AdminDashboard = ({ onNavigate }) => {
                 }
             };
 
-            // Estilos de Gráfico Premium (Fundo escuro, textos claros, linhas sutis)
             const commonOptions = {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
                 scales: {
-                    x: { grid: { display: false }, ticks: { font: { size: 10, family: 'sans-serif' }, color: '#9ca3af' } },
-                    y: { grid: { borderDash: [2, 4], color: '#374151' }, ticks: { font: { size: 10 }, color: '#9ca3af' }, beginAtZero: true }
+                    x: { grid: { display: false }, ticks: { font: { size: 10, family: 'sans-serif' }, color: '#64748b' } },
+                    y: { grid: { borderDash: [2, 4], color: '#f1f5f9' }, ticks: { font: { size: 10 }, color: '#64748b' }, beginAtZero: true }
                 }
             };
 
@@ -10151,39 +10148,33 @@ const AdminDashboard = ({ onNavigate }) => {
                 return dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
             });
 
-            // Estilização Premium do Gráfico de Linha (Âmbar/Dourado no fundo escuro)
             renderChart('dailySalesChart', 'line', {
                 labels: safeLabels,
                 datasets: [{
                     label: 'Faturamento',
                     data: dailySalesData.map(d => d.daily_total),
-                    borderColor: '#fbbf24', // amber-400
+                    borderColor: '#4f46e5', // Indigo 600
                     backgroundColor: (context) => {
                         const ctx = context.chart.ctx;
                         const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-                        gradient.addColorStop(0, 'rgba(251, 191, 36, 0.4)');
-                        gradient.addColorStop(1, 'rgba(251, 191, 36, 0.0)');
+                        gradient.addColorStop(0, 'rgba(79, 70, 229, 0.2)');
+                        gradient.addColorStop(1, 'rgba(79, 70, 229, 0.0)');
                         return gradient;
                     },
-                    borderWidth: 3,
-                    pointBackgroundColor: '#f59e0b', // amber-500
-                    pointBorderColor: '#111827', // gray-900
-                    pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
                     fill: true,
                     tension: 0.4
                 }]
             }, commonOptions);
 
-            // Estilização Premium do Gráfico de Barras (Cinza escuro, hover Âmbar)
             renderChart('bestSellersChart', 'bar', {
                 labels: bestSellersData.map(p => p.name.substring(0, 15) + '...'),
                 datasets: [{
                     label: 'Vendas',
                     data: bestSellersData.map(p => p.sales || 0),
-                    backgroundColor: '#374151', // gray-700
-                    hoverBackgroundColor: '#fbbf24', // amber-400 no hover
+                    backgroundColor: '#0ea5e9', // Sky 500
                     borderRadius: 4,
                     barThickness: 20
                 }]
@@ -10211,23 +10202,23 @@ const AdminDashboard = ({ onNavigate }) => {
         <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-800 flex items-start justify-between hover:shadow-lg transition-all duration-300 hover:border-gray-700"
+            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-start justify-between hover:shadow-md transition-all duration-300"
         >
             <div>
-                <p className="text-sm font-bold text-gray-400 mb-1 tracking-wider uppercase text-[10px]">{title}</p>
-                <h4 className="text-2xl font-black text-white">{value}</h4>
+                <p className="text-sm font-semibold text-gray-500 mb-1 tracking-wide uppercase text-[10px]">{title}</p>
+                <h4 className="text-2xl font-extrabold text-slate-800">{value}</h4>
                 {(growth || subtext) && (
                     <div className="flex items-center gap-2 mt-2">
                         {growth && (
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded-md border ${growth.isPositive ? 'bg-green-900/30 text-green-400 border-green-800/50' : 'bg-red-900/30 text-red-400 border-red-800/50'}`}>
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${growth.isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                 {growth.text}
                             </span>
                         )}
-                        {subtext && <span className="text-xs font-medium text-gray-500">{subtext}</span>}
+                        {subtext && <span className="text-xs text-gray-400">{subtext}</span>}
                     </div>
                 )}
             </div>
-            <div className={`p-3 rounded-xl border ${iconBg}`}>
+            <div className={`p-3 rounded-lg ${iconBg}`}>
                 <Icon className={`h-6 w-6 ${iconColor}`} />
             </div>
         </motion.div>
@@ -10238,24 +10229,24 @@ const AdminDashboard = ({ onNavigate }) => {
         const filtered = lowStockProducts.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
         return (
-            <div className="bg-gray-900 rounded-2xl shadow-sm border border-gray-800 flex flex-col h-full overflow-hidden">
-                <div className="p-5 border-b border-gray-800 flex justify-between items-center bg-gray-900/50">
-                    <h3 className="font-bold text-white flex items-center gap-2 text-sm">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col h-full overflow-hidden">
+                <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm">
                         <ExclamationCircleIcon className="h-5 w-5 text-amber-500" />
                         Reposição Necessária
                     </h3>
-                    <span className="text-xs font-black bg-amber-500 text-black px-2.5 py-0.5 rounded-full shadow-sm">{lowStockProducts.length}</span>
+                    <span className="text-xs font-bold bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full">{lowStockProducts.length}</span>
                 </div>
-                <div className="p-3 bg-gray-900 border-b border-gray-800">
+                <div className="p-3 bg-white border-b border-gray-50">
                     <div className="relative">
                         <input 
                             type="text" 
                             placeholder="Buscar produto..." 
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-3 py-2 text-xs bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-amber-500 text-white outline-none transition-all placeholder-gray-500"
+                            className="w-full pl-9 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
                         />
-                        <SearchIcon className="absolute left-3 top-2.5 h-3.5 w-3.5 text-gray-500" />
+                        <SearchIcon className="absolute left-3 top-2 h-3.5 w-3.5 text-gray-400" />
                     </div>
                 </div>
                 <div className="flex-grow overflow-y-auto max-h-[320px] p-2 space-y-1 custom-scrollbar">
@@ -10263,30 +10254,30 @@ const AdminDashboard = ({ onNavigate }) => {
                         <div 
                             key={item.id + item.name} 
                             onClick={() => { setSelectedStockItem(item); setIsStockModalOpen(true); }}
-                            className="flex items-center justify-between p-3 hover:bg-gray-800 rounded-xl transition-colors group border border-transparent hover:border-gray-700 cursor-pointer"
+                            className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors group border border-transparent hover:border-gray-100 cursor-pointer"
                         >
                             <div className="flex items-center gap-3 overflow-hidden">
-                                <div className="w-10 h-10 rounded-lg bg-white flex-shrink-0 border border-gray-700 p-1">
+                                <div className="w-8 h-8 rounded bg-gray-100 flex-shrink-0 border border-gray-200 p-0.5">
                                     <img src={getFirstImage(item.images)} alt={item.name} className="w-full h-full object-contain rounded-sm" />
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-xs font-bold text-white truncate">{item.name}</p>
-                                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mt-0.5">{item.brand}</p>
+                                    <p className="text-xs font-semibold text-slate-700 truncate">{item.name}</p>
+                                    <p className="text-[10px] text-slate-400">{item.brand}</p>
                                 </div>
                             </div>
                             <div className="text-right flex-shrink-0 flex flex-col items-end">
-                                <span className="text-[10px] font-black text-red-400 bg-red-900/30 border border-red-800/50 px-2 py-0.5 rounded-md">{item.stock} un.</span>
+                                <span className="text-xs font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">{item.stock} un.</span>
                                 <span 
-                                    className="text-[10px] text-amber-500 font-bold mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="text-[10px] text-indigo-600 font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
                                     Repor
                                 </span>
                             </div>
                         </div>
                     )) : (
-                        <div className="flex flex-col items-center justify-center py-10 text-gray-500">
-                            <CheckCircleIcon className="h-8 w-8 text-green-500/50 mb-2 opacity-50"/>
-                            <p className="text-xs font-bold">Estoque saudável!</p>
+                        <div className="flex flex-col items-center justify-center py-10 text-gray-400">
+                            <CheckCircleIcon className="h-8 w-8 text-green-100 mb-2"/>
+                            <p className="text-xs">Estoque saudável!</p>
                         </div>
                     )}
                 </div>
@@ -10302,20 +10293,20 @@ const AdminDashboard = ({ onNavigate }) => {
                 )}
             </AnimatePresence>
 
-            {/* Header com Filtros Premium */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-gray-800 pb-5">
+            {/* Header com Filtros */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-gray-200 pb-5">
                 <div>
-                    <h2 className="text-2xl font-black text-white tracking-tight">Dashboard</h2>
-                    <p className="text-gray-400 text-sm mt-1 font-medium">Bem-vindo de volta, <span className="text-amber-400">{user?.name.split(' ')[0]}</span>. Resumo do seu negócio.</p>
+                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Dashboard</h2>
+                    <p className="text-slate-500 text-sm mt-1">Bem-vindo de volta, {user?.name.split(' ')[0]}. Aqui está o que está acontecendo hoje.</p>
                 </div>
-                <div className="flex bg-gray-900 p-1 rounded-xl border border-gray-800 shadow-sm">
+                <div className="flex bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
                     {['today', 'week', 'month', 'year'].map(f => {
                         const labels = { today: 'Hoje', week: '7 Dias', month: 'Este Mês', year: 'Este Ano' };
                         return (
                             <button
                                 key={f}
                                 onClick={() => setActiveFilter(f)}
-                                className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeFilter === f ? 'bg-amber-500 text-black shadow-md' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeFilter === f ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-gray-50'}`}
                             >
                                 {labels[f]}
                             </button>
@@ -10325,62 +10316,62 @@ const AdminDashboard = ({ onNavigate }) => {
             </div>
 
             {isLoadingData ? (
-                <div className="flex justify-center py-20"><SpinnerIcon className="h-10 w-10 text-amber-500 animate-spin"/></div>
+                <div className="flex justify-center py-20"><SpinnerIcon className="h-10 w-10 text-indigo-500 animate-spin"/></div>
             ) : (
                 <>
-                    {/* Cards de KPIs (Cores Premium Dark Mode) */}
+                    {/* Cards de KPIs */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <StatCard 
                             title="Faturamento Total" 
                             value={`R$ ${Number(stats.totalRevenue).toFixed(2)}`} 
                             growth={growth}
-                            subtext="vs. anterior"
+                            subtext="vs. período anterior"
                             icon={CurrencyDollarIcon}
-                            iconBg="bg-green-900/30 border-green-800/50"
-                            iconColor="text-green-400"
+                            iconBg="bg-green-100"
+                            iconColor="text-green-600"
                         />
                         <StatCard 
                             title="Vendas Realizadas" 
                             value={stats.totalSales} 
                             icon={BoxIcon}
-                            iconBg="bg-blue-900/30 border-blue-800/50"
-                            iconColor="text-blue-400"
+                            iconBg="bg-blue-100"
+                            iconColor="text-blue-600"
                         />
                         <StatCard 
                             title="Novos Clientes" 
                             value={stats.newCustomers} 
                             icon={UsersIcon}
-                            iconBg="bg-purple-900/30 border-purple-800/50"
-                            iconColor="text-purple-400"
+                            iconBg="bg-purple-100"
+                            iconColor="text-purple-600"
                         />
                         <StatCard 
                             title="Pedidos Pendentes" 
                             value={stats.pendingOrders} 
                             icon={ClockIcon}
-                            iconBg="bg-amber-900/30 border-amber-800/50"
-                            iconColor="text-amber-400"
+                            iconBg="bg-amber-100"
+                            iconColor="text-amber-600"
                         />
                     </div>
 
                     {/* Seção de Exportação */}
-                    <div className="bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-800">
-                        <h3 className="font-bold text-white text-lg mb-4">Exportar Relatórios</h3>
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <h3 className="font-bold text-slate-800 text-lg mb-4">Exportar Relatórios</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <button 
                                 onClick={() => handleSalesExport('excel')} 
-                                className="bg-gray-800 border border-gray-700 text-white hover:bg-gray-700 hover:text-green-400 py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
+                                className="bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
                             >
                                 <DownloadIcon className="h-5 w-5"/> <span>Vendas (Excel)</span>
                             </button>
                             <button 
                                 onClick={() => handleStockExport('excel')} 
-                                className="bg-gray-800 border border-gray-700 text-white hover:bg-gray-700 hover:text-blue-400 py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
+                                className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
                             >
                                 <DownloadIcon className="h-5 w-5"/> <span>Estoque (Excel)</span>
                             </button>
                             <button 
                                 onClick={() => handleSalesExport('pdf')} 
-                                className="bg-gray-800 border border-gray-700 text-white hover:bg-gray-700 hover:text-red-400 py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
+                                className="bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
                             >
                                 <DownloadIcon className="h-5 w-5"/> <span>Vendas (PDF)</span>
                             </button>
@@ -10390,11 +10381,11 @@ const AdminDashboard = ({ onNavigate }) => {
                     {/* Área Principal: Gráfico e Estoque */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Gráfico Principal */}
-                        <div className="lg:col-span-2 bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-800">
-                            <div className="flex justify-between items-center mb-6 border-b border-gray-800 pb-4">
+                        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <div className="flex justify-between items-center mb-6">
                                 <div>
-                                    <h3 className="font-bold text-white text-lg">Performance de Vendas</h3>
-                                    <p className="text-xs text-gray-400 font-medium mt-1">Receita bruta ao longo do tempo</p>
+                                    <h3 className="font-bold text-slate-800 text-lg">Performance de Vendas</h3>
+                                    <p className="text-xs text-gray-400">Receita bruta ao longo do tempo</p>
                                 </div>
                             </div>
                             <div className="h-80 w-full relative">
@@ -10413,41 +10404,38 @@ const AdminDashboard = ({ onNavigate }) => {
                     {/* Área Inferior: Ações e Secundários */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Gráfico Secundário */}
-                        <div className="lg:col-span-1 bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-800">
-                            <h3 className="font-bold text-white text-lg mb-4 border-b border-gray-800 pb-3">Top 5 Mais Vendidos</h3>
-                            <div className="h-64 relative mt-4">
+                        <div className="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <h3 className="font-bold text-slate-800 text-lg mb-4">Top 5 Mais Vendidos</h3>
+                            <div className="h-64 relative">
                                 <canvas id="bestSellersChart"></canvas>
                             </div>
                         </div>
                         
                         {/* Manutenção e Ações Rápidas */}
                         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-                             <div className="bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-800 flex flex-col justify-center text-white">
-                                <h3 className="font-bold text-white mb-2">Status da Loja</h3>
+                             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
+                                <h3 className="font-bold text-slate-800 mb-2">Status da Loja</h3>
                                 <MaintenanceModeToggle />
                             </div>
 
-                            <div className="bg-gradient-to-br from-gray-900 to-black p-6 rounded-2xl shadow-xl text-white border border-amber-500/20 relative overflow-hidden">
-                                {/* Detalhe visual de brilho no card de Ações Rápidas */}
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl"></div>
-                                
-                                <h3 className="font-bold text-lg mb-4 flex items-center gap-2 relative z-10 text-white">
+                            <div className="bg-gradient-to-br from-indigo-900 to-slate-900 p-6 rounded-xl shadow-lg text-white">
+                                <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
                                     <SparklesIcon className="h-5 w-5 text-amber-400"/> Ações Rápidas
-                               </h3>
-                                <div className="grid grid-cols-2 gap-3 relative z-10">
-                                    <button onClick={() => onNavigate('admin/products')} className="bg-gray-800/80 hover:bg-gray-700 p-3.5 rounded-xl text-left transition-all hover:scale-105 border border-gray-700">
+                                </h3>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button onClick={() => onNavigate('admin/products')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
                                         <PlusIcon className="h-5 w-5 mb-2 text-green-400"/>
                                         <span className="text-xs font-bold block text-gray-200">Novo Produto</span>
                                     </button>
-                                    <button onClick={() => onNavigate('admin/banners')} className="bg-gray-800/80 hover:bg-gray-700 p-3.5 rounded-xl text-left transition-all hover:scale-105 border border-gray-700">
+                                    <button onClick={() => onNavigate('admin/banners')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
                                         <PhotoIcon className="h-5 w-5 mb-2 text-blue-400"/>
-                                        <span className="text-xs font-bold block text-gray-200">Visual</span>
+                                        <span className="text-xs font-bold block text-gray-200">Banners</span>
                                     </button>
-                                    <button onClick={() => handleStockExport('excel')} className="bg-gray-800/80 hover:bg-gray-700 p-3.5 rounded-xl text-left transition-all hover:scale-105 border border-gray-700">
+                                    <button onClick={() => handleStockExport('excel')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
                                         <FileIcon className="h-5 w-5 mb-2 text-amber-400"/>
                                         <span className="text-xs font-bold block text-gray-200">Rel. Estoque</span>
                                     </button>
-                                    <button onClick={() => onNavigate('admin/coupons')} className="bg-gray-800/80 hover:bg-gray-700 p-3.5 rounded-xl text-left transition-all hover:scale-105 border border-gray-700">
+                                    <button onClick={() => onNavigate('admin/coupons')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
                                         <TagIcon className="h-5 w-5 mb-2 text-pink-400"/>
                                         <span className="text-xs font-bold block text-gray-200">Cupom</span>
                                     </button>
@@ -11505,6 +11493,7 @@ const AdminProducts = ({ onNavigate }) => {
   const [importMessage, setImportMessage] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   
+  // Estados para Promoção em Massa
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [isBulkPromoModalOpen, setIsBulkPromoModalOpen] = useState(false);
   const [bulkDiscount, setBulkDiscount] = useState(10);
@@ -11514,6 +11503,7 @@ const AdminProducts = ({ onNavigate }) => {
   const [isClearingPromos, setIsClearingPromos] = useState(false); 
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
+  // NOVO ESTADO: Controle da tela de carregamento em tela cheia para ações em massa
   const [bulkProgress, setBulkProgress] = useState({ isRunning: false, text: '' });
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -11556,7 +11546,7 @@ const AdminProducts = ({ onNavigate }) => {
 
       if (!timeLeft) return null;
       if (timeLeft === 'Expirado') return <span className="text-gray-500 text-[10px] font-bold">Expirado</span>;
-      return <span className="text-red-500 font-bold text-[10px] animate-pulse">{timeLeft}</span>;
+      return <span className="text-red-600 font-bold text-[10px] animate-pulse">{timeLeft}</span>;
   };
 
   const fetchProducts = useCallback(() => {
@@ -11630,7 +11620,7 @@ const AdminProducts = ({ onNavigate }) => {
                 await apiService(`/products/${id}`, 'DELETE');
                 fetchProducts();
                 notification.show('Produto deletado com sucesso.');
-                setSearchTerm('');
+                setSearchTerm(''); // Limpa a barra de pesquisa para evitar o bug de tela vazia com autofill
               } catch(error) {
                 notification.show(`Erro ao deletar produto: ${error.message}`, 'error');
               }
@@ -11639,6 +11629,7 @@ const AdminProducts = ({ onNavigate }) => {
       );
   };
 
+  // --- Exclusão em Massa ---
   const handleBulkDelete = () => {
       if (selectedProducts.length === 0) return;
       
@@ -11662,6 +11653,7 @@ const AdminProducts = ({ onNavigate }) => {
       );
   };
 
+  // --- Ativação/Inativação em Massa ---
   const handleBulkStatusUpdate = async (newStatus) => {
       if (selectedProducts.length === 0) return;
       const actionText = newStatus ? 'ATIVAR' : 'INATIVAR';
@@ -11672,15 +11664,18 @@ const AdminProducts = ({ onNavigate }) => {
               setIsUpdatingStatus(true);
               setBulkProgress({ isRunning: true, text: `${newStatus ? 'Ativando' : 'Inativando'} ${selectedProducts.length} produto(s)...` });
               try {
+                  // Processa de forma sequencial para não sobrecarregar o pool de conexões do MySQL
                   for (const id of selectedProducts) {
                       const product = products.find(p => p.id === id);
                       if (!product) continue;
 
+                      // Clona o produto e limpa campos excedentes gerados pelo select de agregação (evita conflito)
                       const payload = { ...product, is_active: newStatus ? 1 : 0 };
                       delete payload.avg_rating;
                       delete payload.review_count;
                       delete payload.created_at;
 
+                      // Converte null para string vazia em todos os campos de texto opcionais
                       const textFields = ['description', 'notes', 'how_to_use', 'ideal_for', 'volume', 'size_guide', 'care_instructions', 'video_url'];
                       textFields.forEach(field => {
                           if (payload[field] === null || payload[field] === undefined) {
@@ -11696,6 +11691,7 @@ const AdminProducts = ({ onNavigate }) => {
 
                       if (!payload.sale_price) payload.sale_price = null;
                       
+                      // Sanitização de arrays/objetos
                       if (payload.product_type === 'clothing') {
                           if (!payload.variations || payload.variations === 'null') {
                               payload.variations = '[]';
@@ -11807,24 +11803,26 @@ const AdminProducts = ({ onNavigate }) => {
       );
   };
 
+  // Verificações lógicas para exibir botões apropriados na barra de ações em massa
   const hasInactiveSelected = selectedProducts.some(id => products.find(p => p.id === id)?.is_active === 0);
   const hasActiveSelected = selectedProducts.some(id => products.find(p => p.id === id)?.is_active === 1);
 
   return (
     <div>
+        {/* OVERLAY DE CARREGAMENTO EM TELA CHEIA */}
         <AnimatePresence>
             {bulkProgress.isRunning && (
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/80 backdrop-blur-md"
+                    className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-900/80 backdrop-blur-sm"
                 >
-                    <div className="bg-gray-900 border border-gray-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center transform transition-all ring-1 ring-amber-500/30">
-                        <SpinnerIcon className="h-14 w-14 text-amber-500 mb-5 animate-spin" />
-                        <h3 className="text-xl font-extrabold text-white mb-2">Processando</h3>
-                        <p className="text-sm font-medium text-gray-300">{bulkProgress.text}</p>
-                        <p className="text-xs text-gray-500 mt-4">Por favor, não feche esta janela.</p>
+                    <div className="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center transform transition-all">
+                        <SpinnerIcon className="h-14 w-14 text-indigo-600 mb-5 animate-spin" />
+                        <h3 className="text-xl font-extrabold text-slate-800 mb-2">Processando</h3>
+                        <p className="text-sm font-medium text-slate-600">{bulkProgress.text}</p>
+                        <p className="text-xs text-slate-400 mt-4">Por favor, não feche esta janela.</p>
                     </div>
                 </motion.div>
             )}
@@ -11834,52 +11832,52 @@ const AdminProducts = ({ onNavigate }) => {
             {isBulkPromoModalOpen && (
                 <Modal isOpen={isBulkPromoModalOpen} onClose={() => setIsBulkPromoModalOpen(false)} title={`Aplicar Promoção em ${selectedProducts.length} Produtos`}>
                     <form onSubmit={handleBulkPromotion} className="space-y-6">
-                        <div className="bg-amber-900/30 border-l-4 border-amber-500 p-4 rounded-r-lg">
-                            <p className="text-sm text-amber-200">
+                        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                            <p className="text-sm text-yellow-800">
                                 <strong>Atenção:</strong> Isso atualizará o preço promocional de todos os produtos selecionados baseado no desconto escolhido sobre o preço original atual.
                             </p>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-bold text-gray-300 mb-1">Porcentagem de Desconto (%)</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Porcentagem de Desconto (%)</label>
                             <input 
                                 type="number" 
                                 min="1" 
                                 max="99" 
                                 value={bulkDiscount} 
                                 onChange={(e) => setBulkDiscount(e.target.value)} 
-                                className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg text-lg font-bold text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                                className="w-full p-2 border border-gray-300 rounded-md text-lg font-bold text-gray-800"
                             />
                         </div>
 
-                        <div className="flex items-center space-x-3 p-4 border border-gray-700 bg-gray-800/50 rounded-lg">
+                        <div className="flex items-center space-x-3 p-3 border rounded-md">
                             <input 
                                 type="checkbox" 
                                 id="bulkTimeLimit" 
                                 checked={isBulkLimitedTime} 
                                 onChange={(e) => setIsBulkLimitedTime(e.target.checked)} 
-                                className="h-5 w-5 text-amber-500 bg-gray-900 border-gray-600 rounded focus:ring-amber-500"
+                                className="h-5 w-5 text-amber-600 rounded"
                             />
-                            <label htmlFor="bulkTimeLimit" className="text-white font-bold cursor-pointer">Definir Tempo Limitado?</label>
+                            <label htmlFor="bulkTimeLimit" className="text-gray-800 font-medium cursor-pointer">Definir Tempo Limitado?</label>
                         </div>
 
                         {isBulkLimitedTime && (
                             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
-                                <label className="block text-sm font-bold text-red-400 mb-1">Data/Hora de Término</label>
+                                <label className="block text-sm font-bold text-red-600 mb-1">Data/Hora de Término</label>
                                 <input 
                                     type="datetime-local" 
                                     value={bulkEndDate} 
                                     onChange={(e) => setBulkEndDate(e.target.value)} 
-                                    className="w-full p-3 bg-gray-800 border border-red-900/50 rounded-lg focus:ring-2 focus:ring-red-500 text-white outline-none"
+                                    className="w-full p-2 border border-red-300 rounded-md focus:ring-red-500"
                                     required={isBulkLimitedTime}
                                 />
-                                <p className="text-xs text-gray-500 mt-2">Os produtos voltarão ao preço original automaticamente após esta data.</p>
+                                <p className="text-xs text-gray-500 mt-1">Os produtos voltarão ao preço original automaticamente após esta data.</p>
                             </motion.div>
                         )}
 
-                        <div className="flex justify-end gap-3 pt-6 border-t border-gray-800">
-                            <button type="button" onClick={() => setIsBulkPromoModalOpen(false)} className="px-5 py-2.5 bg-gray-800 text-white rounded-lg hover:bg-gray-700 font-bold disabled:opacity-50 transition-colors" disabled={isApplyingBulk}>Cancelar</button>
-                            <button type="submit" disabled={isApplyingBulk} className="px-6 py-2.5 bg-amber-500 text-black font-extrabold rounded-lg hover:bg-amber-400 flex items-center gap-2 disabled:opacity-50 transition-all shadow-lg active:scale-95">
+                        <div className="flex justify-end gap-3 pt-4 border-t">
+                            <button type="button" onClick={() => setIsBulkPromoModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50" disabled={isApplyingBulk}>Cancelar</button>
+                            <button type="submit" disabled={isApplyingBulk} className="px-6 py-2 bg-amber-500 text-black font-bold rounded-md hover:bg-amber-400 flex items-center gap-2 disabled:opacity-50">
                                 {isApplyingBulk ? <SpinnerIcon className="h-5 w-5"/> : <SaleIcon className="h-5 w-5"/>}
                                 Aplicar Desconto
                             </button>
@@ -11911,47 +11909,48 @@ const AdminProducts = ({ onNavigate }) => {
         </AnimatePresence>
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-            <h1 className="text-3xl font-black text-white tracking-tight">Catálogo de Produtos</h1>
+            <h1 className="text-3xl font-bold">Gerenciar Produtos</h1>
             <div className="flex flex-wrap gap-2">
-                <button onClick={() => handleOpenModal()} className="bg-amber-500 text-black font-bold px-5 py-2.5 rounded-xl hover:bg-amber-400 flex items-center space-x-2 shadow-lg transition-all active:scale-95">
+                <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2 shadow-sm transition-colors">
                     <PlusIcon className="h-5 w-5"/> <span>Novo Produto</span>
                 </button>
             </div>
         </div>
 
+        {/* --- BARRA DE AÇÕES EM MASSA FLUTUANTE --- */}
         <AnimatePresence>
             {selectedProducts.length > 0 && (
                 <motion.div 
                     initial={{ opacity: 0, y: -10 }} 
                     animate={{ opacity: 1, y: 0 }} 
                     exit={{ opacity: 0, y: -10 }}
-                    className="bg-gray-900 border border-amber-500/30 p-4 rounded-xl mb-6 flex flex-wrap items-center justify-between gap-4 sticky top-20 z-20 shadow-2xl"
+                    className="bg-indigo-50 border border-indigo-200 p-3 rounded-lg mb-6 flex flex-wrap items-center justify-between gap-3 sticky top-16 z-20 shadow-md"
                 >
-                    <div className="text-sm font-bold text-amber-400 flex items-center gap-2">
-                        <span className="bg-amber-500 text-black px-2.5 py-0.5 rounded-full">{selectedProducts.length}</span>
+                    <div className="text-sm font-bold text-indigo-800 flex items-center gap-2">
+                        <span className="bg-indigo-200 text-indigo-900 px-2.5 py-0.5 rounded-full">{selectedProducts.length}</span>
                         itens selecionados
                     </div>
                     <div className="flex flex-wrap gap-2">
                         {hasInactiveSelected && (
-                            <button onClick={() => handleBulkStatusUpdate(true)} disabled={isUpdatingStatus} className="px-4 py-2 bg-green-600/20 text-green-400 border border-green-600/30 text-xs font-bold rounded-lg hover:bg-green-600/30 flex items-center gap-1.5 transition-colors disabled:opacity-50">
-                                <CheckIcon className="h-4 w-4"/> Ativar
+                            <button onClick={() => handleBulkStatusUpdate(true)} disabled={isUpdatingStatus} className="px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700 flex items-center gap-1 shadow-sm disabled:opacity-50">
+                                <CheckIcon className="h-3 w-3"/> Ativar
                             </button>
                         )}
                         {hasActiveSelected && (
-                            <button onClick={() => handleBulkStatusUpdate(false)} disabled={isUpdatingStatus} className="px-4 py-2 bg-gray-800 text-gray-300 border border-gray-700 text-xs font-bold rounded-lg hover:bg-gray-700 flex items-center gap-1.5 transition-colors disabled:opacity-50">
-                                <XMarkIcon className="h-4 w-4"/> Inativar
+                            <button onClick={() => handleBulkStatusUpdate(false)} disabled={isUpdatingStatus} className="px-3 py-1.5 bg-gray-600 text-white text-xs font-bold rounded hover:bg-gray-700 flex items-center gap-1 shadow-sm disabled:opacity-50">
+                                <XMarkIcon className="h-3 w-3"/> Inativar
                             </button>
                         )}
-                        <button onClick={() => setIsBulkPromoModalOpen(true)} disabled={isApplyingBulk} className="px-4 py-2 bg-amber-500 text-black text-xs font-bold rounded-lg hover:bg-amber-400 flex items-center gap-1.5 transition-colors shadow-sm disabled:opacity-50">
-                            <SaleIcon className="h-4 w-4"/> Promoção
+                        <button onClick={() => setIsBulkPromoModalOpen(true)} disabled={isApplyingBulk} className="px-3 py-1.5 bg-amber-500 text-black text-xs font-bold rounded hover:bg-amber-400 flex items-center gap-1 shadow-sm disabled:opacity-50">
+                            <SaleIcon className="h-3 w-3"/> Promoção
                         </button>
-                        <button onClick={handleClearSelectedPromotions} disabled={isClearingPromos} className="px-4 py-2 bg-orange-600/20 text-orange-400 border border-orange-600/30 text-xs font-bold rounded-lg hover:bg-orange-600/30 flex items-center gap-1.5 transition-colors disabled:opacity-50">
-                            <XMarkIcon className="h-4 w-4"/> Encerrar Promo
+                        <button onClick={handleClearSelectedPromotions} disabled={isClearingPromos} className="px-3 py-1.5 bg-orange-600 text-white text-xs font-bold rounded hover:bg-orange-700 flex items-center gap-1 shadow-sm disabled:opacity-50">
+                            <XMarkIcon className="h-3 w-3"/> Encerrar Promo
                         </button>
-                        <button onClick={handleBulkDelete} disabled={bulkProgress.isRunning} className="px-4 py-2 bg-red-600/20 text-red-400 border border-red-600/30 text-xs font-bold rounded-lg hover:bg-red-600/30 flex items-center gap-1.5 transition-colors disabled:opacity-50">
-                            <TrashIcon className="h-4 w-4"/> Excluir
+                        <button onClick={handleBulkDelete} disabled={bulkProgress.isRunning} className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded hover:bg-red-700 flex items-center gap-1 shadow-sm disabled:opacity-50">
+                            <TrashIcon className="h-3 w-3"/> Excluir
                         </button>
-                        <button onClick={() => setSelectedProducts([])} disabled={bulkProgress.isRunning} className="px-4 py-2 bg-transparent text-gray-400 text-xs font-bold rounded-lg hover:text-white transition-colors ml-2 disabled:opacity-50">
+                        <button onClick={() => setSelectedProducts([])} disabled={bulkProgress.isRunning} className="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 text-xs font-bold rounded hover:bg-gray-100 shadow-sm ml-1 disabled:opacity-50">
                             Cancelar
                         </button>
                     </div>
@@ -11959,7 +11958,7 @@ const AdminProducts = ({ onNavigate }) => {
             )}
         </AnimatePresence>
         
-        <div className="mb-6 relative">
+        <div className="mb-6">
             <input 
                 type="text" 
                 name="search_products_no_autofill" 
@@ -11970,98 +11969,86 @@ const AdminProducts = ({ onNavigate }) => {
                 placeholder="Pesquisar por nome, marca ou categoria..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                className="w-full p-4 pl-12 bg-gray-900 border border-gray-800 text-white rounded-xl shadow-inner focus:outline-none focus:ring-2 focus:ring-amber-500 placeholder-gray-500 transition-all"
+                className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
             />
-            <SearchIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-500" />
         </div>
 
-        <div className="bg-gray-900 border border-gray-800 shadow-xl rounded-2xl overflow-hidden">
+        <div className="bg-white shadow-md rounded-lg overflow-hidden">
             {/* --- VERSÃO DESKTOP --- */}
             <div className="hidden md:block">
                 <table className="w-full text-left">
-                    <thead className="bg-black border-b border-gray-800 text-gray-400 text-xs uppercase tracking-wider">
+                    <thead className="bg-gray-100">
                         <tr>
-                            <th className="p-5 w-4">
-                                <input type="checkbox" onChange={handleSelectAll} checked={filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length} className="h-4 w-4 rounded border-gray-700 bg-gray-800 text-amber-500 focus:ring-amber-500" />
+                            <th className="p-4 w-4">
+                                <input type="checkbox" onChange={handleSelectAll} checked={filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length} />
                             </th>
-                            <th className="p-5">Produto</th>
-                            <th className="p-5">Tipo</th>
-                            <th className="p-5">Preço</th>
-                            <th className="p-5">Promoção</th>
-                            <th className="p-5">Vendas</th>
-                            <th className="p-5">Estoque</th>
-                            <th className="p-5">Status</th>
-                            <th className="p-5 text-center">Ações</th>
+                            <th className="p-4">Produto</th>
+                            <th className="p-4">Tipo</th>
+                            <th className="p-4">Preço</th>
+                            <th className="p-4">Promoção</th>
+                            <th className="p-4">Vendas</th>
+                            <th className="p-4">Estoque</th>
+                            <th className="p-4">Status</th>
+                            <th className="p-4">Ações</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-800">
+                    <tbody>
                         {filteredProducts.map(p => {
                             const isTimeLimited = p.is_on_sale && p.sale_end_date && new Date(p.sale_end_date).getTime() > new Date().getTime();
                             
                             return (
-                                <tr key={p.id} className={`transition-colors ${selectedProducts.includes(p.id) ? 'bg-amber-900/10' : 'hover:bg-gray-800/50'} ${p.stock < LOW_STOCK_THRESHOLD ? 'bg-red-900/10' : ''}`}>
-                                    <td className="p-5">
-                                        <input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="h-4 w-4 rounded border-gray-700 bg-gray-800 text-amber-500 focus:ring-amber-500" />
-                                    </td>
-                                    <td className="p-5 flex items-center">
-                                        <div className="w-12 h-12 mr-4 flex-shrink-0 bg-white rounded-lg p-1 flex items-center justify-center border border-gray-700 shadow-sm">
-                                            <img src={getFirstImage(p.images, 'https://placehold.co/40x40/222/fff?text=Img')} className="max-h-full max-w-full object-contain rounded-sm" alt={p.name}/>
+                                <tr key={p.id} className={`border-b ${selectedProducts.includes(p.id) ? 'bg-indigo-50' : ''} ${p.stock < LOW_STOCK_THRESHOLD ? 'bg-red-50' : ''}`}>
+                                    <td className="p-4"><input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="h-4 w-4 text-indigo-600 rounded focus:ring-indigo-500" /></td>
+                                    <td className="p-4 flex items-center">
+                                        <div className="w-10 h-10 mr-4 flex-shrink-0 bg-gray-200 rounded-md flex items-center justify-center">
+                                            <img src={getFirstImage(p.images, 'https://placehold.co/40x40/222/fff?text=Img')} className="max-h-full max-w-full object-contain" alt={p.name}/>
                                         </div>
                                         <div>
-                                            <p className="font-bold text-white truncate max-w-[200px]">{p.name}</p>
-                                            <p className="text-[10px] font-semibold text-amber-500/70 uppercase tracking-widest mt-0.5">{p.brand}</p>
+                                            <p className="font-semibold">{p.name}</p>
+                                            <p className="text-xs text-gray-500">{p.brand}</p>
                                         </div>
                                     </td>
-                                    <td className="p-5">
-                                        <span className="bg-gray-800 text-gray-300 text-xs px-2.5 py-1 rounded-md border border-gray-700 font-medium">
-                                            {p.product_type === 'clothing' ? 'Roupa' : (p.product_type === 'perfume' ? 'Perfume' : p.product_type)}
-                                        </span>
+                                    <td className="p-4 capitalize">
+                                        {p.product_type === 'clothing' ? 'Roupa' : (p.product_type === 'perfume' ? 'Perfume' : p.product_type)}
                                     </td>
-                                    <td className="p-5">
+                                    <td className="p-4">
                                         {p.is_on_sale && p.sale_price > 0 ? (
                                             <div className="flex flex-col">
-                                                <span className="text-red-400 font-bold text-base">R$ {Number(p.sale_price).toFixed(2)}</span>
+                                                <span className="text-red-600 font-bold">R$ {Number(p.sale_price).toFixed(2)}</span>
                                                 <span className="text-gray-500 text-xs line-through">R$ {Number(p.price).toFixed(2)}</span>
                                             </div>
                                         ) : (
-                                            <span className="text-white font-bold text-base">R$ {Number(p.price).toFixed(2)}</span>
+                                            <span>R$ {Number(p.price).toFixed(2)}</span>
                                         )}
                                     </td>
-                                    <td className="p-5">
+                                    <td className="p-4">
                                         {p.is_on_sale ? (
-                                            <div className="flex flex-col items-start gap-1.5">
-                                                <span className="bg-green-900/30 text-green-400 border border-green-800/50 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Ativa</span>
+                                            <div className="flex flex-col items-start gap-1">
+                                                <span className="bg-green-100 text-green-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">Ativa</span>
                                                 {isTimeLimited ? (
-                                                    <div className="flex items-center gap-1 bg-red-900/30 px-2 py-0.5 rounded-md border border-red-800/50">
-                                                        <ClockIcon className="h-3 w-3 text-red-400"/>
+                                                    <div className="flex items-center gap-1 bg-red-50 px-2 py-0.5 rounded border border-red-200">
+                                                        <ClockIcon className="h-3 w-3 text-red-500"/>
                                                         <AdminCountdown endDate={p.sale_end_date} />
                                                     </div>
                                                 ) : (
-                                                    <span className="text-gray-500 text-[10px] font-medium">Sem data fim</span>
+                                                    <span className="text-gray-400 text-[10px]">Sem data fim</span>
                                                 )}
                                             </div>
                                         ) : (
-                                            <span className="text-gray-600 text-xs">-</span>
+                                            <span className="text-gray-400 text-xs">-</span>
                                         )}
                                     </td>
-                                    <td className="p-5 font-bold text-gray-300">
+                                    <td className="p-4 font-semibold text-gray-700">
                                         {p.sales || 0}
                                     </td>
-                                    <td className={`p-5 font-bold ${p.stock < LOW_STOCK_THRESHOLD ? 'text-red-400' : 'text-white'}`}>
-                                        {p.stock < LOW_STOCK_THRESHOLD && <ExclamationIcon className="h-4 w-4 inline-block mr-1 text-red-500"/>}
+                                    <td className={`p-4 font-bold ${p.stock < LOW_STOCK_THRESHOLD ? 'text-red-600' : ''}`}>
+                                        {p.stock < LOW_STOCK_THRESHOLD && <ExclamationIcon className="h-4 w-4 inline-block mr-1 text-yellow-500"/>}
                                         {p.stock}
                                     </td>
-                                    <td className="p-5">
-                                        <span className={`px-2.5 py-1 text-xs font-bold rounded-full border ${p.is_active ? 'bg-green-900/20 text-green-400 border-green-800/50' : 'bg-gray-800 text-gray-400 border-gray-700'}`}>
-                                            {p.is_active ? 'Ativo' : 'Inativo'}
-                                        </span>
+                                    <td className="p-4">
+                                        <span className={`px-2 py-0.5 text-xs rounded-full ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700'}`}>{p.is_active ? 'Ativo' : 'Inativo'}</span>
                                     </td>
-                                    <td className="p-5">
-                                        <div className="flex justify-center items-center space-x-3">
-                                            <button onClick={() => handleOpenModal(p)} className="p-1.5 text-gray-400 hover:text-amber-400 transition-colors bg-gray-800 rounded hover:bg-gray-700" title="Editar"><EditIcon className="h-4 w-4"/></button>
-                                            <button onClick={() => handleDelete(p.id)} className="p-1.5 text-gray-400 hover:text-red-400 transition-colors bg-gray-800 rounded hover:bg-gray-700" title="Excluir"><TrashIcon className="h-4 w-4"/></button>
-                                        </div>
-                                    </td>
+                                    <td className="p-4 space-x-2"><button onClick={() => handleOpenModal(p)}><EditIcon className="h-5 w-5"/></button><button onClick={() => handleDelete(p.id)}><TrashIcon className="h-5 w-5"/></button></td>
                                 </tr>
                             );
                         })}
@@ -12071,71 +12058,78 @@ const AdminProducts = ({ onNavigate }) => {
             
             {/* --- VERSÃO MOBILE DO ADMIN --- */}
             <div className="md:hidden">
-                <div className="flex items-center justify-between p-5 bg-black border-b border-gray-800">
-                     <label className="flex items-center gap-3 font-bold text-gray-300">
-                        <input type="checkbox" onChange={handleSelectAll} checked={filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length} className="h-5 w-5 rounded border-gray-700 bg-gray-800 text-amber-500 focus:ring-amber-500" />
+                <div className="flex items-center justify-between p-4 bg-gray-50 border-b border-gray-200">
+                     <label className="flex items-center gap-3 font-bold text-gray-700">
+                        <input type="checkbox" onChange={handleSelectAll} checked={filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length} className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
                         Selecionar Todos
                      </label>
-                     <span className="text-xs text-gray-500 font-bold">{filteredProducts.length} itens</span>
+                     <span className="text-xs text-gray-500">{filteredProducts.length} itens</span>
                 </div>
 
-                <div className="space-y-4 p-4 bg-black">
+                <div className="space-y-4 p-4">
                     {filteredProducts.map(p => {
                         const isTimeLimited = p.is_on_sale && p.sale_end_date && new Date(p.sale_end_date).getTime() > new Date().getTime();
                         return (
-                            <div key={p.id} className={`bg-gray-900 border rounded-xl p-4 shadow-sm transition-colors ${selectedProducts.includes(p.id) ? 'border-amber-500/50 bg-amber-900/10' : 'border-gray-800'}`}>
+                            <div key={p.id} className={`bg-white border rounded-lg p-4 shadow-sm transition-colors ${selectedProducts.includes(p.id) ? 'border-indigo-400 bg-indigo-50 ring-1 ring-indigo-400' : ''}`}>
                                 <div className="flex justify-between items-start">
-                                    <div className="flex items-center w-2/3">
-                                        <input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="mr-3 h-5 w-5 rounded border-gray-700 bg-gray-800 text-amber-500 focus:ring-amber-500 flex-shrink-0"/>
-                                        <img src={getFirstImage(p.images, 'https://placehold.co/40x40/222/fff?text=Img')} className="h-14 w-14 object-contain mr-3 bg-white rounded-lg p-1 flex-shrink-0"/>
-                                        <div className="min-w-0">
-                                            <p className="font-bold text-white truncate text-sm">{p.name}</p>
-                                            <p className="text-[10px] text-amber-500/70 font-semibold uppercase tracking-wider truncate">{p.brand}</p>
+                                    <div className="flex items-center">
+                                        <input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="mr-4 h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"/>
+                                        <img src={getFirstImage(p.images, 'https://placehold.co/40x40/222/fff?text=Img')} className="h-14 w-14 object-contain mr-3 bg-gray-100 rounded"/>
+                                        <div>
+                                            <p className="font-bold text-gray-900 line-clamp-1">{p.name}</p>
+                                            <p className="text-sm text-gray-500">{p.brand}</p>
                                         </div>
                                     </div>
                                     
-                                    <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                                         <span className="bg-gray-800 border border-gray-700 text-gray-300 text-[9px] px-2 py-0.5 rounded-md font-bold uppercase whitespace-nowrap">
+                                    {/* Badge de Status e TIPO DE PRODUTO Mobile */}
+                                    <div className="flex flex-col items-end gap-1">
+                                         <span className="bg-indigo-100 text-indigo-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase whitespace-nowrap">
                                              {p.product_type === 'clothing' ? 'Roupa' : (p.product_type === 'perfume' ? 'Perfume' : p.product_type)}
                                          </span>
-                                         <span className={`px-2 py-0.5 text-[9px] rounded-md font-bold uppercase whitespace-nowrap border ${p.is_active ? 'bg-green-900/30 text-green-400 border-green-800/50' : 'bg-gray-800 text-gray-500 border-gray-700'}`}>
+                                         <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold uppercase whitespace-nowrap ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'}`}>
                                              {p.is_active ? 'Ativo' : 'Inativo'}
                                          </span>
                                          {!!p.is_on_sale && (
-                                             <span className="bg-red-900/30 text-red-400 border border-red-800/50 text-[9px] px-2 py-0.5 rounded-md font-bold uppercase whitespace-nowrap">Promo</span>
+                                             <span className="bg-red-100 text-red-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase whitespace-nowrap">Promo</span>
                                          )}
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-3 gap-3 mt-4 text-sm border-t border-gray-800 pt-4">
+                                <div className="grid grid-cols-3 gap-4 mt-4 text-sm border-t pt-4">
                                     <div>
-                                        <strong className="text-gray-500 block text-[10px] uppercase tracking-wider mb-1">Preço</strong> 
+                                        <strong className="text-gray-500 block text-xs uppercase tracking-wide mb-1">Preço</strong> 
                                         {!!p.is_on_sale && p.sale_price > 0 ? (
                                             <div className="flex flex-col">
-                                                <span className="text-red-400 font-bold text-sm">R$ {Number(p.sale_price).toFixed(2)}</span>
-                                                <span className="text-gray-500 text-[10px] line-through">R$ {Number(p.price).toFixed(2)}</span>
+                                                <span className="text-red-600 font-bold text-lg">R$ {Number(p.sale_price).toFixed(2)}</span>
+                                                <span className="text-gray-400 text-xs line-through">R$ {Number(p.price).toFixed(2)}</span>
+                                                {isTimeLimited && (
+                                                    <div className="flex items-center gap-1 mt-1 bg-red-50 px-1.5 py-0.5 rounded w-fit">
+                                                        <ClockIcon className="h-3 w-3 text-red-500"/>
+                                                        <AdminCountdown endDate={p.sale_end_date} />
+                                                    </div>
+                                                )}
                                             </div>
                                         ) : (
-                                            <span className="font-bold text-white text-sm">R$ {Number(p.price).toFixed(2)}</span>
+                                            <span className="font-bold text-gray-800">R$ {Number(p.price).toFixed(2)}</span>
                                         )}
                                     </div>
                                     <div>
-                                        <strong className="text-gray-500 block text-[10px] uppercase tracking-wider mb-1">Vendas</strong> 
-                                        <div className="font-bold text-gray-300 text-sm">
-                                            {p.sales || 0} <span className="text-[10px] font-normal text-gray-500">un.</span>
+                                        <strong className="text-gray-500 block text-xs uppercase tracking-wide mb-1">Vendas</strong> 
+                                        <div className="font-bold text-gray-800">
+                                            {p.sales || 0} un.
                                         </div>
                                     </div>
                                     <div>
-                                        <strong className="text-gray-500 block text-[10px] uppercase tracking-wider mb-1">Estoque</strong> 
-                                        <div className={`font-bold text-sm ${p.stock < LOW_STOCK_THRESHOLD ? 'text-red-400 flex items-center gap-1' : 'text-white'}`}>
-                                            {p.stock < LOW_STOCK_THRESHOLD && <ExclamationIcon className="h-3 w-3"/>}
-                                            {p.stock} <span className="text-[10px] font-normal text-gray-500">un.</span>
+                                        <strong className="text-gray-500 block text-xs uppercase tracking-wide mb-1">Estoque</strong> 
+                                        <div className={`font-bold ${p.stock < LOW_STOCK_THRESHOLD ? 'text-red-600 flex items-center gap-1' : 'text-gray-800'}`}>
+                                            {p.stock < LOW_STOCK_THRESHOLD && <ExclamationIcon className="h-4 w-4"/>}
+                                            {p.stock} un.
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex justify-end space-x-2 mt-4 pt-3 border-t border-gray-800">
-                                    <button onClick={() => handleOpenModal(p)} className="flex items-center gap-1.5 px-3 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white font-bold text-xs transition-colors"><EditIcon className="h-4 w-4"/> Editar</button>
-                                    <button onClick={() => handleDelete(p.id)} className="flex items-center gap-1.5 px-3 py-2 bg-red-900/20 border border-red-900/50 text-red-400 rounded-lg hover:bg-red-900/40 hover:text-red-300 font-bold text-xs transition-colors"><TrashIcon className="h-4 w-4"/> Excluir</button>
+                                <div className="flex justify-end space-x-2 mt-4 pt-2 border-t">
+                                    <button onClick={() => handleOpenModal(p)} className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 rounded hover:bg-blue-100 font-medium text-xs"><EditIcon className="h-4 w-4"/> Editar</button>
+                                    <button onClick={() => handleDelete(p.id)} className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-700 rounded hover:bg-red-100 font-medium text-xs"><TrashIcon className="h-4 w-4"/> Excluir</button>
                                 </div>
                             </div>
                         );
@@ -12905,12 +12899,12 @@ const AdminOrders = ({ appName }) => {
     const getShippingDisplay = (method) => {
         const lower = method ? method.toLowerCase() : '';
         if (lower.includes('retirar') || lower.includes('loja')) {
-            return { icon: <BoxIcon className="h-4 w-4"/>, label: 'Retirada', fullText: 'Retirada na Loja', classes: 'bg-purple-900/30 text-purple-400 border border-purple-800/50' };
+            return { icon: <BoxIcon className="h-4 w-4"/>, label: 'Retirada', fullText: 'Retirada na Loja', classes: 'bg-purple-100 text-purple-700 border border-purple-200' };
         }
         if (lower.includes('motoboy') || lower.includes('delivery') || lower.includes('local')) {
-            return { icon: <TruckIcon className="h-4 w-4"/>, label: 'Motoboy', fullText: 'Entrega Local (Moto)', classes: 'bg-blue-900/30 text-blue-400 border border-blue-800/50' };
+            return { icon: <TruckIcon className="h-4 w-4"/>, label: 'Motoboy', fullText: 'Entrega Local (Moto)', classes: 'bg-blue-100 text-blue-700 border border-blue-200' };
         }
-        return { icon: <TruckIcon className="h-4 w-4"/>, label: 'Correios', fullText: method || 'Envio Padrão', classes: 'bg-amber-900/30 text-amber-400 border border-amber-800/50' };
+        return { icon: <TruckIcon className="h-4 w-4"/>, label: 'Correios', fullText: method || 'Envio Padrão', classes: 'bg-amber-100 text-amber-700 border border-amber-200' };
     };
 
     const TimelineDisplay = ({ order }) => {
@@ -12933,11 +12927,11 @@ const AdminOrders = ({ appName }) => {
 
         if (['Cancelado', 'Pagamento Recusado', 'Reembolsado'].includes(order.status)) {
             return (
-                <div className="w-full p-4 bg-red-900/20 border border-red-800 rounded-xl flex items-center justify-center gap-3 mb-6 shadow-inner">
-                     <XCircleIcon className="h-6 w-6 text-red-500" />
+                <div className="w-full p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-center gap-3 mb-6">
+                     <XCircleIcon className="h-6 w-6 text-red-600" />
                      <div className="text-center">
-                         <p className="font-bold text-red-400 text-lg uppercase tracking-wide">{order.status}</p>
-                         <p className="text-xs text-gray-400">O fluxo deste pedido foi interrompido.</p>
+                         <p className="font-bold text-red-800 text-lg uppercase tracking-wide">{order.status}</p>
+                         <p className="text-xs text-red-600">O fluxo deste pedido foi interrompido.</p>
                      </div>
                 </div>
             );
@@ -12949,17 +12943,17 @@ const AdminOrders = ({ appName }) => {
         return (
             <div className="w-full py-6 mb-4">
                 <div className="flex items-center justify-between relative">
-                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-800 -z-10 rounded-full"></div>
-                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 bg-green-500 -z-10 rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]" style={{ width: `${progressWidth}%` }}></div>
+                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-200 -z-10 rounded-full"></div>
+                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 bg-green-500 -z-10 rounded-full transition-all duration-500" style={{ width: `${progressWidth}%` }}></div>
                     {timelineOrder.map((statusKey, index) => {
                         const isCompleted = index <= currentStatusIndex;
                         const isCurrent = statusKey === order.status;
                         return (
                             <div key={statusKey} className="flex flex-col items-center group">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center border-4 transition-all duration-300 z-10 ${isCompleted ? 'bg-green-500 border-green-500 scale-110 shadow-lg' : 'bg-gray-900 border-gray-700'}`}>
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center border-4 transition-all duration-300 z-10 ${isCompleted ? 'bg-green-500 border-green-500 scale-110' : 'bg-white border-gray-300'}`}>
                                     {isCompleted && <CheckIcon className="h-4 w-4 text-white stroke-2" />}
                                 </div>
-                                <p className={`absolute -bottom-8 text-[10px] font-bold text-center w-20 transition-colors ${isCurrent ? 'text-green-400' : (isCompleted ? 'text-gray-400' : 'text-gray-600')}`}>
+                                <p className={`absolute -bottom-8 text-[10px] font-bold text-center w-20 transition-colors ${isCurrent ? 'text-green-700' : (isCompleted ? 'text-gray-600' : 'text-gray-400')}`}>
                                     {displayLabels[statusKey]}
                                 </p>
                             </div>
@@ -13117,12 +13111,12 @@ const AdminOrders = ({ appName }) => {
     };
 
     const DetailCard = ({ title, icon: Icon, children, className = "" }) => (
-        <div className={`bg-gray-900 p-5 rounded-2xl border border-gray-800 shadow-sm ${className}`}>
-            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-gray-800 pb-3">
-                {Icon && <Icon className="h-5 w-5 text-amber-500"/>}
+        <div className={`bg-white p-5 rounded-xl border border-gray-200 shadow-sm ${className}`}>
+            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-gray-100 pb-2">
+                {Icon && <Icon className="h-4 w-4 text-indigo-500"/>}
                 {title}
             </h4>
-            <div className="text-sm text-gray-300 space-y-2.5">
+            <div className="text-sm text-gray-700 space-y-2">
                 {children}
             </div>
         </div>
@@ -13163,15 +13157,15 @@ const AdminOrders = ({ appName }) => {
 
     const handleEditFormChange = (e) => setEditFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     const handleFilterChange = (e) => setFilters(prev => ({ ...prev, [e.target.name]: e.target.value }));
-    const applyFilters = useCallback(() => {  }, []);
+    const applyFilters = useCallback(() => { /* Lógica de filtro reativa já trata */ }, []);
     const clearFilters = () => { setFilters({ startDate: '', endDate: '', status: '', minPrice: '', maxPrice: '' }); setSearchTerm(''); setCurrentPage(1); }
 
     const getStatusChipClass = (status) => {
         const lowerStatus = status ? status.toLowerCase() : '';
-        if (lowerStatus.includes('entregue')) return 'bg-green-900/30 text-green-400 border border-green-800/50';
-        if (lowerStatus.includes('cancelado') || lowerStatus.includes('recusado') || lowerStatus.includes('reembolsado')) return 'bg-red-900/30 text-red-400 border border-red-800/50';
-        if (lowerStatus.includes('pendente')) return 'bg-amber-900/30 text-amber-400 border border-amber-800/50';
-        return 'bg-blue-900/30 text-blue-400 border border-blue-800/50';
+        if (lowerStatus.includes('entregue')) return 'bg-green-100 text-green-800';
+        if (lowerStatus.includes('cancelado') || lowerStatus.includes('recusado') || lowerStatus.includes('reembolsado')) return 'bg-red-100 text-red-800';
+        if (lowerStatus.includes('pendente')) return 'bg-yellow-100 text-yellow-800';
+        return 'bg-blue-100 text-blue-800';
     };
 
     const renderUpdateOrderForm = () => {
@@ -13187,51 +13181,50 @@ const AdminOrders = ({ appName }) => {
         if (!availableStatuses.includes(editingOrder.status)) availableStatuses.push(editingOrder.status);
 
         return (
-            <div className="bg-gray-900 p-6 rounded-2xl shadow-lg border border-gray-800 mt-6 lg:mt-0 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-2xl"></div>
-                <h4 className="font-bold text-white mb-5 flex items-center gap-2 border-b border-gray-800 pb-3 relative z-10">
-                    <EditIcon className="h-5 w-5 text-amber-500"/> Atualizar Status e Entrega
+            <div className="bg-white p-6 rounded-xl shadow-md border border-indigo-100 mt-6 lg:mt-0">
+                <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2 border-b pb-3">
+                    <EditIcon className="h-5 w-5 text-indigo-600"/> Atualizar Status e Entrega
                 </h4>
-                <form onSubmit={handleSaveOrder} className="space-y-6 relative z-10">
+                <form onSubmit={handleSaveOrder} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Status do Pedido</label>
-                            <select name="status" value={editFormData.status} onChange={handleEditFormChange} className="w-full p-3 bg-gray-800 border border-gray-700 text-white rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Status do Pedido</label>
+                            <select name="status" value={editFormData.status} onChange={handleEditFormChange} className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 bg-white">
                                 {availableStatuses.map(s => <option key={s} value={s}>{getStatusLabel(s)}</option>)}
                             </select>
                         </div>
                         {!isPickup && (
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">
-                                    {isLocalDelivery ? "Link (Uber/Moto)" : "Código de Rastreio"}
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                                    {isLocalDelivery ? "Link de Acompanhamento (Uber/Moto)" : "Código de Rastreio"}
                                 </label>
-                                <input type="text" name="tracking_code" value={editFormData.tracking_code} onChange={handleEditFormChange} placeholder={isLocalDelivery ? "Cole o link da viagem aqui" : "Ex: AA123456789BR"} className="w-full p-3 bg-gray-800 border border-gray-700 text-white rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none placeholder-gray-600" />
-                                {isLocalDelivery && <p className="text-[10px] text-gray-500 mt-1.5 ml-1">Link para o cliente acompanhar o motoboy.</p>}
+                                <input type="text" name="tracking_code" value={editFormData.tracking_code} onChange={handleEditFormChange} placeholder={isLocalDelivery ? "Cole o link da viagem aqui" : "Ex: AA123456789BR"} className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" />
+                                {isLocalDelivery && <p className="text-xs text-gray-500 mt-1">Link para o cliente acompanhar o motoboy.</p>}
                             </div>
                         )}
                     </div>
                     
-                    <div className="flex flex-col-reverse md:flex-row justify-between items-center pt-5 border-t border-gray-800 gap-4 mt-4">
+                    <div className="flex flex-col-reverse md:flex-row justify-between items-center pt-4 border-t border-gray-100 gap-4">
                         <div className="flex flex-wrap gap-3 w-full md:w-auto justify-start">
                             {canRequestRefund ? (
-                                <button type="button" onClick={handleOpenRefundModal} className="px-4 py-2.5 bg-orange-900/30 border border-orange-800/50 text-orange-400 rounded-xl hover:bg-orange-900/50 font-bold text-sm flex items-center gap-2 transition-colors flex-grow md:flex-grow-0 justify-center">
+                                <button type="button" onClick={handleOpenRefundModal} className="px-4 py-2.5 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 font-bold text-sm flex items-center gap-2 transition-colors flex-grow md:flex-grow-0 justify-center">
                                     <CurrencyDollarIcon className="h-5 w-5"/> Reembolso
                                 </button>
                             ) : editingOrder.refund_id ? (
-                                <span className="text-xs font-bold text-orange-400 bg-orange-900/30 px-3 py-1.5 rounded-full border border-orange-800/50 self-center uppercase tracking-wider">Reembolso Solicitado</span>
+                                <span className="text-xs font-bold text-orange-600 bg-orange-50 px-3 py-1 rounded-full border border-orange-200 self-center">Reembolso Solicitado</span>
                             ) : null}
 
                             {editingOrder.user_phone && (
-                                <button type="button" onClick={handleManualWhatsAppNotification} className="px-4 py-2.5 bg-green-900/30 border border-green-800/50 text-green-400 rounded-xl hover:bg-green-900/50 font-bold text-sm flex items-center gap-2 transition-colors flex-grow md:flex-grow-0 justify-center">
-                                    <WhatsappIcon className="h-5 w-5"/> Notificar Cliente
+                                <button type="button" onClick={handleManualWhatsAppNotification} className="px-4 py-2.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-bold text-sm flex items-center gap-2 transition-colors flex-grow md:flex-grow-0 justify-center">
+                                    <WhatsappIcon className="h-5 w-5"/> Notificar
                                 </button>
                             )}
                         </div>
 
                         <div className="flex flex-wrap gap-3 w-full md:w-auto">
-                            <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 md:flex-none px-6 py-2.5 border border-gray-700 text-gray-400 font-bold rounded-xl hover:bg-gray-800 hover:text-white text-sm transition-colors">Cancelar</button>
-                            <button type="submit" className="flex-1 md:flex-none px-8 py-2.5 bg-amber-500 text-black font-extrabold rounded-xl hover:bg-amber-400 shadow-lg shadow-amber-500/20 text-sm transition-all active:scale-95 flex items-center justify-center gap-2">
-                                <CheckIcon className="h-5 w-5"/> Salvar Alterações
+                            <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 md:flex-none px-6 py-2.5 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 text-sm transition-colors">Cancelar</button>
+                            <button type="submit" className="flex-1 md:flex-none px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-md text-sm transition-colors flex items-center justify-center gap-2">
+                                <CheckIcon className="h-5 w-5"/> Salvar
                             </button>
                         </div>
                     </div>
@@ -13247,17 +13240,17 @@ const AdminOrders = ({ appName }) => {
                     <Modal isOpen={true} onClose={() => setIsRefundModalOpen(false)} title={`Solicitar Reembolso para Pedido #${editingOrder.id}`}>
                         <form onSubmit={handleRequestRefund} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-bold text-gray-300 mb-1">Valor a Reembolsar</label>
-                                <input type="number" step="0.01" value={refundAmount} onChange={e => setRefundAmount(e.target.value)} max={editingOrder.total} required className="mt-1 block w-full px-4 py-3 bg-gray-800 border border-gray-700 text-white rounded-xl focus:ring-2 focus:ring-amber-500 outline-none"/>
-                                <p className="text-xs text-gray-500 mt-1 ml-1">Valor total do pedido: R$ {Number(editingOrder.total).toFixed(2)}</p>
+                                <label className="block text-sm font-medium text-gray-700">Valor a Reembolsar</label>
+                                <input type="number" step="0.01" value={refundAmount} onChange={e => setRefundAmount(e.target.value)} max={editingOrder.total} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+                                <p className="text-xs text-gray-500 mt-1">Valor total do pedido: R$ {Number(editingOrder.total).toFixed(2)}</p>
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-300 mb-1">Motivo do Reembolso</label>
-                                <textarea value={refundReason} onChange={e => setRefundReason(e.target.value)} required rows="4" className="mt-1 block w-full px-4 py-3 bg-gray-800 border border-gray-700 text-white rounded-xl focus:ring-2 focus:ring-amber-500 outline-none"></textarea>
+                                <label className="block text-sm font-medium text-gray-700">Motivo do Reembolso</label>
+                                <textarea value={refundReason} onChange={e => setRefundReason(e.target.value)} required rows="4" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"></textarea>
                             </div>
-                            <div className="flex justify-end gap-3 pt-6 border-t border-gray-800">
-                                <button type="button" onClick={() => setIsRefundModalOpen(false)} className="px-5 py-2.5 bg-transparent border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800 rounded-xl font-bold transition-colors">Cancelar</button>
-                                <button type="submit" disabled={isProcessing} className="px-6 py-2.5 bg-amber-500 text-black rounded-xl font-extrabold hover:bg-amber-400 flex items-center gap-2 disabled:opacity-50 transition-all shadow-lg active:scale-95">
+                            <div className="flex justify-end gap-3 pt-4">
+                                <button type="button" onClick={() => setIsRefundModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md">Cancelar</button>
+                                <button type="submit" disabled={isProcessing} className="px-4 py-2 bg-amber-600 text-white rounded-md flex items-center gap-2 disabled:bg-amber-300">
                                     {isProcessing && <SpinnerIcon className="h-5 w-5" />}
                                     Enviar Solicitação
                                 </button>
@@ -13274,48 +13267,40 @@ const AdminOrders = ({ appName }) => {
                     const isPAddressObj = typeof pAddress === 'object' && pAddress !== null;
 
                     return (
-                        <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Gerenciar Pedido #${editingOrder.id}`} size="3xl">
-                            <div className="bg-black -m-6 p-4 sm:p-8 pb-24">
+                        <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Pedido #${editingOrder.id}`} size="3xl">
+                            <div className="bg-gray-50/50 -m-6 p-4 sm:p-6 pb-24">
                                 
                                 {/* 1. Timeline */}
-                                <div className="bg-gray-900 p-5 sm:p-8 rounded-2xl shadow-xl border border-gray-800 mb-8 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-40 h-40 bg-amber-500/5 rounded-full blur-3xl pointer-events-none"></div>
-                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-3 relative z-10">
+                                <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-2">
                                         <div>
-                                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Realizado em</p>
-                                            <p className="text-base font-bold text-white flex items-center gap-2">
-                                                <ClockIcon className="h-4 w-4 text-amber-500"/>
-                                                {new Date(editingOrder.date).toLocaleString('pt-BR')}
-                                            </p>
+                                            <p className="text-xs text-gray-500 font-medium">Realizado em</p>
+                                            <p className="text-sm font-bold text-gray-900">{new Date(editingOrder.date).toLocaleString('pt-BR')}</p>
                                         </div>
-                                        <span className={`px-4 py-1.5 rounded-md text-xs font-black uppercase tracking-wider border self-start sm:self-auto shadow-sm ${
-                                            editingOrder.status === 'Entregue' ? 'bg-green-900/30 text-green-400 border-green-800/50' :
-                                            editingOrder.status === 'Cancelado' ? 'bg-red-900/30 text-red-400 border-red-800/50' :
-                                            'bg-amber-900/30 text-amber-400 border-amber-800/50'
+                                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border self-start sm:self-auto ${
+                                            editingOrder.status === 'Entregue' ? 'bg-green-50 text-green-700 border-green-200' :
+                                            editingOrder.status === 'Cancelado' ? 'bg-red-50 text-red-700 border-red-200' :
+                                            'bg-blue-50 text-blue-700 border-blue-200'
                                         }`}>
                                             {editingOrder.status}
                                         </span>
                                     </div>
-                                    <div className="relative z-10">
-                                        <TimelineDisplay order={editingOrder} />
-                                    </div>
+                                    <TimelineDisplay order={editingOrder} />
                                 </div>
 
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                     {/* COLUNA DA ESQUERDA: Itens */}
-                                    <div className="lg:col-span-2 space-y-8">
-                                        <div className="bg-gray-900 rounded-2xl shadow-lg border border-gray-800 overflow-hidden">
+                                    <div className="lg:col-span-2 space-y-6">
+                                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                                             {/* Header do Accordion */}
                                             <div 
-                                                className="px-6 py-5 border-b border-gray-800 bg-gray-900/50 flex justify-between items-center cursor-pointer select-none hover:bg-gray-800 transition-colors"
+                                                className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center cursor-pointer select-none hover:bg-gray-100 transition-colors"
                                                 onClick={() => setItemsExpanded(!itemsExpanded)}
                                             >
-                                                <h4 className="font-bold text-white flex items-center gap-3 text-lg">
-                                                    <BoxIcon className="h-5 w-5 text-amber-500"/> Itens do Pedido
-                                                </h4>
-                                                <div className="flex items-center gap-3">
-                                                    <span className="text-xs font-bold text-amber-500 bg-amber-500/10 px-2.5 py-0.5 rounded-full">{editingOrder.items?.length || 0} itens</span>
-                                                    <ChevronDownIcon className={`h-5 w-5 text-gray-500 transition-transform duration-300 ${itemsExpanded ? 'rotate-180' : ''}`} />
+                                                <h4 className="font-bold text-gray-700 flex items-center gap-2"><BoxIcon className="h-4 w-4"/> Itens do Pedido</h4>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-medium text-gray-500">{editingOrder.items?.length || 0} itens</span>
+                                                    <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform duration-300 ${itemsExpanded ? 'rotate-180' : ''}`} />
                                                 </div>
                                             </div>
 
@@ -13328,8 +13313,8 @@ const AdminOrders = ({ appName }) => {
                                                         exit={{ height: 0, opacity: 0 }}
                                                         transition={{ duration: 0.3 }}
                                                     >
-                                                        {/* Lista de Itens */}
-                                                        <div className="divide-y divide-gray-800 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                                                        {/* Lista de Itens com Scroll e Badges */}
+                                                        <div className="divide-y divide-gray-100 max-h-[60vh] overflow-y-auto custom-scrollbar">
                                                             {editingOrder.items?.map((item, idx) => {
                                                                 let variation = item.variation;
                                                                 if (typeof variation === 'string') {
@@ -13338,58 +13323,56 @@ const AdminOrders = ({ appName }) => {
                                                                 
                                                                 const isClothing = !!variation;
                                                                 const itemTypeLabel = isClothing ? 'ROUPA' : 'PERFUME';
-                                                                const itemTypeClass = isClothing ? 'bg-blue-900/30 text-blue-400 border-blue-800/50' : 'bg-purple-900/30 text-purple-400 border-purple-800/50';
+                                                                const itemTypeClass = isClothing ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-purple-100 text-purple-700 border-purple-200';
                                                                 
                                                                 return (
-                                                                <div key={idx} className="p-5 flex flex-col sm:flex-row items-start sm:items-center gap-5 hover:bg-gray-800/50 transition-colors">
-                                                                    <div className="w-16 h-16 rounded-xl border border-gray-700 bg-white flex-shrink-0 p-1.5 shadow-sm">
-                                                                        <img src={getFirstImage(item.images)} alt="" className="w-full h-full object-contain rounded-lg"/>
+                                                                <div key={idx} className="p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 hover:bg-gray-50 transition-colors">
+                                                                    <div className="w-12 h-12 rounded-lg border border-gray-200 bg-white flex-shrink-0 p-1">
+                                                                        <img src={getFirstImage(item.images)} alt="" className="w-full h-full object-contain"/>
                                                                     </div>
                                                                     <div className="flex-grow">
-                                                                        <div className="flex items-center gap-2 mb-1.5">
-                                                                            <span className={`text-[9px] px-2 py-0.5 rounded-md border font-black uppercase tracking-wider ${itemTypeClass}`}>
+                                                                        <div className="flex items-center gap-2 mb-1">
+                                                                            <span className={`text-[10px] px-1.5 py-0.5 rounded border font-bold uppercase ${itemTypeClass}`}>
                                                                                 {itemTypeLabel}
                                                                             </span>
                                                                         </div>
-                                                                        <p className="text-sm font-bold text-white line-clamp-1">{item.name}</p>
+                                                                        <p className="text-sm font-bold text-gray-800 line-clamp-1">{item.name}</p>
                                                                         {variation && (
-                                                                            <div className="flex items-center gap-2 mt-1.5">
-                                                                                <span className="text-[10px] bg-gray-800 text-gray-300 font-medium px-2 py-0.5 rounded border border-gray-700">
-                                                                                    Cor: <strong className="text-white">{variation.color}</strong>
+                                                                            <div className="flex items-center gap-2 mt-1">
+                                                                                <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
+                                                                                    Cor: {variation.color}
                                                                                 </span>
-                                                                                <span className="text-[10px] bg-gray-800 text-gray-300 font-medium px-2 py-0.5 rounded border border-gray-700">
-                                                                                    Tam: <strong className="text-white">{variation.size}</strong>
+                                                                                <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
+                                                                                    Tam: {variation.size}
                                                                                 </span>
                                                                             </div>
                                                                         )}
                                                                     </div>
-                                                                    <div className="text-right w-full sm:w-auto mt-2 sm:mt-0 bg-black/40 sm:bg-transparent p-3 sm:p-0 rounded-lg border sm:border-0 border-gray-800">
-                                                                        <p className="text-[11px] text-gray-400 font-medium mb-0.5">{item.quantity} x R$ {Number(item.price).toFixed(2)}</p>
-                                                                        <p className="text-base font-black text-amber-400">R$ {(item.quantity * item.price).toFixed(2)}</p>
+                                                                    <div className="text-right w-full sm:w-auto">
+                                                                        <p className="text-xs text-gray-500">{item.quantity} x R$ {Number(item.price).toFixed(2)}</p>
+                                                                        <p className="text-sm font-bold text-gray-900">R$ {(item.quantity * item.price).toFixed(2)}</p>
                                                                     </div>
                                                                 </div>
                                                             )})}
                                                         </div>
-                                                        
-                                                        {/* Resumo Financeiro Footer do Accordion */}
-                                                        <div className="bg-black/50 p-6 border-t border-gray-800 space-y-3">
-                                                            <div className="flex justify-between text-sm text-gray-400 font-medium">
+                                                        <div className="bg-gray-50 p-4 border-t border-gray-200 space-y-2">
+                                                            <div className="flex justify-between text-xs text-gray-600">
                                                                 <span>Subtotal</span>
                                                                 <span>R$ {(Number(editingOrder.total) - Number(editingOrder.shipping_cost) + Number(editingOrder.discount_amount)).toFixed(2)}</span>
                                                             </div>
-                                                            <div className="flex justify-between text-sm text-gray-400 font-medium">
+                                                            <div className="flex justify-between text-xs text-gray-600">
                                                                 <span>Frete ({editingOrder.shipping_method})</span>
                                                                 <span>R$ {Number(editingOrder.shipping_cost).toFixed(2)}</span>
                                                             </div>
                                                             {Number(editingOrder.discount_amount) > 0 && (
-                                                                <div className="flex justify-between text-sm text-green-400 font-bold">
+                                                                <div className="flex justify-between text-xs text-green-600 font-medium">
                                                                     <span>Desconto ({editingOrder.coupon_code})</span>
                                                                     <span>- R$ {Number(editingOrder.discount_amount).toFixed(2)}</span>
                                                                 </div>
                                                             )}
-                                                            <div className="flex justify-between text-xl font-black text-white pt-4 mt-2 border-t border-gray-800">
+                                                            <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-200">
                                                                 <span>Total Geral</span>
-                                                                <span className="text-amber-500">R$ {Number(editingOrder.total).toFixed(2)}</span>
+                                                                <span>R$ {Number(editingOrder.total).toFixed(2)}</span>
                                                             </div>
                                                         </div>
                                                     </motion.div>
@@ -13403,116 +13386,117 @@ const AdminOrders = ({ appName }) => {
                                         </div>
                                     </div>
 
-                                    {/* COLUNA DA DIREITA: Informações do Cliente e Envio */}
+                                    {/* COLUNA DA DIREITA: Informações */}
                                     <div className="space-y-6">
                                         <DetailCard title="Cliente" icon={UserIcon}>
-                                            <div className="flex items-center gap-4 mb-4">
-                                                <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 font-black text-xl shadow-inner">
+                                            <div className="flex items-center gap-3 mb-3">
+                                                <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-lg">
                                                     {editingOrder.user_name.charAt(0)}
                                                 </div>
                                                 <div className="overflow-hidden">
-                                                    <p className="font-bold text-white text-base leading-tight truncate">{editingOrder.user_name}</p>
-                                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">ID: {editingOrder.user_id}</p>
+                                                    <p className="font-bold text-gray-900 leading-tight truncate">{editingOrder.user_name}</p>
+                                                    <p className="text-xs text-gray-500">ID: {editingOrder.user_id}</p>
                                                 </div>
                                             </div>
-                                            <div className="space-y-3 text-sm">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 flex justify-center text-gray-500"><UserIcon className="h-4 w-4"/></div>
-                                                    <span className="font-mono font-medium text-gray-300">{maskCPF(editingOrder.user_cpf || '---')}</span>
+                                            <div className="space-y-2 text-xs">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-8 text-right font-semibold text-gray-500">CPF:</div>
+                                                    <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">{maskCPF(editingOrder.user_cpf || '---')}</span>
                                                 </div>
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 flex justify-center text-green-500"><WhatsappIcon className="h-4 w-4"/></div>
-                                                    <span className="font-medium text-gray-300">{maskPhone(editingOrder.user_phone || '---')}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-8 text-right"><WhatsappIcon className="h-4 w-4 text-green-500 mx-auto"/></div>
+                                                    <a href={`https://wa.me/55${editingOrder.user_phone?.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="hover:underline hover:text-green-600">
+                                                        {maskPhone(editingOrder.user_phone || '')}
+                                                    </a>
                                                 </div>
                                                 {editingOrder.user_phone && (
                                                     <a 
                                                         href={`https://api.whatsapp.com/send?phone=55${editingOrder.user_phone.replace(/\D/g, '')}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="mt-4 w-full flex items-center justify-center gap-2 bg-green-600/20 text-green-400 border border-green-600/30 py-2.5 rounded-lg hover:bg-green-600 hover:text-white font-bold transition-colors shadow-sm text-xs uppercase tracking-wide"
+                                                        className="mt-3 w-full flex items-center justify-center gap-2 bg-green-500 text-white py-2 rounded-md hover:bg-green-600 font-bold transition-colors shadow-sm"
                                                         title="Abrir conversa no WhatsApp"
                                                     >
-                                                        <WhatsappIcon className="h-4 w-4"/> Iniciar Conversa
+                                                        <WhatsappIcon className="h-4 w-4 text-white"/> Conversar no WhatsApp
                                                     </a>
                                                 )}
                                             </div>
                                         </DetailCard>
 
-                                        <DetailCard title="Detalhes do Envio" icon={MapPinIcon}>
-                                            <div className="mb-4 pb-3 border-b border-gray-800">
-                                                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest block mb-1">Método Escolhido</span>
-                                                <p className="font-bold text-amber-400 text-sm flex items-center gap-2">
-                                                    {isPickup ? <BoxIcon className="h-4 w-4"/> : <TruckIcon className="h-4 w-4"/>}
-                                                    {editingOrder.shipping_method || 'Não informado'}
-                                                </p>
+                                        <DetailCard title="Entrega" icon={MapPinIcon}>
+                                            <div className="mb-3 pb-2 border-b border-gray-100">
+                                                <span className="text-xs text-gray-500 block">Método Escolhido</span>
+                                                <p className="font-bold text-indigo-700 text-sm">{editingOrder.shipping_method || 'Não informado'}</p>
                                             </div>
 
                                             {isPickup ? (
-                                                <div className="bg-amber-900/10 border border-amber-800/30 rounded-xl p-4 text-xs text-amber-200 space-y-2">
-                                                    <p className="font-black text-amber-400 mb-2 uppercase tracking-wide text-[10px]">Retirada na Loja</p>
+                                                <div className="bg-amber-50 border border-amber-200 rounded p-3 text-xs text-amber-800 space-y-1.5">
+                                                    <p className="font-bold text-amber-900 mb-1">Retirada na Loja</p>
                                                     {isPAddressObj ? (
-                                                        <div className="space-y-1 bg-black/40 p-3 rounded-lg border border-amber-900/30 font-medium">
-                                                            <div className="flex"><span className="text-amber-500/70 w-14">Rua:</span> <span>{pAddress.rua}</span></div>
-                                                            <div className="flex"><span className="text-amber-500/70 w-14">Nº:</span> <span>{pAddress.numero}</span></div>
-                                                            <div className="flex"><span className="text-amber-500/70 w-14">Bairro:</span> <span>{pAddress.bairro}</span></div>
-                                                            <div className="flex"><span className="text-amber-500/70 w-14">Cidade:</span> <span>{pAddress.cidade}</span></div>
-                                                            <div className="flex"><span className="text-amber-500/70 w-14">Estado:</span> <span>{pAddress.estado || pAddress.uf}</span></div>
-                                                            <div className="flex"><span className="text-amber-500/70 w-14">CEP:</span> <span className="font-mono">{pAddress.cep}</span></div>
+                                                        <div className="space-y-0.5 text-amber-900 bg-amber-100/50 p-2 rounded">
+                                                            <div className="flex"><span className="font-semibold w-12">Rua:</span> <span>{pAddress.rua}</span></div>
+                                                            <div className="flex"><span className="font-semibold w-12">Nº:</span> <span>{pAddress.numero}</span></div>
+                                                            <div className="flex"><span className="font-semibold w-12">Bairro:</span> <span>{pAddress.bairro}</span></div>
+                                                            <div className="flex"><span className="font-semibold w-12">Cidade:</span> <span>{pAddress.cidade}</span></div>
+                                                            <div className="flex"><span className="font-semibold w-12">Estado:</span> <span>{pAddress.estado || pAddress.uf}</span></div>
+                                                            <div className="flex"><span className="font-semibold w-12">CEP:</span> <span>{pAddress.cep}</span></div>
                                                         </div>
                                                     ) : (
                                                         <p>{pAddress || 'Endereço não configurado'}</p>
+                                                    )}
+                                                    
+                                                    {pickupConfig?.mapsLink && (
+                                                        <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline font-bold mt-2 inline-block">Ver no Mapa &rarr;</a>
                                                     )}
 
                                                     {editingOrder.pickup_details && (() => {
                                                         try {
                                                             const p = JSON.parse(editingOrder.pickup_details);
-                                                            return (
-                                                                <div className="mt-3 pt-3 border-t border-amber-800/30">
-                                                                    <p className="font-black text-amber-400 text-[10px] uppercase tracking-wide mb-1">Autorizado a Retirar:</p>
-                                                                    <p className="font-bold text-white">{p.personName}</p>
-                                                                    <p className="font-mono text-gray-400 mt-0.5">CPF: {maskCPF(p.personCpf)}</p>
-                                                                </div>
-                                                            )
+                                                            return <div className="mt-3 pt-2 border-t border-amber-200"><p className="font-semibold text-amber-900">Retirado por:</p><p>{p.personName} (CPF: {p.personCpf})</p></div>
                                                         } catch { return null; }
                                                     })()}
                                                 </div>
                                             ) : (
-                                                <div className="text-xs space-y-2 bg-black/30 p-4 rounded-xl border border-gray-800">
+                                                <div className="text-xs space-y-2">
                                                     {(() => {
                                                         try {
                                                             const addr = JSON.parse(editingOrder.shipping_address);
                                                             return (
                                                                 <>
                                                                     <div className="flex gap-2">
-                                                                        <span className="font-bold text-gray-500 w-12 flex-shrink-0">Rua:</span>
-                                                                        <span className="text-gray-200 font-medium">{addr.logradouro}</span>
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Rua:</span>
+                                                                        <span className="text-gray-800 font-medium">{addr.logradouro}</span>
                                                                     </div>
                                                                     <div className="flex gap-2">
-                                                                        <span className="font-bold text-gray-500 w-12 flex-shrink-0">Nº:</span>
-                                                                        <span className="text-gray-200 font-medium">{addr.numero} {addr.complemento ? <span className="text-gray-400">({addr.complemento})</span> : ''}</span>
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Nº:</span>
+                                                                        <span className="text-gray-800">{addr.numero} {addr.complemento ? `(${addr.complemento})` : ''}</span>
                                                                     </div>
                                                                     <div className="flex gap-2">
-                                                                        <span className="font-bold text-gray-500 w-12 flex-shrink-0">Bairro:</span>
-                                                                        <span className="text-gray-200 font-medium">{addr.bairro}</span>
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Bairro:</span>
+                                                                        <span className="text-gray-800">{addr.bairro}</span>
                                                                     </div>
                                                                     <div className="flex gap-2">
-                                                                        <span className="font-bold text-gray-500 w-12 flex-shrink-0">Cidade:</span>
-                                                                        <span className="text-gray-200 font-medium">{addr.localidade} - <span className="uppercase text-amber-500">{addr.uf}</span></span>
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Cidade:</span>
+                                                                        <span className="text-gray-800">{addr.localidade}</span>
                                                                     </div>
-                                                                    <div className="flex gap-2 mt-2 pt-2 border-t border-gray-800">
-                                                                        <span className="font-bold text-gray-500 w-12 flex-shrink-0">CEP:</span>
-                                                                        <span className="font-mono font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">{addr.cep}</span>
+                                                                    <div className="flex gap-2">
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Estado:</span>
+                                                                        <span className="text-gray-800">{addr.uf}</span>
+                                                                    </div>
+                                                                    <div className="flex gap-2">
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">CEP:</span>
+                                                                        <span className="font-mono text-gray-800 bg-gray-100 px-1 rounded">{addr.cep}</span>
                                                                     </div>
                                                                 </>
                                                             );
-                                                        } catch { return <p className="text-red-400">Endereço inválido no banco de dados.</p>; }
+                                                        } catch { return <p>Endereço inválido</p>; }
                                                     })()}
                                                 </div>
                                             )}
                                         </DetailCard>
 
-                                        <DetailCard title="Transação" icon={CreditCardIcon}>
-                                            <div className="flex flex-col gap-3">
+                                        <DetailCard title="Pagamento" icon={CreditCardIcon}>
+                                            <div className="flex flex-col gap-2">
                                                 {(() => {
                                                     let details = {};
                                                     try { 
@@ -13522,24 +13506,18 @@ const AdminOrders = ({ appName }) => {
                                                     
                                                     return (
                                                         <>
-                                                            <div>
-                                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-blue-900/30 text-blue-400 border border-blue-800/50">
-                                                                    {details.method === 'pix' ? <PixIcon className="h-3 w-3 fill-current"/> : details.method === 'boleto' ? <BoletoIcon className="h-3 w-3 fill-current"/> : <CreditCardIcon className="h-3 w-3"/>}
-                                                                    {details.method === 'pix' ? 'Pix' : details.method === 'boleto' ? 'Boleto' : details.method === 'credit_card' ? 'Cartão de Crédito' : 'Outro'}
-                                                                </span>
-                                                            </div>
+                                                            <span className="inline-flex items-center w-fit px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
+                                                                {details.method === 'pix' ? 'Pix' : details.method === 'boleto' ? 'Boleto' : details.method === 'credit_card' ? 'Cartão' : 'Outro'}
+                                                            </span>
                                                             {details.method === 'credit_card' && (
-                                                                <div className="text-xs text-gray-400 bg-black/40 p-3 rounded-lg border border-gray-800 mt-1">
-                                                                    <p className="capitalize font-bold text-white mb-1 flex items-center gap-2">
-                                                                        <CreditCardIcon className="h-4 w-4 text-gray-500"/>
-                                                                        {details.card_brand} <span className="text-gray-500">••••</span> {details.card_last_four}
-                                                                    </p>
-                                                                    <p className="font-medium">{details.installments}x de R$ {(Number(editingOrder.total)/details.installments).toFixed(2)}</p>
+                                                                <div className="text-xs text-gray-600">
+                                                                    <p className="capitalize">{details.card_brand} •••• {details.card_last_four}</p>
+                                                                    <p>{details.installments}x de R$ {(Number(editingOrder.total)/details.installments).toFixed(2)}</p>
                                                                 </div>
                                                             )}
-                                                            <div className="mt-2 pt-3 border-t border-gray-800 flex justify-between items-center">
-                                                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Status Mercado Pago</span>
-                                                                <span className={`text-xs font-black uppercase tracking-wider px-2 py-1 rounded ${editingOrder.payment_status === 'approved' ? 'bg-green-900/30 text-green-400 border border-green-800/50' : 'bg-amber-900/30 text-amber-400 border border-amber-800/50'}`}>
+                                                            <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center">
+                                                                <span className="text-xs text-gray-500">Status</span>
+                                                                <span className={`text-xs font-bold ${editingOrder.payment_status === 'approved' ? 'text-green-600' : 'text-amber-600'}`}>
                                                                     {editingOrder.payment_status === 'approved' ? 'Aprovado' : 'Pendente'}
                                                                 </span>
                                                             </div>
@@ -13552,7 +13530,7 @@ const AdminOrders = ({ appName }) => {
                                 </div>
                                 
                                 {/* ATUALIZAR PEDIDO (Visível apenas em Mobile - FINAL DO FORMULÁRIO) */}
-                                <div className="lg:hidden mt-8">
+                                <div className="lg:hidden mt-6">
                                     {renderUpdateOrderForm()}
                                 </div>
 
@@ -13568,141 +13546,107 @@ const AdminOrders = ({ appName }) => {
                         initial={{ opacity: 0, y: -50 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -50 }}
-                        className="relative bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 rounded-xl shadow-lg shadow-blue-900/20 mb-6 flex justify-between items-center border border-blue-500"
+                        className="relative bg-blue-600 text-white p-4 rounded-lg shadow-lg mb-6 flex justify-between items-center"
                     >
                         <div className="flex items-center gap-3">
-                            <div className="bg-white/20 p-1.5 rounded-full animate-pulse">
-                                <CheckCircleIcon className="h-6 w-6 text-white"/>
-                            </div>
-                            <span className="font-bold text-sm sm:text-base">
+                            <CheckCircleIcon className="h-6 w-6"/>
+                            <span className="font-semibold">
                                 Você tem {newOrdersCount} novo(s) pedido(s) nas últimas 24 horas!
                             </span>
                         </div>
-                        <button onClick={() => setShowNewOrderNotification(false)} className="p-1.5 rounded-full hover:bg-white/20 transition-colors">
+                        <button onClick={() => setShowNewOrderNotification(false)} className="p-1 rounded-full hover:bg-blue-500">
                             <XMarkIcon className="h-5 w-5"/>
                         </button>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            <h1 className="text-3xl font-black text-white mb-6 tracking-tight">Gerenciar Pedidos</h1>
-            
-            {/* Filtros Premium */}
-            <div className="bg-gray-900 p-5 sm:p-6 rounded-2xl shadow-sm border border-gray-800 mb-6 space-y-4">
-                <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                    <SearchIcon className="h-4 w-4"/> Pesquisa Avançada
-                </h2>
+            <h1 className="text-3xl font-bold mb-6">Gerenciar Pedidos</h1>
+            {/* ... Filtros ... */}
+            <div className="bg-white p-4 rounded-lg shadow-md mb-6 space-y-4">
+                <h2 className="text-xl font-semibold">Pesquisa Avançada</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <input type="text" name="orderIdSearch" placeholder="Pesquisar por ID, Nome ou CPF..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="p-3 bg-black border border-gray-800 text-white rounded-xl focus:ring-2 focus:ring-amber-500 outline-none placeholder-gray-600 col-span-1 md:col-span-2 lg:col-span-4"/>
-                    
-                    <div className="relative">
-                        <label className="absolute -top-2 left-3 bg-gray-900 px-1 text-[10px] font-bold text-amber-500 uppercase tracking-wider">Data Inicial</label>
-                        <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="w-full p-3 bg-black border border-gray-800 text-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none" style={{ colorScheme: 'dark' }}/>
-                    </div>
-                    
-                    <div className="relative">
-                        <label className="absolute -top-2 left-3 bg-gray-900 px-1 text-[10px] font-bold text-amber-500 uppercase tracking-wider">Data Final</label>
-                        <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="w-full p-3 bg-black border border-gray-800 text-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none" style={{ colorScheme: 'dark' }}/>
-                    </div>
-                    
-                    <div className="relative">
-                        <label className="absolute -top-2 left-3 bg-gray-900 px-1 text-[10px] font-bold text-amber-500 uppercase tracking-wider">Preço Mín.</label>
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-bold">R$</span>
-                        <input type="number" name="minPrice" placeholder="0.00" value={filters.minPrice} onChange={handleFilterChange} className="w-full p-3 pl-9 bg-black border border-gray-800 text-white rounded-xl focus:ring-2 focus:ring-amber-500 outline-none"/>
-                    </div>
-                    
-                    <div className="relative">
-                        <label className="absolute -top-2 left-3 bg-gray-900 px-1 text-[10px] font-bold text-amber-500 uppercase tracking-wider">Preço Máx.</label>
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-bold">R$</span>
-                        <input type="number" name="maxPrice" placeholder="999.00" value={filters.maxPrice} onChange={handleFilterChange} className="w-full p-3 pl-9 bg-black border border-gray-800 text-white rounded-xl focus:ring-2 focus:ring-amber-500 outline-none"/>
-                    </div>
-                    
-                    <div className="col-span-1 md:col-span-2 lg:col-span-4 relative mt-2">
-                        <label className="absolute -top-2 left-3 bg-gray-900 px-1 text-[10px] font-bold text-amber-500 uppercase tracking-wider">Status do Pedido</label>
-                        <select name="status" value={filters.status} onChange={handleFilterChange} className="w-full p-3 bg-black border border-gray-800 text-white rounded-xl focus:ring-2 focus:ring-amber-500 outline-none appearance-none">
-                            <option value="">Todos os Status</option>
-                            {[...new Set(allStatuses)].map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                        <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none"/>
-                    </div>
+                    <input type="text" name="orderIdSearch" placeholder="Pesquisar por ID, Nome ou CPF..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="p-2 border rounded-md col-span-1 md:col-span-2 lg:col-span-4"/>
+                    <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data de Início"/>
+                    <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data Final"/>
+                    <input type="number" name="minPrice" placeholder="Preço Mín." value={filters.minPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
+                    <input type="number" name="maxPrice" placeholder="Preço Máx." value={filters.maxPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
+                    <select name="status" value={filters.status} onChange={handleFilterChange} className="p-2 border rounded-md bg-white">
+                        <option value="">Todos os Status</option>
+                        {[...new Set(allStatuses)].map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
                 </div>
-                <div className="mt-5 flex gap-3 flex-wrap border-t border-gray-800 pt-5">
-                    <button onClick={applyFilters} className="bg-amber-500 text-black px-6 py-2.5 rounded-xl font-bold hover:bg-amber-400 transition-all shadow-md active:scale-95 text-sm flex items-center gap-2">
-                        <SearchIcon className="h-4 w-4"/> Aplicar Filtros
-                    </button>
-                    <button onClick={clearFilters} className="bg-transparent border border-gray-700 text-gray-400 px-6 py-2.5 rounded-xl font-bold hover:text-white hover:bg-gray-800 transition-all active:scale-95 text-sm">
-                        Limpar Tudo
-                    </button>
+                <div className="mt-4 flex gap-2 flex-wrap">
+                    <button onClick={applyFilters} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Aplicar Filtros</button>
+                    <button onClick={clearFilters} className="bg-gray-400 text-white px-4 py-2 rounded-md hover:bg-gray-500">Limpar Filtros</button>
                 </div>
             </div>
             
             {/* Tabela de Listagem de Pedidos (COM ESTADO VAZIO) */}
-            <div className="bg-gray-900 border border-gray-800 shadow-xl rounded-2xl overflow-hidden">
+            <div className="bg-white shadow-md rounded-lg overflow-hidden">
                 <div className="hidden lg:block overflow-x-auto">
                      <table className="w-full text-left">
-                         <thead className="bg-black border-b border-gray-800 text-gray-400 text-xs uppercase tracking-wider">
+                         <thead className="bg-gray-100">
                             <tr>
-                                <th className="p-5 font-semibold">ID</th>
-                                <th className="p-5 font-semibold">Cliente</th>
-                                <th className="p-5 font-semibold">Contato</th>
-                                <th className="p-5 font-semibold">Envio</th>
-                                <th className="p-5 font-semibold">Total</th>
-                                <th className="p-5 font-semibold">Status</th>
-                                <th className="p-5 font-semibold text-center">Ações</th>
+                                <th className="p-4 font-semibold text-gray-600">ID</th>
+                                <th className="p-4 font-semibold text-gray-600">Cliente</th>
+                                <th className="p-4 font-semibold text-gray-600">Contato</th>
+                                <th className="p-4 font-semibold text-gray-600">Envio</th>
+                                <th className="p-4 font-semibold text-gray-600">Total</th>
+                                <th className="p-4 font-semibold text-gray-600">Status</th>
+                                <th className="p-4 font-semibold text-gray-600">Ações</th>
                             </tr>
                          </thead>
-                         <tbody className="divide-y divide-gray-800">
+                         <tbody className="divide-y divide-gray-100">
                             {currentOrders.length > 0 ? (
                                 currentOrders.map(o => {
                                     const shipInfo = getShippingDisplay(o.shipping_method);
                                     return (
-                                    <tr key={o.id} className="hover:bg-gray-800/50 transition-colors">
-                                        <td className="p-5">
-                                            <span className="font-mono text-amber-400 font-bold bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded">#{o.id}</span>
-                                            <p className="text-[10px] text-gray-500 font-bold mt-2 uppercase tracking-wider">{new Date(o.date).toLocaleDateString('pt-BR')}</p>
+                                    <tr key={o.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="p-4">
+                                            <span className="font-mono text-indigo-600 font-bold bg-indigo-50 px-2 py-1 rounded">#{o.id}</span>
+                                            <p className="text-xs text-gray-400 mt-1">{new Date(o.date).toLocaleDateString('pt-BR')}</p>
                                         </td>
-                                        <td className="p-5">
-                                            <p className="font-bold text-white">{o.user_name}</p>
-                                            <p className="text-[10px] font-mono text-gray-500 flex items-center gap-1.5 mt-1 bg-black/40 px-2 py-0.5 rounded w-fit border border-gray-800">
+                                        <td className="p-4">
+                                            <p className="font-bold text-gray-900">{o.user_name}</p>
+                                            <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
                                                 <UserIcon className="h-3 w-3"/> {maskCPF(o.user_cpf || '')}
                                             </p>
                                         </td>
-                                        <td className="p-5">
+                                        <td className="p-4">
                                             {o.user_phone ? (
-                                                <a href={`https://wa.me/55${o.user_phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-green-400 font-bold hover:bg-green-900/50 transition-colors text-xs bg-green-900/20 border border-green-800/50 px-2.5 py-1.5 rounded-md w-fit">
+                                                <a href={`https://wa.me/55${o.user_phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-green-600 font-bold hover:underline text-sm bg-green-50 px-2 py-1 rounded w-fit">
                                                     <WhatsappIcon className="h-4 w-4"/> {maskPhone(o.user_phone)}
                                                 </a>
-                                            ) : <span className="text-gray-500 text-xs italic font-medium">Sem contato</span>}
+                                            ) : <span className="text-gray-400 text-xs">Sem contato</span>}
                                         </td>
-                                        <td className="p-5">
-                                            <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md w-fit ${shipInfo.classes}`}>
+                                        <td className="p-4">
+                                            <div className={`flex items-center gap-2 px-2 py-1 rounded-md w-fit ${shipInfo.classes}`}>
                                                 {shipInfo.icon}
-                                                <span className="text-[10px] uppercase font-black tracking-wider">{shipInfo.label}</span>
+                                                <span className="text-xs font-bold">{shipInfo.label}</span>
                                             </div>
                                         </td>
-                                        <td className="p-5 font-black text-white text-base">R$ {Number(o.total).toFixed(2)}</td>
-                                        <td className="p-5">
-                                            <span className={`px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-md border ${getStatusChipClass(o.status)}`}>{o.status}</span>
+                                        <td className="p-4 font-bold text-gray-800">R$ {Number(o.total).toFixed(2)}</td>
+                                        <td className="p-4">
+                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
                                         </td>
-                                        <td className="p-5">
-                                            <div className="flex items-center justify-center">
-                                                <button onClick={() => handleOpenEditModal(o)} className="text-gray-400 hover:text-amber-400 transition-colors p-2 rounded-lg bg-gray-800 hover:bg-gray-700 flex items-center gap-2 text-xs font-bold" title="Ver Detalhes">
-                                                    <EyeIcon className="h-4 w-4"/> Detalhes
-                                                </button>
-                                            </div>
+                                        <td className="p-4">
+                                            <button onClick={() => handleOpenEditModal(o)} className="text-gray-500 hover:text-indigo-600 transition-colors p-2 rounded-full hover:bg-indigo-50" title="Ver Detalhes">
+                                                <EyeIcon className="h-5 w-5"/>
+                                            </button>
                                         </td>
                                     </tr>
                                 )})
                             ) : (
                                 <tr>
-                                    <td colSpan="7" className="p-16 text-center">
+                                    <td colSpan="7" className="p-12 text-center">
                                         <div className="flex flex-col items-center justify-center">
-                                            <PackageIcon className="h-16 w-16 text-gray-700 mb-4" />
-                                            <h3 className="text-xl font-bold text-white">Nenhum pedido encontrado</h3>
-                                            <p className="text-sm text-gray-500 mt-2 max-w-md">
+                                            <PackageIcon className="h-12 w-12 text-gray-300 mb-3" />
+                                            <h3 className="text-lg font-bold text-gray-700">Nenhum pedido encontrado</h3>
+                                            <p className="text-sm text-gray-500 mt-1">
                                                 {searchTerm || filters.status || filters.startDate || filters.endDate || filters.minPrice || filters.maxPrice 
-                                                    ? 'Nenhum pedido corresponde aos filtros aplicados. Tente limpar a busca.' 
-                                                    : 'Sua loja ainda não possui pedidos registrados.'}
+                                                    ? 'Nenhum pedido corresponde aos filtros aplicados.' 
+                                                    : 'Sua loja ainda não possui pedidos.'}
                                             </p>
                                         </div>
                                     </td>
@@ -13712,59 +13656,59 @@ const AdminOrders = ({ appName }) => {
                      </table>
                 </div>
                 
-                {/* Mobile List View (Cards Premium) */}
-                <div className="lg:hidden space-y-4 p-4 bg-black">
+                {/* Mobile List View (Cards Melhorados) */}
+                <div className="lg:hidden space-y-4 p-4 bg-gray-50">
                     {currentOrders.length > 0 ? (
                         currentOrders.map(o => {
                             const shipInfo = getShippingDisplay(o.shipping_method);
                             return (
-                            <div key={o.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+                            <div key={o.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm relative overflow-hidden">
                                 {/* Faixa lateral de status */}
-                                <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${o.status === 'Entregue' ? 'bg-green-500' : (o.status === 'Cancelado' ? 'bg-red-500' : 'bg-amber-500')}`}></div>
+                                <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${o.status === 'Entregue' ? 'bg-green-500' : (o.status === 'Cancelado' ? 'bg-red-500' : 'bg-indigo-500')}`}></div>
                                 
                                 <div className="pl-3">
-                                    <div className="flex justify-between items-start mb-4">
+                                    <div className="flex justify-between items-start mb-3">
                                         <div>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="font-mono font-black text-amber-400 text-lg bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">#{o.id}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-mono font-bold text-indigo-700 text-lg">#{o.id}</span>
+                                                <span className="text-xs text-gray-400">{new Date(o.date).toLocaleDateString('pt-BR')}</span>
                                             </div>
-                                            <p className="font-bold text-white text-base mt-1">{o.user_name}</p>
-                                            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">{new Date(o.date).toLocaleDateString('pt-BR')}</span>
+                                            <p className="font-bold text-gray-800 text-sm">{o.user_name}</p>
                                         </div>
-                                        <div className="text-right flex flex-col items-end">
-                                            <p className="font-black text-white text-lg">R$ {Number(o.total).toFixed(2)}</p>
-                                            <span className={`inline-block mt-1.5 px-2.5 py-1 text-[9px] border uppercase font-black tracking-wider rounded-md ${getStatusChipClass(o.status)}`}>{o.status}</span>
+                                        <div className="text-right">
+                                            <p className="font-bold text-gray-900">R$ {Number(o.total).toFixed(2)}</p>
+                                            <span className={`inline-block mt-1 px-2 py-0.5 text-[10px] uppercase font-bold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
                                         </div>
                                     </div>
 
                                     {/* Dados do Cliente (Mobile) */}
-                                    <div className="grid grid-cols-2 gap-3 text-xs text-gray-300 bg-black/40 p-3 rounded-xl border border-gray-800 mb-4">
-                                        <div className="flex items-center gap-2">
-                                            <div className="bg-gray-800 p-1.5 rounded text-gray-400"><UserIcon className="h-3.5 w-3.5"/></div>
-                                            <span className="font-mono font-medium">{maskCPF(o.user_cpf || '---')}</span>
+                                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 bg-gray-50 p-2.5 rounded-lg border border-gray-100 mb-3">
+                                        <div className="flex items-center gap-1.5">
+                                            <UserIcon className="h-3.5 w-3.5 text-gray-400"/>
+                                            <span className="font-mono">{maskCPF(o.user_cpf || '---')}</span>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <div className="bg-green-900/30 p-1.5 rounded text-green-400 border border-green-800/50"><WhatsappIcon className="h-3.5 w-3.5"/></div>
-                                            <span className="font-bold text-green-400">{maskPhone(o.user_phone || '---')}</span>
+                                        <div className="flex items-center gap-1.5">
+                                            <WhatsappIcon className="h-3.5 w-3.5 text-green-500"/>
+                                            <span className="font-bold text-green-700">{maskPhone(o.user_phone || '---')}</span>
                                         </div>
                                     </div>
 
                                     {/* Dados de Envio (Mobile) */}
-                                    <div className={`flex items-center gap-2.5 p-2.5 rounded-xl mb-4 text-xs font-bold uppercase tracking-wide w-fit ${shipInfo.classes}`}>
+                                    <div className={`flex items-center gap-2 p-2 rounded-lg mb-3 ${shipInfo.classes}`}>
                                         {shipInfo.icon}
-                                        <span>{shipInfo.fullText}</span>
+                                        <span className="text-xs font-bold">{shipInfo.fullText}</span>
                                     </div>
 
-                                    <button onClick={() => handleOpenEditModal(o)} className="w-full bg-amber-500 hover:bg-amber-400 text-black py-3 rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95">
-                                        <EyeIcon className="h-5 w-5"/> Ver Detalhes do Pedido
+                                    <button onClick={() => handleOpenEditModal(o)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-md active:scale-95">
+                                        <EyeIcon className="h-4 w-4"/> Ver Detalhes do Pedido
                                     </button>
                                 </div>
                             </div>
                         )})
                     ) : (
-                        <div className="text-center p-8 bg-gray-900 rounded-2xl border border-gray-800 shadow-sm">
-                            <PackageIcon className="h-12 w-12 text-gray-700 mx-auto mb-3" />
-                            <h3 className="text-lg font-bold text-white">Nenhum pedido encontrado</h3>
+                        <div className="text-center p-8 bg-white rounded-xl border border-gray-200 shadow-sm">
+                            <PackageIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                            <h3 className="text-lg font-bold text-gray-700">Nenhum pedido encontrado</h3>
                             <p className="text-sm text-gray-500 mt-1">
                                 {searchTerm || filters.status || filters.startDate || filters.endDate || filters.minPrice || filters.maxPrice 
                                     ? 'Tente limpar os filtros para ver mais resultados.' 
@@ -13777,10 +13721,10 @@ const AdminOrders = ({ appName }) => {
             
             {/* Paginação */}
             {totalPages > 1 && (
-                <div className="flex justify-between items-center mt-6 bg-gray-900 p-2 rounded-xl border border-gray-800">
-                    <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-5 py-2.5 bg-black border border-gray-800 rounded-lg disabled:opacity-50 font-bold text-white hover:bg-gray-800 transition-colors text-sm">Anterior</button>
-                    <span className="text-sm font-bold text-amber-500 uppercase tracking-widest">Pág {currentPage} / {totalPages}</span>
-                    <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-5 py-2.5 bg-black border border-gray-800 rounded-lg disabled:opacity-50 font-bold text-white hover:bg-gray-800 transition-colors text-sm">Próxima</button>
+                <div className="flex justify-between items-center mt-6">
+                    <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-white border rounded-md disabled:opacity-50 font-bold text-gray-700">Anterior</button>
+                    <span className="text-sm font-medium text-gray-600">Página {currentPage} de {totalPages}</span>
+                    <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-4 py-2 bg-white border rounded-md disabled:opacity-50 font-bold text-gray-700">Próxima</button>
                 </div>
             )}
         </div>
