@@ -6519,7 +6519,6 @@ const CheckoutPage = ({ onNavigate }) => {
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
     const [whatsapp, setWhatsapp] = useState(''); 
     
-    // CORREÇÃO: Lógica para forçar a destruição e recriação do Mercado Pago
     const [showBrick, setShowBrick] = useState(false);
 
     useEffect(() => {
@@ -6721,79 +6720,91 @@ const CheckoutPage = ({ onNavigate }) => {
                !displayAddress.is_incomplete;
     }, [displayAddress, autoCalculatedShipping, isSomeoneElsePickingUp, pickupPersonName, pickupPersonCpf]);
 
-    // CORREÇÃO: Lógica para montar o Brick de forma segura
     useEffect(() => {
         setShowBrick(false);
         const timer = setTimeout(() => {
             if (canPlaceOrder && autoCalculatedShipping && cart.length > 0) {
                 setShowBrick(true);
             }
-        }, 500); // Aguarda a estabilização da tela para montar
+        }, 500); 
         return () => clearTimeout(timer);
     }, [total, canPlaceOrder, autoCalculatedShipping, cart.length]);
 
     const handlePaymentSubmit = async (mpResponse) => {
-        const isPickup = autoCalculatedShipping?.isPickup;
-        if (!canPlaceOrder && !isPickup) {
-             notification.show("Por favor, complete o endereço de entrega para continuar.", 'error');
-             setIsNewAddressModalOpen(true); return;
-        }
-        if (!whatsapp || !validatePhone(whatsapp)) { notification.show("Por favor, informe um número de WhatsApp válido.", 'error'); return; }
-        
-        const nameToCheck = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
-        const cpfToCheck = isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf;
-        
-        if (isPickup && (!nameToCheck || !validateCPF(cpfToCheck))) {
-            notification.show("Preencha nome e CPF válidos para quem vai retirar.", 'error');
-            return;
-        }
-
-        setIsLoading(true);
-        try {
-            const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
-            const cpfToSend = (isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf)?.replace(/\D/g, '') || '';
-            const nameToSend = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
-
-            const orderPayload = {
-                items: cart.map(item => ({ id: item.id, qty: item.qty, price: (item.is_on_sale && item.sale_price ? item.sale_price : item.price), variation: item.variation })),
-                total, shippingAddress: finalShippingAddress, paymentMethod, shipping_method: autoCalculatedShipping.name, shipping_cost: shippingCost,
-                coupon_code: appliedCoupon?.code || null, discount_amount: discount, pickup_details: isPickup ? JSON.stringify({ personName: nameToSend, personCpf: cpfToSend }) : null,
-                phone: whatsapp.replace(/\D/g, '')
-            };
+        // Envolve tudo em uma Promise para o SDK do Mercado Pago entender quando terminou ou falhou
+        return new Promise(async (resolve, reject) => {
+            const isPickup = autoCalculatedShipping?.isPickup;
+            if (!canPlaceOrder && !isPickup) {
+                 notification.show("Por favor, complete o endereço de entrega para continuar.", 'error');
+                 setIsNewAddressModalOpen(true); 
+                 reject();
+                 return;
+            }
+            if (!whatsapp || !validatePhone(whatsapp)) { 
+                notification.show("Por favor, informe um número de WhatsApp válido.", 'error'); 
+                reject();
+                return; 
+            }
             
-            const { orderId } = await apiService('/orders', 'POST', orderPayload);
-
-            const actualPaymentData = JSON.parse(JSON.stringify(mpResponse.formData || mpResponse));
-
-            if (actualPaymentData.payer && displayAddress && !isPickup) {
-                actualPaymentData.payer.address = {
-                    zip_code: displayAddress.cep.replace(/\D/g, ''),
-                    street_name: displayAddress.logradouro,
-                    street_number: String(displayAddress.numero),
-                    neighborhood: displayAddress.bairro,
-                    city: displayAddress.localidade,
-                    federal_unit: displayAddress.uf
-                };
+            const nameToCheck = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
+            const cpfToCheck = isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf;
+            
+            if (isPickup && (!nameToCheck || !validateCPF(cpfToCheck))) {
+                notification.show("Preencha nome e CPF válidos para quem vai retirar.", 'error');
+                reject();
+                return;
             }
 
-            const paymentPayload = {
-                orderId,
-                paymentData: actualPaymentData 
-            };
+            setIsLoading(true);
+            try {
+                const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
+                const cpfToSend = (isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf)?.replace(/\D/g, '') || '';
+                const nameToSend = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
 
-            const paymentResult = await apiService('/process-payment', 'POST', paymentPayload);
+                const orderPayload = {
+                    items: cart.map(item => ({ id: item.id, qty: item.qty, price: (item.is_on_sale && item.sale_price ? item.sale_price : item.price), variation: item.variation })),
+                    total, shippingAddress: finalShippingAddress, paymentMethod, shipping_method: autoCalculatedShipping.name, shipping_cost: shippingCost,
+                    coupon_code: appliedCoupon?.code || null, discount_amount: discount, pickup_details: isPickup ? JSON.stringify({ personName: nameToSend, personCpf: cpfToSend }) : null,
+                    phone: whatsapp.replace(/\D/g, '')
+                };
+                
+                const { orderId } = await apiService('/orders', 'POST', orderPayload);
 
-            if (['approved', 'in_process', 'pending'].includes(paymentResult.status)) {
+                const actualPaymentData = JSON.parse(JSON.stringify(mpResponse.formData || mpResponse));
+
+                if (actualPaymentData.payer && displayAddress && !isPickup) {
+                    actualPaymentData.payer.address = {
+                        zip_code: displayAddress.cep.replace(/\D/g, ''),
+                        street_name: displayAddress.logradouro,
+                        street_number: String(displayAddress.numero),
+                        neighborhood: displayAddress.bairro,
+                        city: displayAddress.localidade,
+                        federal_unit: displayAddress.uf
+                    };
+                }
+
+                const paymentPayload = {
+                    orderId,
+                    paymentData: actualPaymentData 
+                };
+
+                // Envia o pagamento para a nossa API
+                await apiService('/process-payment', 'POST', paymentPayload);
+
+                // IMPORTANTE: Agora nós redirecionamos para a tela de OrderSuccess INDEPENDENTE do status.
+                // Se foi recusado, a tela OrderSuccess mostrará o status "Pagamento Recusado" lindamente.
+                // Isso tira o usuário do checkout, limpa o carrinho e impede compras duplicadas por acidente.
                 clearOrderState();
                 onNavigate(`order-success/${orderId}`);
-            } else {
-                notification.show(`Pagamento recusado pela operadora. Tente outro cartão ou método.`, 'error');
+                resolve();
+
+            } catch (error) {
+                notification.show(`Erro ao processar: ${error.message}`, 'error');
+                reject();
+            } finally {
+                setIsLoading(false);
             }
-        } catch (error) {
-            notification.show(`Erro ao processar: ${error.message}`, 'error');
-        } finally {
-            setIsLoading(false);
-        }
+        });
     };
 
     const pAddress = pickupConfig?.address;
@@ -7081,9 +7092,9 @@ const CheckoutPage = ({ onNavigate }) => {
                                             </div>
                                         </div>
                                         
-                                        {/* CORREÇÃO: Renderização do Brick controlada para evitar duplicação */}
                                         {showBrick ? (
                                             <MercadoPagoPayment
+                                                key={`mp-brick-checkout-${total}-${displayAddress?.cep || 'no-cep'}`}
                                                 initialization={mpInitialization}
                                                 customization={mpCustomization}
                                                 onSubmit={handlePaymentSubmit}
@@ -7359,6 +7370,7 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
                     borderColor: "border-gray-500/30"
                 };
 
+            // CORREÇÃO: Nova mensagem guiando o usuário a refazer o pedido na tela de detalhes
             case 'pending_action':
                 return {
                     icon: (
@@ -7368,14 +7380,14 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
                     ),
                     title: "Pagamento Recusado",
                     subtitle: "NÃO CONSEGUIMOS PROCESSAR SEU PAGAMENTO.",
-                    message: `A operadora do seu cartão recusou o pagamento do pedido #${orderId}. Fique tranquilo, você não foi cobrado. Por favor, tente utilizar outro cartão de crédito ou gere um Pix.`,
+                    message: `A operadora do seu cartão recusou o pagamento do pedido #${orderId}. Fique tranquilo, você não foi cobrado. Acesse os detalhes deste pedido e clique em "Repetir Pedido" para tentar novamente.`,
                     actions: (
                         <div className="flex flex-col gap-4 w-full">
                              <button 
                                 onClick={() => onNavigate(`account/orders/${orderId}`)} 
                                 className={`px-6 py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2 w-full transition-all shadow-lg bg-gradient-to-r from-amber-400 to-amber-500 text-black hover:shadow-amber-500/30 active:scale-95`}
                             >
-                                Tentar Pagar Novamente
+                                Ver Detalhes e Repetir Pedido
                             </button>
                         </div>
                     ),
@@ -16796,7 +16808,6 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessingPayment, setIsProcessingPayment] = useState(false);
     
-    // CORREÇÃO: Lógica para forçar a destruição e recriação do Mercado Pago
     const [showBrick, setShowBrick] = useState(false);
 
     useEffect(() => {
@@ -16824,42 +16835,43 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
     }, [orderId, onNavigate, notification]);
 
     const handlePaymentSubmit = async (mpResponse) => {
-        setIsProcessingPayment(true);
-        try {
-            const actualPaymentData = JSON.parse(JSON.stringify(mpResponse.formData || mpResponse));
+        return new Promise(async (resolve, reject) => {
+            setIsProcessingPayment(true);
+            try {
+                const actualPaymentData = JSON.parse(JSON.stringify(mpResponse.formData || mpResponse));
 
-            if (actualPaymentData.payer && order?.shipping_address && order.shipping_method !== 'Retirar na loja') {
-                try {
-                    const addr = JSON.parse(order.shipping_address);
-                    actualPaymentData.payer.address = {
-                        zip_code: addr.cep.replace(/\D/g, ''),
-                        street_name: addr.logradouro,
-                        street_number: String(addr.numero),
-                        neighborhood: addr.bairro,
-                        city: addr.localidade,
-                        federal_unit: addr.uf
-                    };
-                } catch(e) {}
-            }
+                if (actualPaymentData.payer && order?.shipping_address && order.shipping_method !== 'Retirar na loja') {
+                    try {
+                        const addr = JSON.parse(order.shipping_address);
+                        actualPaymentData.payer.address = {
+                            zip_code: addr.cep.replace(/\D/g, ''),
+                            street_name: addr.logradouro,
+                            street_number: String(addr.numero),
+                            neighborhood: addr.bairro,
+                            city: addr.localidade,
+                            federal_unit: addr.uf
+                        };
+                    } catch(e) {}
+                }
 
-            const paymentPayload = {
-                orderId: order.id,
-                paymentData: actualPaymentData 
-            };
+                const paymentPayload = {
+                    orderId: order.id,
+                    paymentData: actualPaymentData 
+                };
 
-            const paymentResult = await apiService('/process-payment', 'POST', paymentPayload);
+                await apiService('/process-payment', 'POST', paymentPayload);
 
-            if (['approved', 'in_process', 'pending'].includes(paymentResult.status)) {
                 clearOrderState();
                 onNavigate(`order-success/${order.id}`);
-            } else {
-                notification.show(`Pagamento recusado pela operadora. Tente outro método.`, 'error');
+                resolve();
+
+            } catch (error) {
+                notification.show(`Erro ao processar pagamento: ${error.message}`, 'error');
+                reject();
+            } finally {
+                setIsProcessingPayment(false);
             }
-        } catch (error) {
-            notification.show(`Erro ao processar pagamento: ${error.message}`, 'error');
-        } finally {
-            setIsProcessingPayment(false);
-        }
+        });
     };
 
     const mpInitialization = useMemo(() => {
@@ -16931,7 +16943,6 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
         };
     }, []);
 
-    // CORREÇÃO: Lógica para montar o Brick de forma segura
     useEffect(() => {
         if (!order) return;
         setShowBrick(false);
@@ -17073,9 +17084,9 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                                 </div>
                             </div>
                             
-                            {/* CORREÇÃO: Renderização do Brick controlada para evitar duplicação */}
                             {showBrick ? (
                                 <MercadoPagoPayment
+                                    key={`mp-brick-order-${order.id}-${order.total}`}
                                     initialization={mpInitialization}
                                     customization={mpCustomization}
                                     onSubmit={handlePaymentSubmit}
@@ -17083,7 +17094,7 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                             ) : (
                                 <div className="flex flex-col items-center justify-center py-6 px-4 gap-3 bg-gray-800 rounded-xl border border-gray-700">
                                     <SpinnerIcon className="h-8 w-8 text-amber-500 animate-spin" />
-                                    <p className="text-xs font-bold text-gray-400 text-center">Carregando módulos de pagamento...</p>
+                                    <p className="text-xs font-bold text-gray-400 text-center">Preparando ambiente seguro de pagamento...</p>
                                 </div>
                             )}
 
