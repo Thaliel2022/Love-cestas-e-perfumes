@@ -6258,24 +6258,19 @@ const CheckoutPage = ({ onNavigate }) => {
         }).finally(() => setIsAddressLoading(false));
     }, [fetchAddresses, shippingLocation, setShippingLocation, user]);
 
+    // Inicializa os dados de quem vai retirar com os dados do usuário logado por padrão
     useEffect(() => {
-        if (user && !isSomeoneElsePickingUp) {
-            setPickupPersonName(user.name || ''); setPickupPersonCpf(maskCPF(user.cpf || '')); 
-        } else {
-            setPickupPersonName(''); setPickupPersonCpf('');
+        if (user) {
+            setPickupPersonName(prev => prev || user.name || '');
+            setPickupPersonCpf(prev => prev || maskCPF(user.cpf || '')); 
         }
-    }, [user, isSomeoneElsePickingUp]);
+    }, [user]);
 
     const handleSelectShipping = (option) => {
         setAutoCalculatedShipping(option);
         setSelectedShippingName(option.name);
         if(option.isPickup) {
             setDisplayAddress(null);
-            if (!isSomeoneElsePickingUp && user) {
-                setPickupPersonName(user.name || ''); setPickupPersonCpf(maskCPF(user.cpf || '')); 
-            } else {
-                 setPickupPersonName(''); setPickupPersonCpf('');
-            }
         } else if (!displayAddress && addresses.length > 0) {
              const defaultOrFirst = addresses.find(addr => addr.is_default) || addresses[0];
              if (defaultOrFirst) {
@@ -6332,7 +6327,6 @@ const CheckoutPage = ({ onNavigate }) => {
     
     const total = useMemo(() => Math.max(0, (Number(subtotal) || 0) - (Number(discount) || 0) + (Number(shippingCost) || 0)), [subtotal, discount, shippingCost]);
 
-    // Memórias para evitar duplicação do Mercado Pago Brick
     const mpInitialization = useMemo(() => {
         return {
             amount: Number(total.toFixed(2)),
@@ -6382,12 +6376,10 @@ const CheckoutPage = ({ onNavigate }) => {
         return `Previsão: ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
     };
 
-    const handlePickupNameBlur = (e) => setPickupPersonName(e.target.value);
-    const handleCpfInputChangeMask = (e) => e.target.value = maskCPF(e.target.value);
-    const handlePickupCpfBlur = (e) => setPickupPersonCpf(maskCPF(e.target.value));
-
     const canPlaceOrder = useMemo(() => {
-        if (autoCalculatedShipping?.isPickup) return isSomeoneElsePickingUp ? pickupPersonName.length > 3 && pickupPersonCpf.length >= 11 : true;
+        if (autoCalculatedShipping?.isPickup) {
+            return isSomeoneElsePickingUp ? pickupPersonName.trim().length > 3 && pickupPersonCpf.replace(/\D/g, '').length >= 11 : true;
+        }
         if (!displayAddress) return false;
         return displayAddress.logradouro && displayAddress.logradouro !== 'N/A' && displayAddress.logradouro.trim() !== '' &&
                displayAddress.numero && displayAddress.numero !== 'N/A' && displayAddress.numero.trim() !== '' &&
@@ -6476,9 +6468,9 @@ const CheckoutPage = ({ onNavigate }) => {
                     </button>
 
                     <h1 className="text-3xl md:text-4xl font-bold mb-8 text-center sm:text-left">Finalizar Pedido</h1>
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12 items-start">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
 
-                        <div className="lg:col-span-2 space-y-8">
+                        <div className="lg:col-span-7 space-y-8">
                             <CheckoutSection title="Contato para Status" step={1} icon={WhatsappIcon}>
                                 <div className="space-y-4">
                                     <div>
@@ -6585,8 +6577,21 @@ const CheckoutPage = ({ onNavigate }) => {
                                                 animate={{ opacity: 1, height: 'auto' }}
                                                 className="space-y-3 overflow-hidden bg-gray-800 p-4 rounded-lg border border-gray-700 mt-2"
                                             >
-                                                <input type="text" defaultValue={pickupPersonName} onBlur={handlePickupNameBlur} placeholder="Nome completo de quem vai retirar" className="w-full p-3 bg-gray-700 border-gray-600 border rounded-md text-sm text-white focus:ring-1 focus:ring-amber-500 outline-none"/>
-                                                <input type="text" defaultValue={pickupPersonCpf} onInput={handleCpfInputChangeMask} onBlur={handlePickupCpfBlur} placeholder="CPF de quem vai retirar" maxLength="14" className="w-full p-3 bg-gray-700 border-gray-600 border rounded-md text-sm text-white focus:ring-1 focus:ring-amber-500 outline-none"/>
+                                                <input 
+                                                    type="text" 
+                                                    value={pickupPersonName} 
+                                                    onChange={(e) => setPickupPersonName(e.target.value)} 
+                                                    placeholder="Nome completo de quem vai retirar" 
+                                                    className="w-full p-3 bg-gray-700 border-gray-600 border rounded-md text-sm text-white focus:ring-1 focus:ring-amber-500 outline-none"
+                                                />
+                                                <input 
+                                                    type="text" 
+                                                    value={pickupPersonCpf} 
+                                                    onChange={(e) => setPickupPersonCpf(maskCPF(e.target.value))} 
+                                                    placeholder="CPF de quem vai retirar" 
+                                                    maxLength="14" 
+                                                    className="w-full p-3 bg-gray-700 border-gray-600 border rounded-md text-sm text-white focus:ring-1 focus:ring-amber-500 outline-none"
+                                                />
                                             </motion.div>
                                         )}
                                     </div>
@@ -6626,7 +6631,7 @@ const CheckoutPage = ({ onNavigate }) => {
                             )}
                         </div> 
 
-                        <div className="lg:col-span-1">
+                        <div className="lg:col-span-5">
                              <div className="bg-gray-900 rounded-lg border border-gray-800 p-5 lg:p-6 shadow-lg h-fit lg:sticky lg:top-24">
                                 <h2 className="text-xl font-bold mb-5 text-amber-400 border-b border-gray-700 pb-3">Resumo do Pedido</h2>
                                 <div className="space-y-2 mb-4 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
@@ -6707,7 +6712,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                             onError={(error) => {
                                                 if(error?.message && error.message.includes("createObjectStore")) return;
                                                 console.error("Mercado Pago Bricks Error:", error);
-                                                notification.show("Por favor, selecione uma forma de pagamento e preencha todos os campos obrigatórios.", "error");
+                                                notification.show("Por favor, selecione uma forma de pagamento e preencha todos os campos obrigatórios no formulário do Mercado Pago.", "error");
                                             }}
                                         />
                                     </div>
