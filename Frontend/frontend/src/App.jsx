@@ -16759,7 +16759,6 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                                 </div>
                             </div>
                             <MercadoPagoPayment
-                                key={`mp-payment-order-${order.id}`}
                                 initialization={mpInitialization}
                                 customization={mpCustomization}
                                 onSubmit={handlePaymentSubmit}
