@@ -20,6 +20,7 @@ const webpush = require('web-push');
 const { z } = require('zod'); // Substitui express-validator
 const compression = require('compression'); 
 const { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } = require('@simplewebauthn/server');
+const xss = require('xss-clean');
 
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
@@ -164,6 +165,27 @@ app.use(helmet({
         },
     },
 }));
+
+// --- 2. MIDDLEWARE DE PROTEÇÃO CONTRA XSS (ALTA SEGURANÇA) ---
+app.use(xss()); 
+
+// --- 3. MIDDLEWARE PARA LIMPAR ESPAÇOS EM BRANCO (TRIM) ---
+const trimInputMiddleware = (req, res, next) => {
+    const trimStrings = (obj) => {
+        for (const key in obj) {
+            if (typeof obj[key] === 'string') {
+                obj[key] = obj[key].trim();
+            } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+                trimStrings(obj[key]);
+            }
+        }
+    };
+    if (req.body) trimStrings(req.body);
+    if (req.query) trimStrings(req.query);
+    if (req.params) trimStrings(req.params);
+    next();
+};
+app.use(trimInputMiddleware);
 
 // --- MIDDLEWARE DE PROTEÇÃO CONTRA XSS (ALTA SEGURANÇA) ---
 // Sanitiza recursivamente strings em body, query e params
@@ -1222,54 +1244,87 @@ app.post('/api/register', validate(authSchemas.register), async (req, res) => {
     }
 });
 
-// --- ROTA DE LOGIN (COM ROTAÇÃO E DB) ---
+// --- ROTA DE LOGIN (ALTA SEGURANÇA COM HTTPONLY COOKIES) ---
 app.post('/api/login', validate(authSchemas.login), async (req, res) => {
     try {
         const { email, password } = req.body;
+        
+        // 1. Busca usuário
         const [users] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
         const user = users[0];
 
-        if (!user || !(await bcrypt.compare(password, user.password))) {
-            return res.status(401).json({ message: "Email ou senha inválidos." });
-        }
-        if (user.status === 'blocked') {
-            return res.status(403).json({ message: "Conta bloqueada." });
+        if (!user || user.status === 'blocked') {
+            return res.status(401).json({ message: "Credenciais inválidas ou usuário bloqueado." });
         }
 
-        if (user.role === 'admin' && user.is_two_factor_enabled) {
-             const tempToken = jwt.sign({ id: user.id, twoFactorAuth: true }, process.env.JWT_SECRET, { expiresIn: '5m' });
-             return res.json({ twoFactorEnabled: true, token: tempToken });
+        // 2. Verifica a senha
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(401).json({ message: "Credenciais inválidas." });
         }
 
-        const userPayload = { id: user.id, name: user.name, role: user.role };
-        const accessToken = jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
-        const refreshToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
+        // 3. Lógica de 2FA (Mantida da sua estrutura original)
+        if (user.is_two_factor_enabled) {
+            const tempToken = jwt.sign(
+                { id: user.id, isPartial: true }, 
+                process.env.JWT_SECRET, 
+                { expiresIn: '15m' }
+            );
+            return res.status(206).json({ 
+                message: "Autenticação 2FA necessária", 
+                requires2FA: true, 
+                tempAuthToken: tempToken 
+            });
+        }
 
-        const expiresAt = new Date(Date.now() + REFRESH_TOKEN_MAX_AGE);
-        await db.query("INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)", [user.id, refreshToken, expiresAt]);
+        // 4. Gera Tokens Oficiais
+        const accessToken = jwt.sign(
+            { id: user.id, role: user.role, name: user.name },
+            process.env.JWT_SECRET,
+            { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
+        );
 
+        const refreshToken = jwt.sign(
+            { id: user.id },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        // 5. Configura e envia os Cookies HttpOnly (O Javascript do frontend não lê isso)
         const cookieOptions = {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            httpOnly: true, // Protege contra XSS
+            secure: process.env.NODE_ENV === 'production', // true em HTTPS (Vercel/Render)
+            sameSite: 'strict', // Protege contra CSRF
         };
 
-        res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
-        res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: REFRESH_TOKEN_MAX_AGE });
+        // Envia Access Token
+        res.cookie('accessToken', accessToken, {
+            ...cookieOptions,
+            maxAge: 8 * 60 * 60 * 1000 // 8 horas em ms (Sincronizar com expiresIn)
+        });
 
-        await db.query("INSERT INTO login_history (user_id, email, ip_address, user_agent, status) VALUES (?, ?, ?, ?, 'success')", [user.id, email, req.ip, req.headers['user-agent']]);
+        // Envia Refresh Token
+        res.cookie('refreshToken', refreshToken, {
+            ...cookieOptions,
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 dias em ms
+        });
 
-        // --- CORREÇÃO: Busca se a biometria está ativa no ato do login ---
-        const [auths] = await db.query("SELECT id FROM user_authenticators WHERE user_id = ?", [user.id]);
-        const { password: _, two_factor_secret, ...userData } = user;
-        
-        userData.has_biometrics = auths.length > 0; // Informa o painel imediatamente
+        // 6. Resposta limpa para o frontend (SEM OS TOKENS NO JSON)
+        res.status(200).json({
+            message: "Login realizado com sucesso.",
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                cpf: user.cpf,
+                phone: user.phone
+            }
+        });
 
-        res.json({ message: "Login realizado com sucesso.", user: userData, accessToken, refreshToken });
-
-    } catch (err) {
-        console.error("Erro no login:", err);
-        res.status(500).json({ message: "Erro interno." });
+    } catch (error) {
+        console.error("[POST /api/login] Erro no login:", error);
+        res.status(500).json({ message: "Erro interno no servidor durante o login." });
     }
 });
 
@@ -1656,34 +1711,50 @@ app.post('/api/shipping/calculate', checkMaintenanceMode, async (req, res) => {
 
 // --- ROTAS DE PRODUTOS ---
 app.get('/api/products', checkMaintenanceMode, async (req, res) => {
-    try {
-       const sql = `
-            SELECT 
-                p.*,
-                r_agg.avg_rating,
-                COALESCE(r_agg.review_count, 0) as review_count
-            FROM 
-                products p
-            LEFT JOIN 
-                (SELECT 
-                    product_id, 
-                    AVG(rating) as avg_rating, 
-                    COUNT(id) as review_count 
-                FROM 
-                    reviews 
-                GROUP BY 
-                    product_id) AS r_agg ON p.id = r_agg.product_id
-            WHERE 
-                p.is_active = 1
-            ORDER BY 
-                p.created_at DESC;
+    try {
+        // 1. Configuração de Paginação (Default: Página 1, 12 itens por página)
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 12;
+        const offset = (page - 1) * limit;
+
+        // 2. Query para contar o total de produtos ativos (necessário para o frontend saber quando parar)
+        const [countResult] = await db.query(
+            "SELECT COUNT(id) as total FROM products WHERE is_active = 1"
+        );
+        const totalProducts = countResult[0].total;
+        const totalPages = Math.ceil(totalProducts / limit);
+
+        // 3. Query otimizada com LIMIT e OFFSET
+        const sql = `
+            SELECT p.*, r_agg.avg_rating, COALESCE(r_agg.review_count, 0) as review_count 
+            FROM products p 
+            LEFT JOIN (
+                SELECT product_id, AVG(rating) as avg_rating, COUNT(id) as review_count 
+                FROM reviews 
+                GROUP BY product_id
+            ) AS r_agg ON p.id = r_agg.product_id 
+            WHERE p.is_active = 1 
+            ORDER BY p.created_at DESC 
+            LIMIT ? OFFSET ?
         `;
-        const [products] = await db.query(sql);
-        res.json(products);
-    } catch (err) {
-        console.error("Erro ao buscar produtos:", err);
-        res.status(500).json({ message: "Erro ao buscar produtos." });
-    }
+        
+        const [products] = await db.query(sql, [limit, offset]);
+
+        // 4. Retorno no padrão profissional de APIs (Dados + Metadados)
+        res.status(200).json({
+            data: products,
+            meta: {
+                totalItems: totalProducts,
+                currentPage: page,
+                totalPages: totalPages,
+                itemsPerPage: limit,
+                hasNextPage: page < totalPages
+            }
+        });
+    } catch (err) {
+        console.error("[GET /api/products] Erro ao buscar produtos:", err);
+        res.status(500).json({ message: "Erro interno ao buscar produtos." });
+    }
 });
 
 app.get('/api/products/all', verifyToken, verifyAdmin, async (req, res) => {
