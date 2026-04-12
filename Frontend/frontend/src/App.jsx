@@ -3,7 +3,7 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { initMercadoPago, Payment as MercadoPagoPayment } from '@mercadopago/sdk-react';
+
 // --- Constante da API ---
 const API_URL = process.env.REACT_APP_API_URL || 'https://love-cestas-e-perfumes.onrender.com/api';
 
@@ -45,7 +45,6 @@ const SpinnerIcon = ({ className }) => {
         </svg>
     );
 };
-initMercadoPago(process.env.REACT_APP_MP_PUBLIC_KEY || 'APP_USR-fe8bcd59-da54-4fb5-a3d0-8b8f749097be', { locale: 'pt-BR' });
 const ClockIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const PackageIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>;
 const CheckBadgeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>;
@@ -6215,6 +6214,7 @@ const CheckoutPage = ({ onNavigate }) => {
         cart, autoCalculatedShipping, appliedCoupon, clearOrderState, addresses,
         fetchAddresses, shippingLocation, setShippingLocation, shippingOptions,
         setAutoCalculatedShipping, setSelectedShippingName, pickupConfig,
+        // Trazendo as funções de cupom do contexto global
         couponCode, setCouponCode, applyCoupon, removeCoupon, couponMessage
     } = useShop();
     const notification = useNotification();
@@ -6361,19 +6361,19 @@ const CheckoutPage = ({ onNavigate }) => {
                !displayAddress.is_incomplete;
     }, [displayAddress, autoCalculatedShipping, isSomeoneElsePickingUp, pickupPersonName, pickupPersonCpf]);
 
-    const handlePaymentSubmit = async (mpResponse) => {
+    const handlePlaceOrderAndPay = async () => {
         const isPickup = autoCalculatedShipping?.isPickup;
         if (!canPlaceOrder && !isPickup) {
-             notification.show("Por favor, complete o endereço de entrega para continuar.", 'error');
+             notification.show("Por favor, complete o endereço de entrega (Rua, Número e Bairro) para continuar.", 'error');
              setIsNewAddressModalOpen(true); return;
         }
-        if (!whatsapp || !validatePhone(whatsapp)) { notification.show("Por favor, informe um número de WhatsApp válido.", 'error'); return; }
-        
+        if (!whatsapp || !validatePhone(whatsapp)) { notification.show("Por favor, informe um número de WhatsApp válido para contato.", 'error'); return; }
         const nameToCheck = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
         const cpfToCheck = isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf;
         
         if (isPickup && (!nameToCheck || !validateCPF(cpfToCheck))) {
-            notification.show("Preencha nome e CPF válidos para quem vai retirar.", 'error');
+            if(!isSomeoneElsePickingUp && !user) notification.show("Faça login ou marque 'Outra pessoa vai retirar?' e preencha os dados.", 'error');
+            else notification.show("Preencha nome e CPF válidos para quem vai retirar.", 'error');
             return;
         }
 
@@ -6392,24 +6392,17 @@ const CheckoutPage = ({ onNavigate }) => {
             
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
 
-            const actualPaymentData = mpResponse.formData || mpResponse;
-
-            const paymentPayload = {
-                orderId,
-                paymentData: actualPaymentData 
-            };
-
-            const paymentResult = await apiService('/process-payment', 'POST', paymentPayload);
-
-            if (['approved', 'in_process', 'pending'].includes(paymentResult.status)) {
+            if (paymentMethod === 'mercadopago') {
+                localStorage.setItem('pendingOrderId', orderId);
+                const { init_point } = await apiService('/create-mercadopago-payment', 'POST', { orderId });
+                if (init_point) window.location.assign(init_point);
+                else throw new Error("Link de pagamento não obtido.");
+            } else {
                 clearOrderState();
                 onNavigate(`order-success/${orderId}`);
-            } else {
-                notification.show(`Pagamento recusado pela operadora. Tente outro cartão ou método.`, 'error');
             }
         } catch (error) {
-            notification.show(`Erro ao processar: ${error.message}`, 'error');
-        } finally {
+            notification.show(`Erro: ${error.message}`, 'error');
             setIsLoading(false);
         }
     };
@@ -6424,8 +6417,8 @@ const CheckoutPage = ({ onNavigate }) => {
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/80 backdrop-blur-md">
                         <div className="bg-gray-900 border border-gray-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center transform transition-all ring-1 ring-amber-500/30">
                             <SpinnerIcon className="h-16 w-16 text-amber-400 mb-6 animate-spin" />
-                            <h3 className="text-2xl font-extrabold text-white mb-2">Processando Pagamento</h3>
-                            <p className="text-sm font-medium text-gray-300">Estamos validando seus dados de forma segura...</p>
+                            <h3 className="text-2xl font-extrabold text-white mb-2">Processando Pedido</h3>
+                            <p className="text-sm font-medium text-gray-300">Estamos gerando seu link de pagamento seguro no Mercado Pago...</p>
                             <p className="text-xs text-red-400 mt-5 font-bold uppercase tracking-widest animate-pulse">Por favor, não feche esta janela</p>
                         </div>
                     </motion.div>
@@ -6499,8 +6492,27 @@ const CheckoutPage = ({ onNavigate }) => {
                                                 ) : (
                                                     <p className="text-gray-300">{pAddress || 'Endereço não configurado'}</p>
                                                 )}
+
+                                                {pickupConfig?.mapsLink && (
+                                                    <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 hover:underline text-xs font-bold mt-2 inline-flex items-center gap-1 bg-amber-400/10 px-3 py-1.5 rounded-md border border-amber-400/30 transition-all">
+                                                        Ver localização no mapa <ArrowUturnLeftIcon className="h-3 w-3 rotate-180" />
+                                                    </a>
+                                                )}
                                             </div>
                                         </div>
+                                        
+                                        <div className="flex items-start gap-2 pt-3 border-t border-gray-700">
+                                            <ClockIcon className="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                                            <div>
+                                                <p className="font-bold text-white">Horário de Funcionamento:</p>
+                                                <p className="text-gray-300 mt-1">{pickupConfig?.hours || 'Seg a Sáb: 09h-11h30 e 15h-17h30 (exceto feriados)'}</p>
+                                            </div>
+                                        </div>
+
+                                        <p className="text-amber-300 text-xs mt-3 font-semibold bg-amber-900/30 p-2 rounded border border-amber-800 flex items-center gap-1.5">
+                                            <ExclamationCircleIcon className="h-4 w-4" />
+                                            Aguarde a notificação "Pronto para Retirada" antes de se dirigir ao local.
+                                        </p>
                                     </div>
                                     <div className="mt-5 space-y-3">
                                         <div className="flex items-center">
@@ -6548,6 +6560,23 @@ const CheckoutPage = ({ onNavigate }) => {
                                     )}
                                 </CheckoutSection>
                             )}
+
+                            <CheckoutSection title="Forma de Pagamento" step={3} icon={CreditCardIcon}>
+                                <div className="space-y-3">
+                                    <div onClick={() => setPaymentMethod('mercadopago')}
+                                         className={`relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center gap-4 ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-gray-800 shadow-inner' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}>
+                                        <div className="absolute top-3 left-3 w-5 h-5 flex items-center justify-center">
+                                            <div className={`w-4 h-4 rounded-full border-2 ${paymentMethod === 'mercadopago' ? 'border-amber-400' : 'border-gray-500'}`}>
+                                                {paymentMethod === 'mercadopago' && <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-400"></div></div>}
+                                            </div>
+                                        </div>
+                                        <div className="pl-8 flex-grow">
+                                            <span className="font-bold text-base text-white">Mercado Pago</span>
+                                            <p className="text-xs text-gray-400 mt-0.5">Cartão de Crédito, Pix ou Boleto.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </CheckoutSection>
                         </div> 
 
                         <div className="lg:col-span-1">
@@ -6588,77 +6617,55 @@ const CheckoutPage = ({ onNavigate }) => {
                                             <span className="font-medium">- R$ {discount.toFixed(2)}</span>
                                         </div>
                                     )}
-                                    <div className="flex justify-between font-bold text-lg text-white border-t border-gray-700 pt-3 mt-3 mb-4">
+                                    <div className="flex justify-between font-bold text-lg text-white border-t border-gray-700 pt-3 mt-3">
                                         <span>Total</span>
                                         <span className="text-amber-400">R$ {total.toFixed(2)}</span>
                                     </div>
                                 </div>
 
-                                <div className="mb-6">
+                                {/* --- NOVO: CAMPO DE CUPOM ADICIONADO AQUI --- */}
+                                <div className="mt-5 border-t border-gray-700 pt-5">
                                     {!appliedCoupon ? (
                                         <>
-                                        <form onSubmit={handleApplyCoupon} className="flex space-x-2">
-                                            <input value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())} type="text" placeholder="Código do Cupom" className="w-full p-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-sm text-white" />
-                                            <button type="submit" className="px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 text-sm transition-colors">Aplicar</button>
-                                        </form>
-                                        {couponMessage && <p className={`text-xs mt-2 text-center ${couponMessage.includes('aplicado') ? 'text-green-400' : 'text-red-400'}`}>{couponMessage}</p>}
+                                            <label className="block text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wide">Possui um cupom de desconto?</label>
+                                            <form onSubmit={handleApplyCoupon} className="flex space-x-2">
+                                                <input 
+                                                    value={couponCode} 
+                                                    onChange={e => setCouponCode(e.target.value.toUpperCase())} 
+                                                    type="text" 
+                                                    placeholder="Digite o código" 
+                                                    className="w-full p-2.5 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-sm text-white placeholder-gray-500 font-mono" 
+                                                />
+                                                <button type="submit" className="px-4 bg-gray-800 border border-gray-600 text-amber-400 font-bold rounded-md hover:bg-gray-700 hover:text-amber-300 text-sm transition-colors">
+                                                    Aplicar
+                                                </button>
+                                            </form>
+                                            {couponMessage && <p className={`text-xs mt-2 font-medium ${couponMessage.includes('aplicado') ? 'text-green-400' : 'text-red-400'}`}>{couponMessage}</p>}
                                         </>
                                     ) : (
-                                        <div className="flex justify-between items-center bg-green-900/50 p-3 rounded-md border border-green-700">
-                                            <p className="text-sm text-green-300 flex items-center gap-2"><CheckCircleIcon className="h-5 w-5"/> Cupom <strong>{appliedCoupon.code}</strong> aplicado!</p>
-                                            <button onClick={removeCoupon} className="text-xs text-red-400 hover:underline flex-shrink-0">Remover</button>
+                                        <div className="flex justify-between items-center bg-green-900/20 p-3 rounded-md border border-green-800">
+                                            <p className="text-sm text-green-400 flex items-center gap-2 font-medium"><CheckCircleIcon className="h-5 w-5"/> Cupom <strong>{appliedCoupon.code}</strong> aplicado!</p>
+                                            <button onClick={removeCoupon} className="text-xs text-red-400 hover:text-red-300 hover:underline flex-shrink-0 font-medium">Remover</button>
                                         </div>
                                     )}
                                 </div>
 
-                                {(!canPlaceOrder || !autoCalculatedShipping || cart.length === 0) ? (
-                                    <div className="text-center p-4 bg-gray-800 border border-gray-700 rounded-lg">
-                                        <p className="text-sm text-gray-400">Preencha o contato e a forma de entrega para liberar o pagamento.</p>
-                                    </div>
-                                ) : (
-                                    <div className="mt-4 pt-4 border-t border-gray-700">
-                                        <div className="mb-4 bg-blue-900/20 border border-blue-800/50 rounded-xl p-4 flex items-start gap-3">
-                                            <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                                            <p className="text-xs text-blue-200 leading-relaxed">
-                                                <strong>Atenção:</strong> Selecione uma forma de pagamento abaixo (Cartão, Pix ou Boleto) e preencha os dados solicitados antes de clicar em "Pagar".
-                                            </p>
-                                        </div>
-                                        <MercadoPagoPayment
-                                            initialization={{ 
-                                                amount: Number(total.toFixed(2)),
-                                                payer: {
-                                                    email: user?.email || '', 
-                                                    entityType: 'individual'
-                                                }
-                                            }}
-                                            customization={{
-                                                paymentMethods: {
-                                                    ticket: "all",
-                                                    bankTransfer: "all",
-                                                    creditCard: "all",
-                                                    debitCard: "all",
-                                                    mercadoPago: "all",
-                                                },
-                                                visual: {
-                                                    style: {
-                                                        theme: 'dark',
-                                                        customVariables: {
-                                                            baseColor: '#fbbf24', 
-                                                            baseColorFirstVariant: '#f59e0b', 
-                                                            baseColorSecondVariant: '#d97706',
-                                                            errorColor: '#ef4444', 
-                                                        }
-                                                    }
-                                                }
-                                            }}
-                                            onSubmit={handlePaymentSubmit}
-                                            onError={(error) => {
-                                                if(error?.message && error.message.includes("createObjectStore")) return;
-                                                console.error("Mercado Pago Bricks Error:", error);
-                                                notification.show("Por favor, selecione uma forma de pagamento e preencha todos os campos obrigatórios.", "error");
-                                            }}
-                                        />
-                                    </div>
+                                <button
+                                    onClick={handlePlaceOrderAndPay}
+                                    disabled={(!canPlaceOrder && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading}
+                                    className={`w-full mt-6 py-3 rounded-md font-bold text-lg shadow-md transition-all duration-300 flex items-center justify-center gap-2
+                                        ${(!canPlaceOrder && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading 
+                                            ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
+                                            : 'bg-gradient-to-r from-amber-400 to-amber-500 text-black hover:from-amber-300 hover:to-amber-400 hover:shadow-lg'
+                                        }`}
+                                >
+                                    <CheckBadgeIcon className="h-5 w-5" />
+                                    Finalizar Compra
+                                </button>
+                                {(!canPlaceOrder && !autoCalculatedShipping?.isPickup && !isLoading) && (
+                                    <p className="text-center text-xs text-red-400 mt-3 font-semibold">
+                                        ⚠️ Complete o endereço de entrega para continuar.
+                                    </p>
                                 )}
                             </div>
                         </div>
@@ -6672,59 +6679,56 @@ const CheckoutPage = ({ onNavigate }) => {
 const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
     const { clearOrderState } = useShop();
     const notification = useNotification();
-    
-    // Status principais da página
-    const [pageStatus, setPageStatus] = useState('processing'); // 'processing', 'success', 'timeout', 'pending_action', 'pix_pending', 'ticket_pending'
-    const [paymentDetails, setPaymentDetails] = useState(null); // Dados do Pix/Boleto
-    const [isCheckingManual, setIsCheckingManual] = useState(false);
-    const [copied, setCopied] = useState(false);
+    const [pageStatus, setPageStatus] = useState('processing'); // 'processing', 'success', 'timeout', 'pending_action'
+    const [finalOrderStatus, setFinalOrderStatus] = useState('');
+    const [isRetryingPayment, setIsRetryingPayment] = useState(false);
+    const [isCheckingManual, setIsCheckingManual] = useState(false); // Novo estado para o botão "Já Paguei"
 
     const statusRef = useRef(pageStatus);
     const pollsCount = useRef(0);
 
+    // Detecta se está no navegador padrão ou dentro do PWA (Standalone)
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
 
     useEffect(() => {
         statusRef.current = pageStatus;
     }, [pageStatus]);
 
-    // Função principal que verifica o status do pedido e decide qual tela mostrar
     const pollStatus = useCallback(async (isManualCheck = false) => {
-        try {
-            // 1. Busca o status "Macro" do pedido
-            const statusResponse = await apiService(`/orders/${orderId}/status?_t=${Date.now()}`);
+        console.log(`Verificando status do pedido #${orderId}... (Manual: ${isManualCheck})`);
+        
+        // 1. Verificação via URL (Lê apenas se NÃO for uma checagem manual pelo botão)
+        const hashParts = window.location.hash.split('?');
+        if (hashParts.length > 1 && !isManualCheck) {
+            const params = new URLSearchParams(hashParts[1]);
+            const mpStatus = params.get('status') || params.get('collection_status');
             
-            if (statusResponse.status) {
-                // Se foi cancelado ou recusado
-                if (statusResponse.status === 'Pagamento Recusado' || statusResponse.status === 'Cancelado') {
+            if (mpStatus === 'approved') {
+                setFinalOrderStatus('Pagamento Aprovado');
+                setPageStatus('success');
+                window.location.hash = hashParts[0]; // Limpa a URL para não prender em loops
+                return true; 
+            } else if (mpStatus === 'rejected' || mpStatus === 'null' || mpStatus === 'cancelled') {
+                setFinalOrderStatus('Pagamento Recusado');
+                setPageStatus('pending_action');
+                window.location.hash = hashParts[0]; // Limpa a URL
+                return true;
+            }
+        }
+
+        // 2. Verificação Real via API (Anti-Cache)
+        try {
+            const response = await apiService(`/orders/${orderId}/status?_t=${Date.now()}`);
+            if (response.status && response.status !== 'Pendente') {
+                setFinalOrderStatus(response.status);
+                
+                if (response.status === 'Pagamento Recusado' || response.status === 'Cancelado') {
                     setPageStatus('pending_action');
                     return true;
                 }
                 
-                // Se foi aprovado (Cartão de Crédito ou Pix pago rápido)
-                if (statusResponse.status !== 'Pendente') {
-                    setPageStatus('success');
-                    return true; 
-                }
-
-                // Se o status macro for 'Pendente', precisamos investigar os detalhes do pagamento (se é Pix ou Boleto)
-                if (statusResponse.status === 'Pendente') {
-                    const detailsResponse = await apiService(`/orders/${orderId}/payment-details?_t=${Date.now()}`);
-                    
-                    if (detailsResponse && detailsResponse.payment_details) {
-                        const details = detailsResponse.payment_details;
-                        setPaymentDetails(details);
-                        
-                        // Direciona para a interface correta de acordo com o método
-                        if (details.method === 'pix') {
-                            setPageStatus('pix_pending');
-                            return false; // Continua fazendo polling para ver se o pix foi pago
-                        } else if (details.type === 'ticket') {
-                            setPageStatus('ticket_pending');
-                            return false; // Continua o polling para o boleto
-                        }
-                    }
-                }
+                setPageStatus('success');
+                return true; 
             }
         } catch (err) {
             console.error("Erro ao verificar status na API.", err);
@@ -6732,31 +6736,60 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
         return false; 
     }, [orderId]);
 
+    const handleRetryPayment = async () => {
+        setIsRetryingPayment(true);
+        try {
+            const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
+            if (paymentResult && paymentResult.init_point) {
+                localStorage.setItem('pendingOrderId', orderId);
+                window.location.assign(paymentResult.init_point);
+            } else {
+                throw new Error("Não foi possível obter o link de pagamento.");
+            }
+        } catch (error) {
+            notification.show(`Erro ao tentar abrir o pagamento: ${error.message}`, 'error');
+            setIsRetryingPayment(false);
+        }
+    };
+
     const handleManualCheck = async () => {
         setIsCheckingManual(true);
+        
         try {
+            // true indica que o usuário clicou no botão (ignora URL antiga)
             const isFinished = await pollStatus(true);
+            
+            // Trava um tempo mínimo de UX para o usuário ver que a ação foi realizada
             await new Promise(resolve => setTimeout(resolve, 1500));
 
-            if (!isFinished && statusRef.current !== 'success') {
-                notification.show("Ainda não confirmado. Se acabou de pagar, pode levar alguns minutos.", "error");
-            } else if (isFinished && statusRef.current === 'success') {
-                notification.show("Pagamento identificado com sucesso!", "success");
+            if (!isFinished) {
+                 if (statusRef.current !== 'success') {
+                    setPageStatus('pending_action');
+                    notification.show("Ainda não confirmado. Boleto/Pix podem levar alguns instantes.", "error");
+                 }
             }
         } finally {
             setIsCheckingManual(false);
         }
     };
 
-    // Copiar chave PIX
-    const copyToClipboard = () => {
-        if (paymentDetails && paymentDetails.qr_code) {
-            navigator.clipboard.writeText(paymentDetails.qr_code);
-            setCopied(true);
-            notification.show("Código Pix copiado para a área de transferência!", "success");
-            setTimeout(() => setCopied(false), 3000);
-        }
-    };
+    useEffect(() => {
+        const resetPaymentState = () => {
+            if (document.visibilityState === 'visible') {
+                setIsRetryingPayment(false);
+            }
+        };
+
+        window.addEventListener('focus', resetPaymentState);
+        window.addEventListener('pageshow', resetPaymentState);
+        document.addEventListener('visibilitychange', resetPaymentState);
+
+        return () => {
+            window.removeEventListener('focus', resetPaymentState);
+            window.removeEventListener('pageshow', resetPaymentState);
+            document.removeEventListener('visibilitychange', resetPaymentState);
+        };
+    }, []);
 
     useEffect(() => {
         clearOrderState(); 
@@ -6765,42 +6798,56 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
         let pollInterval;
         let timeout;
 
+        const forceCheck = () => {
+            if (statusRef.current === 'processing' || statusRef.current === 'pending_action') {
+                // Ao voltar para a tela, não reseta a visualização se já estiver pendente, apenas checa silenciosamente
+                pollStatus().then(isFinished => {
+                    if (!isFinished && pollsCount.current > 2 && statusRef.current === 'processing') {
+                         setPageStatus('pending_action');
+                    }
+                });
+            }
+        };
+
         const startPolling = async () => {
             const isFinished = await pollStatus();
             if (isFinished) return; 
 
-            // Verifica a cada 5 segundos (útil para ver o Pix aprovar na hora)
             pollInterval = setInterval(async () => {
                  pollsCount.current += 1;
                  const finished = await pollStatus();
                  if (finished) {
                      clearInterval(pollInterval);
                      clearTimeout(timeout);
-                 } 
-                 // Se passar 45 segundos e ainda for cartão processando (não caiu em pix nem boleto)
-                 else if (pollsCount.current >= 9 && statusRef.current === 'processing') {
-                     setPageStatus('timeout');
+                 } else if (pollsCount.current >= 3 && statusRef.current === 'processing') {
+                     setPageStatus('pending_action');
                  }
             }, 5000);
             
-            // Timeout de segurança após 1 minuto de processamento cego
             timeout = setTimeout(() => {
                 clearInterval(pollInterval);
                 if (statusRef.current === 'processing') {
                     setPageStatus('timeout');
                 }
-            }, 60000);
+            }, 45000);
         };
 
         startPolling();
 
+        window.addEventListener('focus', forceCheck);
+        window.addEventListener('pageshow', forceCheck);
+        document.addEventListener('visibilitychange', forceCheck);
+
         return () => {
             clearInterval(pollInterval);
             clearTimeout(timeout);
+            window.removeEventListener('focus', forceCheck);
+            window.removeEventListener('pageshow', forceCheck);
+            document.removeEventListener('visibilitychange', forceCheck);
         };
     }, [orderId, clearOrderState, pollStatus]); 
 
-    // --- DESIGN PREMIUM POR ESTADO ---
+    // --- DESIGN PREMIUM ---
     const renderContent = () => {
         switch (pageStatus) {
             case 'success':
@@ -6814,137 +6861,44 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
                     subtitle: "Tudo certo com o seu pedido 🎉",
                     message: `O pedido #${orderId} foi confirmado em nosso sistema. Já estamos preparando seus produtos para envio com muito carinho!`,
                     actions: (
-                        <button onClick={() => onNavigate('account/orders')} className="bg-gradient-to-r from-amber-400 to-amber-500 text-black px-8 py-3.5 rounded-xl font-extrabold text-base sm:text-lg hover:from-amber-300 hover:to-amber-400 w-full shadow-lg hover:shadow-amber-500/25 transition-all transform active:scale-95">
+                        <button onClick={() => onNavigate('account')} className="bg-gradient-to-r from-amber-400 to-amber-500 text-black px-8 py-3.5 rounded-xl font-extrabold text-base sm:text-lg hover:from-amber-300 hover:to-amber-400 w-full shadow-lg hover:shadow-amber-500/25 transition-all transform active:scale-95">
                             Acompanhar Pedido
                         </button>
                     ),
                     borderColor: "border-green-500/30"
                 };
-
-            case 'pix_pending':
-                return {
-                    icon: (
-                        <div className="w-20 h-20 sm:w-24 sm:h-24 bg-teal-500/10 rounded-full flex items-center justify-center mx-auto mb-4 shadow-[0_0_40px_rgba(20,184,166,0.2)]">
-                            <PixIcon className="h-10 w-10 sm:h-12 sm:w-12 text-teal-400" />
-                        </div>
-                    ),
-                    title: "Aguardando Pagamento",
-                    subtitle: "Falta pouco! Pague via Pix para aprovação imediata.",
-                    message: null, // Custom content below
-                    customBody: (
-                        <div className="bg-black/40 rounded-2xl p-4 sm:p-6 mb-6 border border-gray-800/50">
-                            {paymentDetails?.qr_code_base64 && (
-                                <div className="bg-white p-3 rounded-xl w-fit mx-auto mb-5 shadow-lg">
-                                    <img src={`data:image/jpeg;base64,${paymentDetails.qr_code_base64}`} alt="QR Code Pix" className="w-40 h-40 sm:w-48 sm:h-48 object-contain" />
-                                </div>
-                            )}
-                            
-                            <p className="text-gray-300 text-sm mb-2 font-medium">Ou utilize o código Copia e Cola:</p>
-                            
-                            <div className="flex items-stretch bg-gray-900 border border-gray-700 rounded-lg overflow-hidden h-12 shadow-inner">
-                                <input 
-                                    type="text" 
-                                    readOnly 
-                                    value={paymentDetails?.qr_code || 'Gerando código...'} 
-                                    className="bg-transparent text-gray-400 text-xs sm:text-sm px-3 w-full outline-none select-all"
-                                />
-                                <button 
-                                    onClick={copyToClipboard}
-                                    className={`px-4 sm:px-6 font-bold text-xs sm:text-sm transition-colors flex items-center gap-2 ${copied ? 'bg-green-600 text-white' : 'bg-teal-600 text-white hover:bg-teal-500'}`}
-                                >
-                                    {copied ? <><CheckIcon className="h-4 w-4"/> Copiado</> : 'COPIAR'}
-                                </button>
-                            </div>
-                            <p className="text-gray-500 text-[10px] sm:text-xs mt-4">
-                                Após o pagamento, esta tela será atualizada automaticamente em alguns segundos.
-                            </p>
-                        </div>
-                    ),
-                    actions: (
-                        <div className="flex flex-col gap-3 w-full">
-                            <button onClick={handleManualCheck} disabled={isCheckingManual} className="bg-gray-800/80 backdrop-blur text-white border border-gray-600 px-6 py-3.5 rounded-xl font-bold hover:bg-gray-700 w-full transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95">
-                                {isCheckingManual ? <SpinnerIcon className="h-5 w-5"/> : <ArrowUturnLeftIcon className="h-5 w-5" />} 
-                                {isCheckingManual ? 'Verificando...' : 'Já Paguei (Atualizar Tela)'}
-                            </button>
-                        </div>
-                    ),
-                    borderColor: "border-teal-500/30"
-                };
-
-            case 'ticket_pending':
-                return {
-                    icon: (
-                        <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-500/10 rounded-full flex items-center justify-center mx-auto mb-4 shadow-[0_0_40px_rgba(156,163,175,0.2)]">
-                            <BoletoIcon className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400" />
-                        </div>
-                    ),
-                    title: "Boleto Gerado",
-                    subtitle: "Pedido reservado. Efetue o pagamento para concluir.",
-                    message: null,
-                    customBody: (
-                        <div className="bg-black/40 rounded-2xl p-4 sm:p-6 mb-6 border border-gray-800/50 text-center">
-                            <p className="text-gray-300 text-sm mb-4 leading-relaxed">
-                                Seu boleto bancário foi gerado com sucesso. O pagamento pode levar de <strong>1 a 2 dias úteis</strong> para ser compensado após ser efetuado.
-                            </p>
-
-                            {paymentDetails?.barcode && (
-                                <div className="mb-5 text-left">
-                                    <p className="text-gray-400 text-xs font-bold uppercase mb-1">Código de Barras:</p>
-                                    <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 text-white font-mono text-xs sm:text-sm break-all shadow-inner">
-                                        {paymentDetails.barcode}
-                                    </div>
-                                </div>
-                            )}
-
-                            {paymentDetails?.external_resource_url && (
-                                <a 
-                                    href={paymentDetails.external_resource_url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center justify-center gap-2 bg-gray-200 text-black px-6 py-3 rounded-xl font-bold hover:bg-white transition-colors w-full sm:w-auto shadow-md"
-                                >
-                                    <DownloadIcon className="h-5 w-5" /> Abrir Boleto (PDF)
-                                </a>
-                            )}
-                        </div>
-                    ),
-                    actions: (
-                        <div className="flex flex-col gap-3 w-full">
-                            <button onClick={() => onNavigate('account/orders')} className="bg-gradient-to-r from-amber-400 to-amber-500 text-black px-8 py-3.5 rounded-xl font-extrabold text-base sm:text-lg hover:from-amber-300 hover:to-amber-400 w-full shadow-lg transition-all transform active:scale-95">
-                                Acompanhar em "Meus Pedidos"
-                            </button>
-                            <button onClick={handleManualCheck} disabled={isCheckingManual} className="bg-gray-800/80 backdrop-blur text-white border border-gray-600 px-6 py-3.5 rounded-xl font-bold hover:bg-gray-700 w-full transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95">
-                                {isCheckingManual ? <SpinnerIcon className="h-5 w-5"/> : <ArrowUturnLeftIcon className="h-5 w-5" />} 
-                                {isCheckingManual ? 'Verificando...' : 'Atualizar Status'}
-                            </button>
-                        </div>
-                    ),
-                    borderColor: "border-gray-500/30"
-                };
-
             case 'pending_action':
                 return {
                     icon: (
-                        <div className="w-20 h-20 sm:w-24 sm:h-24 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_40px_rgba(239,68,68,0.2)]">
-                            <XCircleIcon className="h-10 w-10 sm:h-12 sm:w-12 text-red-500" />
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_40px_rgba(245,158,11,0.2)]">
+                            <ExclamationCircleIcon className="h-10 w-10 sm:h-12 sm:w-12 text-amber-500" />
                         </div>
                     ),
-                    title: "Pagamento Recusado",
-                    subtitle: "NÃO CONSEGUIMOS PROCESSAR SEU PAGAMENTO.",
-                    message: `A operadora do seu cartão recusou o pagamento do pedido #${orderId}. Fique tranquilo, você não foi cobrado. Por favor, tente utilizar outro cartão de crédito ou gere um Pix.`,
+                    title: "Aguardando Pagamento",
+                    subtitle: "FINALIZE A COMPRA PARA GARANTIRMOS O ESTOQUE.",
+                    message: `Ainda não recebemos a confirmação do pagamento para o pedido #${orderId}. Se você fechou a janela do Mercado Pago ou precisa gerar o Pix/Boleto novamente, clique abaixo.`,
                     actions: (
                         <div className="flex flex-col gap-4 w-full">
                              <button 
-                                onClick={() => onNavigate(`account/orders/${orderId}`)} 
-                                className={`px-6 py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2 w-full transition-all shadow-lg bg-gradient-to-r from-amber-400 to-amber-500 text-black hover:shadow-amber-500/30 active:scale-95`}
+                                onClick={handleRetryPayment} 
+                                disabled={isRetryingPayment}
+                                className={`px-6 py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2 w-full transition-all shadow-lg ${isRetryingPayment ? 'bg-green-800/50 text-gray-300 cursor-not-allowed' : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-green-500/30 active:scale-95'}`}
                             >
-                                Tentar Pagar Novamente
+                                {isRetryingPayment ? <SpinnerIcon className="h-5 w-5"/> : <CreditCardIcon className="h-5 w-5"/>}
+                                {isRetryingPayment ? 'Abrindo...' : 'Realizar Pagamento'}
+                            </button>
+                            <button 
+                                onClick={handleManualCheck}
+                                disabled={isCheckingManual}
+                                className="bg-gray-800/80 backdrop-blur text-white border border-gray-600 px-6 py-3.5 rounded-xl font-bold hover:bg-gray-700 w-full transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95"
+                            >
+                                {isCheckingManual ? <SpinnerIcon className="h-5 w-5"/> : <ArrowUturnLeftIcon className="h-5 w-5" />} 
+                                {isCheckingManual ? 'Verificando...' : 'Já Paguei (Atualizar)'}
                             </button>
                         </div>
                     ),
-                    borderColor: "border-red-500/30"
+                    borderColor: "border-amber-500/30"
                 };
-
             case 'timeout':
                 return {
                     icon: (
@@ -6954,15 +6908,14 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
                     ),
                     title: "Processando Pagamento...",
                     subtitle: "Isso pode levar alguns minutos.",
-                    message: `O pedido #${orderId} foi registrado. Estamos aguardando a confirmação final da operadora do seu cartão. Assim que for processado, atualizaremos automaticamente a seção Meus Pedidos.`,
+                    message: `O pedido #${orderId} foi registrado. Estamos aguardando a confirmação da operadora. Assim que for processado, atualizaremos automaticamente a seção Meus Pedidos.`,
                     actions: (
-                        <button onClick={() => onNavigate('account/orders')} className="bg-gray-800 border border-gray-700 text-white px-8 py-3.5 rounded-xl font-bold text-base sm:text-lg hover:bg-gray-700 w-full shadow-lg transition-all active:scale-95">
+                        <button onClick={() => onNavigate('account')} className="bg-gray-800 border border-gray-700 text-white px-8 py-3.5 rounded-xl font-bold text-base sm:text-lg hover:bg-gray-700 w-full shadow-lg transition-all active:scale-95">
                             Ir para Meus Pedidos
                         </button>
                     ),
                     borderColor: "border-gray-600/30"
                 };
-
             case 'processing':
             default:
                 return {
@@ -6975,14 +6928,14 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
                     ),
                     title: "Confirmando Pagamento",
                     subtitle: "POR FAVOR, NÃO FECHE ESTA JANELA.",
-                    message: "Estamos validando seu pagamento com o Mercado Pago. Isso leva apenas alguns segundos.",
+                    message: "Estamos verificando com o Mercado Pago a situação do seu pedido. Isso leva apenas alguns segundos.",
                     actions: null,
                     borderColor: "border-amber-500/30"
                 };
         }
     };
 
-    const { icon, title, subtitle, message, customBody, actions, borderColor } = renderContent();
+    const { icon, title, subtitle, message, actions, borderColor } = renderContent();
     const displayName = appName || 'Love Cestas';
 
     return (
@@ -7002,17 +6955,13 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
                 <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-2 tracking-tight">{title}</h1>
                 <p className="text-amber-400 font-bold mb-6 uppercase tracking-widest text-[10px] sm:text-xs">{subtitle}</p>
                 
-                {customBody ? customBody : (
-                    message && (
-                        <div className="bg-black/50 rounded-2xl p-5 mb-8 border border-gray-800/50 shadow-inner">
-                            <p className="text-gray-300 leading-relaxed text-sm sm:text-base">
-                                {message}
-                            </p>
-                        </div>
-                    )
-                )}
+                <div className="bg-black/50 rounded-2xl p-5 mb-8 border border-gray-800/50 shadow-inner">
+                    <p className="text-gray-300 leading-relaxed text-sm sm:text-base">
+                        {message}
+                    </p>
+                </div>
                 
-                <div className="flex flex-col items-center gap-4 w-full mt-2">
+                <div className="flex flex-col items-center gap-4 w-full">
                     {actions}
                     
                     {pageStatus !== 'processing' && (
@@ -7372,6 +7321,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const notification = useNotification();
     const [order, setOrder] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isPaying, setIsPaying] = useState(false);
     const [isItemsExpanded, setIsItemsExpanded] = useState(true);
     
     const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
@@ -7419,9 +7369,19 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         setIsStatusModalOpen(true);
     };
 
-    // Redireciona para a NOVA tela de pagamento exclusiva
-    const handleRetryPayment = () => {
-        onNavigate(`order-payment/${order.id}`);
+    const handleRetryPayment = async (orderId) => {
+        setIsPaying(true);
+        try {
+            const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
+            if (paymentResult && paymentResult.init_point) {
+                localStorage.setItem('pendingOrderId', orderId);
+                window.location.href = paymentResult.init_point;
+            } else { throw new Error("Não foi possível obter o link de pagamento."); }
+        } catch (error) {
+            notification.show(`Erro ao tentar realizar o pagamento: ${error.message}`, 'error');
+        } finally {
+            setIsPaying(false);
+        }
     };
 
     const handleRepeatOrder = (orderItems) => {
@@ -7730,13 +7690,19 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
 
     return (
         <>
+            {/* TODOS OS MODAIS RESTAURADOS AQUI NO TOPO */}
             <TrackingModal isOpen={isTrackingModalOpen} onClose={() => setIsTrackingModalOpen(false)} order={order} />
+            
             <StatusDescriptionModal isOpen={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} details={selectedStatusDetails} />
             
             <AnimatePresence>
                 {reviewingItem && (
                     <Modal isOpen={true} onClose={() => setReviewingItem(null)} title={`Avaliar: ${reviewingItem.name}`}>
-                        <ProductReviewForm productId={reviewingItem.product_id} orderId={order.id} onReviewSubmitted={handleReviewSuccess} />
+                        <ProductReviewForm 
+                            productId={reviewingItem.product_id}
+                            orderId={order.id}
+                            onReviewSubmitted={handleReviewSuccess}
+                        />
                     </Modal>
                 )}
             </AnimatePresence>
@@ -7779,16 +7745,10 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                     </div>
 
                     {order.status === 'Pendente' && (
-                        <div className="my-4 p-5 bg-gray-900 border border-gray-700 rounded-xl text-center shadow-lg">
-                            <p className="font-bold text-amber-400 mb-2 text-xl">Pagamento Pendente</p>
-                            <p className="text-gray-400 text-sm mb-5 max-w-md mx-auto">
-                                Seu pedido está reservado! Finalize o pagamento para garantirmos o estoque e o envio dos seus produtos.
-                            </p>
-                            <button 
-                                onClick={handleRetryPayment} 
-                                className="bg-gradient-to-r from-amber-400 to-amber-500 text-black font-extrabold px-10 py-3.5 rounded-xl hover:from-amber-300 hover:to-amber-400 transition-all shadow-md active:scale-95 flex items-center justify-center mx-auto gap-2"
-                            >
-                                <CreditCardIcon className="h-5 w-5" /> Ir para o Pagamento
+                        <div className="my-4 p-4 bg-amber-900/50 border border-amber-700 rounded-lg text-center">
+                            <p className="font-semibold text-amber-300 mb-3">Este pedido está aguardando pagamento.</p>
+                            <button onClick={() => handleRetryPayment(order.id)} disabled={isPaying} className="bg-amber-400 text-black font-bold px-8 py-2 rounded-md hover:bg-amber-300 transition-all disabled:opacity-50 disabled:cursor-wait flex items-center justify-center mx-auto">
+                                {isPaying ? <SpinnerIcon className="h-5 w-5" /> : 'Pagar Agora'}
                             </button>
                         </div>
                     )}
@@ -8040,7 +8000,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
         const lowerStatus = status.toLowerCase();
         if (lowerStatus.includes('entregue')) return 'bg-[#86efac] text-green-900'; 
         if (lowerStatus.includes('cancelado') || lowerStatus.includes('recusado')) return 'bg-red-200 text-red-800';
-        if (lowerStatus.includes('pendente')) return 'bg-[#fde047] text-yellow-900'; 
+        if (lowerStatus.includes('pendente')) return 'bg-[#fde047] text-yellow-900'; // Cor fiel à imagem
         return 'bg-blue-200 text-blue-800';
     };
 
@@ -8108,6 +8068,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                     </div>
                                 )}
 
+                                {/* SEÇÃO DO PRODUTO: COM A LINHA DIVISÓRIA RESTAURADA E VISÍVEL (border-gray-600) */}
                                 {firstItem && (
                                     <div className="flex items-center gap-4 border-b border-gray-600 pb-4 mb-4">
                                         <div onClick={() => onNavigate(`product/${firstItem.product_id}`)} className="cursor-pointer flex-shrink-0">
@@ -8122,6 +8083,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                     </div>
                                 )}
                                 
+                                {/* SEÇÃO DO RESUMO DO PEDIDO: GRID ALINHADO RESTAURADO */}
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                     <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 text-left">
                                         <div className="flex flex-col">
@@ -8144,18 +8106,18 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                         </div>
                                     </div>
 
+                                    {/* BOTÕES ALINHADOS À DIREITA RESTAURADOS */}
                                     <div className="flex-shrink-0 w-full sm:w-auto flex flex-col items-stretch gap-2 mt-2 sm:mt-0">
                                         <button 
                                             onClick={() => onNavigate(`account/orders/${order.id}`)} 
                                             className={`w-full sm:w-auto font-bold px-4 py-2 rounded-md transition shadow-md active:scale-95 text-xs sm:text-sm border ${
-                                                (order.status === 'Pendente' || hasNotification)
+                                                hasNotification 
                                                     ? 'bg-amber-400 text-black border-amber-400 hover:bg-amber-300' 
                                                     : 'bg-[#374151] text-gray-200 border-gray-600 hover:bg-gray-600 hover:text-white'
                                             }`}
                                         >
-                                            {order.status === 'Pendente' ? 'Pagar / Ver Detalhes' : hasNotification ? 'Ver Atualização' : 'Ver Detalhes'}
+                                            {hasNotification ? 'Ver Atualização' : 'Ver Detalhes'}
                                         </button>
-                                        
                                         {canReviewOrder && (
                                              <button 
                                                 onClick={() => setOrderToReview(order)} 
@@ -8276,6 +8238,7 @@ const MyOrdersSection = ({ onNavigate }) => {
     const [orderForTracking, setOrderForTracking] = useState(null);
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [selectedStatusDetails, setSelectedStatusDetails] = useState(null);
+    const [isPaying, setIsPaying] = useState(null); // Estado para o botão "Pagar Agora"
 
     useEffect(() => {
         apiService('/orders/my-orders')
@@ -8284,9 +8247,22 @@ const MyOrdersSection = ({ onNavigate }) => {
             .finally(() => setIsLoading(false));
     }, [notification]);
 
-    // --- NOVA LÓGICA DE REDIRECIONAMENTO ---
-    const handleRetryPayment = (orderId) => {
-        onNavigate(`account/orders/${orderId}`);
+    const handleRetryPayment = async (orderId) => {
+        setIsPaying(orderId);
+        try {
+            const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
+            if (paymentResult && paymentResult.init_point) {
+                // --- CORREÇÃO: localStorage em vez de sessionStorage ---
+                localStorage.setItem('pendingOrderId', orderId);
+                window.location.href = paymentResult.init_point;
+            } else {
+                throw new Error("Não foi possível obter o link de pagamento.");
+            }
+        } catch (error) {
+            notification.show(`Erro ao tentar realizar o pagamento: ${error.message}`, 'error');
+        } finally {
+            setIsPaying(null);
+        }
     };
 
     const handleRepeatOrder = (orderItems) => {
@@ -8362,9 +8338,10 @@ const MyOrdersSection = ({ onNavigate }) => {
                                         <p className="font-semibold text-amber-300 mb-3">Este pedido está aguardando pagamento.</p>
                                         <button
                                             onClick={() => handleRetryPayment(order.id)}
-                                            className="bg-amber-400 text-black font-bold px-8 py-2 rounded-md hover:bg-amber-300 transition-all flex items-center justify-center mx-auto"
+                                            disabled={isPaying === order.id}
+                                            className="bg-amber-400 text-black font-bold px-8 py-2 rounded-md hover:bg-amber-300 transition-all disabled:opacity-50 disabled:cursor-wait flex items-center justify-center mx-auto"
                                         >
-                                            Pagar Agora
+                                            {isPaying === order.id ? <SpinnerIcon className="h-5 w-5" /> : 'Pagar Agora'}
                                         </button>
                                     </div>
                                 )}
@@ -16350,218 +16327,6 @@ const SeasonalAnimations = memo(({ isEnabled, forcedSeason, isAppReady }) => {
     );
 });
 
-const OrderPaymentPage = ({ orderId, onNavigate }) => {
-    const { user } = useAuth();
-    const { clearOrderState } = useShop();
-    const notification = useNotification();
-    
-    const [order, setOrder] = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-
-    useEffect(() => {
-        setIsLoading(true);
-        apiService(`/orders/my-orders?id=${orderId}&t=${new Date().getTime()}`)
-            .then(data => {
-                if (data && data.length > 0) {
-                    const foundOrder = data[0];
-                    if (foundOrder.status !== 'Pendente') {
-                        notification.show("Este pedido não está mais pendente de pagamento.", "error");
-                        onNavigate(`account/orders/${orderId}`);
-                    } else {
-                        setOrder(foundOrder);
-                    }
-                } else {
-                    notification.show("Pedido não encontrado.", "error");
-                    onNavigate('account/orders');
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                notification.show("Erro ao carregar pedido.", "error");
-            })
-            .finally(() => setIsLoading(false));
-    }, [orderId, onNavigate, notification]);
-
-    const handlePaymentSubmit = async (mpResponse) => {
-        setIsProcessingPayment(true);
-        try {
-            const actualPaymentData = mpResponse.formData || mpResponse;
-
-            const paymentPayload = {
-                orderId: order.id,
-                paymentData: actualPaymentData 
-            };
-
-            const paymentResult = await apiService('/process-payment', 'POST', paymentPayload);
-
-            if (['approved', 'in_process', 'pending'].includes(paymentResult.status)) {
-                clearOrderState();
-                onNavigate(`order-success/${order.id}`);
-            } else {
-                notification.show(`Pagamento recusado pela operadora. Tente outro método.`, 'error');
-            }
-        } catch (error) {
-            notification.show(`Erro ao processar pagamento: ${error.message}`, 'error');
-        } finally {
-            setIsProcessingPayment(false);
-        }
-    };
-
-    if (isLoading) {
-        return (
-            <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-4">
-                <SpinnerIcon className="h-12 w-12 text-amber-500 animate-spin" />
-                <p className="text-amber-400 font-bold tracking-widest uppercase text-sm animate-pulse">Preparando Pagamento Seguro</p>
-            </div>
-        );
-    }
-
-    if (!order) return null;
-
-    const subtotal = (Number(order.total) || 0) - (Number(order.shipping_cost) || 0) + (Number(order.discount_amount) || 0);
-
-    return (
-        <div className="bg-black text-white min-h-screen pt-8 pb-24 md:py-12 relative overflow-hidden">
-            {/* Efeitos de fundo premium */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-3xl h-96 bg-amber-600/10 rounded-full blur-[100px] pointer-events-none z-0"></div>
-
-            <AnimatePresence>
-                {isProcessingPayment && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/80 backdrop-blur-md">
-                        <div className="bg-gray-900 border border-gray-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center">
-                            <SpinnerIcon className="h-16 w-16 text-amber-400 mb-6 animate-spin" />
-                            <h3 className="text-2xl font-extrabold text-white mb-2">Processando</h3>
-                            <p className="text-sm font-medium text-gray-300">Validando com sua operadora. Por favor, aguarde...</p>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            <div className="container mx-auto px-4 max-w-5xl relative z-10">
-                <button onClick={() => onNavigate(`account/orders/${order.id}`)} className="text-sm text-gray-400 hover:text-amber-400 transition-colors flex items-center gap-1.5 mb-8 w-fit bg-gray-900/50 px-4 py-2 rounded-lg border border-gray-800">
-                    <ArrowUturnLeftIcon className="h-4 w-4"/> Voltar para Detalhes do Pedido
-                </button>
-
-                <div className="text-center mb-10">
-                    <h1 className="text-3xl md:text-5xl font-extrabold text-white tracking-tight mb-3">Finalizar Pagamento</h1>
-                    <p className="text-amber-400 font-medium">Pedido #{order.id}</p>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
-                    
-                    {/* Lado Direito no Desktop / Cima no Mobile: Resumo Fixo Premium */}
-                    <div className="lg:col-span-5 lg:sticky lg:top-24 order-1 lg:order-2">
-                        <div className="bg-gray-900/80 backdrop-blur-xl rounded-3xl border border-gray-800 p-6 sm:p-8 shadow-2xl">
-                            <h2 className="text-xl font-bold mb-6 text-white flex items-center gap-3">
-                                <PackageIcon className="h-6 w-6 text-amber-500" />
-                                Resumo da Compra
-                            </h2>
-                            
-                            <div className="space-y-4 mb-6 max-h-[30vh] overflow-y-auto custom-scrollbar pr-2">
-                                {(order.items || []).map(item => (
-                                    <div key={item.id} className="flex items-center gap-4 bg-black/40 p-3 rounded-xl border border-gray-800/50">
-                                        <div className="w-14 h-14 bg-white rounded-lg p-1 flex-shrink-0">
-                                            <img src={getFirstImage(item.images)} alt={item.name} className="w-full h-full object-contain" />
-                                        </div>
-                                        <div className="flex-grow min-w-0">
-                                            <p className="font-bold text-sm text-white truncate">{item.quantity}x {item.name}</p>
-                                            {item.variation && (
-                                                <p className="text-xs text-gray-400 mt-0.5">
-                                                    {JSON.parse(item.variation_details || '{}').color} / {JSON.parse(item.variation_details || '{}').size}
-                                                </p>
-                                            )}
-                                        </div>
-                                        <div className="text-right flex-shrink-0">
-                                            <p className="text-sm font-bold text-amber-400">R$ {Number(item.price).toFixed(2)}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="space-y-3 pt-4 border-t border-gray-800">
-                                <div className="flex justify-between text-sm text-gray-400">
-                                    <span>Subtotal</span>
-                                    <span className="text-gray-300">R$ {subtotal.toFixed(2)}</span>
-                                </div>
-                                <div className="flex justify-between text-sm text-gray-400">
-                                    <span>Frete ({order.shipping_method})</span>
-                                    <span className="text-gray-300">R$ {Number(order.shipping_cost).toFixed(2)}</span>
-                                </div>
-                                {Number(order.discount_amount) > 0 && (
-                                    <div className="flex justify-between text-sm text-green-400">
-                                        <span>Desconto</span>
-                                        <span>- R$ {Number(order.discount_amount).toFixed(2)}</span>
-                                    </div>
-                                )}
-                                <div className="flex justify-between items-center pt-4 mt-2 border-t border-gray-800">
-                                    <span className="text-lg font-medium text-white">Total a Pagar</span>
-                                    <span className="text-3xl font-black text-amber-500 tracking-tight">R$ {Number(order.total).toFixed(2)}</span>
-                                </div>
-                            </div>
-                            
-                            <div className="mt-8 bg-blue-900/20 border border-blue-800/50 rounded-xl p-4 flex items-start gap-3">
-                                <ShieldCheckIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                                <p className="text-xs text-blue-200 leading-relaxed">
-                                    Transação criptografada ponta a ponta. Seus dados financeiros não são armazenados em nossos servidores.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Lado Esquerdo no Desktop / Baixo no Mobile: Formulário do Mercado Pago */}
-                    <div className="lg:col-span-7 order-2 lg:order-1">
-                        <div className="bg-gray-900 rounded-3xl border border-gray-800 p-2 sm:p-4 shadow-2xl">
-                            <div className="mb-4 bg-blue-900/20 border border-blue-800/50 rounded-xl p-4 flex items-start gap-3">
-                                <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                                <p className="text-xs text-blue-200 leading-relaxed">
-                                    <strong>Atenção:</strong> Selecione uma forma de pagamento abaixo (Cartão, Pix ou Boleto) e preencha os dados solicitados antes de clicar em "Pagar".
-                                </p>
-                            </div>
-                            <MercadoPagoPayment
-                                initialization={{ 
-                                    amount: Number(order.total),
-                                    payer: {
-                                        email: user?.email || '', 
-                                        entityType: 'individual'
-                                    }
-                                }}
-                                customization={{
-                                    paymentMethods: {
-                                        ticket: "all",
-                                        bankTransfer: "all",
-                                        creditCard: "all",
-                                        debitCard: "all",
-                                        mercadoPago: "all",
-                                    },
-                                    visual: {
-                                        style: {
-                                            theme: 'dark',
-                                            customVariables: {
-                                                baseColor: '#fbbf24', 
-                                                baseColorFirstVariant: '#f59e0b', 
-                                                baseColorSecondVariant: '#d97706',
-                                                errorColor: '#ef4444',
-                                            }
-                                        }
-                                    }
-                                }}
-                                onSubmit={handlePaymentSubmit}
-                                onError={(error) => {
-                                    if(error?.message && error.message.includes("createObjectStore")) return;
-                                    console.error("Mercado Pago Bricks Error:", error);
-                                    notification.show("Por favor, selecione uma forma de pagamento e preencha todos os campos obrigatórios.", "error");
-                                }}
-                            />
-                        </div>
-                    </div>
-
-                </div>
-            </div>
-        </div>
-    );
-};
-
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
@@ -16912,7 +16677,7 @@ function AppContent({ deferredPrompt }) {
       return <MaintenancePage />;
   }
 
- const renderPage = () => {
+  const renderPage = () => {
     const [path, queryString] = currentPath.split('?');
     const searchParams = new URLSearchParams(queryString);
     const initialSearch = searchParams.get('search') || '';
@@ -16954,7 +16719,7 @@ function AppContent({ deferredPrompt }) {
         );
     }
 
-    if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout' || mainPage === 'order-payment') && !isAuthenticated) {
+    if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) {
         return <LoginPage onNavigate={navigate} redirectPath={currentPath} />;
     }
     
@@ -16964,11 +16729,6 @@ function AppContent({ deferredPrompt }) {
 
     if (mainPage === 'order-success' && pageId) {
         return <OrderSuccessPage orderId={pageId} onNavigate={navigate} appName={safeName} />;
-    }
-
-    // --- NOVA ROTA DE PAGAMENTO ---
-    if (mainPage === 'order-payment' && pageId) {
-        return <OrderPaymentPage orderId={pageId} onNavigate={navigate} />;
     }
     
     if (mainPage === 'account') {
@@ -17090,6 +16850,7 @@ function AppContent({ deferredPrompt }) {
     </div>
   );
 }
+// ATUALIZAÇÃO DO COMPONENTE BASE: Carregando a biblioteca do frontend
 export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
 
@@ -17110,7 +16871,7 @@ export default function App() {
             }
         }
 
-        // Scripts externos (Chart, Excel, PDF, e WEBAUTHN)
+        // Scripts externos (Chart, Excel, PDF, MercadoPago e agora o WEBAUTHN)
         const loadScript = (src, id, callback) => {
             if (document.getElementById(id)) { if (callback) callback(); return; }
             const script = document.createElement('script');
@@ -17119,15 +16880,15 @@ export default function App() {
             document.body.appendChild(script);
         };
         
+        // --- NOVO: Carrega a biblioteca de biometria via CDN dinamicamente ---
         loadScript('https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.umd.min.js', 'webauthn-browser-script');
+        
         loadScript('https://cdn.jsdelivr.net/npm/chart.js', 'chartjs-script');
         loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'xlsx-script');
         loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'jspdf-script', () => {
             loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js', 'jspdf-autotable-script');
         });
-        
-        // O Script do Mercado Pago foi removido daqui, pois o @mercadopago/sdk-react 
-        // já lida com a injeção do script automaticamente, evitando duplicação.
+        loadScript('https://sdk.mercadopago.com/js/v2', 'mercadopago-sdk');
     }, []);
 
     return (
