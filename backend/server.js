@@ -20,7 +20,7 @@ const webpush = require('web-push');
 const { z } = require('zod'); // Substitui express-validator
 const compression = require('compression'); 
 const { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } = require('@simplewebauthn/server');
-
+const sanitizeHtml = require('sanitize-html'); // NOVO: Biblioteca profissional contra XSS
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
 
@@ -166,31 +166,18 @@ app.use(helmet({
 }));
 
 // --- MIDDLEWARE DE PROTEÇÃO CONTRA XSS (ALTA SEGURANÇA) ---
-// Sanitiza recursivamente strings em body, query e params
+// Sanitiza recursivamente strings usando a biblioteca sanitize-html
 const xssProtectionMiddleware = (req, res, next) => {
     const sanitizeValue = (value) => {
         if (typeof value !== 'string') return value;
         
-        let sanitized = value;
-        
-        // 1. Bloqueia e remove tags <script> e seu conteúdo
-        // Regex flag 'i' para case-insensitive (Script, SCRIPT, script)
-        sanitized = sanitized.replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gim, "");
-        
-        // 2. Bloqueia handlers de eventos maliciosos (onerror, onclick, onload, etc.)
-        // Remove atributos que começam com 'on' seguidos de '='
-        sanitized = sanitized.replace(/on\w+\s*=\s*['"][^'"]*['"]/gim, "");
-        
-        // 3. Bloqueia protocolo javascript: em links/src
-        sanitized = sanitized.replace(/javascript:/gim, "");
-        
-        // 4. Proteção extra para caracteres especiais HTML (opcional, mas recomendado)
-        // Evita que tags HTML não autorizadas sejam renderizadas
-        sanitized = sanitized
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;");
-
-        return sanitized;
+        // Remove completamente qualquer tag HTML e atributos perigosos.
+        // Ideal para APIs JSON que não devem receber HTML do cliente.
+        return sanitizeHtml(value, {
+            allowedTags: [], // Não permite nenhuma tag HTML
+            allowedAttributes: {}, // Não permite nenhum atributo
+            disallowedTagsMode: 'discard'
+        });
     };
 
     const sanitizeObject = (obj) => {
@@ -198,17 +185,17 @@ const xssProtectionMiddleware = (req, res, next) => {
         for (const key in obj) {
             if (Object.prototype.hasOwnProperty.call(obj, key)) {
                 if (typeof obj[key] === 'string') {
-                    // Sanitiza campos de texto (nome, descrição, endereço, observações)
+                    // Ignora campos que intencionalmente podem conter HTML ou aspas (como configurações json em string)
+                    // if (key === 'setting_value' || key === 'variations') continue; 
+                    
                     obj[key] = sanitizeValue(obj[key]);
                 } else if (typeof obj[key] === 'object' && obj[key] !== null) {
-                    // Recursão para objetos aninhados (ex: shipping_address JSON)
                     sanitizeObject(obj[key]);
                 }
             }
         }
     };
 
-    // Aplica a sanitização em todos os pontos de entrada
     if (req.body) sanitizeObject(req.body);
     if (req.query) sanitizeObject(req.query);
     if (req.params) sanitizeObject(req.params);
@@ -276,6 +263,10 @@ const validate = (schema) => (req, res, next) => {
 
 // --- SCHEMAS DE VALIDAÇÃO (DEFINIÇÕES) ---
 
+// Expressão regular para forçar letras e números
+const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)/;
+const passwordMessage = "A senha deve conter letras e números";
+
 // Schemas de Autenticação
 const authSchemas = {
     login: z.object({
@@ -288,8 +279,10 @@ const authSchemas = {
         body: z.object({
             name: z.string().min(3, "Nome muito curto"),
             email: z.string().email("E-mail inválido"),
-            password: z.string().min(6, "Senha deve ter no mínimo 6 caracteres"),
-            cpf: z.string().min(11, "CPF inválido"), // Validação lógica continua no controller
+            password: z.string()
+                .min(8, "Senha deve ter no mínimo 8 caracteres")
+                .regex(passwordRegex, passwordMessage),
+            cpf: z.string().min(11, "CPF inválido"), 
             phone: z.string().optional()
         })
     }),
@@ -320,7 +313,9 @@ const authSchemas = {
         body: z.object({
             email: z.string().email("E-mail inválido"),
             cpf: z.string().min(1, "CPF obrigatório"),
-            newPassword: z.string().min(6, "A nova senha deve ter no mínimo 6 caracteres")
+            newPassword: z.string()
+                .min(8, "A nova senha deve ter no mínimo 8 caracteres")
+                .regex(passwordRegex, passwordMessage)
         })
     }),
     verifyAction: z.object({
@@ -4084,8 +4079,9 @@ app.put('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
         let sql = "UPDATE users SET name = ?, email = ?, role = ?, cpf = ?, phone = ?";
 
         if (password && password.trim() !== '') {
-            if (password.length < 6) {
-                return res.status(400).json({ message: "A nova senha deve ter pelo menos 6 caracteres." });
+            // Nova validação de segurança de senha
+            if (password.length < 8 || !/^(?=.*[A-Za-z])(?=.*\d)/.test(password)) {
+                return res.status(400).json({ message: "A nova senha deve ter pelo menos 8 caracteres e conter letras e números." });
             }
             const hashedPassword = await bcrypt.hash(password, saltRounds);
             sql += ", password = ?";
@@ -4101,7 +4097,7 @@ app.put('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
             return res.status(404).json({ message: "Usuário não encontrado." });
         }
         
-        logAdminAction(req.user, 'EDITOU USUÁRIO', `ID do usuário: ${id}, Nome: ${name}`, req.ip); // CORREÇÃO: IP ADICIONADO
+        logAdminAction(req.user, 'EDITOU USUÁRIO', `ID do usuário: ${id}, Nome: ${name}`, req.ip); 
 
         res.json({ message: "Usuário atualizado com sucesso!" });
     } catch (err) {
@@ -4118,14 +4114,16 @@ app.put('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
 app.put('/api/users/me/password', verifyToken, async (req, res) => {
     const userId = req.user.id;
     const { password } = req.body;
-    if (!password || password.length < 6) {
-        return res.status(400).json({ message: "A senha é obrigatória e deve ter no mínimo 6 caracteres." });
+    
+    // Nova validação de segurança de senha
+    if (!password || password.length < 8 || !/^(?=.*[A-Za-z])(?=.*\d)/.test(password)) {
+        return res.status(400).json({ message: "A senha deve ter no mínimo 8 caracteres e conter letras e números." });
     }
 
     try {
         const hashedPassword = await bcrypt.hash(password, saltRounds);
         await db.query("UPDATE users SET password = ? WHERE id = ?", [hashedPassword, userId]);
-        logAdminAction(req.user, 'ALTEROU A PRÓPRIA SENHA', null, req.ip); // CORREÇÃO: IP ADICIONADO
+        logAdminAction(req.user, 'ALTEROU A PRÓPRIA SENHA', null, req.ip); 
         res.json({ message: "Senha atualizada com sucesso." });
     } catch(err) {
         console.error("Erro ao atualizar senha do usuário:", err);

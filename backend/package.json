@@ -34,6 +34,7 @@
     "node-fetch": "^2.7.0",
     "qrcode": "^1.5.4",
     "resend": "^4.6.0",
+    "sanitize-html": "^2.17.2",
     "speakeasy": "^2.0.0",
     "web-push": "^3.6.7",
     "xss-clean": "^0.1.4",

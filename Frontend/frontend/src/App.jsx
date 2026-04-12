@@ -5477,11 +5477,13 @@ const RegisterPage = ({ onNavigate }) => {
         visible: { opacity: 1, y: 0 }
     };
 
-    // Helper para calcular força da senha
+    // Helper para calcular força da senha atualizado
     const getPasswordStrength = (pass) => {
         if (!pass) return { label: '', color: '' };
-        if (pass.length < 6) return { label: 'Fraca (mín. 6)', color: 'text-red-500' };
-        if (pass.length < 8) return { label: 'Média', color: 'text-yellow-500' };
+        const hasLettersAndNumbers = /^(?=.*[A-Za-z])(?=.*\d)/.test(pass);
+        
+        if (pass.length < 8 || !hasLettersAndNumbers) return { label: 'Fraca (Mín. 8 + Letras e Números)', color: 'text-red-500' };
+        if (pass.length >= 8 && pass.length < 12 && hasLettersAndNumbers) return { label: 'Média', color: 'text-yellow-500' };
         return { label: 'Forte', color: 'text-green-500' };
     };
 
@@ -5493,8 +5495,8 @@ const RegisterPage = ({ onNavigate }) => {
         e.preventDefault();
         setError('');
         
-        if (password.length < 6) {
-             setError("A senha é muito fraca. Deve ter pelo menos 6 caracteres.");
+        if (password.length < 8 || !/^(?=.*[A-Za-z])(?=.*\d)/.test(password)) {
+             setError("A senha deve ter pelo menos 8 caracteres e conter letras e números.");
              return;
         }
         
@@ -5568,7 +5570,7 @@ const RegisterPage = ({ onNavigate }) => {
                     <div className="relative">
                         <input
                             type={isPasswordVisible ? 'text' : 'password'}
-                            placeholder="Senha (mín. 6 caracteres)"
+                            placeholder="Senha (mín. 8 + letras e números)"
                             value={password}
                             onChange={e => setPassword(e.target.value)}
                             required
@@ -5583,7 +5585,6 @@ const RegisterPage = ({ onNavigate }) => {
                         </button>
                     </div>
 
-                    {/* Campo Repetir Senha + Feedbacks */}
                     <div>
                         <div className="relative">
                             <input
@@ -5603,9 +5604,7 @@ const RegisterPage = ({ onNavigate }) => {
                             </button>
                         </div>
                         
-                        {/* Container Unificado para Feedback de Senha */}
                         <div className="flex justify-between items-center mt-1.5 px-1 min-h-[20px]">
-                            {/* Aviso de Senhas Diferentes (Esquerda) */}
                             <div className="flex-1">
                                 {showMismatch && (
                                     <p className="text-red-500 text-xs font-bold flex items-center gap-1 animate-pulse">
@@ -5614,7 +5613,6 @@ const RegisterPage = ({ onNavigate }) => {
                                 )}
                             </div>
 
-                            {/* Indicador de Força da Senha (Direita) */}
                             {password && (
                                 <div className="text-right text-xs font-medium ml-2">
                                     <span className="text-gray-400 mr-1">Força:</span>
@@ -5685,8 +5683,8 @@ const ForgotPasswordPage = ({ onNavigate }) => {
     const handlePasswordReset = async (e) => {
         e.preventDefault();
         setError('');
-        if (newPassword.length < 6) {
-            setError("A nova senha deve ter pelo menos 6 caracteres.");
+        if (newPassword.length < 8 || !/^(?=.*[A-Za-z])(?=.*\d)/.test(newPassword)) {
+            setError("A nova senha deve ter pelo menos 8 caracteres e conter letras e números.");
             return;
         }
         if (newPassword !== confirmPassword) {
@@ -5704,17 +5702,14 @@ const ForgotPasswordPage = ({ onNavigate }) => {
     };
 
     return (
-         // --- MODIFICAÇÃO: Estilo do container principal e padding ---
-        <div className="min-h-screen flex items-center justify-center bg-black p-4 sm:p-6"> {/* Fundo preto sólido, padding ajustado */}
+        <div className="min-h-screen flex items-center justify-center bg-black p-4 sm:p-6"> 
             <motion.div
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
-                // --- MODIFICAÇÃO: Estilo do card, cores e responsividade ---
-                className="w-full max-w-sm sm:max-w-md bg-gray-900 text-white p-6 sm:p-8 rounded-lg shadow-lg border border-gray-800" // Fundo mais escuro, padding ajustado, tamanho máximo ajustado
+                className="w-full max-w-sm sm:max-w-md bg-gray-900 text-white p-6 sm:p-8 rounded-lg shadow-lg border border-gray-800"
             >
                 <motion.div variants={itemVariants} className="text-center mb-6">
-                     {/* --- MODIFICAÇÃO: Tamanho do título --- */}
                     <h2 className="text-2xl sm:text-3xl font-bold text-amber-400">Recuperar Senha</h2>
                 </motion.div>
 
@@ -5727,13 +5722,10 @@ const ForgotPasswordPage = ({ onNavigate }) => {
                             initial={{ opacity: 0, x: -50 }}
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: 50 }}
-                            onSubmit={handleValidation} className="space-y-4"> {/* Reduzido space-y */}
-                             {/* --- MODIFICAÇÃO: Tamanho de texto da descrição --- */}
+                            onSubmit={handleValidation} className="space-y-4"> 
                             <p className="text-xs sm:text-sm text-gray-400 text-center">Para começar, por favor, insira seu e-mail e CPF cadastrados.</p>
-                            {/* --- MODIFICAÇÃO: Padding e tamanho de texto dos inputs --- */}
                             <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-sm sm:text-base" />
                             <input type="text" placeholder="CPF" value={cpf} onChange={e => setCpf(maskCPF(e.target.value))} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-sm sm:text-base" />
-                            {/* --- MODIFICAÇÃO: Padding e tamanho de texto do botão --- */}
                             <button type="submit" className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition text-base sm:text-lg">Verificar</button>
                         </motion.form>
                     ) : (
@@ -5742,14 +5734,12 @@ const ForgotPasswordPage = ({ onNavigate }) => {
                             initial={{ opacity: 0, x: -50 }}
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: 50 }}
-                            onSubmit={handlePasswordReset} className="space-y-4"> {/* Reduzido space-y */}
-                            {/* --- MODIFICAÇÃO: Tamanho de texto da descrição --- */}
+                            onSubmit={handlePasswordReset} className="space-y-4"> 
                             <p className="text-xs sm:text-sm text-gray-400 text-center">Usuário validado! Agora, crie sua nova senha.</p>
-                            {/* --- MODIFICAÇÃO: Padding e tamanho de texto dos inputs de senha --- */}
                             <div className="relative">
                                 <input
                                     type={isNewPasswordVisible ? 'text' : 'password'}
-                                    placeholder="Nova Senha"
+                                    placeholder="Nova Senha (mín. 8 + letras e núm)"
                                     value={newPassword}
                                     onChange={e => setNewPassword(e.target.value)}
                                     required
@@ -5772,13 +5762,11 @@ const ForgotPasswordPage = ({ onNavigate }) => {
                                     {isConfirmPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
                                 </button>
                             </div>
-                            {/* --- MODIFICAÇÃO: Padding e tamanho de texto do botão --- */}
                             <button type="submit" className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition text-base sm:text-lg">Redefinir Senha</button>
                         </motion.form>
                     )}
                 </AnimatePresence>
 
-                 {/* --- MODIFICAÇÃO: Tamanho de texto do link --- */}
                 <motion.div variants={itemVariants} className="text-center mt-5 text-xs sm:text-sm">
                     <a href="#login" onClick={(e) => { e.preventDefault(); onNavigate('login'); }} className="text-gray-400 hover:underline">Voltar para o Login</a>
                 </motion.div>
@@ -9050,8 +9038,8 @@ const MyProfileSection = () => {
 
     const handlePasswordChange = async (e) => {
         e.preventDefault();
-        if (newPassword.length < 6) {
-            notification.show("A nova senha deve ter pelo menos 6 caracteres.", "error");
+        if (newPassword.length < 8 || !/^(?=.*[A-Za-z])(?=.*\d)/.test(newPassword)) {
+            notification.show("A nova senha deve ter pelo menos 8 caracteres e conter letras e números.", "error");
             return;
         }
         setIsPasswordLoading(true);
@@ -9188,8 +9176,7 @@ const MyProfileSection = () => {
                         <form onSubmit={handlePasswordChange} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
-                                {/* CORREÇÃO: text-gray-900 adicionado */}
-                                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="w-full p-2 bg-gray-100 text-gray-900 border border-gray-300 rounded-md" />
+                                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 8 caracteres (letras e números)" className="w-full p-2 bg-gray-100 text-gray-900 border border-gray-300 rounded-md" />
                             </div>
                             <button type="submit" disabled={isPasswordLoading} className="w-full bg-amber-500 text-black font-bold py-2 rounded-md hover:bg-amber-400 flex justify-center items-center disabled:opacity-50">
                                 {isPasswordLoading ? <SpinnerIcon/> : "Confirmar Alteração"}
@@ -9209,7 +9196,6 @@ const MyProfileSection = () => {
                             <p className="font-mono bg-gray-200 p-2 rounded-md text-gray-800 break-all">{twoFactorSecret}</p>
                             <form onSubmit={handleVerifyAndEnable2FA} className="space-y-3 pt-4 border-t">
                                 <label className="block text-sm font-medium text-gray-700">2. Insira o código de 6 dígitos gerado:</label>
-                                {/* CORREÇÃO: text-gray-900 adicionado */}
                                 <input 
                                     type="text" 
                                     value={verificationCode}
@@ -9234,12 +9220,10 @@ const MyProfileSection = () => {
                             <p className="text-red-700 bg-red-100 p-3 rounded-md text-sm">Atenção: Para desativar o 2FA, por segurança, você deve fornecer sua **senha** e um **código de autenticação** válido.</p>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Sua Senha</label>
-                                {/* CORREÇÃO: text-gray-900 adicionado */}
                                 <input type="password" value={disablePassword} onChange={e => setDisablePassword(e.target.value)} required className="w-full p-2 bg-gray-100 text-gray-900 border border-gray-300 rounded-md" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Código de Autenticação (2FA)</label>
-                                {/* CORREÇÃO: text-gray-900 adicionado */}
                                 <input 
                                     type="text" 
                                     value={disableVerificationCode} 
@@ -9264,12 +9248,10 @@ const MyProfileSection = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center"><strong className="w-24 text-gray-400 flex-shrink-0">Email:</strong><span className="text-white">{user?.email}</span></div>
             </div>
 
-            {/* --- SEÇÃO DE SEGURANÇA E ACESSO RÁPIDO --- */}
             <div className="mt-8 pt-6 border-t border-gray-800">
                 <h3 className="text-xl font-bold text-amber-400 mb-4">Segurança e Acesso</h3>
                 
                 <div className="grid grid-cols-1 gap-4">
-                    {/* Alterar Senha Tradicional */}
                     <div className="bg-gray-800 p-6 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div>
                             <h4 className="font-bold flex items-center gap-2">Senha de Acesso</h4>
@@ -9278,7 +9260,6 @@ const MyProfileSection = () => {
                         <button onClick={() => setIsPasswordModalOpen(true)} className="bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600 flex-shrink-0">Alterar Senha</button>
                     </div>
 
-                    {/* Cadastrar Biometria (Para Todos) */}
                     <div className="bg-gray-800 p-6 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div>
                             <h4 className="font-bold flex items-center gap-2"><FingerprintIcon className="h-5 w-5 text-amber-400"/> Login Biométrico / Face ID</h4>
@@ -9302,7 +9283,6 @@ const MyProfileSection = () => {
                         )}
                     </div>
 
-                    {/* 2FA Apenas para Admins */}
                     {user?.role === 'admin' && (
                         <div className="bg-gray-800 p-6 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border border-indigo-900/50">
                             <div>
