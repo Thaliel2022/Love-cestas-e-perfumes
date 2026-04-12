@@ -7831,6 +7831,9 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
     const [refundReason, setRefundReason] = useState('');
     const [isProcessingRefund, setIsProcessingRefund] = useState(false);
+    
+    // NOVO ESTADO: Controle para evitar duplo clique
+    const [isRepeatingOrder, setIsRepeatingOrder] = useState(false);
 
     useEffect(() => {
         if (orderId) {
@@ -7872,29 +7875,34 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         onNavigate(`order-payment/${order.id}`);
     };
 
-    // CORREÇÃO: Busca o produto completo para evitar dados faltantes (categoria/marca) que limpam o carrinho
+    // CORREÇÃO: Função atualizada com bloqueio de duplo clique (isRepeatingOrder)
     const handleRepeatOrder = async (orderItems) => {
-        if (!orderItems) return;
+        if (!orderItems || isRepeatingOrder) return;
+        setIsRepeatingOrder(true);
         
         let count = 0;
-        for (const item of (Array.isArray(orderItems) ? orderItems : [])) {
-            if (item.product_type === 'clothing') {
-                notification.show(`Para adicionar "${item.name}" novamente, por favor, visite a página do produto.`, 'error');
-                continue;
+        try {
+            for (const item of (Array.isArray(orderItems) ? orderItems : [])) {
+                if (item.product_type === 'clothing') {
+                    notification.show(`Para adicionar "${item.name}" novamente, por favor, visite a página do produto.`, 'error');
+                    continue;
+                }
+                try {
+                    // Busca o produto atualizado e completo do banco de dados
+                    const fullProduct = await apiService(`/products/${item.product_id}`);
+                    await addToCart(fullProduct, item.quantity, item.variation);
+                    count++;
+                } catch (err) {
+                    notification.show(`Não foi possível adicionar "${item.name}": Produto esgotado ou indisponível.`, 'error');
+                }
             }
-            try {
-                // Busca o produto atualizado e completo do banco de dados
-                const fullProduct = await apiService(`/products/${item.product_id}`);
-                await addToCart(fullProduct, item.quantity, item.variation);
-                count++;
-            } catch (err) {
-                notification.show(`Não foi possível adicionar "${item.name}": Produto esgotado ou indisponível.`, 'error');
-            }
-        }
 
-        if (count > 0) {
-            notification.show(`${count} item(ns) adicionado(s) ao carrinho!`, 'success');
-            onNavigate('cart');
+            if (count > 0) {
+                notification.show(`${count} item(ns) adicionado(s) ao carrinho!`, 'success');
+                onNavigate('cart');
+            }
+        } finally {
+            setIsRepeatingOrder(false);
         }
     };
     
@@ -8412,7 +8420,10 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
 
                     <div className="pt-4 mt-4 border-t border-gray-800 space-y-4 sm:space-y-0 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-2">
                         <div className="flex flex-wrap items-center gap-2">
-                            <button onClick={() => handleRepeatOrder(order.items)} className="bg-amber-500 text-black text-sm font-bold px-4 py-1.5 rounded-md hover:bg-amber-400 shadow-sm transition-colors">Repetir Pedido</button>
+                            {/* BOTAO COM ESTADO DE LOADING E DISABLED */}
+                            <button onClick={() => handleRepeatOrder(order.items)} disabled={isRepeatingOrder} className="bg-amber-500 text-black text-sm font-bold px-4 py-1.5 rounded-md hover:bg-amber-400 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                                {isRepeatingOrder ? <><SpinnerIcon className="h-4 w-4"/> Processando...</> : 'Repetir Pedido'}
+                            </button>
                             {isPickupOrder ? (
                                 <button onClick={() => setIsTrackingModalOpen(true)} className="bg-gray-800 text-white text-sm font-bold px-4 py-1.5 rounded-md hover:bg-gray-700 transition-colors">Ver Status da Retirada</button>
                             ) : (
@@ -8724,6 +8735,9 @@ const MyOrdersSection = ({ onNavigate }) => {
     const [orderForTracking, setOrderForTracking] = useState(null);
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [selectedStatusDetails, setSelectedStatusDetails] = useState(null);
+    
+    // NOVO ESTADO: Controle para evitar duplo clique
+    const [isRepeatingOrder, setIsRepeatingOrder] = useState(false);
 
     useEffect(() => {
         apiService('/orders/my-orders')
@@ -8736,29 +8750,34 @@ const MyOrdersSection = ({ onNavigate }) => {
         onNavigate(`account/orders/${orderId}`);
     };
 
-    // CORREÇÃO: Busca o produto completo para evitar dados faltantes (categoria/marca) que limpam o carrinho
+    // CORREÇÃO: Função atualizada com bloqueio de duplo clique (isRepeatingOrder)
     const handleRepeatOrder = async (orderItems) => {
-        if (!orderItems) return;
+        if (!orderItems || isRepeatingOrder) return;
+        setIsRepeatingOrder(true);
         
         let count = 0;
-        for (const item of (Array.isArray(orderItems) ? orderItems : [])) {
-            if (item.product_type === 'clothing') {
-                notification.show(`Para adicionar "${item.name}" novamente, por favor, visite a página do produto.`, 'error');
-                continue;
+        try {
+            for (const item of (Array.isArray(orderItems) ? orderItems : [])) {
+                if (item.product_type === 'clothing') {
+                    notification.show(`Para adicionar "${item.name}" novamente, por favor, visite a página do produto.`, 'error');
+                    continue;
+                }
+                try {
+                    // Busca o produto atualizado e completo do banco de dados
+                    const fullProduct = await apiService(`/products/${item.product_id}`);
+                    await addToCart(fullProduct, item.quantity, item.variation);
+                    count++;
+                } catch (err) {
+                    notification.show(`Não foi possível adicionar "${item.name}": Produto esgotado ou indisponível.`, 'error');
+                }
             }
-            try {
-                // Busca o produto atualizado e completo do banco de dados
-                const fullProduct = await apiService(`/products/${item.product_id}`);
-                await addToCart(fullProduct, item.quantity, item.variation);
-                count++;
-            } catch (err) {
-                notification.show(`Não foi possível adicionar "${item.name}": Produto esgotado ou indisponível.`, 'error');
-            }
-        }
 
-        if (count > 0) {
-            notification.show(`${count} item(ns) adicionado(s) ao carrinho!`, 'success');
-            onNavigate('cart');
+            if (count > 0) {
+                notification.show(`${count} item(ns) adicionado(s) ao carrinho!`, 'success');
+                onNavigate('cart');
+            }
+        } finally {
+            setIsRepeatingOrder(false);
         }
     };
 
@@ -8850,7 +8869,10 @@ const MyOrdersSection = ({ onNavigate }) => {
                                 </div>
                                 <div className="pt-4 border-t border-gray-800 space-y-4 sm:space-y-0 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-2">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-700 text-white text-sm px-4 py-1.5 rounded-md hover:bg-gray-600">Repetir Pedido</button>
+                                        {/* BOTAO COM ESTADO DE LOADING E DISABLED */}
+                                        <button onClick={() => handleRepeatOrder(order.items)} disabled={isRepeatingOrder} className="bg-gray-700 text-white text-sm px-4 py-1.5 rounded-md hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                                            {isRepeatingOrder ? <><SpinnerIcon className="h-4 w-4"/> Proc...</> : 'Repetir Pedido'}
+                                        </button>
                                         {isPickupOrder ? (
                                             <button onClick={() => setOrderForTracking(order)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Ver Status da Retirada</button>
                                         ) : (
