@@ -8124,14 +8124,12 @@ const MyOrdersListPage = ({ onNavigate }) => {
 
                                     <div className="flex-shrink-0 w-full sm:w-auto flex flex-col items-stretch gap-2 mt-2 sm:mt-0">
                                         <button 
-                                            // --- ATUALIZAÇÃO DA ROTA DE NAVEGAÇÃO PARA PAGAMENTO ---
                                             onClick={() => onNavigate(order.status === 'Pendente' ? `order-payment/${order.id}` : `account/orders/${order.id}`)} 
                                             className={`w-full sm:w-auto font-bold px-4 py-2 rounded-md transition shadow-md active:scale-95 text-xs sm:text-sm border ${
-                                                order.status === 'Pendente' 
+                                                // CORREÇÃO DA COR: Pendente ou Nova Notificação ficam Âmbar
+                                                (order.status === 'Pendente' || hasNotification)
                                                     ? 'bg-amber-400 text-black border-amber-400 hover:bg-amber-300' 
-                                                    : hasNotification
-                                                        ? 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600'
-                                                        : 'bg-[#374151] text-gray-200 border-gray-600 hover:bg-gray-600 hover:text-white'
+                                                    : 'bg-[#374151] text-gray-200 border-gray-600 hover:bg-gray-600 hover:text-white'
                                             }`}
                                         >
                                             {order.status === 'Pendente' ? 'Pagar Agora' : hasNotification ? 'Ver Atualização' : 'Ver Detalhes'}
