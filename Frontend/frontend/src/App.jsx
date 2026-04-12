@@ -7350,7 +7350,8 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const notification = useNotification();
     const [order, setOrder] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [isPaying, setIsPaying] = useState(false);
+    const [isPaying, setIsPaying] = useState(false); // Usado para mostrar/esconder o formulário do Brick
+    const [isProcessingPayment, setIsProcessingPayment] = useState(false); // Usado para o overlay de carregamento
     const [isItemsExpanded, setIsItemsExpanded] = useState(true);
     
     const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
@@ -7361,9 +7362,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
     const [refundReason, setRefundReason] = useState('');
     const [isProcessingRefund, setIsProcessingRefund] = useState(false);
-
-    // --- NOVO ESTADO: Controle de exibição do Brick de pagamento ---
-    const [showPaymentBrick, setShowPaymentBrick] = useState(false);
 
     useEffect(() => {
         if (orderId) {
@@ -7401,9 +7399,14 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         setIsStatusModalOpen(true);
     };
 
-    // --- NOVA FUNÇÃO: Processa o pagamento do Brick diretamente ---
-    const handlePaymentSubmit = async (mpResponse) => {
+    // --- NOVA LÓGICA: Exibe o formulário do Brick ---
+    const handleRetryPayment = () => {
         setIsPaying(true);
+    };
+
+    // --- NOVA LÓGICA: Envia os dados do Brick para o Backend ---
+    const handlePaymentSubmit = async (mpResponse) => {
+        setIsProcessingPayment(true);
         try {
             const actualPaymentData = mpResponse.formData || mpResponse;
 
@@ -7415,16 +7418,16 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             const paymentResult = await apiService('/process-payment', 'POST', paymentPayload);
 
             if (['approved', 'in_process', 'pending'].includes(paymentResult.status)) {
+                setIsPaying(false); // Esconde o formulário
+                // Redireciona para a tela de sucesso para exibir o PIX ou Boleto
                 onNavigate(`order-success/${order.id}`);
             } else {
                 notification.show(`Pagamento recusado pela operadora. Tente outro cartão ou método.`, 'error');
-                setShowPaymentBrick(false);
             }
         } catch (error) {
-            notification.show(`Erro ao processar: ${error.message}`, 'error');
-            setShowPaymentBrick(false);
+            notification.show(`Erro ao processar pagamento: ${error.message}`, 'error');
         } finally {
-            setIsPaying(false);
+            setIsProcessingPayment(false);
         }
     };
 
@@ -7734,20 +7737,32 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
 
     return (
         <>
+            {/* OVERLAY DE CARREGAMENTO (Durante o Pagamento) */}
             <AnimatePresence>
-                {isTrackingModalOpen && <TrackingModal isOpen={isTrackingModalOpen} onClose={() => setIsTrackingModalOpen(false)} order={order} />}
-                {isStatusModalOpen && <StatusDescriptionModal isOpen={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} details={selectedStatusDetails} />}
-                
+                {isProcessingPayment && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/80 backdrop-blur-md">
+                        <div className="bg-gray-900 border border-gray-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center transform transition-all ring-1 ring-amber-500/30">
+                            <SpinnerIcon className="h-16 w-16 text-amber-400 mb-6 animate-spin" />
+                            <h3 className="text-2xl font-extrabold text-white mb-2">Processando Pagamento</h3>
+                            <p className="text-sm font-medium text-gray-300">Estamos validando seus dados de forma segura...</p>
+                            <p className="text-xs text-red-400 mt-5 font-bold uppercase tracking-widest animate-pulse">Por favor, não feche esta janela</p>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            <TrackingModal isOpen={isTrackingModalOpen} onClose={() => setIsTrackingModalOpen(false)} order={order} />
+            <StatusDescriptionModal isOpen={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} details={selectedStatusDetails} />
+            
+            <AnimatePresence>
                 {reviewingItem && (
                     <Modal isOpen={true} onClose={() => setReviewingItem(null)} title={`Avaliar: ${reviewingItem.name}`}>
-                        <ProductReviewForm 
-                            productId={reviewingItem.product_id}
-                            orderId={order.id}
-                            onReviewSubmitted={handleReviewSuccess}
-                        />
+                        <ProductReviewForm productId={reviewingItem.product_id} orderId={order.id} onReviewSubmitted={handleReviewSuccess} />
                     </Modal>
                 )}
+            </AnimatePresence>
 
+            <AnimatePresence>
                 {isRefundModalOpen && (
                     <Modal isOpen={true} onClose={() => setIsRefundModalOpen(false)} title={`Solicitar ${actionText} do Pedido #${order.id}`}>
                         <form onSubmit={handleRequestRefund} className="space-y-4 text-gray-800">
@@ -7785,30 +7800,50 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                     </div>
 
                     {order.status === 'Pendente' && (
-                        <div className="my-4 p-5 bg-gray-900 border border-gray-700 rounded-lg text-center shadow-lg">
-                            <p className="font-bold text-amber-400 mb-4 text-lg">Este pedido está aguardando pagamento.</p>
-                            
-                            {!showPaymentBrick ? (
-                                <button 
-                                    onClick={() => setShowPaymentBrick(true)} 
-                                    disabled={isPaying} 
-                                    className="bg-gradient-to-r from-amber-400 to-amber-500 text-black font-extrabold px-10 py-3.5 rounded-xl hover:from-amber-300 hover:to-amber-400 transition-all disabled:opacity-50 flex items-center justify-center mx-auto shadow-md transform active:scale-95"
-                                >
-                                    Pagar Agora
-                                </button>
+                        <div className="my-4 p-5 bg-gray-900 border border-gray-700 rounded-xl text-center shadow-lg">
+                            {!isPaying ? (
+                                <>
+                                    <p className="font-bold text-amber-400 mb-2 text-xl">Pagamento Pendente</p>
+                                    <p className="text-gray-400 text-sm mb-5 max-w-md mx-auto">
+                                        Seu pedido está reservado! Finalize o pagamento para garantirmos o estoque e o envio dos seus produtos.
+                                    </p>
+                                    <button 
+                                        onClick={handleRetryPayment} 
+                                        className="bg-gradient-to-r from-amber-400 to-amber-500 text-black font-extrabold px-10 py-3.5 rounded-xl hover:from-amber-300 hover:to-amber-400 transition-all shadow-md active:scale-95 flex items-center justify-center mx-auto gap-2"
+                                    >
+                                        <CreditCardIcon className="h-5 w-5" /> Pagar Agora
+                                    </button>
+                                </>
                             ) : (
-                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-6 text-left max-w-lg mx-auto">
-                                    <div className="border border-gray-700 rounded-xl overflow-hidden bg-gray-800/50 p-2">
+                                <div className="mt-2 text-left animate-fade-in">
+                                    <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-3">
+                                        <h3 className="font-bold text-lg text-white">Finalizar Pagamento</h3>
+                                        <button 
+                                            onClick={() => setIsPaying(false)} 
+                                            className="text-sm font-bold text-gray-400 hover:text-white flex items-center gap-1 transition-colors px-3 py-1.5 rounded-md hover:bg-gray-800"
+                                        >
+                                            <XMarkIcon className="h-5 w-5"/> Fechar
+                                        </button>
+                                    </div>
+                                    
+                                    {/* --- EMBED DO CHECKOUT BRICKS AQUI --- */}
+                                    <div className="bg-gray-900 p-2 rounded-xl">
                                         <MercadoPagoPayment
-                                            initialization={{
+                                            initialization={{ 
                                                 amount: Number(order.total),
                                                 payer: {
-                                                    email: user?.email || '',
+                                                    email: user?.email || '', 
                                                     entityType: 'individual'
                                                 }
                                             }}
                                             customization={{
-                                                paymentMethods: { ticket: "all", bankTransfer: "all", creditCard: "all", debitCard: "all", mercadoPago: "all" },
+                                                paymentMethods: {
+                                                    ticket: "all",
+                                                    bankTransfer: "all",
+                                                    creditCard: "all",
+                                                    debitCard: "all",
+                                                    mercadoPago: "all",
+                                                },
                                                 visual: { style: { theme: 'dark' } }
                                             }}
                                             onSubmit={handlePaymentSubmit}
@@ -7818,13 +7853,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                                             }}
                                         />
                                     </div>
-                                    <button 
-                                        onClick={() => setShowPaymentBrick(false)} 
-                                        className="mt-4 text-sm text-gray-400 hover:text-white underline w-full text-center py-2"
-                                    >
-                                        Cancelar e voltar
-                                    </button>
-                                </motion.div>
+                                </div>
                             )}
                         </div>
                     )}
@@ -8035,10 +8064,6 @@ const MyOrdersListPage = ({ onNavigate }) => {
     const notification = useNotification();
     const [orderToReview, setOrderToReview] = useState(null);
     const [itemToReview, setItemToReview] = useState(null);
-    const { user } = useAuth(); // Adicionado para pegar email do usuário no brick
-
-    // --- NOVO ESTADO: Qual pedido está com o Brick aberto? ---
-    const [payingOrderId, setPayingOrderId] = useState(null);
 
     const fetchOrders = useCallback(() => {
         return apiService('/orders/my-orders')
@@ -8076,34 +8101,11 @@ const MyOrdersListPage = ({ onNavigate }) => {
         }
     };
 
-    // --- NOVA FUNÇÃO: Submete o pagamento direto pelo Brick na lista ---
-    const handlePaymentSubmit = async (mpResponse, orderId) => {
-        try {
-            const actualPaymentData = mpResponse.formData || mpResponse;
-
-            const paymentPayload = {
-                orderId: orderId,
-                paymentData: actualPaymentData
-            };
-            const paymentResult = await apiService('/process-payment', 'POST', paymentPayload);
-
-            if (['approved', 'in_process', 'pending'].includes(paymentResult.status)) {
-                onNavigate(`order-success/${orderId}`);
-            } else {
-                notification.show(`Pagamento recusado pela operadora. Tente outro cartão ou método.`, 'error');
-                setPayingOrderId(null); // Esconde o brick para ele tentar de novo
-            }
-        } catch (error) {
-            notification.show(`Erro: ${error.message}`, 'error');
-            setPayingOrderId(null);
-        }
-    };
-
     const getStatusChipClass = (status) => {
         const lowerStatus = status.toLowerCase();
         if (lowerStatus.includes('entregue')) return 'bg-[#86efac] text-green-900'; 
         if (lowerStatus.includes('cancelado') || lowerStatus.includes('recusado')) return 'bg-red-200 text-red-800';
-        if (lowerStatus.includes('pendente')) return 'bg-[#fde047] text-yellow-900'; // Cor fiel à imagem
+        if (lowerStatus.includes('pendente')) return 'bg-[#fde047] text-yellow-900'; 
         return 'bg-blue-200 text-blue-800';
     };
 
@@ -8171,7 +8173,6 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                     </div>
                                 )}
 
-                                {/* SEÇÃO DO PRODUTO */}
                                 {firstItem && (
                                     <div className="flex items-center gap-4 border-b border-gray-600 pb-4 mb-4">
                                         <div onClick={() => onNavigate(`product/${firstItem.product_id}`)} className="cursor-pointer flex-shrink-0">
@@ -8186,7 +8187,6 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                     </div>
                                 )}
                                 
-                                {/* SEÇÃO DO RESUMO DO PEDIDO */}
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                     <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 text-left">
                                         <div className="flex flex-col">
@@ -8209,18 +8209,21 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                         </div>
                                     </div>
 
-                                    {/* BOTÕES */}
+                                    {/* --- NOVA LÓGICA DO BOTÃO AQUI --- */}
                                     <div className="flex-shrink-0 w-full sm:w-auto flex flex-col items-stretch gap-2 mt-2 sm:mt-0">
                                         <button 
                                             onClick={() => onNavigate(`account/orders/${order.id}`)} 
                                             className={`w-full sm:w-auto font-bold px-4 py-2 rounded-md transition shadow-md active:scale-95 text-xs sm:text-sm border ${
-                                                hasNotification 
+                                                order.status === 'Pendente' 
                                                     ? 'bg-amber-400 text-black border-amber-400 hover:bg-amber-300' 
-                                                    : 'bg-[#374151] text-gray-200 border-gray-600 hover:bg-gray-600 hover:text-white'
+                                                    : hasNotification
+                                                        ? 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600'
+                                                        : 'bg-[#374151] text-gray-200 border-gray-600 hover:bg-gray-600 hover:text-white'
                                             }`}
                                         >
-                                            {hasNotification ? 'Ver Atualização' : 'Ver Detalhes'}
+                                            {order.status === 'Pendente' ? 'Pagar Agora' : hasNotification ? 'Ver Atualização' : 'Ver Detalhes'}
                                         </button>
+                                        
                                         {canReviewOrder && (
                                              <button 
                                                 onClick={() => setOrderToReview(order)} 
@@ -8231,51 +8234,6 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                         )}
                                     </div>
                                 </div>
-
-                                {/* ÁREA DE PAGAMENTO INLINE SE ESTIVER PENDENTE */}
-                                {order.status === 'Pendente' && (
-                                    <div className="mt-4 p-5 bg-gray-900 border border-gray-700 rounded-lg text-center shadow-lg">
-                                        <p className="font-bold text-amber-400 mb-4 text-lg">Este pedido está aguardando pagamento.</p>
-                                        
-                                        {payingOrderId !== order.id ? (
-                                            <button 
-                                                onClick={() => setPayingOrderId(order.id)} 
-                                                className="bg-gradient-to-r from-amber-400 to-amber-500 text-black font-extrabold px-10 py-3.5 rounded-xl hover:from-amber-300 hover:to-amber-400 transition-all flex items-center justify-center mx-auto shadow-md transform active:scale-95"
-                                            >
-                                                Pagar Agora
-                                            </button>
-                                        ) : (
-                                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-6 text-left max-w-lg mx-auto">
-                                                <div className="border border-gray-700 rounded-xl overflow-hidden bg-gray-800/50 p-2">
-                                                    <MercadoPagoPayment
-                                                        initialization={{
-                                                            amount: Number(order.total),
-                                                            payer: {
-                                                                email: user?.email || '',
-                                                                entityType: 'individual'
-                                                            }
-                                                        }}
-                                                        customization={{
-                                                            paymentMethods: { ticket: "all", bankTransfer: "all", creditCard: "all", debitCard: "all", mercadoPago: "all" },
-                                                            visual: { style: { theme: 'dark' } }
-                                                        }}
-                                                        onSubmit={(mpResponse) => handlePaymentSubmit(mpResponse, order.id)}
-                                                        onError={(error) => {
-                                                            if(error?.message && error.message.includes("createObjectStore")) return;
-                                                            console.error("Mercado Pago Bricks Error:", error);
-                                                        }}
-                                                    />
-                                                </div>
-                                                <button 
-                                                    onClick={() => setPayingOrderId(null)} 
-                                                    className="mt-4 text-sm text-gray-400 hover:text-white underline w-full text-center py-2"
-                                                >
-                                                    Cancelar e voltar
-                                                </button>
-                                            </motion.div>
-                                        )}
-                                    </div>
-                                )}
                             </motion.div>
                         );
                     })}
@@ -8386,7 +8344,6 @@ const MyOrdersSection = ({ onNavigate }) => {
     const [orderForTracking, setOrderForTracking] = useState(null);
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [selectedStatusDetails, setSelectedStatusDetails] = useState(null);
-    const [isPaying, setIsPaying] = useState(null); // Estado para o botão "Pagar Agora"
 
     useEffect(() => {
         apiService('/orders/my-orders')
@@ -8395,22 +8352,9 @@ const MyOrdersSection = ({ onNavigate }) => {
             .finally(() => setIsLoading(false));
     }, [notification]);
 
-    const handleRetryPayment = async (orderId) => {
-        setIsPaying(orderId);
-        try {
-            const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
-            if (paymentResult && paymentResult.init_point) {
-                // --- CORREÇÃO: localStorage em vez de sessionStorage ---
-                localStorage.setItem('pendingOrderId', orderId);
-                window.location.href = paymentResult.init_point;
-            } else {
-                throw new Error("Não foi possível obter o link de pagamento.");
-            }
-        } catch (error) {
-            notification.show(`Erro ao tentar realizar o pagamento: ${error.message}`, 'error');
-        } finally {
-            setIsPaying(null);
-        }
+    // --- NOVA LÓGICA DE REDIRECIONAMENTO ---
+    const handleRetryPayment = (orderId) => {
+        onNavigate(`account/orders/${orderId}`);
     };
 
     const handleRepeatOrder = (orderItems) => {
@@ -8486,10 +8430,9 @@ const MyOrdersSection = ({ onNavigate }) => {
                                         <p className="font-semibold text-amber-300 mb-3">Este pedido está aguardando pagamento.</p>
                                         <button
                                             onClick={() => handleRetryPayment(order.id)}
-                                            disabled={isPaying === order.id}
-                                            className="bg-amber-400 text-black font-bold px-8 py-2 rounded-md hover:bg-amber-300 transition-all disabled:opacity-50 disabled:cursor-wait flex items-center justify-center mx-auto"
+                                            className="bg-amber-400 text-black font-bold px-8 py-2 rounded-md hover:bg-amber-300 transition-all flex items-center justify-center mx-auto"
                                         >
-                                            {isPaying === order.id ? <SpinnerIcon className="h-5 w-5" /> : 'Pagar Agora'}
+                                            Pagar Agora
                                         </button>
                                     </div>
                                 )}
