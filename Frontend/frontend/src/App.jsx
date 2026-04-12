@@ -7362,6 +7362,9 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const [refundReason, setRefundReason] = useState('');
     const [isProcessingRefund, setIsProcessingRefund] = useState(false);
 
+    // --- NOVO ESTADO: Controle de exibição do Brick de pagamento ---
+    const [showPaymentBrick, setShowPaymentBrick] = useState(false);
+
     useEffect(() => {
         if (orderId) {
             markOrderAsSeen(orderId);
@@ -7398,16 +7401,28 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         setIsStatusModalOpen(true);
     };
 
-    const handleRetryPayment = async (orderId) => {
+    // --- NOVA FUNÇÃO: Processa o pagamento do Brick diretamente ---
+    const handlePaymentSubmit = async (mpResponse) => {
         setIsPaying(true);
         try {
-            const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
-            if (paymentResult && paymentResult.init_point) {
-                localStorage.setItem('pendingOrderId', orderId);
-                window.location.href = paymentResult.init_point;
-            } else { throw new Error("Não foi possível obter o link de pagamento."); }
+            const actualPaymentData = mpResponse.formData || mpResponse;
+
+            const paymentPayload = {
+                orderId: order.id,
+                paymentData: actualPaymentData 
+            };
+
+            const paymentResult = await apiService('/process-payment', 'POST', paymentPayload);
+
+            if (['approved', 'in_process', 'pending'].includes(paymentResult.status)) {
+                onNavigate(`order-success/${order.id}`);
+            } else {
+                notification.show(`Pagamento recusado pela operadora. Tente outro cartão ou método.`, 'error');
+                setShowPaymentBrick(false);
+            }
         } catch (error) {
-            notification.show(`Erro ao tentar realizar o pagamento: ${error.message}`, 'error');
+            notification.show(`Erro ao processar: ${error.message}`, 'error');
+            setShowPaymentBrick(false);
         } finally {
             setIsPaying(false);
         }
@@ -7719,12 +7734,10 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
 
     return (
         <>
-            {/* TODOS OS MODAIS RESTAURADOS AQUI NO TOPO */}
-            <TrackingModal isOpen={isTrackingModalOpen} onClose={() => setIsTrackingModalOpen(false)} order={order} />
-            
-            <StatusDescriptionModal isOpen={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} details={selectedStatusDetails} />
-            
             <AnimatePresence>
+                {isTrackingModalOpen && <TrackingModal isOpen={isTrackingModalOpen} onClose={() => setIsTrackingModalOpen(false)} order={order} />}
+                {isStatusModalOpen && <StatusDescriptionModal isOpen={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} details={selectedStatusDetails} />}
+                
                 {reviewingItem && (
                     <Modal isOpen={true} onClose={() => setReviewingItem(null)} title={`Avaliar: ${reviewingItem.name}`}>
                         <ProductReviewForm 
@@ -7734,9 +7747,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                         />
                     </Modal>
                 )}
-            </AnimatePresence>
 
-            <AnimatePresence>
                 {isRefundModalOpen && (
                     <Modal isOpen={true} onClose={() => setIsRefundModalOpen(false)} title={`Solicitar ${actionText} do Pedido #${order.id}`}>
                         <form onSubmit={handleRequestRefund} className="space-y-4 text-gray-800">
@@ -7774,11 +7785,47 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                     </div>
 
                     {order.status === 'Pendente' && (
-                        <div className="my-4 p-4 bg-amber-900/50 border border-amber-700 rounded-lg text-center">
-                            <p className="font-semibold text-amber-300 mb-3">Este pedido está aguardando pagamento.</p>
-                            <button onClick={() => handleRetryPayment(order.id)} disabled={isPaying} className="bg-amber-400 text-black font-bold px-8 py-2 rounded-md hover:bg-amber-300 transition-all disabled:opacity-50 disabled:cursor-wait flex items-center justify-center mx-auto">
-                                {isPaying ? <SpinnerIcon className="h-5 w-5" /> : 'Pagar Agora'}
-                            </button>
+                        <div className="my-4 p-5 bg-gray-900 border border-gray-700 rounded-lg text-center shadow-lg">
+                            <p className="font-bold text-amber-400 mb-4 text-lg">Este pedido está aguardando pagamento.</p>
+                            
+                            {!showPaymentBrick ? (
+                                <button 
+                                    onClick={() => setShowPaymentBrick(true)} 
+                                    disabled={isPaying} 
+                                    className="bg-gradient-to-r from-amber-400 to-amber-500 text-black font-extrabold px-10 py-3.5 rounded-xl hover:from-amber-300 hover:to-amber-400 transition-all disabled:opacity-50 flex items-center justify-center mx-auto shadow-md transform active:scale-95"
+                                >
+                                    Pagar Agora
+                                </button>
+                            ) : (
+                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-6 text-left max-w-lg mx-auto">
+                                    <div className="border border-gray-700 rounded-xl overflow-hidden bg-gray-800/50 p-2">
+                                        <MercadoPagoPayment
+                                            initialization={{
+                                                amount: Number(order.total),
+                                                payer: {
+                                                    email: user?.email || '',
+                                                    entityType: 'individual'
+                                                }
+                                            }}
+                                            customization={{
+                                                paymentMethods: { ticket: "all", bankTransfer: "all", creditCard: "all", debitCard: "all", mercadoPago: "all" },
+                                                visual: { style: { theme: 'dark' } }
+                                            }}
+                                            onSubmit={handlePaymentSubmit}
+                                            onError={(error) => {
+                                                if(error?.message && error.message.includes("createObjectStore")) return;
+                                                console.error("Mercado Pago Bricks Error:", error);
+                                            }}
+                                        />
+                                    </div>
+                                    <button 
+                                        onClick={() => setShowPaymentBrick(false)} 
+                                        className="mt-4 text-sm text-gray-400 hover:text-white underline w-full text-center py-2"
+                                    >
+                                        Cancelar e voltar
+                                    </button>
+                                </motion.div>
+                            )}
                         </div>
                     )}
                     
@@ -7988,6 +8035,10 @@ const MyOrdersListPage = ({ onNavigate }) => {
     const notification = useNotification();
     const [orderToReview, setOrderToReview] = useState(null);
     const [itemToReview, setItemToReview] = useState(null);
+    const { user } = useAuth(); // Adicionado para pegar email do usuário no brick
+
+    // --- NOVO ESTADO: Qual pedido está com o Brick aberto? ---
+    const [payingOrderId, setPayingOrderId] = useState(null);
 
     const fetchOrders = useCallback(() => {
         return apiService('/orders/my-orders')
@@ -8022,6 +8073,29 @@ const MyOrdersListPage = ({ onNavigate }) => {
             notification.show("Não foi possível atualizar a lista de pedidos.", 'error');
             setItemToReview(null);
             setOrderToReview(null);
+        }
+    };
+
+    // --- NOVA FUNÇÃO: Submete o pagamento direto pelo Brick na lista ---
+    const handlePaymentSubmit = async (mpResponse, orderId) => {
+        try {
+            const actualPaymentData = mpResponse.formData || mpResponse;
+
+            const paymentPayload = {
+                orderId: orderId,
+                paymentData: actualPaymentData
+            };
+            const paymentResult = await apiService('/process-payment', 'POST', paymentPayload);
+
+            if (['approved', 'in_process', 'pending'].includes(paymentResult.status)) {
+                onNavigate(`order-success/${orderId}`);
+            } else {
+                notification.show(`Pagamento recusado pela operadora. Tente outro cartão ou método.`, 'error');
+                setPayingOrderId(null); // Esconde o brick para ele tentar de novo
+            }
+        } catch (error) {
+            notification.show(`Erro: ${error.message}`, 'error');
+            setPayingOrderId(null);
         }
     };
 
@@ -8097,7 +8171,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                     </div>
                                 )}
 
-                                {/* SEÇÃO DO PRODUTO: COM A LINHA DIVISÓRIA RESTAURADA E VISÍVEL (border-gray-600) */}
+                                {/* SEÇÃO DO PRODUTO */}
                                 {firstItem && (
                                     <div className="flex items-center gap-4 border-b border-gray-600 pb-4 mb-4">
                                         <div onClick={() => onNavigate(`product/${firstItem.product_id}`)} className="cursor-pointer flex-shrink-0">
@@ -8112,7 +8186,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                     </div>
                                 )}
                                 
-                                {/* SEÇÃO DO RESUMO DO PEDIDO: GRID ALINHADO RESTAURADO */}
+                                {/* SEÇÃO DO RESUMO DO PEDIDO */}
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                     <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 text-left">
                                         <div className="flex flex-col">
@@ -8135,7 +8209,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                         </div>
                                     </div>
 
-                                    {/* BOTÕES ALINHADOS À DIREITA RESTAURADOS */}
+                                    {/* BOTÕES */}
                                     <div className="flex-shrink-0 w-full sm:w-auto flex flex-col items-stretch gap-2 mt-2 sm:mt-0">
                                         <button 
                                             onClick={() => onNavigate(`account/orders/${order.id}`)} 
@@ -8157,6 +8231,51 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                         )}
                                     </div>
                                 </div>
+
+                                {/* ÁREA DE PAGAMENTO INLINE SE ESTIVER PENDENTE */}
+                                {order.status === 'Pendente' && (
+                                    <div className="mt-4 p-5 bg-gray-900 border border-gray-700 rounded-lg text-center shadow-lg">
+                                        <p className="font-bold text-amber-400 mb-4 text-lg">Este pedido está aguardando pagamento.</p>
+                                        
+                                        {payingOrderId !== order.id ? (
+                                            <button 
+                                                onClick={() => setPayingOrderId(order.id)} 
+                                                className="bg-gradient-to-r from-amber-400 to-amber-500 text-black font-extrabold px-10 py-3.5 rounded-xl hover:from-amber-300 hover:to-amber-400 transition-all flex items-center justify-center mx-auto shadow-md transform active:scale-95"
+                                            >
+                                                Pagar Agora
+                                            </button>
+                                        ) : (
+                                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-6 text-left max-w-lg mx-auto">
+                                                <div className="border border-gray-700 rounded-xl overflow-hidden bg-gray-800/50 p-2">
+                                                    <MercadoPagoPayment
+                                                        initialization={{
+                                                            amount: Number(order.total),
+                                                            payer: {
+                                                                email: user?.email || '',
+                                                                entityType: 'individual'
+                                                            }
+                                                        }}
+                                                        customization={{
+                                                            paymentMethods: { ticket: "all", bankTransfer: "all", creditCard: "all", debitCard: "all", mercadoPago: "all" },
+                                                            visual: { style: { theme: 'dark' } }
+                                                        }}
+                                                        onSubmit={(mpResponse) => handlePaymentSubmit(mpResponse, order.id)}
+                                                        onError={(error) => {
+                                                            if(error?.message && error.message.includes("createObjectStore")) return;
+                                                            console.error("Mercado Pago Bricks Error:", error);
+                                                        }}
+                                                    />
+                                                </div>
+                                                <button 
+                                                    onClick={() => setPayingOrderId(null)} 
+                                                    className="mt-4 text-sm text-gray-400 hover:text-white underline w-full text-center py-2"
+                                                >
+                                                    Cancelar e voltar
+                                                </button>
+                                            </motion.div>
+                                        )}
+                                    </div>
+                                )}
                             </motion.div>
                         );
                     })}
