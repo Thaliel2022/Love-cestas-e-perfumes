@@ -3679,7 +3679,7 @@ const HomePage = ({ onNavigate }) => {
     // Estado unificado para banners
     const [banners, setBanners] = useState({
         carousel: [],
-        promo: [], // Agora é um array para suportar múltiplos destaques
+        promo: [], 
         cards: []
     });
     const [isLoadingBanners, setIsLoadingBanners] = useState(true);
@@ -3689,11 +3689,14 @@ const HomePage = ({ onNavigate }) => {
         const controller = new AbortController();
         apiService('/products', 'GET', null, { signal: controller.signal })
             .then(data => {
-                const sortedByDate = [...data].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-                const sortedBySales = [...data].sort((a, b) => (b.sales || 0) - (a.sales || 0));
+                // CORREÇÃO: Garante que pega o array correto, independentemente se a API retornou o objeto paginado ou array direto
+                const productsArray = Array.isArray(data) ? data : (data.products || []);
+
+                const sortedByDate = [...productsArray].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                const sortedBySales = [...productsArray].sort((a, b) => (b.sales || 0) - (a.sales || 0));
                 
-                const clothingProducts = data.filter(p => p.product_type === 'clothing');
-                const perfumeProducts = data.filter(p => p.product_type === 'perfume');
+                const clothingProducts = productsArray.filter(p => p.product_type === 'clothing');
+                const perfumeProducts = productsArray.filter(p => p.product_type === 'perfume');
 
                 setProducts({
                     newArrivals: sortedByDate,
@@ -3710,13 +3713,8 @@ const HomePage = ({ onNavigate }) => {
         apiService('/banners', 'GET', null, { signal: controller.signal })
             .then(data => {
                 if (Array.isArray(data)) {
-                    // SEPARAÇÃO POR ORDEM:
                     const carousel = data.filter(b => b.display_order < 50).sort((a, b) => a.display_order - b.display_order);
-                    
-                    // Pega TODOS os banners de destaque (ordem 50) para rotacionar
-                    // O backend já garante que só vêm os ativos e dentro da data
                     const promo = data.filter(b => b.display_order === 50);
-                    
                     const cards = data.filter(b => b.display_order >= 60).sort((a, b) => a.display_order - b.display_order).slice(0, 2);
 
                     setBanners({
@@ -3735,7 +3733,6 @@ const HomePage = ({ onNavigate }) => {
     }, []);
 
     return (
-      // CORREÇÃO: Alterado pb-0 para pb-24 md:pb-0 para liberar o espaço do menu inferior
       <div className="bg-black min-h-screen pb-24 md:pb-0 overflow-x-hidden">
         {/* Banner Principal Rotativo */}
         {isLoadingBanners ? (
@@ -4531,7 +4528,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             setCrossSellProducts(Array.isArray(crossSellData) ? crossSellData : []);
 
             if (productData && allProductsData) {
-                const related = allProductsData.filter(p => p.id !== productData.id && (p.brand === productData.brand || p.category === productData.category)).slice(0, 8);
+                // CORREÇÃO: Garante a extração correta independentemente do formato
+                const productsArray = Array.isArray(allProductsData) ? allProductsData : (allProductsData.products || []);
+                const related = productsArray.filter(p => p.id !== productData.id && (p.brand === productData.brand || p.category === productData.category)).slice(0, 8);
                 setRelatedProducts(related);
             }
         } catch (err) {
@@ -4604,7 +4603,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         setIsSelectionModalOpen(false);
     };
 
-    // --- CORREÇÃO: No Mobile, não abre gaveta, apenas notifica.
     const processAddToCart = async (action) => {
         try {
             await addToCart(product, quantity, selectedVariation);
@@ -9641,7 +9639,9 @@ const AdminNewsletter = ({ appName }) => {
         ])
         .then(([subsData, productsData]) => {
             setSubscribers(subsData || []);
-            setProducts(productsData || []);
+            // CORREÇÃO: Garante que é array independente do formato retornado
+            const productsArray = Array.isArray(productsData) ? productsData : (productsData.products || []);
+            setProducts(productsArray);
         })
         .catch(err => notification.show('Erro ao carregar dados.', 'error'))
         .finally(() => setIsLoading(false));
@@ -9667,7 +9667,7 @@ const AdminNewsletter = ({ appName }) => {
                         message,
                         ctaLink,
                         ctaText,
-                        productId: selectedProductId || null, // Envia o ID se selecionado
+                        productId: selectedProductId || null, 
                         discountText
                     });
                     notification.show(response.message, 'success');
@@ -9758,7 +9758,6 @@ const AdminNewsletter = ({ appName }) => {
                             />
                         </div>
 
-                        {/* --- NOVO BLOCO: DESTAQUE DE PRODUTO --- */}
                         <div className="bg-blue-50 p-4 rounded-md border border-blue-200">
                             <h4 className="font-bold text-blue-800 text-sm mb-3 flex items-center gap-2">
                                 <TagIcon className="h-4 w-4"/> Destaque de Produto (Opcional)
