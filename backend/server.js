@@ -1650,36 +1650,121 @@ app.post('/api/shipping/calculate', checkMaintenanceMode, async (req, res) => {
     }
 });
 
-// --- ROTAS DE PRODUTOS ---
+// --- ROTA DE METADADOS (Usada para preencher os filtros da loja sem carregar os produtos) ---
+app.get('/api/products/metadata', async (req, res) => {
+    try {
+        const [brands] = await db.query("SELECT DISTINCT brand FROM products WHERE is_active = 1 AND brand IS NOT NULL AND brand != '' ORDER BY brand ASC");
+        res.json({
+            brands: brands.map(b => b.brand)
+        });
+    } catch (err) {
+        console.error("Erro ao buscar metadados de produtos:", err);
+        res.status(500).json({ message: "Erro ao buscar metadados." });
+    }
+});
+
+// --- ROTA DE PRODUTOS PAGINADA (Arquitetura Híbrida: SQL + Fuzzy Search) ---
 app.get('/api/products', checkMaintenanceMode, async (req, res) => {
-    try {
-       const sql = `
+    try {
+        // Recebe os parâmetros de paginação e filtro do frontend
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 12;
+        const search = req.query.search || '';
+        const category = req.query.category || '';
+        const brand = req.query.brand || '';
+        const promo = req.query.promo === 'true';
+
+        let baseSql = `
             SELECT 
                 p.*,
                 r_agg.avg_rating,
                 COALESCE(r_agg.review_count, 0) as review_count
-            FROM 
-                products p
-            LEFT JOIN 
-                (SELECT 
-                    product_id, 
-                    AVG(rating) as avg_rating, 
-                    COUNT(id) as review_count 
-                FROM 
-                    reviews 
-                GROUP BY 
-                    product_id) AS r_agg ON p.id = r_agg.product_id
-            WHERE 
-                p.is_active = 1
-            ORDER BY 
-                p.created_at DESC;
+            FROM products p
+            LEFT JOIN (
+                SELECT product_id, AVG(rating) as avg_rating, COUNT(id) as review_count 
+                FROM reviews GROUP BY product_id
+            ) AS r_agg ON p.id = r_agg.product_id
+            WHERE p.is_active = 1
         `;
-        const [products] = await db.query(sql);
-        res.json(products);
-    } catch (err) {
-        console.error("Erro ao buscar produtos:", err);
-        res.status(500).json({ message: "Erro ao buscar produtos." });
-    }
+        
+        let countSql = `SELECT COUNT(p.id) as total FROM products p WHERE p.is_active = 1`;
+        
+        const params = [];
+        let conditions = "";
+
+        if (category) {
+            if (category === 'Roupas') {
+                conditions += " AND p.product_type = 'clothing'";
+            } else if (category === 'Perfumes') {
+                conditions += " AND p.product_type = 'perfume'";
+            } else {
+                conditions += " AND p.category = ?";
+                params.push(category);
+            }
+        }
+
+        if (brand) {
+            conditions += " AND p.brand = ?";
+            params.push(brand);
+        }
+
+        if (promo) {
+            conditions += " AND p.is_on_sale = 1";
+        }
+
+        // 1. MÁXIMA PERFORMANCE: Se não houver busca inteligente, paginamos direto no MySQL
+        if (!search) {
+            const [countResult] = await db.query(countSql + conditions, params);
+            const totalItems = countResult[0].total;
+            const totalPages = Math.ceil(totalItems / limit);
+            const offset = (page - 1) * limit;
+
+            const finalSql = baseSql + conditions + ` ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
+            const [paginatedProducts] = await db.query(finalSql, [...params, limit, offset]);
+
+            return res.json({
+                products: paginatedProducts,
+                totalItems,
+                totalPages,
+                currentPage: page
+            });
+        } 
+        
+        // 2. BUSCA INTELIGENTE: Filtramos o básico no SQL, passamos o Fuse.js para tolerar erros e paginamos
+        const finalSql = baseSql + conditions + ` ORDER BY p.created_at DESC`;
+        const [allFilteredProducts] = await db.query(finalSql, params);
+
+        const fuse = new Fuse(allFilteredProducts, {
+            keys: [
+                { name: 'name', weight: 0.6 },
+                { name: 'brand', weight: 0.2 },
+                { name: 'category', weight: 0.2 }
+            ],
+            threshold: 0.4,
+            ignoreLocation: true,
+            minMatchCharLength: 2
+        });
+
+        const fuzzyResults = fuse.search(search).map(result => result.item);
+        
+        const totalItems = fuzzyResults.length;
+        const totalPages = Math.ceil(totalItems / limit);
+        const startIndex = (page - 1) * limit;
+        const endIndex = page * limit;
+
+        const paginatedProducts = fuzzyResults.slice(startIndex, endIndex);
+
+        return res.json({
+            products: paginatedProducts,
+            totalItems,
+            totalPages,
+            currentPage: page
+        });
+
+    } catch (err) {
+        console.error("Erro ao buscar produtos paginados:", err);
+        res.status(500).json({ message: "Erro ao buscar produtos." });
+    }
 });
 
 app.get('/api/products/all', verifyToken, verifyAdmin, async (req, res) => {

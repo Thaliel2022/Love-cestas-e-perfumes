@@ -3832,82 +3832,75 @@ const HomePage = ({ onNavigate }) => {
 
 // ===== ATUALIZAÇÃO PROMOÇÕES =====
 const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', initialBrand = '', initialIsPromo = false }) => {
-    const [allProducts, setAllProducts] = useState([]);
-    const [filteredProducts, setFilteredProducts] = useState([]);
+    const [products, setProducts] = useState([]);
     const [filters, setFilters] = useState({ search: initialSearch, brand: initialBrand, category: initialCategory });
     const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
     const [isLoading, setIsLoading] = useState(true);
     const [uniqueCategories, setUniqueCategories] = useState([]);
+    const [uniqueBrands, setUniqueBrands] = useState([]);
     const productsPerPage = 12;
 
+    // Busca as marcas e categorias disponíveis apenas uma vez ao montar a página
     useEffect(() => {
         const controller = new AbortController();
-        setIsLoading(true);
-        
         Promise.all([
-            apiService('/products', 'GET', null, { signal: controller.signal }),
+            apiService('/products/metadata', 'GET', null, { signal: controller.signal }),
             apiService('/collections', 'GET', null, { signal: controller.signal })
-        ]).then(([productsData, collectionsData]) => {
-            setAllProducts(productsData);
+        ]).then(([metaData, collectionsData]) => {
+            setUniqueBrands(metaData.brands || []);
             const activeCategories = collectionsData.map(cat => cat.filter);
             setUniqueCategories([...new Set(activeCategories)].sort());
         }).catch(err => {
-            if (err.name !== 'AbortError') console.error("Falha ao buscar dados da página de produtos:", err);
-        }).finally(() => {
-            setIsLoading(false);
+            if (err.name !== 'AbortError') console.error("Erro ao carregar filtros:", err);
         });
 
         return () => controller.abort();
     }, []);
-    
+
+    // Sincroniza props iniciais vindas da URL com o estado local
     useEffect(() => {
-        setFilters(prev => ({...prev, search: initialSearch, category: initialCategory, brand: initialBrand}));
+        setFilters({ search: initialSearch, brand: initialBrand, category: initialCategory });
+        setCurrentPage(1);
     }, [initialSearch, initialCategory, initialBrand]);
 
+    // Efeito principal: Busca os produtos paginados sempre que um filtro ou página mudar
     useEffect(() => {
-        let result = [...allProducts];
+        const controller = new AbortController();
+        setIsLoading(true);
+        
+        // Constrói a query string
+        const queryParams = new URLSearchParams({
+            page: currentPage,
+            limit: productsPerPage,
+            promo: initialIsPromo
+        });
+        
+        if (filters.search) queryParams.append('search', filters.search);
+        if (filters.brand) queryParams.append('brand', filters.brand);
+        if (filters.category) queryParams.append('category', filters.category);
 
-        if (initialIsPromo) {
-            result = result.filter(p => p.is_on_sale);
-        }
-
-        // --- NOVA BUSCA INTELIGENTE ---
-        if (filters.search) {
-            const fuse = new Fuse(result, {
-                keys: [
-                    { name: 'name', weight: 0.6 },
-                    { name: 'brand', weight: 0.2 },
-                    { name: 'category', weight: 0.2 }
-                ],
-                threshold: 0.4, // Tolerância a erros de digitação
-                ignoreLocation: true,
-                minMatchCharLength: 2
+        apiService(`/products?${queryParams.toString()}`, 'GET', null, { signal: controller.signal })
+            .then(data => {
+                setProducts(data.products || []);
+                setTotalPages(data.totalPages || 1);
+            })
+            .catch(err => {
+                if (err.name !== 'AbortError') console.error("Falha ao buscar produtos paginados:", err);
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) {
+                    setIsLoading(false);
+                }
             });
-            // Substitui a lista de resultados apenas pelos itens encontrados pela busca inteligente
-            result = fuse.search(filters.search).map(r => r.item);
-        }
 
-        if (filters.brand) {
-            result = result.filter(p => p.brand === filters.brand);
-        }
-        if (filters.category) {
-            if (filters.category === 'Roupas') {
-                result = result.filter(p => p.product_type === 'clothing');
-            } else if (filters.category === 'Perfumes') {
-                result = result.filter(p => p.product_type === 'perfume');
-            } else {
-                result = result.filter(p => p.category === filters.category);
-            }
-        }
-        setFilteredProducts(result);
-        setCurrentPage(1);
-    }, [filters, allProducts, initialIsPromo]);
+        return () => controller.abort();
+    }, [filters, currentPage, initialIsPromo]);
     
-    const uniqueBrands = [...new Set(allProducts.map(p => p.brand))];
-    const indexOfLastProduct = currentPage * productsPerPage;
-    const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
-    const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
-    const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
+    const handleFilterChange = (key, value) => {
+        setFilters(prev => ({ ...prev, [key]: value }));
+        setCurrentPage(1); // Sempre volta para a página 1 ao filtrar
+    };
     
     const ProductSkeleton = () => (
         <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col h-full animate-pulse">
@@ -3943,12 +3936,26 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
                     <aside className="lg:col-span-1 bg-gray-900 p-6 rounded-lg shadow-md h-fit lg:sticky lg:top-28">
                         <h3 className="text-xl font-bold mb-4 text-amber-400">Filtros</h3>
                         <div className="space-y-4">
-                            <input type="text" placeholder="Buscar por nome..." value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} className="w-full p-2 bg-gray-800 border border-gray-700 rounded" />
-                             <select value={filters.brand} onChange={e => setFilters({...filters, brand: e.target.value})} className="w-full p-2 bg-gray-800 border border-gray-700 rounded">
+                            <input 
+                                type="text" 
+                                placeholder="Buscar por nome..." 
+                                value={filters.search} 
+                                onChange={e => handleFilterChange('search', e.target.value)} 
+                                className="w-full p-2 bg-gray-800 border border-gray-700 rounded text-white" 
+                            />
+                            <select 
+                                value={filters.brand} 
+                                onChange={e => handleFilterChange('brand', e.target.value)} 
+                                className="w-full p-2 bg-gray-800 border border-gray-700 rounded text-white"
+                            >
                                 <option value="">Todas as Marcas</option>
                                 {uniqueBrands.map(b => <option key={b} value={b}>{b}</option>)}
                             </select>
-                            <select value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})} className="w-full p-2 bg-gray-800 border border-gray-700 rounded">
+                            <select 
+                                value={filters.category} 
+                                onChange={e => handleFilterChange('category', e.target.value)} 
+                                className="w-full p-2 bg-gray-800 border border-gray-700 rounded text-white"
+                            >
                                 <option value="">Todas as Categorias</option>
                                 <option value="Roupas">Roupas (Geral)</option>
                                 <option value="Perfumes">Perfumes (Geral)</option>
@@ -3965,8 +3972,8 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
                         >
                            {isLoading ? (
                                 Array.from({ length: 6 }).map((_, i) => <ProductSkeleton key={i} />)
-                            ) : currentProducts.length > 0 ? (
-                                currentProducts.map(p => <ProductCard key={p.id} product={p} onNavigate={onNavigate} />)
+                            ) : products.length > 0 ? (
+                                products.map(p => <ProductCard key={p.id} product={p} onNavigate={onNavigate} />)
                             ) : (
                                 <div className="col-span-full text-center py-10">
                                     <p className="text-gray-400 text-lg mb-2">Poxa, não encontramos o que você procurava. 😕</p>
@@ -3974,11 +3981,12 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
                                 </div>
                             )}
                         </motion.div>
+                        
                         {totalPages > 1 && (
                             <div className="flex justify-center mt-8 items-center space-x-2 sm:space-x-4">
-                                <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-3 sm:px-4 py-2 bg-gray-800 rounded disabled:opacity-50">Anterior</button>
-                                <span className="text-sm sm:text-base">Página {currentPage} de {totalPages}</span>
-                                <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-3 sm:px-4 py-2 bg-gray-800 rounded disabled:opacity-50">Próxima</button>
+                                <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1 || isLoading} className="px-3 sm:px-4 py-2 bg-gray-800 rounded disabled:opacity-50 hover:bg-gray-700 transition">Anterior</button>
+                                <span className="text-sm sm:text-base text-gray-400 font-bold">Página {currentPage} de {totalPages}</span>
+                                <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages || isLoading} className="px-3 sm:px-4 py-2 bg-gray-800 rounded disabled:opacity-50 hover:bg-gray-700 transition">Próxima</button>
                             </div>
                         )}
                     </main>
@@ -3987,7 +3995,6 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
         </div>
     );
 };
-// ===================================
 
 const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
     if (!isOpen || !installments || installments.length === 0) return null;
