@@ -1663,6 +1663,42 @@ app.get('/api/products/metadata', async (req, res) => {
     }
 });
 
+// --- ROTA DE BUSCA EM LOTE (Usada para a vitrine de Vistos Recentemente) ---
+app.get('/api/products/batch', checkMaintenanceMode, async (req, res) => {
+    const { ids } = req.query;
+    if (!ids) return res.json([]);
+
+    try {
+        // Limpa e converte os IDs para array de números
+        const idArray = ids.split(',').map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+        if (idArray.length === 0) return res.json([]);
+
+        const placeholders = idArray.map(() => '?').join(',');
+        const sql = `
+            SELECT 
+                p.*,
+                r_agg.avg_rating,
+                COALESCE(r_agg.review_count, 0) as review_count
+            FROM products p
+            LEFT JOIN (
+                SELECT product_id, AVG(rating) as avg_rating, COUNT(id) as review_count 
+                FROM reviews GROUP BY product_id
+            ) AS r_agg ON p.id = r_agg.product_id
+            WHERE p.id IN (${placeholders}) AND p.is_active = 1
+        `;
+        
+        const [products] = await db.query(sql, idArray);
+        
+        // Reordena os produtos para manter a ordem exata em que o cliente viu (do mais recente pro mais antigo)
+        const sortedProducts = idArray.map(id => products.find(p => p.id === id)).filter(Boolean);
+
+        res.json(sortedProducts);
+    } catch (err) {
+        console.error("Erro ao buscar produtos em lote:", err);
+        res.status(500).json({ message: "Erro ao buscar produtos." });
+    }
+});
+
 // --- ROTA DE PRODUTOS PAGINADA (Arquitetura Híbrida: SQL + Fuzzy Search) ---
 app.get('/api/products', checkMaintenanceMode, async (req, res) => {
     try {

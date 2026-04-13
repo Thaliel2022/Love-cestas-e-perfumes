@@ -3676,7 +3676,9 @@ const HomePage = ({ onNavigate }) => {
         perfumes: []
     });
     
-    // Estado unificado para banners
+    // NOVO ESTADO: Produtos Vistos Recentemente
+    const [recentlyViewed, setRecentlyViewed] = useState([]);
+
     const [banners, setBanners] = useState({
         carousel: [],
         promo: [], 
@@ -3685,11 +3687,9 @@ const HomePage = ({ onNavigate }) => {
     const [isLoadingBanners, setIsLoadingBanners] = useState(true);
 
     useEffect(() => {
-        // --- BUSCA DE PRODUTOS ---
         const controller = new AbortController();
         apiService('/products', 'GET', null, { signal: controller.signal })
             .then(data => {
-                // CORREÇÃO: Garante que pega o array correto, independentemente se a API retornou o objeto paginado ou array direto
                 const productsArray = Array.isArray(data) ? data : (data.products || []);
 
                 const sortedByDate = [...productsArray].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -3709,7 +3709,6 @@ const HomePage = ({ onNavigate }) => {
                 if (err.name !== 'AbortError') console.error("Falha ao buscar produtos:", err);
             });
 
-        // --- BUSCA DE BANNERS ---
         apiService('/banners', 'GET', null, { signal: controller.signal })
             .then(data => {
                 if (Array.isArray(data)) {
@@ -3732,9 +3731,27 @@ const HomePage = ({ onNavigate }) => {
         return () => controller.abort();
     }, []);
 
+    // --- NOVO EFEITO: Buscar Vistos Recentemente ---
+    useEffect(() => {
+        const fetchRecentlyViewed = async () => {
+            try {
+                const stored = localStorage.getItem('lovecestas_recently_viewed');
+                if (stored) {
+                    const ids = JSON.parse(stored);
+                    if (ids && ids.length > 0) {
+                        const data = await apiService(`/products/batch?ids=${ids.join(',')}`);
+                        setRecentlyViewed(data);
+                    }
+                }
+            } catch (e) {
+                console.error("Erro ao buscar vistos recentemente", e);
+            }
+        };
+        fetchRecentlyViewed();
+    }, []);
+
     return (
       <div className="bg-black min-h-screen pb-24 md:pb-0 overflow-x-hidden">
-        {/* Banner Principal Rotativo */}
         {isLoadingBanners ? (
             <div className="relative h-[55vh] sm:h-[70vh] bg-gray-900 flex items-center justify-center">
                 <SpinnerIcon className="h-10 w-10 text-amber-400" />
@@ -3745,16 +3762,31 @@ const HomePage = ({ onNavigate }) => {
         
         <BenefitsBar />
         
-        {/* Carrossel de Categorias */}
         <div className="py-8 md:py-12 bg-black">
              <CollectionsCarousel onNavigate={onNavigate} title="Coleções" />
         </div>
 
-        {/* Destaque Visual (Carrossel de Campanhas) */}
         <PromoBannerSection customBanners={banners.promo} onNavigate={onNavigate} />
 
-        {/* Seção Lançamentos */}
-        <section className="bg-black text-white py-8 md:py-12">
+        {/* --- NOVA SEÇÃO: VISTOS RECENTEMENTE --- */}
+        {recentlyViewed.length > 0 && (
+            <section className="bg-gray-900/30 text-white py-8 md:py-12 border-t border-gray-800">
+              <div className="container mx-auto px-4">
+                  <div className="flex items-end justify-between mb-6 md:mb-10 border-b border-gray-800 pb-4">
+                      <div>
+                          <h2 className="text-2xl md:text-4xl font-bold flex items-center gap-2 md:gap-3">
+                              <EyeIcon className="h-6 w-6 md:h-8 md:w-8 text-amber-400"/>
+                              Vistos Recentemente
+                          </h2>
+                          <p className="text-gray-400 mt-1 md:mt-2 text-xs md:text-base ml-3 md:ml-5">Continue de onde você parou.</p>
+                      </div>
+                  </div>
+                  <ProductCarousel products={recentlyViewed} onNavigate={onNavigate} />
+              </div>
+            </section>
+        )}
+
+        <section className="bg-black text-white py-8 md:py-12 border-t border-gray-800">
           <div className="container mx-auto px-4">
               <div className="flex items-end justify-between mb-6 md:mb-10 border-b border-gray-800 pb-4">
                   <div>
@@ -3772,7 +3804,6 @@ const HomePage = ({ onNavigate }) => {
           </div>
         </section>
         
-        {/* Seção Mais Vendidos */}
         <section className="bg-gray-900/50 py-10 md:py-16 my-4 md:my-8 border-y border-gray-800 relative">
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5"></div>
           <div className="container mx-auto px-4 relative z-10">
@@ -3786,10 +3817,8 @@ const HomePage = ({ onNavigate }) => {
           </div>
         </section>
 
-        {/* Cards de Categoria (Inferior) */}
         <CategoryCardsSection customCards={banners.cards} onNavigate={onNavigate} />
         
-        {/* Vitrine Roupas */}
         <section className="bg-black text-white py-8 md:py-10 border-t border-gray-800">
           <div className="container mx-auto px-4">
               <div className="flex items-end justify-between mb-6 md:mb-8">
@@ -4373,6 +4402,29 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
 
+    // --- NOVA LÓGICA: Salvar "Vistos Recentemente" ---
+    useEffect(() => {
+        if (product && product.id) {
+            try {
+                const stored = localStorage.getItem('lovecestas_recently_viewed');
+                let viewed = stored ? JSON.parse(stored) : [];
+                
+                // Remove se o produto já estiver na lista para não duplicar
+                viewed = viewed.filter(id => id !== product.id);
+                
+                // Adiciona o produto atual no topo da lista (mais recente)
+                viewed.unshift(product.id);
+                
+                // Mantém apenas os últimos 12 produtos para não pesar o navegador
+                viewed = viewed.slice(0, 12);
+                
+                localStorage.setItem('lovecestas_recently_viewed', JSON.stringify(viewed));
+            } catch(e) { 
+                console.error("Erro ao salvar vistos recentemente", e); 
+            }
+        }
+    }, [product]);
+
     useEffect(() => {
         if (galleryImages.length > 0 && galleryImages[currentImageIndex]) {
             setMainImage(galleryImages[currentImageIndex]);
@@ -4414,7 +4466,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         }
 
     }, [selectedColor, selectedSize, productVariations, productImages]);
-
 
     useEffect(() => {
         if (product) {
@@ -4528,7 +4579,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             setCrossSellProducts(Array.isArray(crossSellData) ? crossSellData : []);
 
             if (productData && allProductsData) {
-                // CORREÇÃO: Garante a extração correta independentemente do formato
                 const productsArray = Array.isArray(allProductsData) ? allProductsData : (allProductsData.products || []);
                 const related = productsArray.filter(p => p.id !== productData.id && (p.brand === productData.brand || p.category === productData.category)).slice(0, 8);
                 setRelatedProducts(related);
