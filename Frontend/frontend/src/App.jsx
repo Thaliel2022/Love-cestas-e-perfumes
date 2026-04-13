@@ -4,6 +4,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from 
 import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { initMercadoPago, Payment as MercadoPagoPayment } from '@mercadopago/sdk-react';
+import Fuse from 'fuse.js'; // NOVO: Motor de Busca Inteligente no Frontend
 // --- Constante da API ---
 const API_URL = process.env.REACT_APP_API_URL || 'https://love-cestas-e-perfumes.onrender.com/api';
 
@@ -3870,12 +3871,22 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
             result = result.filter(p => p.is_on_sale);
         }
 
+        // --- NOVA BUSCA INTELIGENTE ---
         if (filters.search) {
-            result = result.filter(p => 
-                p.name.toLowerCase().includes(filters.search.toLowerCase()) || 
-                p.brand.toLowerCase().includes(filters.search.toLowerCase())
-            );
+            const fuse = new Fuse(result, {
+                keys: [
+                    { name: 'name', weight: 0.6 },
+                    { name: 'brand', weight: 0.2 },
+                    { name: 'category', weight: 0.2 }
+                ],
+                threshold: 0.4, // Tolerância a erros de digitação
+                ignoreLocation: true,
+                minMatchCharLength: 2
+            });
+            // Substitui a lista de resultados apenas pelos itens encontrados pela busca inteligente
+            result = fuse.search(filters.search).map(r => r.item);
         }
+
         if (filters.brand) {
             result = result.filter(p => p.brand === filters.brand);
         }
@@ -3925,7 +3936,6 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
     const pageTitle = initialIsPromo ? 'Produtos em Promoção' : 'Nossa Coleção';
 
     return (
-        // CORREÇÃO AQUI: pt-12 pb-28 md:pb-12 para liberar espaço do navbar mobile
         <div className="bg-black text-white min-h-screen pt-12 pb-28 md:pb-12">
             <div className="container mx-auto px-4">
                 <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">{pageTitle}</h2>
@@ -3958,7 +3968,10 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
                             ) : currentProducts.length > 0 ? (
                                 currentProducts.map(p => <ProductCard key={p.id} product={p} onNavigate={onNavigate} />)
                             ) : (
-                                <p className="col-span-full text-center text-gray-500">Nenhum produto encontrado para sua busca.</p>
+                                <div className="col-span-full text-center py-10">
+                                    <p className="text-gray-400 text-lg mb-2">Poxa, não encontramos o que você procurava. 😕</p>
+                                    <p className="text-gray-500 text-sm">Tente usar outras palavras ou navegar pelas nossas categorias na lateral.</p>
+                                </div>
                             )}
                         </motion.div>
                         {totalPages > 1 && (
@@ -9386,6 +9399,7 @@ const MyProfileSection = () => {
         </>
     );
 };
+
 const AjudaPage = ({ onNavigate }) => {
     const faqData = [
         {

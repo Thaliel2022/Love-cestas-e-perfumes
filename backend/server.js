@@ -21,6 +21,7 @@ const { z } = require('zod'); // Substitui express-validator
 const compression = require('compression'); 
 const { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } = require('@simplewebauthn/server');
 const sanitizeHtml = require('sanitize-html'); // NOVO: Biblioteca profissional contra XSS
+const Fuse = require('fuse.js');
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
 
@@ -1717,19 +1718,38 @@ app.get('/api/products/all', verifyToken, verifyAdmin, async (req, res) => {
 });
 
 app.get('/api/products/search-suggestions', checkMaintenanceMode, async (req, res) => {
-    const { q } = req.query;
+    const { q } = req.query;
     if (!q || q.length < 1) {
-        return res.json([]);
-    }
-    try {
-        const searchTerm = `%${q}%`;
-        const sql = "SELECT id, name, images, price, sale_price, is_on_sale FROM products WHERE is_active = 1 AND (name LIKE ? OR brand LIKE ?) LIMIT 5";
-        const [suggestions] = await db.query(sql, [searchTerm, searchTerm]);
-        res.json(suggestions);
-    } catch (err) {
-        console.error("Erro ao buscar sugestões de pesquisa:", err);
-        res.status(500).json({ message: "Erro ao buscar sugestões." });
-    }
+        return res.json([]);
+    }
+    try {
+        // Busca os dados básicos de todos os produtos ativos
+        const sql = "SELECT id, name, brand, category, images, price, sale_price, is_on_sale FROM products WHERE is_active = 1";
+        const [products] = await db.query(sql);
+
+        // Configura o Fuse.js para busca fuzzy (tolerância a erros de digitação)
+        const fuse = new Fuse(products, {
+            keys: [
+                { name: 'name', weight: 0.6 },     // O Nome tem peso maior na busca
+                { name: 'brand', weight: 0.2 },    // Marca e Categoria ajudam a encontrar
+                { name: 'category', weight: 0.2 }
+            ],
+            threshold: 0.4, // Nível de tolerância a erros (0.0 é exato, 1.0 aceita qualquer coisa)
+            ignoreLocation: true, // Procura em qualquer parte do texto
+            minMatchCharLength: 2
+        });
+
+        // Realiza a busca inteligente
+        const results = fuse.search(q);
+        
+        // Retorna apenas os 5 melhores resultados formatados de volta para o padrão esperado pelo React
+        const suggestions = results.slice(0, 5).map(result => result.item);
+
+        res.json(suggestions);
+    } catch (err) {
+        console.error("Erro ao buscar sugestões de pesquisa:", err);
+        res.status(500).json({ message: "Erro ao buscar sugestões." });
+    }
 });
 
 
