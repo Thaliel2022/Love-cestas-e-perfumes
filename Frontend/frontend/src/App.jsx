@@ -8020,7 +8020,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const { user, logout } = useAuth(); 
     const { addToCart, markOrderAsSeen, pickupConfig } = useShop(); 
     const notification = useNotification();
-    const confirmation = useConfirmation(); // Adicionado para o botão de excluir review
+    const confirmation = useConfirmation(); 
     const [order, setOrder] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isItemsExpanded, setIsItemsExpanded] = useState(true);
@@ -8031,10 +8031,11 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     
     const [reviewingItem, setReviewingItem] = useState(null);
     const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
+    
+    // ESTADOS DO REEMBOLSO ATUALIZADOS
+    const [refundCategory, setRefundCategory] = useState('');
     const [refundReason, setRefundReason] = useState('');
     const [isProcessingRefund, setIsProcessingRefund] = useState(false);
-    
-    // NOVOS ESTADOS: Para as fotos do reembolso
     const [refundImages, setRefundImages] = useState([]);
     const [isUploadingRefund, setIsUploadingRefund] = useState(false);
     const refundFileInputRef = useRef(null);
@@ -8161,18 +8162,33 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
 
     const handleCloseRefundModal = () => {
         setIsRefundModalOpen(false);
+        setRefundCategory('');
         setRefundReason('');
         setRefundImages([]);
     };
 
     const handleRequestRefund = async (e) => {
         e.preventDefault();
+
+        if (!refundCategory) {
+            notification.show("Por favor, selecione o motivo principal.", "error");
+            return;
+        }
+
+        // VALIDAÇÃO: Obriga a enviar foto se o pedido foi Entregue
+        if (order.status === 'Entregue' && refundImages.length === 0) {
+            notification.show("Para pedidos já entregues, é obrigatório anexar pelo menos 1 foto do produto.", "error");
+            return;
+        }
+
         setIsProcessingRefund(true);
         try {
+            const finalReason = `${refundCategory}: ${refundReason}`;
+
             const result = await apiService('/refunds/request', 'POST', {
                 order_id: order.id,
-                reason: refundReason,
-                images: refundImages // Envia as imagens
+                reason: finalReason,
+                images: refundImages 
             });
             notification.show(result.message);
             handleCloseRefundModal();
@@ -8460,16 +8476,38 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                 {isRefundModalOpen && (
                     <Modal isOpen={true} onClose={handleCloseRefundModal} title={`Solicitar ${actionText} do Pedido #${order.id}`}>
                         <form onSubmit={handleRequestRefund} className="space-y-4 text-gray-800">
+                             
                              <div>
-                                <label className="block text-sm font-bold text-gray-700">Motivo da Solicitação de {actionText} <span className="text-red-500">*</span></label>
-                                <textarea value={refundReason} onChange={e => setRefundReason(e.target.value)} required rows="4" placeholder="Ex: Desisti da compra, tamanho não serviu, etc." className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-amber-400 outline-none"></textarea>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Motivo Principal <span className="text-red-500">*</span></label>
+                                <select 
+                                    value={refundCategory} 
+                                    onChange={(e) => setRefundCategory(e.target.value)} 
+                                    required 
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-amber-400 outline-none text-sm"
+                                >
+                                    <option value="">Selecione uma opção...</option>
+                                    <option value="Produto danificado">Produto danificado ou quebrado</option>
+                                    <option value="Produto errado">Recebi um item diferente do que comprei</option>
+                                    <option value="Arrependimento">Arrependimento / Desisti da compra</option>
+                                    <option value="Atraso">Atraso excessivo na entrega</option>
+                                    <option value="Outro">Outro motivo</option>
+                                </select>
+                            </div>
+
+                             <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Detalhes do Motivo <span className="text-red-500">*</span></label>
+                                <textarea value={refundReason} onChange={e => setRefundReason(e.target.value)} required rows="3" placeholder="Explique mais detalhes sobre o problema..." className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-amber-400 outline-none text-sm"></textarea>
                             </div>
 
                             {/* UPLOAD DE IMAGENS PARA REEMBOLSO */}
-                            <div className="bg-gray-50 p-4 border border-gray-200 rounded-lg">
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Fotos do Produto (Opcional, mas recomendado)</label>
-                                <p className="text-xs text-gray-500 mb-3">
-                                    Por favor, envie fotos caso o produto tenha chegado <strong className="text-amber-600">quebrado, danificado ou amassado</strong> na entrega. Isso agilizará a análise da sua solicitação. (Máx 3 fotos).
+                            <div className={`p-4 border rounded-lg ${order.status === 'Entregue' ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">
+                                    Fotos do Produto {order.status === 'Entregue' && <span className="text-red-500">* (Obrigatório)</span>}
+                                </label>
+                                <p className="text-xs text-gray-600 mb-3">
+                                    {order.status === 'Entregue' 
+                                        ? 'Como você já recebeu o pedido, é obrigatório enviar fotos (ex: caixa amassada, defeito) para aprovação.' 
+                                        : 'Opcional. Envie fotos caso ajude a explicar o motivo.'} (Máx 3 fotos).
                                 </p>
                                 <div className="flex gap-3 overflow-x-auto py-2">
                                     {refundImages.map((img, idx) => (
@@ -8715,9 +8753,8 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
 
                     <div className="pt-4 mt-4 border-t border-gray-800 space-y-4 sm:space-y-0 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-2">
                         <div className="flex flex-wrap items-center gap-2">
-                            {/* BOTAO COM ESTADO DE LOADING E DISABLED */}
                             <button onClick={() => handleRepeatOrder(order.items)} disabled={isRepeatingOrder} className="bg-amber-500 text-black text-sm font-bold px-4 py-1.5 rounded-md hover:bg-amber-400 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                                {isRepeatingOrder ? <><SpinnerIcon className="h-4 w-4"/> Processando...</> : 'Repetir Pedido'}
+                                {isRepeatingOrder ? <><SpinnerIcon className="h-4 w-4"/> Proc...</> : 'Repetir Pedido'}
                             </button>
                             {isPickupOrder ? (
                                 <button onClick={() => setIsTrackingModalOpen(true)} className="bg-gray-800 text-white text-sm font-bold px-4 py-1.5 rounded-md hover:bg-gray-700 transition-colors">Ver Status da Retirada</button>
