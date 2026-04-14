@@ -8936,22 +8936,36 @@ const MyOrdersSection = ({ onNavigate }) => {
     const [orderForTracking, setOrderForTracking] = useState(null);
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [selectedStatusDetails, setSelectedStatusDetails] = useState(null);
+    const [orderToReview, setOrderToReview] = useState(null);
+    const [itemToReview, setItemToReview] = useState(null);
     
     // NOVO ESTADO: Controle para evitar duplo clique
     const [isRepeatingOrder, setIsRepeatingOrder] = useState(false);
 
-    useEffect(() => {
-        apiService('/orders/my-orders')
+    const fetchOrders = useCallback(() => {
+        return apiService('/orders/my-orders')
             .then(data => setOrders(data))
-            .catch(err => notification.show("Falha ao buscar pedidos.", 'error'))
-            .finally(() => setIsLoading(false));
+            .catch(err => {
+                console.error("Falha ao buscar pedidos:", err);
+                if (!window.ordersErrorShown) {
+                    notification.show("Falha ao buscar pedidos.", 'error');
+                    window.ordersErrorShown = true;
+                    setTimeout(() => { window.ordersErrorShown = false; }, 5000);
+                }
+            });
     }, [notification]);
+
+    useEffect(() => {
+        setIsLoading(true);
+        fetchOrders().finally(() => {
+            setIsLoading(false);
+        });
+    }, [fetchOrders]);
 
     const handleRetryPayment = (orderId) => {
         onNavigate(`account/orders/${orderId}`);
     };
 
-    // CORREÇÃO: Função atualizada com bloqueio de duplo clique (isRepeatingOrder)
     const handleRepeatOrder = async (orderItems) => {
         if (!orderItems || isRepeatingOrder) return;
         setIsRepeatingOrder(true);
@@ -8964,7 +8978,6 @@ const MyOrdersSection = ({ onNavigate }) => {
                     continue;
                 }
                 try {
-                    // Busca o produto atualizado e completo do banco de dados
                     const fullProduct = await apiService(`/products/${item.product_id}`);
                     await addToCart(fullProduct, item.quantity, item.variation);
                     count++;
@@ -8986,6 +8999,20 @@ const MyOrdersSection = ({ onNavigate }) => {
         setSelectedStatusDetails(statusDetails);
         setIsStatusModalOpen(true);
     };
+
+    const handleReviewSuccess = async () => {
+        try {
+            const newOrders = await apiService('/orders/my-orders');
+            setOrders(newOrders);
+            setItemToReview(null);
+            setOrderToReview(null);
+        } catch (err) {
+            console.error("Falha ao recarregar pedidos após avaliação:", err);
+            notification.show("Não foi possível atualizar a lista de pedidos.", 'error');
+            setItemToReview(null);
+            setOrderToReview(null);
+        }
+    };
     
     if (isLoading) return <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400"/></div>;
 
@@ -8993,6 +9020,43 @@ const MyOrdersSection = ({ onNavigate }) => {
         <>
             <TrackingModal isOpen={!!orderForTracking} onClose={() => setOrderForTracking(null)} order={orderForTracking} />
             <StatusDescriptionModal isOpen={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} details={selectedStatusDetails} />
+            
+            <AnimatePresence>
+                {orderToReview && (
+                    <Modal isOpen={true} onClose={() => setOrderToReview(null)} title={`Avaliar Itens do Pedido #${orderToReview.id}`}>
+                        <div className="space-y-3">
+                            {(orderToReview.items || []).map(item => (
+                                <div key={item.id} className="flex items-center justify-between gap-4 p-2 bg-gray-100 rounded-md">
+                                    <div className="flex items-center gap-3 overflow-hidden">
+                                        <img src={getFirstImage(item.images)} alt={item.name} className="w-12 h-12 object-contain bg-white rounded-md flex-shrink-0"/>
+                                        <p className="font-semibold text-gray-800 truncate">{item.name}</p>
+                                    </div>
+                                    <div className="flex-shrink-0">
+                                        {!item.is_reviewed ? (
+                                            <button onClick={() => setItemToReview(item)} className="bg-amber-500 text-black text-xs font-bold px-3 py-1.5 rounded-md hover:bg-amber-400 transition">Avaliar</button>
+                                        ) : (
+                                            <span className="text-xs text-green-600 font-semibold flex items-center gap-1"><CheckIcon className="h-4 w-4"/> Avaliado</span>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </Modal>
+                )}
+            </AnimatePresence>
+            
+            <AnimatePresence>
+                {itemToReview && (
+                    <Modal isOpen={true} onClose={() => { setItemToReview(null); setOrderToReview(null); }} title={`Deixe sua opinião sobre: ${itemToReview.name}`}>
+                        <ProductReviewForm 
+                            productId={itemToReview.product_id}
+                            orderId={orderToReview.id}
+                            onReviewSubmitted={handleReviewSuccess}
+                        />
+                    </Modal>
+                )}
+            </AnimatePresence>
+
             <h2 className="text-2xl font-bold text-amber-400 mb-6">Meus Pedidos</h2>
             {orders.length > 0 ? (
                 <div className="space-y-6">
@@ -9011,6 +9075,7 @@ const MyOrdersSection = ({ onNavigate }) => {
                         const safeHistory = Array.isArray(order.history) ? order.history : [];
                         const orderDate = new Date(order.date);
                         const formattedDate = !isNaN(orderDate) ? orderDate.toLocaleString('pt-BR') : 'Data indisponível';
+                        const canReviewOrder = order.status === 'Entregue' && order.items?.some(item => !item.is_reviewed);
 
                         return (
                             <div key={order.id} className="border border-gray-800 rounded-lg p-4 sm:p-6">
@@ -9019,8 +9084,16 @@ const MyOrdersSection = ({ onNavigate }) => {
                                         <p className="text-lg">Pedido <span className="font-bold text-amber-400">#{order.id}</span></p>
                                         <p className="text-sm text-gray-400">{formattedDate}</p>
                                     </div>
-                                    <div className="text-left sm:text-right">
-                                        <p><strong>Total:</strong> <span className="text-amber-400 font-bold text-lg">R$ {Number(order.total).toFixed(2)}</span></p>
+                                    <div className="flex flex-col items-end gap-2">
+                                        <p className="text-left sm:text-right"><strong>Total:</strong> <span className="text-amber-400 font-bold text-lg">R$ {Number(order.total).toFixed(2)}</span></p>
+                                        {canReviewOrder && (
+                                             <button 
+                                                onClick={() => setOrderToReview(order)} 
+                                                className="w-full sm:w-auto bg-transparent text-amber-400 font-bold px-4 py-2 rounded-md border border-amber-400 hover:bg-amber-400 hover:text-black transition shadow-md active:scale-95 text-xs sm:text-sm"
+                                             >
+                                                Avaliar Pedido
+                                             </button>
+                                        )}
                                     </div>
                                 </div>
 
@@ -9070,7 +9143,6 @@ const MyOrdersSection = ({ onNavigate }) => {
                                 </div>
                                 <div className="pt-4 border-t border-gray-800 space-y-4 sm:space-y-0 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-2">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        {/* BOTAO COM ESTADO DE LOADING E DISABLED */}
                                         <button onClick={() => handleRepeatOrder(order.items)} disabled={isRepeatingOrder} className="bg-gray-700 text-white text-sm px-4 py-1.5 rounded-md hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                                             {isRepeatingOrder ? <><SpinnerIcon className="h-4 w-4"/> Proc...</> : 'Repetir Pedido'}
                                         </button>
