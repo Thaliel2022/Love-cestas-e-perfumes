@@ -8181,13 +8181,13 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             return;
         }
         
-        if (!refundContactPhone || refundContactPhone.replace(/\D/g, '').length < 10) {
+        if (order.status === 'Entregue' && (!refundContactPhone || refundContactPhone.replace(/\D/g, '').length < 10)) {
             notification.show("Informe um WhatsApp válido para combinarmos a coleta.", "error");
             return;
         }
 
         if (order.status === 'Entregue' && refundImages.length === 0) {
-            notification.show("Para pedidos já entregues, é obrigatório anexar pelo menos 1 foto do produto.", "error");
+            notification.show("Para devoluções de pedidos já entregues, é obrigatório anexar fotos do produto.", "error");
             return;
         }
 
@@ -8333,22 +8333,27 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const shippingAddress = !isPickupOrder && order.shipping_address ? JSON.parse(order.shipping_address) : null;
     const subtotal = (Number(order.total) || 0) - (Number(order.shipping_cost) || 0) + (Number(order.discount_amount) || 0);
     
+    // === LÓGICA DE REEMBOLSO REFINADA ===
+    const isPaymentApproved = order.payment_status === 'approved';
     const cancellableStatuses = ['Pagamento Aprovado', 'Separando Pedido', 'Entregue'];
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const isWithinRefundPeriod = new Date(order.date) > sevenDaysAgo;
+    const isStatusValid = cancellableStatuses.includes(order.status.trim());
     
-    // --- LÓGICA PARA EXIBIÇÃO INTELIGENTE DO BOTÃO E AVISOS ---
-    const refundStatus = order.refund_status;
-    const isRefundDenied = refundStatus === 'denied';
+    const isRefundDenied = order.refund_status === 'denied';
+    const noActiveRefund = !order.refund_id || isRefundDenied;
     const refundDeniedReason = order.refund_notes || "Motivo não informado pelo administrador."; 
 
-    // O cliente PODE solicitar se: O pagamento tá aprovado, está nos status válidos, NÃO tem um refund_id (ou seja, não tá em análise nem foi aprovado) E está dentro dos 7 dias.
-    const canRequest = 
-        order.payment_status === 'approved' && 
-        cancellableStatuses.includes(order.status) && 
-        !order.refund_id && 
-        (order.status !== 'Entregue' || isWithinRefundPeriod);
+    // Prazo de 7 dias rigoroso
+    const orderDate = new Date(order.date);
+    const limitDate = new Date();
+    limitDate.setDate(limitDate.getDate() - 7);
+    const isWithin7Days = orderDate >= limitDate;
+    
+    // A opção de solicitar só aparece se:
+    // 1. Pagamento aprovado no Mercado Pago
+    // 2. O pedido está num status válido
+    // 3. Não tem reembolso aberto ou o anterior foi negado
+    // 4. Se já foi Entregue, tem que estar dentro dos 7 dias do CDC
+    const canRequest = isPaymentApproved && isStatusValid && noActiveRefund && (order.status !== 'Entregue' || isWithin7Days);
         
     const actionText = order.status === 'Entregue' ? 'Devolver Produto' : 'Cancelar Pedido';
     const refundInfo = order.refund_id ? getRefundStatusInfo(order.refund_status) : null;
@@ -8509,9 +8514,10 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
 
                              <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Detalhes do Motivo <span className="text-red-500">*</span></label>
-                                <textarea value={refundReason} onChange={e => setRefundReason(e.target.value)} required rows="3" placeholder="Explique mais detalhes sobre o problema..." className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-amber-400 outline-none text-sm"></textarea>
+                                <textarea value={refundReason} onChange={e => setRefundReason(e.target.value)} required rows="3" placeholder="Explique detalhadamente o motivo da sua solicitação..." className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-amber-400 outline-none text-sm"></textarea>
                             </div>
                             
+                            {/* CAMPO DE TELEFONE OBRIGATÓRIO PARA DEVOLUÇÃO LOCAL */}
                             {order.status === 'Entregue' && (isLocalDelivery || isPickupOrder) && (
                                 <div className="bg-blue-50 p-4 border border-blue-200 rounded-lg">
                                     <label className="block text-sm font-bold text-blue-900 mb-1 flex items-center gap-2">
@@ -8538,7 +8544,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                                 </label>
                                 <p className="text-xs text-gray-600 mb-3">
                                     {order.status === 'Entregue' 
-                                        ? 'Como você já recebeu o pedido, é obrigatório enviar fotos (ex: caixa amassada, defeito) para aprovação.' 
+                                        ? 'Como você já recebeu o pedido, é obrigatório enviar fotos nítidas (ex: caixa amassada, defeito do produto) para aprovação.' 
                                         : 'Opcional. Envie fotos caso ajude a explicar o motivo.'} (Máx 3 fotos).
                                 </p>
                                 <div className="flex gap-3 overflow-x-auto py-2">
@@ -8614,7 +8620,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                         </div>
                     )}
                     
-                    {/* AVISO DE REEMBOLSO NEGADO COM OPÇÃO DE NOVA SOLICITAÇÃO */}
+                    {/* AVISO DE REEMBOLSO NEGADO COM EXPLICAÇÃO DO ADMIN */}
                     {isRefundDenied && (
                         <div className="my-6 p-5 bg-red-950/60 border border-red-600 rounded-lg animate-fade-in shadow-lg shadow-red-900/30">
                             <div className="flex items-start gap-3">
@@ -8628,8 +8634,9 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                                         <strong className="text-red-400 block mb-1">Motivo da recusa:</strong>
                                         <span className="italic">"{refundDeniedReason}"</span>
                                     </div>
+                                    {/* MENSAGEM CLARA EXPLICANDO QUE PODE ENVIAR DE NOVO */}
                                     <p className="text-xs text-gray-400">
-                                        Se você acredita que houve um erro ou deseja enviar novas informações, por favor, clique em <strong>"Nova Solicitação"</strong> abaixo e forneça mais detalhes e fotos claras.
+                                        Se você acredita que houve um erro ou deseja fornecer mais detalhes/fotos nítidas, clique em <strong>"Nova Solicitação"</strong> abaixo.
                                     </p>
                                 </div>
                             </div>
@@ -8759,23 +8766,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                                                         <p className="text-gray-300 mt-1">R$ {Number(item.price).toFixed(2)}</p>
                                                     </div>
                                                 </div>
-                                                {order.status === 'Entregue' && (
-                                                    <div className="mt-3 pt-3 border-t border-gray-700 text-right">
-                                                        {item.is_reviewed ? (
-                                                            <div className="flex items-center justify-end gap-2 text-sm text-green-400">
-                                                                <CheckCircleIcon className="h-5 w-5" />
-                                                                <span>Você já avaliou este produto.</span>
-                                                            </div>
-                                                        ) : (
-                                                            <button
-                                                                onClick={() => setReviewingItem(item)}
-                                                                className="bg-amber-500 text-black text-xs font-bold px-4 py-1.5 rounded-md hover:bg-amber-400 transition"
-                                                            >
-                                                                Avaliar Produto
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -8785,29 +8775,33 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                     </div>
 
                     <div className="pt-4 mt-4 border-t border-gray-800 space-y-4 sm:space-y-0 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-2">
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                             <button onClick={() => handleRepeatOrder(order.items)} disabled={isRepeatingOrder} className="bg-amber-500 text-black text-sm font-bold px-4 py-1.5 rounded-md hover:bg-amber-400 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                                 {isRepeatingOrder ? <><SpinnerIcon className="h-4 w-4"/> Proc...</> : 'Repetir Pedido'}
                             </button>
+                            
                             {isPickupOrder ? (
                                 <button onClick={() => setIsTrackingModalOpen(true)} className="bg-gray-800 text-white text-sm font-bold px-4 py-1.5 rounded-md hover:bg-gray-700 transition-colors">Ver Status da Retirada</button>
                             ) : (
                                 order.tracking_code && !isLocalDelivery && !isOrderInactive && <button onClick={() => setIsTrackingModalOpen(true)} className="bg-gray-800 text-white text-sm font-bold px-4 py-1.5 rounded-md hover:bg-gray-700 transition-colors">Rastrear Pedido</button>
                             )}
-                             {/* BOTÃO QUE VOLTA A APARECER SE FOR NEGADO (isRefundDenied = true) e DENTRO DO PRAZO */}
-                             {canRequest && (
+
+                            {/* EXIBE O BOTÃO SOMENTE SE CANREQUEST FOR VERDADEIRO */}
+                            {canRequest && (
                                 <button onClick={() => setIsRefundModalOpen(true)} className="bg-red-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-red-700 font-bold shadow-lg transform hover:-translate-y-0.5 transition-transform">
                                     {isRefundDenied ? 'Nova Solicitação' : `Solicitar ${actionText}`}
                                 </button>
                             )}
-                            {refundInfo && (
+
+                            {/* OCULTA O BADGE DE "SOLICITAÇÃO NEGADA" SE O CLIENTE PUDER PEDIR DE NOVO (Para não poluir a tela com info repetida) */}
+                            {refundInfo && (!isRefundDenied || !canRequest) && (
                                 <div className={`flex items-center gap-2 text-sm font-semibold px-3 py-1.5 rounded-md ${refundInfo.class}`}>
                                     {refundInfo.icon}
                                     <span>{refundInfo.text}</span>
                                 </div>
                             )}
                         </div>
-                        <div className="flex items-center justify-end gap-2 text-xs text-gray-400">
+                        <div className="flex items-center justify-end gap-2 text-xs text-gray-400 w-full sm:w-auto">
                             <span>Dúvidas?</span>
                             <a href={`https://wa.me/5583987379573?text=Olá,%20gostaria%20de%20falar%20sobre%20meu%20pedido%20%23${order.id}`} target="_blank" rel="noopener noreferrer" className="bg-green-500 text-white p-2 rounded-full hover:bg-green-600 transition-colors" title="Contato via WhatsApp"><WhatsappIcon className="h-4 w-4" /></a>
                             <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="bg-pink-500 text-white p-2 rounded-full hover:bg-pink-600 transition-colors" title="Contato via Instagram"><InstagramIcon className="h-4 w-4" /></a>
