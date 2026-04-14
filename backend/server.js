@@ -5743,6 +5743,7 @@ app.post('/api/tasks/cancel-pending-orders', async (req, res) => {
 // (Admin) Listar todas as solicitações de reembolso
 app.get('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
     try {
+        // ATUALIZAÇÃO: Trazendo CPF, Telefone e um JSON com os itens do pedido
         const sql = `
             SELECT 
                 r.*, 
@@ -5752,7 +5753,23 @@ app.get('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
                 o.payment_details,
                 u_req.name as requester_name, 
                 u_app.name as approver_name,
-                c.name as customer_name
+                c.name as customer_name,
+                c.cpf as customer_cpf,
+                c.phone as customer_phone,
+                (
+                    SELECT JSON_ARRAYAGG(
+                        JSON_OBJECT(
+                            'name', p.name,
+                            'quantity', oi.quantity,
+                            'price', oi.price,
+                            'variation', oi.variation_details,
+                            'images', p.images
+                        )
+                    )
+                    FROM order_items oi
+                    JOIN products p ON oi.product_id = p.id
+                    WHERE oi.order_id = o.id
+                ) as order_items
             FROM refunds r
             JOIN orders o ON r.order_id = o.id
             JOIN users u_req ON r.requested_by_admin_id = u_req.id
@@ -5948,7 +5965,8 @@ app.post('/api/refunds/:id/deny', verifyToken, verifyAdmin, async (req, res) => 
 
 // (Cliente) Rota para o cliente solicitar um reembolso/cancelamento
 app.post('/api/refunds/request', verifyToken, async (req, res) => {
-    const { order_id, reason, images } = req.body;
+    // ATUALIZAÇÃO: Adicionado 'contact_phone'
+    const { order_id, reason, images, contact_phone } = req.body;
     const user_id = req.user.id;
 
     if (!order_id || !reason) {
@@ -5975,7 +5993,6 @@ app.post('/api/refunds/request', verifyToken, async (req, res) => {
 
         if (order.refund_id) throw new Error("Este pedido já possui uma solicitação de reembolso ou cancelamento.");
         
-        // CORREÇÃO: Prazo de 7 dias (CDC)
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         if (new Date(order.date) < sevenDaysAgo && order.status === ORDER_STATUS.DELIVERED) {
@@ -5984,10 +6001,11 @@ app.post('/api/refunds/request', verifyToken, async (req, res) => {
 
         const refundAmount = order.total;
         const imagesJson = images && Array.isArray(images) && images.length > 0 ? JSON.stringify(images) : null;
+        const cleanPhone = contact_phone ? String(contact_phone).replace(/\D/g, '') : null;
 
         const [refundInsertResult] = await connection.query(
-            "INSERT INTO refunds (order_id, requested_by_admin_id, amount, reason, status, images) VALUES (?, ?, ?, ?, ?, ?)",
-            [order_id, user_id, refundAmount, reason, 'pending_approval', imagesJson]
+            "INSERT INTO refunds (order_id, requested_by_admin_id, amount, reason, status, images, contact_phone) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [order_id, user_id, refundAmount, reason, 'pending_approval', imagesJson, cleanPhone]
         );
         const refundId = refundInsertResult.insertId;
 
