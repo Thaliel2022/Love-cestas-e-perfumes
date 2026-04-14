@@ -5947,16 +5947,15 @@ app.post('/api/refunds/:id/deny', verifyToken, verifyAdmin, async (req, res) => 
         // Atualiza a solicitação para negada e guarda o motivo em 'notes'
         await connection.query("UPDATE refunds SET status = 'denied', notes = ?, approved_by_admin_id = ?, approved_at = NOW() WHERE id = ?", [reason, admin_id, refundId]);
         
-        // CORREÇÃO CRÍTICA: Desvincula o refund_id do pedido
-        // Isso permite que o cliente clique no botão novamente se quiser enviar uma réplica/novas fotos
-        await connection.query("UPDATE orders SET refund_id = NULL WHERE id = ?", [refundResult[0].order_id]);
+        // CORREÇÃO CRÍTICA: REMOVIDA A LINHA QUE DESVINCULAVA O REEMBOLSO DO PEDIDO (refund_id = NULL)
+        // O pedido precisa continuar vinculado a este ID de reembolso para que o cliente veja o motivo da recusa na tela.
         
         await connection.query("INSERT INTO refund_logs (refund_id, admin_id, action, details) VALUES (?, ?, ?, ?)", [refundId, admin_id, 'negado', `Motivo: ${reason}`]);
         
         await connection.commit();
         
         logAdminAction(req.user, 'NEGOU_REEMBOLSO', `Pedido ID: ${refundResult[0].order_id}, Reembolso ID: ${refundId}`, req.ip);
-        res.json({ message: "Solicitação de reembolso negada com sucesso." });
+        res.json({ message: "Solicitação de devolução negada. O cliente será avisado do motivo." });
         
     } catch (err) {
         await connection.rollback();
