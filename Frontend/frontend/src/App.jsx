@@ -7873,14 +7873,40 @@ const ProductReviewForm = ({ productId, orderId, onReviewSubmitted }) => {
     const handleImageUpload = async (e) => {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
-        if (images.length + files.length > 3) {
-            notification.show("Você pode enviar no máximo 3 fotos por avaliação.", "error");
+
+        // --- NOVA VALIDAÇÃO DE SEGURANÇA E UX NO FRONTEND ---
+        const validFiles = [];
+        const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB em bytes
+
+        for (const file of files) {
+            // Verifica o tamanho do ficheiro
+            if (file.size > MAX_FILE_SIZE) {
+                notification.show(`A imagem ${file.name} é demasiado grande (Máx: 5MB).`, "error");
+                continue;
+            }
+            // Verifica se é realmente uma imagem pelo MIME Type
+            if (!file.type.startsWith('image/')) {
+                notification.show(`O ficheiro ${file.name} não é uma imagem válida.`, "error");
+                continue;
+            }
+            validFiles.push(file);
+        }
+
+        if (images.length + validFiles.length > 3) {
+            notification.show("Pode enviar no máximo 3 fotos por avaliação.", "error");
+            if (fileInputRef.current) fileInputRef.current.value = '';
             return;
+        }
+
+        if (validFiles.length === 0) {
+             if (fileInputRef.current) fileInputRef.current.value = '';
+             return;
         }
 
         setIsUploading(true);
         try {
-            const uploadPromises = files.map(file => apiImageUploadService('/upload/image', file));
+            // Faz o upload apenas dos ficheiros validados
+            const uploadPromises = validFiles.map(file => apiImageUploadService('/upload/image', file));
             const responses = await Promise.all(uploadPromises);
             const newImageUrls = responses.map(res => res.imageUrl);
             
@@ -7910,7 +7936,7 @@ const ProductReviewForm = ({ productId, orderId, onReviewSubmitted }) => {
                 order_id: orderId,
                 rating: rating,
                 comment: comment,
-                images: images // Envia o array de imagens pro banco
+                images: images // Envia o array de imagens para o banco
             });
             notification.show("Avaliação enviada com sucesso!");
             if (onReviewSubmitted) {
@@ -7936,7 +7962,7 @@ const ProductReviewForm = ({ productId, orderId, onReviewSubmitted }) => {
 
             <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">Adicionar Fotos (Opcional)</label>
-                <p className="text-xs text-gray-500 mb-3">Compartilhe fotos do produto recebido (Máx 3 fotos).</p>
+                <p className="text-xs text-gray-500 mb-3">Partilhe fotos do produto recebido (Máx 3 fotos de até 5MB cada).</p>
                 
                 <div className="flex gap-3 overflow-x-auto py-2">
                     {images.map((img, idx) => (
@@ -7963,16 +7989,16 @@ const ProductReviewForm = ({ productId, orderId, onReviewSubmitted }) => {
                             <span className="text-[10px] font-bold mt-1">Add Foto</span>
                         </button>
                     )}
-                    <input type="file" accept="image/*" multiple ref={fileInputRef} onChange={handleImageUpload} className="hidden" />
+                    <input type="file" accept="image/jpeg, image/png, image/webp" multiple ref={fileInputRef} onChange={handleImageUpload} className="hidden" />
                 </div>
             </div>
 
             <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Seu Comentário (Opcional)</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1">O Seu Comentário (Opcional)</label>
                 <textarea 
                     value={comment} 
                     onChange={handleCommentChange} 
-                    placeholder="Conte o que você achou da qualidade, entrega, tamanho..." 
+                    placeholder="Conte-nos o que achou da qualidade, entrega, tamanho..." 
                     className="w-full p-3 border border-gray-300 rounded-lg h-24 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-amber-400 outline-none transition-all"
                     maxLength={MAX_COMMENT_LENGTH}
                 />
