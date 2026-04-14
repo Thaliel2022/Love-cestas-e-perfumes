@@ -5784,7 +5784,7 @@ app.get('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-// (Admin) Solicitar um novo reembolso para um pedido
+// (Admin) Solicitar um novo reembolso manualmente para um pedido
 app.post('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
     const { order_id, amount, reason } = req.body;
     const requested_by_admin_id = req.user.id;
@@ -5803,38 +5803,41 @@ app.post('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
         }
         const order = orderResult[0];
 
+        // CORREÇÃO CRÍTICA: Permite uma nova solicitação manual se a anterior foi NEGADA
         if (order.refund_id) {
-            throw new Error("Este pedido já possui uma solicitação de reembolso ativa ou concluída.");
+            const [existingRefund] = await connection.query("SELECT status FROM refunds WHERE id = ?", [order.refund_id]);
+            if (existingRefund.length > 0 && existingRefund[0].status !== 'denied') {
+                throw new Error("Este pedido já possui uma solicitação de devolução em andamento ou concluída.");
+            }
         }
 
-        // CORREÇÃO: Prazo de 7 dias (CDC)
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         if (new Date(order.date) < sevenDaysAgo && order.status === ORDER_STATUS.DELIVERED) {
-            throw new Error("Não é possível solicitar reembolso para pedidos entregues há mais de 7 dias (Art. 49 CDC).");
+            throw new Error("Não é possível solicitar devolução para pedidos entregues há mais de 7 dias (Art. 49 CDC).");
         }
 
         if (parseFloat(amount) > parseFloat(order.total)) {
-            throw new Error("O valor do reembolso não pode ser maior que o total do pedido.");
+            throw new Error("O valor da devolução não pode ser maior que o total do pedido.");
         }
         
         const [refundInsertResult] = await connection.query(
             "INSERT INTO refunds (order_id, requested_by_admin_id, amount, reason, status) VALUES (?, ?, ?, ?, ?)",
             [order_id, requested_by_admin_id, amount, reason, 'pending_approval']
         );
-        const refundId = refundInsertResult.insertId;
+        const newRefundId = refundInsertResult.insertId;
 
-        await connection.query("UPDATE orders SET refund_id = ? WHERE id = ?", [refundId, order_id]);
+        await connection.query("UPDATE orders SET refund_id = ? WHERE id = ?", [newRefundId, order_id]);
         
         await connection.query(
             "INSERT INTO refund_logs (refund_id, admin_id, action, details) VALUES (?, ?, ?, ?)",
-            [refundId, requested_by_admin_id, 'solicitado', `Motivo: ${reason}`]
+            [newRefundId, requested_by_admin_id, 'solicitado', `Motivo: ${reason}`]
         );
 
         await connection.commit();
         
-        logAdminAction(req.user, 'SOLICITOU_REEMBOLSO', `Pedido ID: ${order_id}, Reembolso ID: ${refundId}`, req.ip); 
-        res.status(201).json({ message: "Solicitação de reembolso criada com sucesso.", refundId });
+        logAdminAction(req.user, 'SOLICITOU_REEMBOLSO', `Pedido ID: ${order_id}, Reembolso ID: ${newRefundId}`, req.ip); 
+        res.status(201).json({ message: "Solicitação de devolução criada com sucesso.", refundId: newRefundId });
 
     } catch (err) {
         await connection.rollback();
@@ -5968,7 +5971,6 @@ app.post('/api/refunds/:id/deny', verifyToken, verifyAdmin, async (req, res) => 
 
 // (Cliente) Rota para o cliente solicitar um reembolso/cancelamento
 app.post('/api/refunds/request', verifyToken, async (req, res) => {
-    // ATUALIZAÇÃO: Adicionado 'contact_phone'
     const { order_id, reason, images, contact_phone } = req.body;
     const user_id = req.user.id;
 
@@ -5986,15 +5988,21 @@ app.post('/api/refunds/request', verifyToken, async (req, res) => {
         const order = orderResult[0];
 
         if (order.payment_status !== 'approved') {
-            throw new Error("Não é possível solicitar reembolso para um pedido cujo pagamento não foi aprovado.");
+            throw new Error("Não é possível solicitar devolução para um pedido cujo pagamento não foi aprovado.");
         }
 
         const cancellableStatuses = [ORDER_STATUS.PAYMENT_APPROVED, ORDER_STATUS.PROCESSING, ORDER_STATUS.DELIVERED];
         if (!cancellableStatuses.includes(order.status)) {
-            throw new Error(`Apenas pedidos com status 'Pagamento Aprovado', 'Separando Pedido' ou 'Entregue' podem ter o cancelamento/reembolso solicitado.`);
+            throw new Error(`Apenas pedidos com status 'Pagamento Aprovado', 'Separando Pedido' ou 'Entregue' podem ter o cancelamento/devolução solicitado.`);
         }
 
-        if (order.refund_id) throw new Error("Este pedido já possui uma solicitação de reembolso ou cancelamento.");
+        // CORREÇÃO CRÍTICA: Permite uma nova solicitação se a anterior foi NEGADA
+        if (order.refund_id) {
+            const [existingRefund] = await connection.query("SELECT status FROM refunds WHERE id = ?", [order.refund_id]);
+            if (existingRefund.length > 0 && existingRefund[0].status !== 'denied') {
+                throw new Error("Este pedido já possui uma solicitação de devolução em andamento ou concluída.");
+            }
+        }
         
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -6006,22 +6014,24 @@ app.post('/api/refunds/request', verifyToken, async (req, res) => {
         const imagesJson = images && Array.isArray(images) && images.length > 0 ? JSON.stringify(images) : null;
         const cleanPhone = contact_phone ? String(contact_phone).replace(/\D/g, '') : null;
 
+        // Insere a NOVA solicitação no banco
         const [refundInsertResult] = await connection.query(
             "INSERT INTO refunds (order_id, requested_by_admin_id, amount, reason, status, images, contact_phone) VALUES (?, ?, ?, ?, ?, ?, ?)",
             [order_id, user_id, refundAmount, reason, 'pending_approval', imagesJson, cleanPhone]
         );
-        const refundId = refundInsertResult.insertId;
+        const newRefundId = refundInsertResult.insertId;
 
-        await connection.query("UPDATE orders SET refund_id = ? WHERE id = ?", [refundId, order_id]);
+        // Atualiza o pedido para apontar para a NOVA solicitação, substituindo a negada
+        await connection.query("UPDATE orders SET refund_id = ? WHERE id = ?", [newRefundId, order_id]);
         
         await connection.query(
             "INSERT INTO refund_logs (refund_id, admin_id, action, details) VALUES (?, ?, ?, ?)",
-            [refundId, user_id, 'solicitado_pelo_cliente', `Motivo: ${reason}`]
+            [newRefundId, user_id, 'solicitado_pelo_cliente', `Motivo: ${reason}`]
         );
 
         await connection.commit();
         
-        res.status(201).json({ message: "Sua solicitação foi enviada e será analisada em breve.", refundId });
+        res.status(201).json({ message: "Sua solicitação foi enviada e será analisada em breve.", refundId: newRefundId });
 
     } catch (err) {
         await connection.rollback();
