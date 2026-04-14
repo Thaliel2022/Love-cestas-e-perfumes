@@ -2898,7 +2898,6 @@ app.put('/api/orders/:id/mark-seen', verifyToken, async (req, res) => {
 });
 
 // --- ROTAS DE PEDIDOS ---
-// Substitua a rota existente app.get('/api/orders/my-orders'...) por esta versão:
 app.get('/api/orders/my-orders', verifyToken, async (req, res) => {
     const userId = req.user.id;
     const { id: orderId } = req.query; 
@@ -5945,13 +5944,18 @@ app.post('/api/refunds/:id/deny', verifyToken, verifyAdmin, async (req, res) => 
         if (refundResult.length === 0) throw new Error("Solicitação de reembolso não encontrada.");
         if (refundResult[0].status !== 'pending_approval') throw new Error("Esta solicitação não pode mais ser negada.");
 
+        // Atualiza a solicitação para negada e guarda o motivo em 'notes'
         await connection.query("UPDATE refunds SET status = 'denied', notes = ?, approved_by_admin_id = ?, approved_at = NOW() WHERE id = ?", [reason, admin_id, refundId]);
+        
+        // CORREÇÃO CRÍTICA: Desvincula o refund_id do pedido
+        // Isso permite que o cliente clique no botão novamente se quiser enviar uma réplica/novas fotos
         await connection.query("UPDATE orders SET refund_id = NULL WHERE id = ?", [refundResult[0].order_id]);
+        
         await connection.query("INSERT INTO refund_logs (refund_id, admin_id, action, details) VALUES (?, ?, ?, ?)", [refundId, admin_id, 'negado', `Motivo: ${reason}`]);
         
         await connection.commit();
         
-        logAdminAction(req.user, 'NEGOU_REEMBOLSO', `Pedido ID: ${refundResult[0].order_id}, Reembolso ID: ${refundId}`, req.ip); // CORREÇÃO: IP ADICIONADO
+        logAdminAction(req.user, 'NEGOU_REEMBOLSO', `Pedido ID: ${refundResult[0].order_id}, Reembolso ID: ${refundId}`, req.ip);
         res.json({ message: "Solicitação de reembolso negada com sucesso." });
         
     } catch (err) {

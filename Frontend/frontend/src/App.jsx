@@ -8034,10 +8034,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     
     const [refundCategory, setRefundCategory] = useState('');
     const [refundReason, setRefundReason] = useState('');
-    
-    // NOVO ESTADO: Telefone de Contato para a coleta
     const [refundContactPhone, setRefundContactPhone] = useState('');
-    
     const [isProcessingRefund, setIsProcessingRefund] = useState(false);
     const [refundImages, setRefundImages] = useState([]);
     const [isUploadingRefund, setIsUploadingRefund] = useState(false);
@@ -8071,7 +8068,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         fetchOrderDetails();
     }, [fetchOrderDetails]);
 
-    // Preenche o telefone com o telefone do usuário assim que o modal abrir
     useEffect(() => {
         if (isRefundModalOpen && user?.phone && !refundContactPhone) {
             setRefundContactPhone(maskPhone(user.phone));
@@ -8203,7 +8199,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                 order_id: order.id,
                 reason: finalReason,
                 images: refundImages,
-                contact_phone: refundContactPhone // Envia o telefone
+                contact_phone: refundContactPhone 
             });
             notification.show(result.message);
             handleCloseRefundModal();
@@ -8342,14 +8338,16 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const isWithinRefundPeriod = new Date(order.date) > sevenDaysAgo;
     
+    // --- LÓGICA PARA EXIBIÇÃO INTELIGENTE DO BOTÃO E AVISOS ---
     const refundStatus = order.refund_status;
     const isRefundDenied = refundStatus === 'denied';
     const refundDeniedReason = order.refund_notes || "Motivo não informado pelo administrador."; 
 
+    // O cliente PODE solicitar se: O pagamento tá aprovado, está nos status válidos, NÃO tem um refund_id (ou seja, não tá em análise nem foi aprovado) E está dentro dos 7 dias.
     const canRequest = 
         order.payment_status === 'approved' && 
         cancellableStatuses.includes(order.status) && 
-        (!order.refund_id || isRefundDenied) && 
+        !order.refund_id && 
         (order.status !== 'Entregue' || isWithinRefundPeriod);
         
     const actionText = order.status === 'Entregue' ? 'Devolver Produto' : 'Cancelar Pedido';
@@ -8514,7 +8512,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                                 <textarea value={refundReason} onChange={e => setRefundReason(e.target.value)} required rows="3" placeholder="Explique mais detalhes sobre o problema..." className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-amber-400 outline-none text-sm"></textarea>
                             </div>
                             
-                            {/* CAMPO DE TELEFONE OBRIGATÓRIO PARA DEVOLUÇÃO LOCAL */}
                             {order.status === 'Entregue' && (isLocalDelivery || isPickupOrder) && (
                                 <div className="bg-blue-50 p-4 border border-blue-200 rounded-lg">
                                     <label className="block text-sm font-bold text-blue-900 mb-1 flex items-center gap-2">
@@ -8535,7 +8532,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                                 </div>
                             )}
 
-                            {/* UPLOAD DE IMAGENS PARA REEMBOLSO */}
                             <div className={`p-4 border rounded-lg ${order.status === 'Entregue' ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">
                                     Fotos do Produto {order.status === 'Entregue' && <span className="text-red-500">* (Obrigatório)</span>}
@@ -8575,7 +8571,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                             </div>
 
                             <div className="bg-gray-100 p-3 rounded-md text-sm border border-gray-200">
-                                <p><strong>Valor a ser reembolsado:</strong> R$ {Number(order.total).toFixed(2)}</p>
+                                <p><strong>Valor a ser devolvido:</strong> R$ {Number(order.total).toFixed(2)}</p>
                                 <p className="text-xs text-gray-500 mt-1">O valor será estornado no mesmo método de pagamento da compra após a aprovação da devolução.</p>
                             </div>
                              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-2">
@@ -8618,6 +8614,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                         </div>
                     )}
                     
+                    {/* AVISO DE REEMBOLSO NEGADO COM OPÇÃO DE NOVA SOLICITAÇÃO */}
                     {isRefundDenied && (
                         <div className="my-6 p-5 bg-red-950/60 border border-red-600 rounded-lg animate-fade-in shadow-lg shadow-red-900/30">
                             <div className="flex items-start gap-3">
@@ -8762,6 +8759,23 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                                                         <p className="text-gray-300 mt-1">R$ {Number(item.price).toFixed(2)}</p>
                                                     </div>
                                                 </div>
+                                                {order.status === 'Entregue' && (
+                                                    <div className="mt-3 pt-3 border-t border-gray-700 text-right">
+                                                        {item.is_reviewed ? (
+                                                            <div className="flex items-center justify-end gap-2 text-sm text-green-400">
+                                                                <CheckCircleIcon className="h-5 w-5" />
+                                                                <span>Você já avaliou este produto.</span>
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => setReviewingItem(item)}
+                                                                className="bg-amber-500 text-black text-xs font-bold px-4 py-1.5 rounded-md hover:bg-amber-400 transition"
+                                                            >
+                                                                Avaliar Produto
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -8780,6 +8794,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                             ) : (
                                 order.tracking_code && !isLocalDelivery && !isOrderInactive && <button onClick={() => setIsTrackingModalOpen(true)} className="bg-gray-800 text-white text-sm font-bold px-4 py-1.5 rounded-md hover:bg-gray-700 transition-colors">Rastrear Pedido</button>
                             )}
+                             {/* BOTÃO QUE VOLTA A APARECER SE FOR NEGADO (isRefundDenied = true) e DENTRO DO PRAZO */}
                              {canRequest && (
                                 <button onClick={() => setIsRefundModalOpen(true)} className="bg-red-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-red-700 font-bold shadow-lg transform hover:-translate-y-0.5 transition-transform">
                                     {isRefundDenied ? 'Nova Solicitação' : `Solicitar ${actionText}`}
