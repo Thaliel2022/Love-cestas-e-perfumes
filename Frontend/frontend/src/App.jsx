@@ -4376,6 +4376,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [isLoadingInstallments, setIsLoadingInstallments] = useState(true);
     const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
     
+    // Novo estado para o lightbox das fotos das avaliações
+    const [reviewLightboxImage, setReviewLightboxImage] = useState(null);
+
     const [selectedColor, setSelectedColor] = useState('');
     const [selectedSize, setSelectedSize] = useState('');
     const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
@@ -4402,26 +4405,16 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
 
-    // --- NOVA LÓGICA: Salvar "Vistos Recentemente" ---
     useEffect(() => {
         if (product && product.id) {
             try {
                 const stored = localStorage.getItem('lovecestas_recently_viewed');
                 let viewed = stored ? JSON.parse(stored) : [];
-                
-                // Remove se o produto já estiver na lista para não duplicar
                 viewed = viewed.filter(id => id !== product.id);
-                
-                // Adiciona o produto atual no topo da lista (mais recente)
                 viewed.unshift(product.id);
-                
-                // Mantém apenas os últimos 12 produtos para não pesar o navegador
                 viewed = viewed.slice(0, 12);
-                
                 localStorage.setItem('lovecestas_recently_viewed', JSON.stringify(viewed));
-            } catch(e) { 
-                console.error("Erro ao salvar vistos recentemente", e); 
-            }
+            } catch(e) { console.error("Erro ao salvar vistos recentemente", e); }
         }
     }, [product]);
 
@@ -4552,7 +4545,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
     const isQtyAtMax = stockLimit > 0 ? quantity >= stockLimit : false;
 
-    const getYouTubeEmbedUrl = (url) => { if (!url) return null; try { let videoId = ''; const urlObj = new URL(url); if (urlObj.hostname === 'youtu.be') { videoId = urlObj.pathname.slice(1); } else if (urlObj.hostname.includes('youtube.com')) { if (urlObj.searchParams.has('v')) { videoId = urlObj.searchParams.get('v'); } else if (urlObj.pathname.includes('/embed/')) { videoId = urlObj.pathname.split('/embed/')[1]; } else if (urlObj.pathname.includes('/shorts/')) { videoId = urlObj.pathname.split('/shorts/')[1]; } } if (!videoId) return null; videoId = videoId.split('?')[0].split('&')[0]; return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`; } catch (e) { if (url && url.includes('youtu.be/')) { const simpleId = url.split('youtu.be/')[1]?.split('?')[0]; return simpleId ? `https://www.youtube.com/embed/${simpleId}?autoplay=1&rel=0` : null; } return null; } };
     const parseTextToList = (text) => { if (!text || text.trim() === '') return null; return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">✓</span><span>{line}</span></li>)}</ul>; };
     const getInstallmentSummary = () => { if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; } const noInterest = [...installments].reverse().find(p => p.installment_rate === 0); if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$ {noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } const lastInstallment = installments[installments.length - 1]; if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$ {lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } return null; };
 
@@ -4593,6 +4585,26 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         }
         return () => { controller.abort(); };
     }, [notification]);
+
+    const handleHelpfulVote = async (reviewId) => {
+        try {
+            const votedReviews = JSON.parse(localStorage.getItem('lovecestas_voted_reviews') || '[]');
+            if (votedReviews.includes(reviewId)) {
+                notification.show("Você já avaliou este comentário como útil.", "error");
+                return;
+            }
+
+            await apiService(`/reviews/${reviewId}/helpful`, 'POST');
+            
+            setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, helpful_votes: (r.helpful_votes || 0) + 1 } : r));
+            
+            votedReviews.push(reviewId);
+            localStorage.setItem('lovecestas_voted_reviews', JSON.stringify(votedReviews));
+            
+        } catch(e) {
+            console.error("Erro ao registrar voto útil:", e);
+        }
+    };
 
     const handleDeleteReview = (reviewId) => {
         confirmation.show("Tem certeza que deseja excluir esta avaliação? Esta ação não pode ser desfeita.", async () => {
@@ -4770,6 +4782,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
             
+            {reviewLightboxImage && (
+                 <Lightbox mainImage={reviewLightboxImage} onClose={() => setReviewLightboxImage(null)} />
+            )}
+
             <AnimatePresence>
                 {isSizeGuideModalOpen && product.size_guide && (
                     <Modal isOpen={true} onClose={() => setIsSizeGuideModalOpen(false)} title="Guia de Medidas" size="3xl">
@@ -5165,34 +5181,70 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 <div className="mt-16 pt-10 border-t border-gray-800 max-w-3xl mx-auto">
                     <h2 className="text-2xl font-bold mb-8 text-center">Avaliações de Clientes</h2>
                     <div className="space-y-8 mb-10">
-                      {reviews.length > 0 ? reviews.map((review) => (
-                            <div key={review.id} className="border-b border-gray-800 pb-6 last:border-b-0 last:pb-0 relative group">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 flex-shrink-0">
-                                        <UserIcon className="h-5 w-5" />
+                        {reviews.length > 0 ? (
+                            reviews.map((review) => {
+                                const reviewImages = parseJsonString(review.images, []);
+                                return (
+                                    <div key={review.id} className="border-b border-gray-800 pb-6 last:border-b-0 last:pb-0 relative group">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 flex-shrink-0">
+                                                    <UserIcon className="h-5 w-5" />
+                                                </div>
+                                                <span className="font-semibold text-white text-sm">{review.user_name || 'Cliente'}</span>
+                                            </div>
+                                            
+                                            {user && user.role === 'admin' && (
+                                                <button
+                                                    onClick={() => handleDeleteReview(review.id)}
+                                                    className="p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    title="Excluir avaliação"
+                                                >
+                                                    <TrashIcon className="h-4 w-4" />
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className="flex">{[...Array(5)].map((_, j) => <StarIcon key={j} className={`h-5 w-5 ${j < review.rating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={j < review.rating}/>)}</div>
+                                            <p className="text-xs font-semibold text-amber-500 ml-2">Compra verificada</p>
+                                        </div>
+                                        
+                                        <p className="text-xs text-gray-500 mb-3">
+                                            Avaliado no Brasil em {new Date(review.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                        </p>
+                                        
+                                        {review.comment && <p className="text-gray-300 text-sm leading-relaxed break-words mb-4">{review.comment}</p>}
+                                        
+                                        {reviewImages.length > 0 && (
+                                            <div className="flex gap-2 mb-4 overflow-x-auto py-1">
+                                                {reviewImages.map((img, idx) => (
+                                                    <div 
+                                                        key={idx} 
+                                                        onClick={() => setReviewLightboxImage(img)}
+                                                        className="w-16 h-16 rounded-md border border-gray-700 overflow-hidden cursor-zoom-in flex-shrink-0"
+                                                    >
+                                                        <img src={img} alt="Foto do cliente" className="w-full h-full object-cover hover:scale-110 transition-transform" />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        <div className="flex items-center gap-4 mt-2">
+                                            <button 
+                                                onClick={() => handleHelpfulVote(review.id)}
+                                                className="text-xs flex items-center gap-1.5 text-gray-400 hover:text-amber-400 border border-gray-700 px-3 py-1.5 rounded-full transition-colors active:scale-95"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" /></svg>
+                                                Útil ({review.helpful_votes || 0})
+                                            </button>
+                                        </div>
                                     </div>
-                                    <span className="font-semibold text-white text-sm">{review.user_name || 'Cliente'}</span>
-                                     {user && user.role === 'admin' && (
-                                        <button
-                                            onClick={() => handleDeleteReview(review.id)}
-                                            className="absolute top-0 right-0 p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            title="Excluir avaliação"
-                                        >
-                                            <TrashIcon className="h-4 w-4" />
-                                        </button>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-2 mb-2">
-                                    <div className="flex">{[...Array(5)].map((_, j) => <StarIcon key={j} className={`h-5 w-5 ${j < review.rating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={j < review.rating}/>)}</div>
-                                    {review.comment && review.comment.length > 30 && <span className="font-bold text-white text-sm ml-2 truncate">{review.comment.substring(0, 30)}...</span>}
-                                </div>
-                                <p className="text-xs text-gray-500 mb-2">
-                                    Avaliado no Brasil em {new Date(review.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                </p>
-                                <p className="text-xs font-semibold text-amber-500 mb-3">Compra verificada</p>
-                                {review.comment && <p className="text-gray-300 text-sm leading-relaxed break-words">{review.comment}</p>}
-                            </div>
-                        )) : <p className="text-gray-500 text-center mb-8">Este produto ainda não possui avaliações.</p>}
+                                );
+                            })
+                        ) : (
+                            <p className="text-gray-500 text-center mb-8">Este produto ainda não possui avaliações.</p>
+                        )}
                     </div>
 
                     <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 text-center shadow">
@@ -7806,12 +7858,43 @@ const StatusDescriptionModal = ({ isOpen, onClose, details }) => {
 const ProductReviewForm = ({ productId, orderId, onReviewSubmitted }) => {
     const [rating, setRating] = useState(0);
     const [comment, setComment] = useState('');
+    const [images, setImages] = useState([]);
+    const [isUploading, setIsUploading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    const fileInputRef = useRef(null);
     const notification = useNotification();
     const MAX_COMMENT_LENGTH = 500;
 
     const handleCommentChange = (e) => {
         setComment(e.target.value.slice(0, MAX_COMMENT_LENGTH));
+    };
+
+    const handleImageUpload = async (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+        if (images.length + files.length > 3) {
+            notification.show("Você pode enviar no máximo 3 fotos por avaliação.", "error");
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const uploadPromises = files.map(file => apiImageUploadService('/upload/image', file));
+            const responses = await Promise.all(uploadPromises);
+            const newImageUrls = responses.map(res => res.imageUrl);
+            
+            setImages(prev => [...prev, ...newImageUrls]);
+        } catch (error) {
+            notification.show(`Erro no upload: ${error.message}`, 'error');
+        } finally {
+            setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const removeImage = (indexToRemove) => {
+        setImages(prev => prev.filter((_, index) => index !== indexToRemove));
     };
 
     const handleSubmit = async (e) => {
@@ -7827,6 +7910,7 @@ const ProductReviewForm = ({ productId, orderId, onReviewSubmitted }) => {
                 order_id: orderId,
                 rating: rating,
                 comment: comment,
+                images: images // Envia o array de imagens pro banco
             });
             notification.show("Avaliação enviada com sucesso!");
             if (onReviewSubmitted) {
@@ -7840,30 +7924,65 @@ const ProductReviewForm = ({ productId, orderId, onReviewSubmitted }) => {
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4 text-gray-800">
+        <form onSubmit={handleSubmit} className="space-y-5 text-gray-800">
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Sua Nota</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Sua Nota <span className="text-red-500">*</span></label>
                 <div className="flex items-center space-x-1">
                     {[...Array(5)].map((_, i) => (
-                        <StarIcon key={i} onClick={() => setRating(i + 1)} className={`h-8 w-8 cursor-pointer ${i < rating ? 'text-amber-400' : 'text-gray-400 hover:text-amber-300'}`} isFilled={i < rating} />
+                        <StarIcon key={i} onClick={() => setRating(i + 1)} className={`h-10 w-10 cursor-pointer transition-transform hover:scale-110 ${i < rating ? 'text-amber-400' : 'text-gray-300 hover:text-amber-200'}`} isFilled={i < rating} />
                     ))}
                 </div>
             </div>
+
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Seu Comentário (opcional)</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Adicionar Fotos (Opcional)</label>
+                <p className="text-xs text-gray-500 mb-3">Compartilhe fotos do produto recebido (Máx 3 fotos).</p>
+                
+                <div className="flex gap-3 overflow-x-auto py-2">
+                    {images.map((img, idx) => (
+                        <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-lg border border-gray-200 shadow-sm group">
+                            <img src={img} alt={`Foto ${idx+1}`} className="w-full h-full object-cover rounded-lg" />
+                            <button 
+                                type="button" 
+                                onClick={() => removeImage(idx)} 
+                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-red-600"
+                            >
+                                <XMarkIcon className="h-3 w-3" />
+                            </button>
+                        </div>
+                    ))}
+                    
+                    {images.length < 3 && (
+                        <button 
+                            type="button" 
+                            onClick={() => fileInputRef.current.click()} 
+                            disabled={isUploading}
+                            className="w-20 h-20 flex-shrink-0 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-500 hover:border-amber-400 hover:text-amber-500 hover:bg-amber-50 transition-colors disabled:opacity-50"
+                        >
+                            {isUploading ? <SpinnerIcon className="h-6 w-6"/> : <CameraIcon className="h-6 w-6"/>}
+                            <span className="text-[10px] font-bold mt-1">Add Foto</span>
+                        </button>
+                    )}
+                    <input type="file" accept="image/*" multiple ref={fileInputRef} onChange={handleImageUpload} className="hidden" />
+                </div>
+            </div>
+
+            <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Seu Comentário (Opcional)</label>
                 <textarea 
                     value={comment} 
                     onChange={handleCommentChange} 
-                    placeholder="Conte o que você achou do produto..." 
-                    className="w-full p-2 border border-gray-300 rounded-md h-24 bg-white"
+                    placeholder="Conte o que você achou da qualidade, entrega, tamanho..." 
+                    className="w-full p-3 border border-gray-300 rounded-lg h-24 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-amber-400 outline-none transition-all"
                     maxLength={MAX_COMMENT_LENGTH}
                 />
-                <div className="text-right text-xs text-gray-500 mt-1">
+                <div className="text-right text-xs text-gray-500 mt-1 font-medium">
                     {comment.length} / {MAX_COMMENT_LENGTH}
                 </div>
             </div>
-            <div className="flex justify-end pt-4">
-                <button type="submit" disabled={isSubmitting} className="bg-gray-800 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-900 disabled:bg-gray-400 flex items-center justify-center">
+
+            <div className="flex justify-end pt-4 border-t border-gray-100">
+                <button type="submit" disabled={isSubmitting || rating === 0} className="bg-gray-900 text-white font-bold py-3 px-8 rounded-lg hover:bg-black disabled:bg-gray-400 flex items-center justify-center shadow-md active:scale-95 transition-all">
                     {isSubmitting ? <SpinnerIcon /> : "Enviar Avaliação"}
                 </button>
             </div>

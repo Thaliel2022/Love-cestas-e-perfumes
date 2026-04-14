@@ -2633,56 +2633,56 @@ const notifyWishlistUsers = async (productIds, connection) => {
 
 // --- ROTAS DE AVALIAÇÕES (REVIEWS) ---
 app.post('/api/reviews', verifyToken, async (req, res) => {
-    const { product_id, order_id, rating, comment } = req.body;
-    const userId = req.user.id;
-    const MAX_COMMENT_LENGTH = 500;
+    const { product_id, order_id, rating, comment, images } = req.body;
+    const userId = req.user.id;
+    const MAX_COMMENT_LENGTH = 500;
 
-    if (!product_id || !order_id || !rating) {
-        return res.status(400).json({ message: "ID do produto, ID do pedido e avaliação são obrigatórios." });
-    }
+    if (!product_id || !order_id || !rating) {
+        return res.status(400).json({ message: "ID do produto, ID do pedido e avaliação são obrigatórios." });
+    }
 
-    if (comment && comment.length > MAX_COMMENT_LENGTH) {
-        return res.status(400).json({ message: `O comentário não pode exceder ${MAX_COMMENT_LENGTH} caracteres.` });
-    }
+    if (comment && comment.length > MAX_COMMENT_LENGTH) {
+        return res.status(400).json({ message: `O comentário não pode exceder ${MAX_COMMENT_LENGTH} caracteres.` });
+    }
 
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
 
-        // 1. Confirma se o usuário comprou este produto neste pedido específico e se foi entregue
         const [purchase] = await connection.query(
             `SELECT o.id FROM orders o JOIN order_items oi ON o.id = oi.order_id 
              WHERE o.user_id = ? AND oi.product_id = ? AND o.id = ? AND o.status = ? LIMIT 1`,
             [userId, product_id, order_id, ORDER_STATUS.DELIVERED]
         );
 
-        if (purchase.length === 0) {
-            throw new Error("Você só pode avaliar produtos de pedidos que já foram entregues.");
-        }
+        if (purchase.length === 0) {
+            throw new Error("Você só pode avaliar produtos de pedidos que já foram entregues.");
+        }
 
-        // 2. Insere a avaliação com o order_id. O BD vai barrar se já existir uma avaliação para esta combinação.
-        await connection.query(
-            "INSERT INTO reviews (product_id, user_id, order_id, rating, comment) VALUES (?, ?, ?, ?, ?)",
-            [product_id, userId, order_id, rating, comment || '']
-        );
+        // Converte o array de imagens em JSON se houver imagens
+        const imagesJson = images && Array.isArray(images) && images.length > 0 ? JSON.stringify(images) : null;
 
-        await connection.commit();
-        res.status(201).json({ message: "Avaliação adicionada com sucesso!" });
+        await connection.query(
+            "INSERT INTO reviews (product_id, user_id, order_id, rating, comment, images) VALUES (?, ?, ?, ?, ?, ?)",
+            [product_id, userId, order_id, rating, comment || '', imagesJson]
+        );
 
-    } catch (err) {
-        await connection.rollback();
-        // Se o erro for a nova regra de unicidade do banco de dados
-        if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ message: "Você já avaliou este produto para esta compra." });
-        }
-        if (err.message.includes("Você só pode avaliar")) {
-             return res.status(403).json({ message: err.message });
-        }
-        console.error("Erro ao adicionar avaliação:", err);
-        res.status(500).json({ message: "Erro interno ao adicionar avaliação." });
-    } finally {
-        connection.release();
-    }
+        await connection.commit();
+        res.status(201).json({ message: "Avaliação adicionada com sucesso!" });
+
+    } catch (err) {
+        await connection.rollback();
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: "Você já avaliou este produto para esta compra." });
+        }
+        if (err.message.includes("Você só pode avaliar")) {
+             return res.status(403).json({ message: err.message });
+        }
+        console.error("Erro ao adicionar avaliação:", err);
+        res.status(500).json({ message: "Erro interno ao adicionar avaliação." });
+    } finally {
+        connection.release();
+    }
 });
 
 app.get('/api/products/:id/reviews', checkMaintenanceMode, async (req, res) => {
@@ -2693,6 +2693,18 @@ app.get('/api/products/:id/reviews', checkMaintenanceMode, async (req, res) => {
         console.error("Erro ao buscar avaliações:", err);
         res.status(500).json({ message: "Erro ao buscar avaliações." });
     }
+});
+
+// --- NOVA ROTA: Marcar avaliação como útil ---
+app.post('/api/reviews/:id/helpful', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await db.query("UPDATE reviews SET helpful_votes = helpful_votes + 1 WHERE id = ?", [id]);
+        res.json({ message: "Voto registrado com sucesso." });
+    } catch (err) {
+        console.error("Erro ao registrar voto útil:", err);
+        res.status(500).json({ message: "Erro interno ao registrar voto." });
+    }
 });
 
 app.delete('/api/reviews/:id', verifyToken, verifyAdmin, async (req, res) => {
