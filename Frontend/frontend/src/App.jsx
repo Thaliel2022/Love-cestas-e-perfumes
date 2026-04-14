@@ -8819,7 +8819,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                         {canReviewOrder && (
                                              <button 
                                                 onClick={() => setOrderToReview(order)} 
-                                                className="w-full sm:w-auto bg-amber-600 text-white font-bold px-4 py-2 rounded-md border border-amber-600 hover:bg-amber-500 transition shadow-md active:scale-95 text-xs sm:text-sm"
+                                                className="w-full sm:w-auto bg-transparent text-amber-400 font-bold px-4 py-2 rounded-md border border-amber-400 hover:bg-amber-400 hover:text-black transition shadow-md active:scale-95 text-xs sm:text-sm"
                                              >
                                                 Avaliar Pedido
                                              </button>
