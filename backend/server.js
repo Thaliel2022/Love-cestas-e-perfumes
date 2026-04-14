@@ -5791,10 +5791,11 @@ app.post('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
             throw new Error("Este pedido já possui uma solicitação de reembolso ativa ou concluída.");
         }
 
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        if (new Date(order.date) < thirtyDaysAgo) {
-            throw new Error("Não é possível solicitar reembolso para pedidos com mais de 30 dias.");
+        // CORREÇÃO: Prazo de 7 dias (CDC)
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        if (new Date(order.date) < sevenDaysAgo && order.status === ORDER_STATUS.DELIVERED) {
+            throw new Error("Não é possível solicitar reembolso para pedidos entregues há mais de 7 dias (Art. 49 CDC).");
         }
 
         if (parseFloat(amount) > parseFloat(order.total)) {
@@ -5816,7 +5817,7 @@ app.post('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
 
         await connection.commit();
         
-        logAdminAction(req.user, 'SOLICITOU_REEMBOLSO', `Pedido ID: ${order_id}, Reembolso ID: ${refundId}`, req.ip); // CORREÇÃO: IP ADICIONADO
+        logAdminAction(req.user, 'SOLICITOU_REEMBOLSO', `Pedido ID: ${order_id}, Reembolso ID: ${refundId}`, req.ip); 
         res.status(201).json({ message: "Solicitação de reembolso criada com sucesso.", refundId });
 
     } catch (err) {
@@ -5947,72 +5948,67 @@ app.post('/api/refunds/:id/deny', verifyToken, verifyAdmin, async (req, res) => 
 
 // (Cliente) Rota para o cliente solicitar um reembolso/cancelamento
 app.post('/api/refunds/request', verifyToken, async (req, res) => {
-    const { order_id, reason } = req.body;
-    const user_id = req.user.id;
+    const { order_id, reason, images } = req.body;
+    const user_id = req.user.id;
 
-    if (!order_id || !reason) {
-        return res.status(400).json({ message: "ID do pedido e motivo são obrigatórios." });
-    }
+    if (!order_id || !reason) {
+        return res.status(400).json({ message: "ID do pedido e motivo são obrigatórios." });
+    }
 
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
 
-        const [orderResult] = await connection.query("SELECT * FROM orders WHERE id = ? AND user_id = ?", [order_id, user_id]);
-        if (orderResult.length === 0) throw new Error("Pedido não encontrado ou não pertence a este usuário.");
-        
-        const order = orderResult[0];
+        const [orderResult] = await connection.query("SELECT * FROM orders WHERE id = ? AND user_id = ?", [order_id, user_id]);
+        if (orderResult.length === 0) throw new Error("Pedido não encontrado ou não pertence a este usuário.");
+        
+        const order = orderResult[0];
 
-        // VERIFICAÇÃO DE SEGURANÇA: Garante que o pedido foi efetivamente pago no gateway.
         if (order.payment_status !== 'approved') {
             throw new Error("Não é possível solicitar reembolso para um pedido cujo pagamento não foi aprovado.");
         }
 
-        // Define os status em que o cliente pode solicitar cancelamento/reembolso
         const cancellableStatuses = [ORDER_STATUS.PAYMENT_APPROVED, ORDER_STATUS.PROCESSING, ORDER_STATUS.DELIVERED];
         if (!cancellableStatuses.includes(order.status)) {
             throw new Error(`Apenas pedidos com status 'Pagamento Aprovado', 'Separando Pedido' ou 'Entregue' podem ter o cancelamento/reembolso solicitado.`);
         }
 
         if (order.refund_id) throw new Error("Este pedido já possui uma solicitação de reembolso ou cancelamento.");
-        
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        if (new Date(order.date) < thirtyDaysAgo && order.status === ORDER_STATUS.DELIVERED) {
-            throw new Error("Não é possível solicitar reembolso para pedidos entregues há mais de 30 dias.");
-        }
+        
+        // CORREÇÃO: Prazo de 7 dias (CDC)
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        if (new Date(order.date) < sevenDaysAgo && order.status === ORDER_STATUS.DELIVERED) {
+            throw new Error("O prazo legal de 7 dias (Direito de Arrependimento) para este pedido já expirou.");
+        }
 
-        // Para solicitações de clientes, o valor é sempre o total do pedido
-        const refundAmount = order.total;
+        const refundAmount = order.total;
+        const imagesJson = images && Array.isArray(images) && images.length > 0 ? JSON.stringify(images) : null;
 
-        const [refundInsertResult] = await connection.query(
-            "INSERT INTO refunds (order_id, requested_by_admin_id, amount, reason, status) VALUES (?, ?, ?, ?, ?)",
-            [order_id, user_id, refundAmount, reason, 'pending_approval']
-        );
-        const refundId = refundInsertResult.insertId;
+        const [refundInsertResult] = await connection.query(
+            "INSERT INTO refunds (order_id, requested_by_admin_id, amount, reason, status, images) VALUES (?, ?, ?, ?, ?, ?)",
+            [order_id, user_id, refundAmount, reason, 'pending_approval', imagesJson]
+        );
+        const refundId = refundInsertResult.insertId;
 
-        await connection.query("UPDATE orders SET refund_id = ? WHERE id = ?", [refundId, order_id]);
-        
-        await connection.query(
-            "INSERT INTO refund_logs (refund_id, admin_id, action, details) VALUES (?, ?, ?, ?)",
-            [refundId, user_id, 'solicitado_pelo_cliente', `Motivo: ${reason}`]
-        );
+        await connection.query("UPDATE orders SET refund_id = ? WHERE id = ?", [refundId, order_id]);
+        
+        await connection.query(
+            "INSERT INTO refund_logs (refund_id, admin_id, action, details) VALUES (?, ?, ?, ?)",
+            [refundId, user_id, 'solicitado_pelo_cliente', `Motivo: ${reason}`]
+        );
 
-        await connection.commit();
-        
-        // Notificar admin sobre nova solicitação (opcional, mas recomendado)
-        // Você pode configurar um e-mail de admin nas suas variáveis de ambiente
-        // sendEmailAsync({ to: process.env.ADMIN_EMAIL, ... })
+        await connection.commit();
+        
+        res.status(201).json({ message: "Sua solicitação foi enviada e será analisada em breve.", refundId });
 
-        res.status(201).json({ message: "Sua solicitação foi enviada e será analisada em breve.", refundId });
-
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro do cliente ao solicitar reembolso:", err);
-        res.status(500).json({ message: err.message || "Erro interno ao processar a solicitação." });
-    } finally {
-        connection.release();
-    }
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro do cliente ao solicitar reembolso:", err);
+        res.status(500).json({ message: err.message || "Erro interno ao processar a solicitação." });
+    } finally {
+        connection.release();
+    }
 });
 
 // (Admin) Rota para enviar e-mail direto para um usuário
