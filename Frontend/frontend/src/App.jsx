@@ -8032,7 +8032,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const [reviewingItem, setReviewingItem] = useState(null);
     const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
     
-    // ESTADOS DO REEMBOLSO ATUALIZADOS
     const [refundCategory, setRefundCategory] = useState('');
     const [refundReason, setRefundReason] = useState('');
     const [isProcessingRefund, setIsProcessingRefund] = useState(false);
@@ -8111,7 +8110,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         }
     };
     
-    // FUNÇÕES DE UPLOAD PARA REEMBOLSO
     const handleRefundImageUpload = async (e) => {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
@@ -8175,7 +8173,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             return;
         }
 
-        // VALIDAÇÃO: Obriga a enviar foto se o pedido foi Entregue
         if (order.status === 'Entregue' && refundImages.length === 0) {
             notification.show("Para pedidos já entregues, é obrigatório anexar pelo menos 1 foto do produto.", "error");
             return;
@@ -8323,9 +8320,11 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const subtotal = (Number(order.total) || 0) - (Number(order.shipping_cost) || 0) + (Number(order.discount_amount) || 0);
     
     const cancellableStatuses = ['Pagamento Aprovado', 'Separando Pedido', 'Entregue'];
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const isWithinRefundPeriod = new Date(order.date) > thirtyDaysAgo;
+    
+    // CORREÇÃO: Prazo de 7 dias no Frontend
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const isWithinRefundPeriod = new Date(order.date) > sevenDaysAgo;
     
     const refundStatus = order.refund_status;
     const isRefundDenied = refundStatus === 'denied';
@@ -8499,7 +8498,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                                 <textarea value={refundReason} onChange={e => setRefundReason(e.target.value)} required rows="3" placeholder="Explique mais detalhes sobre o problema..." className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-amber-400 outline-none text-sm"></textarea>
                             </div>
 
-                            {/* UPLOAD DE IMAGENS PARA REEMBOLSO */}
                             <div className={`p-4 border rounded-lg ${order.status === 'Entregue' ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">
                                     Fotos do Produto {order.status === 'Entregue' && <span className="text-red-500">* (Obrigatório)</span>}
@@ -8726,23 +8724,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                                                         <p className="text-gray-300 mt-1">R$ {Number(item.price).toFixed(2)}</p>
                                                     </div>
                                                 </div>
-                                                {order.status === 'Entregue' && (
-                                                    <div className="mt-3 pt-3 border-t border-gray-700 text-right">
-                                                        {item.is_reviewed ? (
-                                                            <div className="flex items-center justify-end gap-2 text-sm text-green-400">
-                                                                <CheckCircleIcon className="h-5 w-5" />
-                                                                <span>Você já avaliou este produto.</span>
-                                                            </div>
-                                                        ) : (
-                                                            <button
-                                                                onClick={() => setReviewingItem(item)}
-                                                                className="bg-amber-500 text-black text-xs font-bold px-4 py-1.5 rounded-md hover:bg-amber-400 transition"
-                                                            >
-                                                                Avaliar Produto
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -13549,7 +13530,6 @@ const AdminRefunds = ({ onNavigate }) => {
         return method?.replace('_', ' ') || 'N/A';
     };
 
-    // Componente interno para o Lightbox do Admin
     const Lightbox = ({ mainImage, onClose }) => ( 
         <div className="fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4" onClick={onClose}> 
             <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2 hover:text-red-500 transition-colors">×</button> 
@@ -13558,6 +13538,19 @@ const AdminRefunds = ({ onNavigate }) => {
             </div> 
         </div> 
     );
+
+    // FUNÇÃO SEGURA PARA LER IMAGENS: Garante que lê a lista mesmo que venha do banco com stringify duplo
+    const getImagesArray = (imagesData) => {
+        if (!imagesData) return [];
+        try {
+            let parsed = typeof imagesData === 'string' ? JSON.parse(imagesData) : imagesData;
+            // Se ainda for string (duplo stringify), faz parse de novo
+            if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            return [];
+        }
+    };
 
     return (
         <div>
@@ -13606,7 +13599,7 @@ const AdminRefunds = ({ onNavigate }) => {
                             <tbody className="divide-y divide-gray-100">
                                 {filteredRefunds.length > 0 ? (
                                     filteredRefunds.map(r => {
-                                        const images = r.images ? parseJsonString(r.images, []) : [];
+                                        const images = getImagesArray(r.images);
                                         return (
                                         <tr key={r.id} className="hover:bg-gray-50 transition-colors">
                                             <td className="p-4 font-mono font-bold text-indigo-600">#{r.order_id}</td>
@@ -13614,12 +13607,12 @@ const AdminRefunds = ({ onNavigate }) => {
                                             <td className="p-4 text-gray-500">{new Date(r.created_at).toLocaleString('pt-BR')}</td>
                                             <td className="p-4 font-bold text-gray-900">R$ {Number(r.amount).toFixed(2)}</td>
                                             <td className="p-4 text-gray-600 break-words">
-                                                <p className="mb-2">{r.reason}</p>
+                                                <p className="mb-2 font-medium">{r.reason}</p>
                                                 {images.length > 0 && (
-                                                    <div className="flex gap-2 mt-2 overflow-x-auto py-1">
+                                                    <div className="flex gap-2 mt-2 overflow-x-auto py-1 border-t border-gray-200 pt-2">
                                                         {images.map((img, idx) => (
-                                                            <div key={idx} onClick={() => setLightboxImage(img)} className="w-10 h-10 flex-shrink-0 cursor-zoom-in rounded border border-gray-300 shadow-sm overflow-hidden hover:scale-110 transition-transform">
-                                                                <img src={img} alt="Anexo do cliente" className="w-full h-full object-cover" />
+                                                            <div key={idx} onClick={() => setLightboxImage(img)} className="w-12 h-12 flex-shrink-0 cursor-zoom-in rounded border border-gray-300 shadow-sm overflow-hidden hover:scale-110 transition-transform bg-white">
+                                                                <img src={img} alt="Anexo" className="w-full h-full object-cover" />
                                                             </div>
                                                         ))}
                                                     </div>
@@ -13654,7 +13647,7 @@ const AdminRefunds = ({ onNavigate }) => {
                      <div className="md:hidden p-4 bg-gray-50">
                         {filteredRefunds.length > 0 ? (
                             filteredRefunds.map(r => {
-                                const images = r.images ? parseJsonString(r.images, []) : [];
+                                const images = getImagesArray(r.images);
                                 return (
                                 <div key={r.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm text-sm mb-4 last:mb-0">
                                     <div className="flex justify-between items-start mb-3 pb-3 border-b border-gray-100">
@@ -13667,19 +13660,19 @@ const AdminRefunds = ({ onNavigate }) => {
                                     <div className="grid grid-cols-2 gap-y-3 gap-x-4 mb-3">
                                         <div><strong className="text-gray-500 block text-xs uppercase tracking-wide">Cliente</strong> <span className="font-medium text-gray-900">{r.customer_name}</span></div>
                                         <div><strong className="text-gray-500 block text-xs uppercase tracking-wide">Valor</strong> <span className="font-bold text-gray-900">R$ {Number(r.amount).toFixed(2)}</span></div>
-                                        <div><strong className="text-gray-500 block text-xs uppercase tracking-wide">Pagamento</strong> <span className="capitalize text-gray-700">{getPaymentMethodName(r.payment_method, r.payment_details)}</span></div>
+                                        <div className="col-span-2"><strong className="text-gray-500 block text-xs uppercase tracking-wide">Pagamento</strong> <span className="capitalize text-gray-700">{getPaymentMethodName(r.payment_method, r.payment_details)}</span></div>
                                     </div>
                                     <div className="border-t border-gray-100 pt-3">
                                         <strong className="text-gray-500 block text-xs uppercase tracking-wide mb-1">Motivo da Solicitação</strong>
-                                        <p className="text-gray-700 break-words bg-gray-50 p-2 rounded-md">{r.reason}</p>
+                                        <p className="text-gray-700 break-words bg-gray-50 p-2 rounded-md font-medium">{r.reason}</p>
                                         
                                         {images.length > 0 && (
                                             <div className="mt-3">
                                                 <strong className="text-gray-500 block text-xs uppercase tracking-wide mb-2">Fotos Anexadas</strong>
                                                 <div className="flex gap-2 overflow-x-auto py-1">
                                                     {images.map((img, idx) => (
-                                                        <div key={idx} onClick={() => setLightboxImage(img)} className="w-14 h-14 flex-shrink-0 cursor-zoom-in rounded border border-gray-300 shadow-sm overflow-hidden active:scale-95 transition-transform">
-                                                            <img src={img} alt="Anexo do cliente" className="w-full h-full object-cover" />
+                                                        <div key={idx} onClick={() => setLightboxImage(img)} className="w-14 h-14 flex-shrink-0 cursor-zoom-in rounded border border-gray-300 shadow-sm overflow-hidden active:scale-95 transition-transform bg-white">
+                                                            <img src={img} alt="Anexo" className="w-full h-full object-cover" />
                                                         </div>
                                                     ))}
                                                 </div>
