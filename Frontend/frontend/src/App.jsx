@@ -8034,6 +8034,10 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     
     const [refundCategory, setRefundCategory] = useState('');
     const [refundReason, setRefundReason] = useState('');
+    
+    // NOVO ESTADO: Telefone de Contato para a coleta
+    const [refundContactPhone, setRefundContactPhone] = useState('');
+    
     const [isProcessingRefund, setIsProcessingRefund] = useState(false);
     const [refundImages, setRefundImages] = useState([]);
     const [isUploadingRefund, setIsUploadingRefund] = useState(false);
@@ -8066,6 +8070,13 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     useEffect(() => {
         fetchOrderDetails();
     }, [fetchOrderDetails]);
+
+    // Preenche o telefone com o telefone do usuário assim que o modal abrir
+    useEffect(() => {
+        if (isRefundModalOpen && user?.phone && !refundContactPhone) {
+            setRefundContactPhone(maskPhone(user.phone));
+        }
+    }, [isRefundModalOpen, user, refundContactPhone]);
 
     const handleReviewSuccess = () => {
         setReviewingItem(null);
@@ -8163,6 +8174,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         setRefundCategory('');
         setRefundReason('');
         setRefundImages([]);
+        setRefundContactPhone('');
     };
 
     const handleRequestRefund = async (e) => {
@@ -8170,6 +8182,11 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
 
         if (!refundCategory) {
             notification.show("Por favor, selecione o motivo principal.", "error");
+            return;
+        }
+        
+        if (!refundContactPhone || refundContactPhone.replace(/\D/g, '').length < 10) {
+            notification.show("Informe um WhatsApp válido para combinarmos a coleta.", "error");
             return;
         }
 
@@ -8185,7 +8202,8 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             const result = await apiService('/refunds/request', 'POST', {
                 order_id: order.id,
                 reason: finalReason,
-                images: refundImages 
+                images: refundImages,
+                contact_phone: refundContactPhone // Envia o telefone
             });
             notification.show(result.message);
             handleCloseRefundModal();
@@ -8216,7 +8234,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             'failed': { text: 'Falha no Reembolso', class: 'text-red-400 bg-red-900/50', icon: <ExclamationCircleIcon className="h-4 w-4"/> }
         };
         if (order && order.status === 'Entregue' && status === 'pending_approval') {
-            statuses['pending_approval'].text = 'Reembolso em análise';
+            statuses['pending_approval'].text = 'Devolução em análise';
         }
         return statuses[status] || { text: `Status: ${status}`, class: 'text-gray-400 bg-gray-700', icon: null };
     };
@@ -8320,8 +8338,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const subtotal = (Number(order.total) || 0) - (Number(order.shipping_cost) || 0) + (Number(order.discount_amount) || 0);
     
     const cancellableStatuses = ['Pagamento Aprovado', 'Separando Pedido', 'Entregue'];
-    
-    // CORREÇÃO: Prazo de 7 dias no Frontend
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const isWithinRefundPeriod = new Date(order.date) > sevenDaysAgo;
@@ -8336,7 +8352,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         (!order.refund_id || isRefundDenied) && 
         (order.status !== 'Entregue' || isWithinRefundPeriod);
         
-    const actionText = order.status === 'Entregue' ? 'Reembolso' : 'Cancelamento';
+    const actionText = order.status === 'Entregue' ? 'Devolver Produto' : 'Cancelar Pedido';
     const refundInfo = order.refund_id ? getRefundStatusInfo(order.refund_status) : null;
     const isOrderInactive = ['Cancelado', 'Reembolsado', 'Pagamento Recusado'].includes(order.status);
 
@@ -8485,9 +8501,9 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-amber-400 outline-none text-sm"
                                 >
                                     <option value="">Selecione uma opção...</option>
-                                    <option value="Produto danificado">Produto danificado ou quebrado</option>
+                                    <option value="Produto danificado">Produto danificado ou quebrado na entrega</option>
                                     <option value="Produto errado">Recebi um item diferente do que comprei</option>
-                                    <option value="Arrependimento">Arrependimento / Desisti da compra</option>
+                                    <option value="Arrependimento">Arrependimento / Desisti da compra (Prazo 7 dias)</option>
                                     <option value="Atraso">Atraso excessivo na entrega</option>
                                     <option value="Outro">Outro motivo</option>
                                 </select>
@@ -8497,7 +8513,29 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Detalhes do Motivo <span className="text-red-500">*</span></label>
                                 <textarea value={refundReason} onChange={e => setRefundReason(e.target.value)} required rows="3" placeholder="Explique mais detalhes sobre o problema..." className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-amber-400 outline-none text-sm"></textarea>
                             </div>
+                            
+                            {/* CAMPO DE TELEFONE OBRIGATÓRIO PARA DEVOLUÇÃO LOCAL */}
+                            {order.status === 'Entregue' && (isLocalDelivery || isPickupOrder) && (
+                                <div className="bg-blue-50 p-4 border border-blue-200 rounded-lg">
+                                    <label className="block text-sm font-bold text-blue-900 mb-1 flex items-center gap-2">
+                                        <WhatsappIcon className="h-4 w-4" /> 
+                                        WhatsApp para contato <span className="text-red-500">*</span>
+                                    </label>
+                                    <p className="text-xs text-blue-700 mb-3">
+                                        Como a entrega foi local, nossa equipe entrará em contato para combinar {isPickupOrder ? 'a devolução na loja' : 'a coleta via motoboy'}.
+                                    </p>
+                                    <input 
+                                        type="text" 
+                                        value={refundContactPhone} 
+                                        onChange={e => setRefundContactPhone(maskPhone(e.target.value))} 
+                                        required 
+                                        placeholder="(83) 90000-0000" 
+                                        className="w-full px-3 py-2 border border-blue-300 rounded-md bg-white focus:ring-2 focus:ring-blue-400 outline-none text-sm font-bold"
+                                    />
+                                </div>
+                            )}
 
+                            {/* UPLOAD DE IMAGENS PARA REEMBOLSO */}
                             <div className={`p-4 border rounded-lg ${order.status === 'Entregue' ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">
                                     Fotos do Produto {order.status === 'Entregue' && <span className="text-red-500">* (Obrigatório)</span>}
@@ -8538,7 +8576,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
 
                             <div className="bg-gray-100 p-3 rounded-md text-sm border border-gray-200">
                                 <p><strong>Valor a ser reembolsado:</strong> R$ {Number(order.total).toFixed(2)}</p>
-                                <p className="text-xs text-gray-500 mt-1">O valor será estornado no mesmo método de pagamento da compra após a aprovação da solicitação.</p>
+                                <p className="text-xs text-gray-500 mt-1">O valor será estornado no mesmo método de pagamento da compra após a aprovação da devolução.</p>
                             </div>
                              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-2">
                                 <button type="button" onClick={handleCloseRefundModal} className="px-4 py-2 bg-white border border-gray-300 rounded-md font-bold text-gray-700 hover:bg-gray-50">Cancelar</button>
@@ -8585,7 +8623,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                             <div className="flex items-start gap-3">
                                 <ExclamationCircleIcon className="h-7 w-7 text-red-500 flex-shrink-0 mt-0.5 animate-pulse" />
                                 <div className="flex-1">
-                                    <h4 className="font-bold text-red-200 text-lg mb-2">Solicitação de Reembolso Negada</h4>
+                                    <h4 className="font-bold text-red-200 text-lg mb-2">Solicitação de Devolução Negada</h4>
                                     <p className="text-sm text-gray-300 mb-3 leading-relaxed">
                                         Nossa equipe analisou sua solicitação e, infelizmente, ela não pôde ser aprovada no momento.
                                     </p>
@@ -8594,7 +8632,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                                         <span className="italic">"{refundDeniedReason}"</span>
                                     </div>
                                     <p className="text-xs text-gray-400">
-                                        Se você acredita que houve um erro ou deseja enviar novas informações, por favor, clique em <strong>"Nova Solicitação"</strong> abaixo e forneça mais detalhes.
+                                        Se você acredita que houve um erro ou deseja enviar novas informações, por favor, clique em <strong>"Nova Solicitação"</strong> abaixo e forneça mais detalhes e fotos claras.
                                     </p>
                                 </div>
                             </div>
@@ -13539,16 +13577,15 @@ const AdminRefunds = ({ onNavigate }) => {
         </div> 
     );
 
-    // FUNÇÃO SEGURA PARA LER IMAGENS: Garante que lê a lista mesmo que venha do banco com stringify duplo
-    const getImagesArray = (imagesData) => {
-        if (!imagesData) return [];
+    // FUNÇÃO SEGURA PARA LER IMAGENS E ITENS
+    const safeParseJSON = (data, fallback = []) => {
+        if (!data) return fallback;
         try {
-            let parsed = typeof imagesData === 'string' ? JSON.parse(imagesData) : imagesData;
-            // Se ainda for string (duplo stringify), faz parse de novo
-            if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-            return Array.isArray(parsed) ? parsed : [];
+            let parsed = typeof data === 'string' ? JSON.parse(data) : data;
+            if (typeof parsed === 'string') parsed = JSON.parse(parsed); // Para duplo stringify
+            return Array.isArray(parsed) ? parsed : fallback;
         } catch (e) {
-            return [];
+            return fallback;
         }
     };
 
@@ -13576,62 +13613,116 @@ const AdminRefunds = ({ onNavigate }) => {
                 )}
             </AnimatePresence>
 
-            <h1 className="text-3xl font-bold mb-6 text-slate-800 tracking-tight">Gerenciar Reembolsos</h1>
+            <h1 className="text-3xl font-bold mb-6 text-slate-800 tracking-tight">Gerenciar Devoluções e Reembolsos</h1>
             
             {isLoading ? (
                 <div className="flex justify-center py-20"><SpinnerIcon className="h-8 w-8 text-indigo-600" /></div>
             ) : (
                 <div className="bg-white shadow-md rounded-lg overflow-hidden border border-gray-100">
-                    {/* Desktop Table View */}
                     <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-left text-sm">
                             <thead className="bg-gray-50 border-b border-gray-200">
                                 <tr>
                                     <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs">Pedido</th>
-                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs">Cliente</th>
-                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs">Data Solic.</th>
-                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs">Valor</th>
-                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs w-1/4">Motivo e Fotos</th>
+                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs">Cliente e Contato</th>
+                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs">Valor / Data</th>
+                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs w-1/3">Itens e Motivo</th>
                                     <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs">Status</th>
-                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs">Ações</th>
+                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs text-center">Ações</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {filteredRefunds.length > 0 ? (
                                     filteredRefunds.map(r => {
-                                        const images = getImagesArray(r.images);
+                                        const images = safeParseJSON(r.images);
+                                        const items = safeParseJSON(r.order_items);
+
                                         return (
-                                        <tr key={r.id} className="hover:bg-gray-50 transition-colors">
-                                            <td className="p-4 font-mono font-bold text-indigo-600">#{r.order_id}</td>
-                                            <td className="p-4 font-medium text-gray-900">{r.customer_name}</td>
-                                            <td className="p-4 text-gray-500">{new Date(r.created_at).toLocaleString('pt-BR')}</td>
-                                            <td className="p-4 font-bold text-gray-900">R$ {Number(r.amount).toFixed(2)}</td>
-                                            <td className="p-4 text-gray-600 break-words">
-                                                <p className="mb-2 font-medium">{r.reason}</p>
-                                                {images.length > 0 && (
-                                                    <div className="flex gap-2 mt-2 overflow-x-auto py-1 border-t border-gray-200 pt-2">
-                                                        {images.map((img, idx) => (
-                                                            <div key={idx} onClick={() => setLightboxImage(img)} className="w-12 h-12 flex-shrink-0 cursor-zoom-in rounded border border-gray-300 shadow-sm overflow-hidden hover:scale-110 transition-transform bg-white">
-                                                                <img src={img} alt="Anexo" className="w-full h-full object-cover" />
-                                                            </div>
+                                        <tr key={r.id} className="hover:bg-gray-50 transition-colors align-top">
+                                            <td className="p-4">
+                                                <div className="font-mono font-bold text-indigo-600 text-base">#{r.order_id}</div>
+                                                <div className="text-xs text-gray-500 mt-1">Solicitado em:<br/>{new Date(r.created_at).toLocaleDateString('pt-BR')}</div>
+                                            </td>
+                                            
+                                            <td className="p-4">
+                                                <p className="font-bold text-gray-900">{r.customer_name}</p>
+                                                <p className="text-xs text-gray-500 font-mono mt-0.5">CPF: {maskCPF(r.customer_cpf || '---')}</p>
+                                                
+                                                {/* Contato para Coleta */}
+                                                {r.contact_phone ? (
+                                                    <div className="mt-2 bg-blue-50 border border-blue-100 p-2 rounded-md inline-block">
+                                                        <p className="text-[10px] font-bold text-blue-800 uppercase tracking-wide mb-1">WhatsApp Coleta:</p>
+                                                        <a href={`https://wa.me/55${r.contact_phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-green-700 font-bold hover:underline text-xs">
+                                                            <WhatsappIcon className="h-4 w-4"/> {maskPhone(r.contact_phone)}
+                                                        </a>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-xs text-gray-400 mt-2 italic">Telefone p/ coleta não informado.</p>
+                                                )}
+                                            </td>
+
+                                            <td className="p-4">
+                                                <p className="font-bold text-green-600 text-lg">R$ {Number(r.amount).toFixed(2)}</p>
+                                                <p className="text-xs text-gray-500 mt-1 capitalize">{getPaymentMethodName(r.payment_method, r.payment_details)}</p>
+                                                <p className="text-xs text-gray-400 mt-0.5">Pago em: {new Date(r.order_date).toLocaleDateString('pt-BR')}</p>
+                                            </td>
+                                            
+                                            <td className="p-4">
+                                                {/* Lista de Produtos */}
+                                                <div className="mb-3 bg-gray-100 p-2 rounded border border-gray-200">
+                                                    <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Itens do Pedido:</p>
+                                                    <ul className="text-xs text-gray-700 space-y-1">
+                                                        {items.map((item, idx) => (
+                                                            <li key={idx} className="flex gap-1 truncate">
+                                                                <span className="font-bold">{item.quantity}x</span> {item.name}
+                                                            </li>
                                                         ))}
+                                                    </ul>
+                                                </div>
+
+                                                <div className="bg-yellow-50 p-2 rounded border border-yellow-100">
+                                                    <p className="text-[10px] font-bold text-yellow-800 uppercase mb-1">Motivo / Relato:</p>
+                                                    <p className="text-sm text-gray-800 font-medium break-words leading-snug">{r.reason}</p>
+                                                </div>
+
+                                                {/* Galeria de Fotos */}
+                                                {images.length > 0 && (
+                                                    <div className="mt-3">
+                                                        <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Fotos Anexadas ({images.length}):</p>
+                                                        <div className="flex gap-2 overflow-x-auto py-1">
+                                                            {images.map((img, idx) => (
+                                                                <div key={idx} onClick={() => setLightboxImage(img)} className="w-12 h-12 flex-shrink-0 cursor-zoom-in rounded border border-gray-300 shadow-sm overflow-hidden hover:scale-110 transition-transform bg-white">
+                                                                    <img src={img} alt="Anexo" className="w-full h-full object-cover" />
+                                                                </div>
+                                                            ))}
+                                                        </div>
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="p-4">{getStatusChip(r.status)}</td>
-                                            <td className="p-4">
-                                                {r.status === 'pending_approval' && (
-                                                    <div className="flex gap-2">
-                                                        <button onClick={() => handleApprove(r)} className="p-2 text-green-600 hover:bg-green-100 rounded-full transition-colors" title="Aprovar"><CheckIcon className="h-5 w-5"/></button>
-                                                        <button onClick={() => { setSelectedRefund(r); setIsDenyModalOpen(true); }} className="p-2 text-red-600 hover:bg-red-100 rounded-full transition-colors" title="Negar"><XMarkIcon className="h-5 w-5"/></button>
+                                            
+                                            <td className="p-4 align-middle">
+                                                {getStatusChip(r.status)}
+                                            </td>
+                                            
+                                            <td className="p-4 align-middle text-center">
+                                                {r.status === 'pending_approval' ? (
+                                                    <div className="flex flex-col gap-2 items-center">
+                                                        <button onClick={() => handleApprove(r)} className="w-full py-2 bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800 font-bold rounded-lg transition-colors border border-green-200 text-xs shadow-sm flex items-center justify-center gap-1">
+                                                            <CheckIcon className="h-4 w-4"/> Aprovar
+                                                        </button>
+                                                        <button onClick={() => { setSelectedRefund(r); setIsDenyModalOpen(true); }} className="w-full py-2 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 font-bold rounded-lg transition-colors border border-red-200 text-xs shadow-sm flex items-center justify-center gap-1">
+                                                            <XMarkIcon className="h-4 w-4"/> Negar
+                                                        </button>
                                                     </div>
+                                                ) : (
+                                                    <span className="text-xs text-gray-400 italic">Finalizado</span>
                                                 )}
                                             </td>
                                         </tr>
                                     )})
                                 ) : (
                                     <tr>
-                                        <td colSpan="7" className="p-12 text-center text-gray-500">
+                                        <td colSpan="6" className="p-12 text-center text-gray-500">
                                             <div className="flex flex-col items-center justify-center">
                                                 <CurrencyDollarArrowIcon className="h-12 w-12 text-gray-300 mb-3" />
                                                 <h3 className="text-lg font-bold text-gray-700">Nenhum reembolso encontrado</h3>
@@ -13643,13 +13734,15 @@ const AdminRefunds = ({ onNavigate }) => {
                             </tbody>
                         </table>
                     </div>
+
                      {/* Mobile Card View */}
-                     <div className="md:hidden p-4 bg-gray-50">
+                     <div className="md:hidden p-4 bg-gray-50 space-y-4">
                         {filteredRefunds.length > 0 ? (
                             filteredRefunds.map(r => {
-                                const images = getImagesArray(r.images);
+                                const images = safeParseJSON(r.images);
+                                const items = safeParseJSON(r.order_items);
                                 return (
-                                <div key={r.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm text-sm mb-4 last:mb-0">
+                                <div key={r.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm text-sm">
                                     <div className="flex justify-between items-start mb-3 pb-3 border-b border-gray-100">
                                         <div>
                                             <p className="font-bold text-indigo-700 text-lg">Pedido #{r.order_id}</p>
@@ -13657,32 +13750,63 @@ const AdminRefunds = ({ onNavigate }) => {
                                         </div>
                                         {getStatusChip(r.status)}
                                     </div>
+                                    
                                     <div className="grid grid-cols-2 gap-y-3 gap-x-4 mb-3">
-                                        <div><strong className="text-gray-500 block text-xs uppercase tracking-wide">Cliente</strong> <span className="font-medium text-gray-900">{r.customer_name}</span></div>
-                                        <div><strong className="text-gray-500 block text-xs uppercase tracking-wide">Valor</strong> <span className="font-bold text-gray-900">R$ {Number(r.amount).toFixed(2)}</span></div>
-                                        <div className="col-span-2"><strong className="text-gray-500 block text-xs uppercase tracking-wide">Pagamento</strong> <span className="capitalize text-gray-700">{getPaymentMethodName(r.payment_method, r.payment_details)}</span></div>
+                                        <div>
+                                            <strong className="text-gray-500 block text-[10px] uppercase tracking-wide">Cliente</strong> 
+                                            <span className="font-medium text-gray-900">{r.customer_name}</span>
+                                            <span className="block text-xs font-mono text-gray-500">{maskCPF(r.customer_cpf || '')}</span>
+                                        </div>
+                                        <div>
+                                            <strong className="text-gray-500 block text-[10px] uppercase tracking-wide">Valor do Reembolso</strong> 
+                                            <span className="font-bold text-green-600 text-lg">R$ {Number(r.amount).toFixed(2)}</span>
+                                        </div>
                                     </div>
+
+                                    {/* Whatsapp da Coleta Mobile */}
+                                    {r.contact_phone && (
+                                        <div className="mb-3 bg-blue-50 border border-blue-100 p-3 rounded-lg">
+                                            <strong className="text-blue-800 block text-[10px] uppercase tracking-wide mb-1">Agendar Coleta (WhatsApp)</strong>
+                                            <a href={`https://wa.me/55${r.contact_phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-green-700 font-bold hover:underline text-sm">
+                                                <WhatsappIcon className="h-5 w-5"/> {maskPhone(r.contact_phone)}
+                                            </a>
+                                        </div>
+                                    )}
+
+                                    {/* Itens do Pedido Mobile */}
+                                    <div className="mb-3 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                                        <strong className="text-gray-500 block text-[10px] uppercase tracking-wide mb-1.5">Itens Comprados</strong>
+                                        <ul className="text-xs text-gray-700 space-y-1">
+                                            {items.map((item, idx) => (
+                                                <li key={idx} className="flex gap-1">
+                                                    <span className="font-bold">{item.quantity}x</span> <span className="truncate">{item.name}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+
                                     <div className="border-t border-gray-100 pt-3">
-                                        <strong className="text-gray-500 block text-xs uppercase tracking-wide mb-1">Motivo da Solicitação</strong>
-                                        <p className="text-gray-700 break-words bg-gray-50 p-2 rounded-md font-medium">{r.reason}</p>
+                                        <strong className="text-gray-500 block text-[10px] uppercase tracking-wide mb-1">Motivo do Cliente</strong>
+                                        <p className="text-gray-900 break-words bg-yellow-50 p-3 rounded-lg border border-yellow-100 font-medium leading-snug">{r.reason}</p>
                                         
                                         {images.length > 0 && (
                                             <div className="mt-3">
-                                                <strong className="text-gray-500 block text-xs uppercase tracking-wide mb-2">Fotos Anexadas</strong>
+                                                <strong className="text-gray-500 block text-[10px] uppercase tracking-wide mb-2">Fotos Anexadas</strong>
                                                 <div className="flex gap-2 overflow-x-auto py-1">
                                                     {images.map((img, idx) => (
-                                                        <div key={idx} onClick={() => setLightboxImage(img)} className="w-14 h-14 flex-shrink-0 cursor-zoom-in rounded border border-gray-300 shadow-sm overflow-hidden active:scale-95 transition-transform bg-white">
-                                                            <img src={img} alt="Anexo" className="w-full h-full object-cover" />
+                                                        <div key={idx} onClick={() => setLightboxImage(img)} className="w-16 h-16 flex-shrink-0 cursor-zoom-in rounded-lg border border-gray-300 shadow-sm overflow-hidden active:scale-95 transition-transform bg-white">
+                                                            <img src={img} alt="Anexo do cliente" className="w-full h-full object-cover" />
                                                         </div>
                                                     ))}
                                                 </div>
                                             </div>
                                         )}
                                     </div>
+                                    
                                     {r.status === 'pending_approval' && (
-                                        <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-100">
-                                            <button onClick={() => { setSelectedRefund(r); setIsDenyModalOpen(true); }} className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 font-bold rounded-lg transition-colors">Negar</button>
-                                            <button onClick={() => handleApprove(r)} className="px-4 py-2 bg-green-50 hover:bg-green-100 text-green-700 font-bold rounded-lg transition-colors">Aprovar</button>
+                                        <div className="flex gap-2 mt-4 pt-4 border-t border-gray-100">
+                                            <button onClick={() => { setSelectedRefund(r); setIsDenyModalOpen(true); }} className="flex-1 py-3 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold rounded-xl transition-colors shadow-sm">Negar</button>
+                                            <button onClick={() => handleApprove(r)} className="flex-1 py-3 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 font-bold rounded-xl transition-colors shadow-sm">Aprovar</button>
                                         </div>
                                     )}
                                 </div>
