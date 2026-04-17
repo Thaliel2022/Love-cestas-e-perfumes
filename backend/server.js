@@ -5742,8 +5742,9 @@ app.post('/api/tasks/cancel-pending-orders', async (req, res) => {
 // (Admin) Listar todas as solicitações de reembolso
 app.get('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
     try {
-        // ATUALIZAÇÃO: Trazendo request_count para identificar reaberturas
-        // e ordenando pelo último log para que reaberturas subam para o topo da lista.
+        // ATUALIZAÇÃO: 
+        // 1. O WHERE com SELECT MAX(id) oculta todas as duplicações e mostra só o pedido mais recente.
+        // 2. O request_count procura na tabela refund_logs todas as vezes que o cliente tentou para aquele pedido.
         const sql = `
             SELECT 
                 r.*, 
@@ -5756,7 +5757,12 @@ app.get('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
                 c.name as customer_name,
                 c.cpf as customer_cpf,
                 c.phone as customer_phone,
-                (SELECT COUNT(*) FROM refund_logs rl WHERE rl.refund_id = r.id AND rl.action LIKE '%solicitado%') as request_count,
+                (
+                    SELECT COUNT(*) 
+                    FROM refund_logs rl 
+                    JOIN refunds r_sub ON rl.refund_id = r_sub.id 
+                    WHERE r_sub.order_id = o.id AND rl.action LIKE '%solicitado%'
+                ) as request_count,
                 (
                     SELECT JSON_ARRAYAGG(
                         JSON_OBJECT(
@@ -5776,7 +5782,8 @@ app.get('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
             JOIN users u_req ON r.requested_by_admin_id = u_req.id
             JOIN users c ON o.user_id = c.id
             LEFT JOIN users u_app ON r.approved_by_admin_id = u_app.id
-            ORDER BY (SELECT MAX(created_at) FROM refund_logs WHERE refund_id = r.id) DESC
+            WHERE r.id = (SELECT MAX(id) FROM refunds r2 WHERE r2.order_id = o.id)
+            ORDER BY (SELECT MAX(created_at) FROM refund_logs rl_ord WHERE rl_ord.refund_id = r.id) DESC
         `;
         const [refunds] = await db.query(sql);
         res.json(refunds);
@@ -5807,14 +5814,12 @@ app.post('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
 
         let newRefundId;
 
-        // ATUALIZAÇÃO: Se já existe um reembolso e está negado, nós o REABRIMOS (Update) em vez de criar um novo (Insert)
         if (order.refund_id) {
             const [existingRefund] = await connection.query("SELECT status FROM refunds WHERE id = ?", [order.refund_id]);
             if (existingRefund.length > 0) {
                 if (existingRefund[0].status !== 'denied') {
                     throw new Error("Este pedido já possui uma solicitação de devolução em andamento ou concluída.");
                 } else {
-                    // Atualiza a solicitação negada para pendente novamente, anexando os novos dados ao invés de criar outra
                     await connection.query(
                         "UPDATE refunds SET requested_by_admin_id = ?, amount = ?, reason = ?, status = 'pending_approval', notes = NULL, approved_by_admin_id = NULL, approved_at = NULL WHERE id = ?",
                         [requested_by_admin_id, amount, reason, order.refund_id]
@@ -5834,7 +5839,6 @@ app.post('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
             throw new Error("O valor da devolução não pode ser maior que o total do pedido.");
         }
         
-        // Se não havia reembolso anterior, insere um novo normalmente
         if (!newRefundId) {
             const [refundInsertResult] = await connection.query(
                 "INSERT INTO refunds (order_id, requested_by_admin_id, amount, reason, status) VALUES (?, ?, ?, ?, ?)",
@@ -6017,13 +6021,14 @@ app.post('/api/refunds/request', verifyToken, async (req, res) => {
 
         let newRefundId;
 
-        // ATUALIZAÇÃO: Se já existe um reembolso negado, nós REABRIMOS (Update) em vez de criar um novo registro (Insert).
+        // ATUALIZAÇÃO: Em vez de inserir, nós atualizamos o registro negado para "pendente" novamente
         if (order.refund_id) {
             const [existingRefund] = await connection.query("SELECT status FROM refunds WHERE id = ?", [order.refund_id]);
             if (existingRefund.length > 0) {
                 if (existingRefund[0].status !== 'denied') {
                     throw new Error("Este pedido já possui uma solicitação de devolução em andamento ou concluída.");
                 } else {
+                    // Reabre a solicitação reaproveitando a mesma ID
                     await connection.query(
                         "UPDATE refunds SET requested_by_admin_id = ?, amount = ?, reason = ?, status = 'pending_approval', images = ?, contact_phone = ?, notes = NULL, approved_by_admin_id = NULL, approved_at = NULL WHERE id = ?",
                         [user_id, refundAmount, reason, imagesJson, cleanPhone, order.refund_id]
@@ -6039,7 +6044,7 @@ app.post('/api/refunds/request', verifyToken, async (req, res) => {
             throw new Error("O prazo legal de 7 dias (Direito de Arrependimento) para este pedido já expirou.");
         }
 
-        // Se não foi reaberto, cria do zero
+        // Se realmente for a primeira vez que pede reembolso, cria do zero
         if (!newRefundId) {
             const [refundInsertResult] = await connection.query(
                 "INSERT INTO refunds (order_id, requested_by_admin_id, amount, reason, status, images, contact_phone) VALUES (?, ?, ?, ?, ?, ?, ?)",
