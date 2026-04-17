@@ -5742,7 +5742,8 @@ app.post('/api/tasks/cancel-pending-orders', async (req, res) => {
 // (Admin) Listar todas as solicitações de reembolso
 app.get('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
     try {
-        // ATUALIZAÇÃO: Trazendo CPF, Telefone e um JSON com os itens do pedido
+        // ATUALIZAÇÃO: Trazendo request_count para identificar reaberturas
+        // e ordenando pelo último log para que reaberturas subam para o topo da lista.
         const sql = `
             SELECT 
                 r.*, 
@@ -5755,6 +5756,7 @@ app.get('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
                 c.name as customer_name,
                 c.cpf as customer_cpf,
                 c.phone as customer_phone,
+                (SELECT COUNT(*) FROM refund_logs rl WHERE rl.refund_id = r.id AND rl.action LIKE '%solicitado%') as request_count,
                 (
                     SELECT JSON_ARRAYAGG(
                         JSON_OBJECT(
@@ -5774,7 +5776,7 @@ app.get('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
             JOIN users u_req ON r.requested_by_admin_id = u_req.id
             JOIN users c ON o.user_id = c.id
             LEFT JOIN users u_app ON r.approved_by_admin_id = u_app.id
-            ORDER BY r.created_at DESC
+            ORDER BY (SELECT MAX(created_at) FROM refund_logs WHERE refund_id = r.id) DESC
         `;
         const [refunds] = await db.query(sql);
         res.json(refunds);
