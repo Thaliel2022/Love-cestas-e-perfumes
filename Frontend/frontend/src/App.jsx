@@ -13649,8 +13649,15 @@ const AdminRefunds = ({ onNavigate }) => {
                                         return (
                                         <tr key={r.id} className="hover:bg-gray-50 transition-colors align-top">
                                             <td className="p-4">
-                                                <div className="font-mono font-bold text-indigo-600 text-base">#{r.order_id}</div>
-                                                <div className="text-xs text-gray-500 mt-1">Solicitado em:<br/>{new Date(r.created_at).toLocaleDateString('pt-BR')}</div>
+                                                <div className="flex flex-col gap-1 items-start">
+                                                    <div className="font-mono font-bold text-indigo-600 text-base">#{r.order_id}</div>
+                                                    {r.request_count > 1 && (
+                                                        <span className="bg-orange-100 text-orange-800 text-[10px] px-2 py-0.5 rounded border border-orange-200 font-bold uppercase animate-pulse">
+                                                            Reaberto ({r.request_count}ª vez)
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="text-xs text-gray-500 mt-1">Atualizado em:<br/>{new Date(r.created_at).toLocaleDateString('pt-BR')}</div>
                                             </td>
                                             
                                             <td className="p-4">
@@ -13753,8 +13760,15 @@ const AdminRefunds = ({ onNavigate }) => {
                                 return (
                                 <div key={r.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm text-sm">
                                     <div className="flex justify-between items-start mb-3 pb-3 border-b border-gray-100">
-                                        <div>
-                                            <p className="font-bold text-indigo-700 text-lg">Pedido #{r.order_id}</p>
+                                        <div className="flex flex-col gap-1 items-start">
+                                            <div className="flex items-center gap-2">
+                                                <p className="font-bold text-indigo-700 text-lg">Pedido #{r.order_id}</p>
+                                            </div>
+                                            {r.request_count > 1 && (
+                                                <span className="bg-orange-100 text-orange-800 text-[10px] px-2 py-0.5 rounded border border-orange-200 font-bold uppercase animate-pulse mb-1">
+                                                    Reaberto ({r.request_count}ª vez)
+                                                </span>
+                                            )}
                                             <p className="text-xs text-gray-500">{new Date(r.created_at).toLocaleString('pt-BR')}</p>
                                         </div>
                                         {getStatusChip(r.status)}
