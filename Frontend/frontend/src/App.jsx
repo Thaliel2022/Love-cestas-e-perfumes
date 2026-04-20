@@ -10393,8 +10393,8 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     ];
 
     return (
-        <div className="h-screen flex overflow-hidden bg-gray-50 text-slate-800 font-sans selection:bg-amber-100 selection:text-amber-900">
-            {isSidebarOpen && <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
+        <div className="h-screen flex overflow-hidden bg-[#050505] text-gray-200 font-sans selection:bg-amber-500/30 selection:text-amber-200">
+            {isSidebarOpen && <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
 
             <aside className={`bg-[#0a0a0a] w-72 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 flex flex-col border-r border-gray-800 shadow-2xl lg:shadow-none`}>
                 
@@ -10473,18 +10473,19 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
             </aside>
 
             <div className="flex-1 flex flex-col overflow-hidden relative">
-                <header className="bg-white/90 backdrop-blur-md h-20 flex items-center justify-between px-6 sm:px-8 flex-shrink-0 z-20 border-b border-gray-200 sticky top-0 shadow-sm">
+                {/* CABEÇALHO SUPERIOR (TOPBAR) */}
+                <header className="bg-[#0a0a0a]/90 backdrop-blur-md h-20 flex items-center justify-between px-6 sm:px-8 flex-shrink-0 z-20 border-b border-gray-800 sticky top-0 shadow-sm">
                      <div className="flex items-center gap-4">
-                         <button onClick={() => setIsSidebarOpen(true)} className="p-2 lg:hidden text-slate-500 hover:bg-gray-100 rounded-md transition-colors">
+                         <button onClick={() => setIsSidebarOpen(true)} className="p-2 lg:hidden text-gray-400 hover:bg-gray-800 rounded-md transition-colors">
                             <MenuIcon className="h-6 w-6"/>
                          </button>
-                         <h1 className="text-2xl font-extrabold text-slate-800 capitalize tracking-tight hidden sm:block">
+                         <h1 className="text-2xl font-extrabold text-white capitalize tracking-tight hidden sm:block">
                             {activePage.split('/')[0].replace('-', ' ')}
                          </h1>
                      </div>
                      <div className="flex items-center gap-4">
                         {isMaintenance ? (
-                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full border border-amber-200 shadow-sm">
+                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-amber-900/30 text-amber-400 rounded-full border border-amber-500/50 shadow-sm">
                                 <span className="relative flex h-2 w-2">
                                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                                   <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
@@ -10492,7 +10493,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                                 <span className="text-xs font-bold tracking-wide">EM MANUTENÇÃO</span>
                             </div>
                         ) : (
-                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-full border border-green-100 shadow-sm">
+                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-900/30 text-green-400 rounded-full border border-green-500/50 shadow-sm">
                                 <span className="relative flex h-2 w-2">
                                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
@@ -10503,7 +10504,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                      </div>
                 </header>
 
-                <main ref={mainContentRef} className="flex-grow p-6 sm:p-8 overflow-y-auto bg-gray-50/50">
+                <main ref={mainContentRef} className="flex-grow p-6 sm:p-8 overflow-y-auto bg-[#050505]">
                     <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
                         {children}
                     </div>
@@ -10976,8 +10977,8 @@ const AdminDashboard = ({ onNavigate }) => {
                 maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
                 scales: {
-                    x: { grid: { display: false }, ticks: { font: { size: 10, family: 'sans-serif' }, color: '#64748b' } },
-                    y: { grid: { borderDash: [2, 4], color: '#f1f5f9' }, ticks: { font: { size: 10 }, color: '#64748b' }, beginAtZero: true }
+                    x: { grid: { display: false }, ticks: { font: { size: 10, family: 'sans-serif' }, color: '#9ca3af' } },
+                    y: { grid: { borderDash: [2, 4], color: '#374151' }, ticks: { font: { size: 10 }, color: '#9ca3af' }, beginAtZero: true }
                 }
             };
 
@@ -10992,18 +10993,18 @@ const AdminDashboard = ({ onNavigate }) => {
                 return dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
             });
 
-            // ATUALIZAÇÃO DA COR DO GRÁFICO DE LINHA (Amber/Gold Premium)
+            // GRÁFICO DE LINHA (Amber/Gold Premium)
             renderChart('dailySalesChart', 'line', {
                 labels: safeLabels,
                 datasets: [{
                     label: 'Faturamento',
                     data: dailySalesData.map(d => d.daily_total),
-                    borderColor: '#d97706', // Amber 600
+                    borderColor: '#fbbf24', // Amber 400
                     backgroundColor: (context) => {
                         const ctx = context.chart.ctx;
                         const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-                        gradient.addColorStop(0, 'rgba(217, 119, 6, 0.2)');
-                        gradient.addColorStop(1, 'rgba(217, 119, 6, 0.0)');
+                        gradient.addColorStop(0, 'rgba(251, 191, 36, 0.3)');
+                        gradient.addColorStop(1, 'rgba(251, 191, 36, 0.0)');
                         return gradient;
                     },
                     borderWidth: 2,
@@ -11014,13 +11015,13 @@ const AdminDashboard = ({ onNavigate }) => {
                 }]
             }, commonOptions);
 
-            // ATUALIZAÇÃO DA COR DO GRÁFICO DE BARRAS (Slate Escuro Premium)
+            // GRÁFICO DE BARRAS (Amber Premium)
             renderChart('bestSellersChart', 'bar', {
                 labels: bestSellersData.map(p => p.name.substring(0, 15) + '...'),
                 datasets: [{
                     label: 'Vendas',
                     data: bestSellersData.map(p => p.sales || 0),
-                    backgroundColor: '#0f172a', // Slate 900
+                    backgroundColor: '#fbbf24', // Amber 400
                     borderRadius: 4,
                     barThickness: 20
                 }]
@@ -11048,23 +11049,23 @@ const AdminDashboard = ({ onNavigate }) => {
         <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-start justify-between hover:shadow-md transition-all duration-300"
+            className="bg-[#0a0a0a] p-6 rounded-xl shadow-lg border border-gray-800 flex items-start justify-between hover:shadow-xl transition-all duration-300"
         >
             <div>
-                <p className="text-sm font-semibold text-gray-500 mb-1 tracking-wide uppercase text-[10px]">{title}</p>
-                <h4 className="text-2xl font-extrabold text-slate-800">{value}</h4>
+                <p className="text-sm font-semibold text-gray-400 mb-1 tracking-wide uppercase text-[10px]">{title}</p>
+                <h4 className="text-2xl font-extrabold text-white">{value}</h4>
                 {(growth || subtext) && (
                     <div className="flex items-center gap-2 mt-2">
                         {growth && (
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${growth.isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${growth.isPositive ? 'bg-green-900/30 text-green-400 border border-green-500/30' : 'bg-red-900/30 text-red-400 border border-red-500/30'}`}>
                                 {growth.text}
                             </span>
                         )}
-                        {subtext && <span className="text-xs text-gray-400">{subtext}</span>}
+                        {subtext && <span className="text-xs text-gray-500">{subtext}</span>}
                     </div>
                 )}
             </div>
-            <div className={`p-3 rounded-lg ${iconBg}`}>
+            <div className={`p-3 rounded-lg border ${iconBg.replace('bg-', 'border-').replace('100', '800/50')} bg-gray-900/50`}>
                 <Icon className={`h-6 w-6 ${iconColor}`} />
             </div>
         </motion.div>
@@ -11075,24 +11076,24 @@ const AdminDashboard = ({ onNavigate }) => {
         const filtered = lowStockProducts.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
         return (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col h-full overflow-hidden">
-                <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                    <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm">
+            <div className="bg-[#0a0a0a] rounded-xl shadow-lg border border-gray-800 flex flex-col h-full overflow-hidden">
+                <div className="p-5 border-b border-gray-800 flex justify-between items-center bg-[#111]">
+                    <h3 className="font-bold text-white flex items-center gap-2 text-sm">
                         <ExclamationCircleIcon className="h-5 w-5 text-amber-500" />
                         Reposição Necessária
                     </h3>
-                    <span className="text-xs font-bold bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full">{lowStockProducts.length}</span>
+                    <span className="text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2.5 py-0.5 rounded-full">{lowStockProducts.length}</span>
                 </div>
-                <div className="p-3 bg-white border-b border-gray-50">
+                <div className="p-3 bg-[#0a0a0a] border-b border-gray-800">
                     <div className="relative">
                         <input 
                             type="text" 
                             placeholder="Buscar produto..." 
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-slate-900 focus:border-slate-900 outline-none transition-all"
+                            className="w-full pl-9 pr-3 py-2 text-xs bg-gray-900 border border-gray-700 text-white rounded-md focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all placeholder-gray-500"
                         />
-                        <SearchIcon className="absolute left-3 top-2 h-3.5 w-3.5 text-gray-400" />
+                        <SearchIcon className="absolute left-3 top-2.5 h-3.5 w-3.5 text-gray-500" />
                     </div>
                 </div>
                 <div className="flex-grow overflow-y-auto max-h-[320px] p-2 space-y-1 custom-scrollbar">
@@ -11100,29 +11101,29 @@ const AdminDashboard = ({ onNavigate }) => {
                         <div 
                             key={item.id + item.name} 
                             onClick={() => { setSelectedStockItem(item); setIsStockModalOpen(true); }}
-                            className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors group border border-transparent hover:border-gray-100 cursor-pointer"
+                            className="flex items-center justify-between p-3 hover:bg-gray-800/50 rounded-lg transition-colors group border border-transparent hover:border-gray-700 cursor-pointer"
                         >
                             <div className="flex items-center gap-3 overflow-hidden">
-                                <div className="w-8 h-8 rounded bg-gray-100 flex-shrink-0 border border-gray-200 p-0.5">
+                                <div className="w-8 h-8 rounded bg-white flex-shrink-0 p-0.5">
                                     <img src={getFirstImage(item.images)} alt={item.name} className="w-full h-full object-contain rounded-sm" />
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-xs font-semibold text-slate-700 truncate">{item.name}</p>
-                                    <p className="text-[10px] text-slate-400">{item.brand}</p>
+                                    <p className="text-xs font-semibold text-gray-200 truncate">{item.name}</p>
+                                    <p className="text-[10px] text-gray-500">{item.brand}</p>
                                 </div>
                             </div>
                             <div className="text-right flex-shrink-0 flex flex-col items-end">
-                                <span className="text-xs font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">{item.stock} un.</span>
+                                <span className="text-xs font-bold text-red-400 bg-red-900/30 border border-red-500/20 px-2 py-0.5 rounded">{item.stock} un.</span>
                                 <span 
-                                    className="text-[10px] text-amber-600 font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="text-[10px] text-amber-400 font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
                                     Repor
                                 </span>
                             </div>
                         </div>
                     )) : (
-                        <div className="flex flex-col items-center justify-center py-10 text-gray-400">
-                            <CheckCircleIcon className="h-8 w-8 text-green-100 mb-2"/>
+                        <div className="flex flex-col items-center justify-center py-10 text-gray-500">
+                            <CheckCircleIcon className="h-8 w-8 text-green-500/30 mb-2"/>
                             <p className="text-xs">Estoque saudável!</p>
                         </div>
                     )}
@@ -11140,19 +11141,19 @@ const AdminDashboard = ({ onNavigate }) => {
             </AnimatePresence>
 
             {/* Header com Filtros Premium */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-gray-200 pb-5">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-gray-800 pb-5">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Dashboard</h2>
-                    <p className="text-slate-500 text-sm mt-1">Bem-vindo de volta, {user?.name.split(' ')[0]}. Aqui está o que está acontecendo hoje.</p>
+                    <h2 className="text-2xl font-bold text-white tracking-tight">Dashboard</h2>
+                    <p className="text-gray-400 text-sm mt-1">Bem-vindo de volta, {user?.name.split(' ')[0]}. Aqui está o resumo das suas vendas.</p>
                 </div>
-                <div className="flex bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
+                <div className="flex bg-[#0a0a0a] p-1 rounded-lg border border-gray-800 shadow-sm">
                     {['today', 'week', 'month', 'year'].map(f => {
                         const labels = { today: 'Hoje', week: '7 Dias', month: 'Este Mês', year: 'Este Ano' };
                         return (
                             <button
                                 key={f}
                                 onClick={() => setActiveFilter(f)}
-                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeFilter === f ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-gray-50'}`}
+                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeFilter === f ? 'bg-amber-500 text-black shadow-md' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
                             >
                                 {labels[f]}
                             </button>
@@ -11173,53 +11174,53 @@ const AdminDashboard = ({ onNavigate }) => {
                             growth={growth}
                             subtext="vs. período anterior"
                             icon={CurrencyDollarIcon}
-                            iconBg="bg-green-100"
-                            iconColor="text-green-600"
+                            iconBg="bg-green-900"
+                            iconColor="text-green-400"
                         />
                         <StatCard 
                             title="Vendas Realizadas" 
                             value={stats.totalSales} 
                             icon={BoxIcon}
-                            iconBg="bg-blue-100"
-                            iconColor="text-blue-600"
+                            iconBg="bg-blue-900"
+                            iconColor="text-blue-400"
                         />
                         <StatCard 
                             title="Novos Clientes" 
                             value={stats.newCustomers} 
                             icon={UsersIcon}
-                            iconBg="bg-purple-100"
-                            iconColor="text-purple-600"
+                            iconBg="bg-purple-900"
+                            iconColor="text-purple-400"
                         />
                         <StatCard 
                             title="Pedidos Pendentes" 
                             value={stats.pendingOrders} 
                             icon={ClockIcon}
-                            iconBg="bg-amber-100"
-                            iconColor="text-amber-600"
+                            iconBg="bg-amber-900"
+                            iconColor="text-amber-400"
                         />
                     </div>
 
                     {/* Seção de Exportação */}
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                        <h3 className="font-bold text-slate-800 text-lg mb-4">Exportar Relatórios</h3>
+                    <div className="bg-[#0a0a0a] p-6 rounded-xl shadow-lg border border-gray-800">
+                        <h3 className="font-bold text-white text-lg mb-4">Exportar Relatórios</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <button 
                                 onClick={() => handleSalesExport('excel')} 
-                                className="bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
+                                className="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
                             >
-                                <DownloadIcon className="h-5 w-5"/> <span>Vendas (Excel)</span>
+                                <DownloadIcon className="h-5 w-5 text-green-400"/> <span>Vendas (Excel)</span>
                             </button>
                             <button 
                                 onClick={() => handleStockExport('excel')} 
-                                className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
+                                className="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
                             >
-                                <DownloadIcon className="h-5 w-5"/> <span>Estoque (Excel)</span>
+                                <DownloadIcon className="h-5 w-5 text-blue-400"/> <span>Estoque (Excel)</span>
                             </button>
                             <button 
                                 onClick={() => handleSalesExport('pdf')} 
-                                className="bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
+                                className="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
                             >
-                                <DownloadIcon className="h-5 w-5"/> <span>Vendas (PDF)</span>
+                                <DownloadIcon className="h-5 w-5 text-red-400"/> <span>Vendas (PDF)</span>
                             </button>
                         </div>
                     </div>
@@ -11227,10 +11228,10 @@ const AdminDashboard = ({ onNavigate }) => {
                     {/* Área Principal: Gráfico e Estoque */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Gráfico Principal */}
-                        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <div className="lg:col-span-2 bg-[#0a0a0a] p-6 rounded-xl shadow-lg border border-gray-800">
                             <div className="flex justify-between items-center mb-6">
                                 <div>
-                                    <h3 className="font-bold text-slate-800 text-lg">Performance de Vendas</h3>
+                                    <h3 className="font-bold text-white text-lg">Performance de Vendas</h3>
                                     <p className="text-xs text-gray-400">Receita bruta ao longo do tempo</p>
                                 </div>
                             </div>
@@ -11250,8 +11251,8 @@ const AdminDashboard = ({ onNavigate }) => {
                     {/* Área Inferior: Ações e Secundários */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Gráfico Secundário */}
-                        <div className="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                            <h3 className="font-bold text-slate-800 text-lg mb-4">Top 5 Mais Vendidos</h3>
+                        <div className="lg:col-span-1 bg-[#0a0a0a] p-6 rounded-xl shadow-lg border border-gray-800">
+                            <h3 className="font-bold text-white text-lg mb-4">Top 5 Mais Vendidos</h3>
                             <div className="h-64 relative">
                                 <canvas id="bestSellersChart"></canvas>
                             </div>
@@ -11259,29 +11260,28 @@ const AdminDashboard = ({ onNavigate }) => {
                         
                         {/* Manutenção e Ações Rápidas */}
                         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-                             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
-                                <h3 className="font-bold text-slate-800 mb-2">Status da Loja</h3>
+                             <div className="bg-[#0a0a0a] p-6 rounded-xl shadow-lg border border-gray-800 flex flex-col justify-center">
                                 <MaintenanceModeToggle />
                             </div>
 
-                            <div className="bg-gradient-to-br from-slate-900 to-black p-6 rounded-xl shadow-lg text-white border border-gray-800">
+                            <div className="bg-gradient-to-br from-amber-900/40 to-black p-6 rounded-xl shadow-lg border border-amber-900/30 text-white">
                                 <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
                                     <SparklesIcon className="h-5 w-5 text-amber-400"/> Ações Rápidas
                                 </h3>
                                 <div className="grid grid-cols-2 gap-3">
-                                    <button onClick={() => onNavigate('admin/products')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
+                                    <button onClick={() => onNavigate('admin/products')} className="bg-white/5 hover:bg-white/10 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/10">
                                         <PlusIcon className="h-5 w-5 mb-2 text-green-400"/>
                                         <span className="text-xs font-bold block text-gray-200">Novo Produto</span>
                                     </button>
-                                    <button onClick={() => onNavigate('admin/banners')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
+                                    <button onClick={() => onNavigate('admin/banners')} className="bg-white/5 hover:bg-white/10 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/10">
                                         <PhotoIcon className="h-5 w-5 mb-2 text-blue-400"/>
                                         <span className="text-xs font-bold block text-gray-200">Banners</span>
                                     </button>
-                                    <button onClick={() => handleStockExport('excel')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
+                                    <button onClick={() => handleStockExport('excel')} className="bg-white/5 hover:bg-white/10 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/10">
                                         <FileIcon className="h-5 w-5 mb-2 text-amber-400"/>
                                         <span className="text-xs font-bold block text-gray-200">Rel. Estoque</span>
                                     </button>
-                                    <button onClick={() => onNavigate('admin/coupons')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
+                                    <button onClick={() => onNavigate('admin/coupons')} className="bg-white/5 hover:bg-white/10 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/10">
                                         <TagIcon className="h-5 w-5 mb-2 text-pink-400"/>
                                         <span className="text-xs font-bold block text-gray-200">Cupom</span>
                                     </button>
@@ -15290,7 +15290,6 @@ const MaintenanceModeToggle = () => {
             await apiService('/settings/maintenance', 'PUT', { status: newStatus ? 'on' : 'off' });
             setIsOn(newStatus);
             notification.show(`Modo de manutenção foi ${newStatus ? 'ATIVADO' : 'DESATIVADO'}.`);
-            // Dispara um evento global para atualizar a barra do topo (AdminLayout) na hora
             window.dispatchEvent(new CustomEvent('maintenance-changed', { detail: newStatus ? 'on' : 'off' }));
         } catch (error) {
             notification.show(`Erro ao alterar status: ${error.message}`, 'error');
@@ -15302,20 +15301,20 @@ const MaintenanceModeToggle = () => {
     const spring = { type: "spring", stiffness: 700, damping: 30 };
 
     return (
-        <div className={`bg-white p-6 rounded-lg shadow ${isOn ? 'border-l-4 border-red-500' : ''}`}>
-            <h3 className="font-bold text-lg mb-3">Modo de Manutenção</h3>
+        <div className={`bg-[#0a0a0a] p-6 rounded-xl border border-gray-800 shadow-lg ${isOn ? 'border-l-4 border-l-red-500' : ''}`}>
+            <h3 className="font-bold text-lg mb-3 text-white">Modo de Manutenção</h3>
             <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-600 max-w-xs">
+                <p className="text-sm text-gray-400 max-w-xs">
                     {isOn 
                         ? "O site está em manutenção. Apenas administradores logados podem acessar." 
                         : "O site está online e acessível para todos os usuários."
                     }
                 </p>
                 {isLoading ? (
-                    <SpinnerIcon className="h-6 w-6 text-gray-400"/>
+                    <SpinnerIcon className="h-6 w-6 text-gray-600"/>
                 ) : (
                     <div 
-                        className={`flex items-center w-14 h-8 rounded-full p-1 cursor-pointer transition-colors ${isOn ? 'bg-red-500 justify-end' : 'bg-gray-300 justify-start'}`}
+                        className={`flex items-center w-14 h-8 rounded-full p-1 cursor-pointer transition-colors ${isOn ? 'bg-red-500 justify-end' : 'bg-gray-700 justify-start'}`}
                         onClick={handleToggle}
                     >
                         <motion.div 
