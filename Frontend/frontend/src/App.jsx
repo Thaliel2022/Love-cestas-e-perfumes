@@ -12333,7 +12333,6 @@ const AdminProducts = ({ onNavigate }) => {
   const [isClearingPromos, setIsClearingPromos] = useState(false); 
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
-  // NOVO ESTADO: Controle da tela de carregamento em tela cheia para ações em massa
   const [bulkProgress, setBulkProgress] = useState({ isRunning: false, text: '' });
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -12376,7 +12375,7 @@ const AdminProducts = ({ onNavigate }) => {
 
       if (!timeLeft) return null;
       if (timeLeft === 'Expirado') return <span className="text-gray-500 text-[10px] font-bold">Expirado</span>;
-      return <span className="text-red-600 font-bold text-[10px] animate-pulse">{timeLeft}</span>;
+      return <span className="text-red-500 font-bold text-[10px] animate-pulse">{timeLeft}</span>;
   };
 
   const fetchProducts = useCallback(() => {
@@ -12450,7 +12449,7 @@ const AdminProducts = ({ onNavigate }) => {
                 await apiService(`/products/${id}`, 'DELETE');
                 fetchProducts();
                 notification.show('Produto deletado com sucesso.');
-                setSearchTerm(''); // Limpa a barra de pesquisa para evitar o bug de tela vazia com autofill
+                setSearchTerm(''); 
               } catch(error) {
                 notification.show(`Erro ao deletar produto: ${error.message}`, 'error');
               }
@@ -12494,18 +12493,15 @@ const AdminProducts = ({ onNavigate }) => {
               setIsUpdatingStatus(true);
               setBulkProgress({ isRunning: true, text: `${newStatus ? 'Ativando' : 'Inativando'} ${selectedProducts.length} produto(s)...` });
               try {
-                  // Processa de forma sequencial para não sobrecarregar o pool de conexões do MySQL
                   for (const id of selectedProducts) {
                       const product = products.find(p => p.id === id);
                       if (!product) continue;
 
-                      // Clona o produto e limpa campos excedentes gerados pelo select de agregação (evita conflito)
                       const payload = { ...product, is_active: newStatus ? 1 : 0 };
                       delete payload.avg_rating;
                       delete payload.review_count;
                       delete payload.created_at;
 
-                      // Converte null para string vazia em todos os campos de texto opcionais
                       const textFields = ['description', 'notes', 'how_to_use', 'ideal_for', 'volume', 'size_guide', 'care_instructions', 'video_url'];
                       textFields.forEach(field => {
                           if (payload[field] === null || payload[field] === undefined) {
@@ -12521,7 +12517,6 @@ const AdminProducts = ({ onNavigate }) => {
 
                       if (!payload.sale_price) payload.sale_price = null;
                       
-                      // Sanitização de arrays/objetos
                       if (payload.product_type === 'clothing') {
                           if (!payload.variations || payload.variations === 'null') {
                               payload.variations = '[]';
@@ -12633,7 +12628,6 @@ const AdminProducts = ({ onNavigate }) => {
       );
   };
 
-  // Verificações lógicas para exibir botões apropriados na barra de ações em massa
   const hasInactiveSelected = selectedProducts.some(id => products.find(p => p.id === id)?.is_active === 0);
   const hasActiveSelected = selectedProducts.some(id => products.find(p => p.id === id)?.is_active === 1);
 
@@ -12646,13 +12640,13 @@ const AdminProducts = ({ onNavigate }) => {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-900/80 backdrop-blur-sm"
+                    className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/80 backdrop-blur-md"
                 >
-                    <div className="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center transform transition-all">
-                        <SpinnerIcon className="h-14 w-14 text-indigo-600 mb-5 animate-spin" />
-                        <h3 className="text-xl font-extrabold text-slate-800 mb-2">Processando</h3>
-                        <p className="text-sm font-medium text-slate-600">{bulkProgress.text}</p>
-                        <p className="text-xs text-slate-400 mt-4">Por favor, não feche esta janela.</p>
+                    <div className="bg-[#0a0a0a] border border-gray-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center transform transition-all ring-1 ring-amber-500/30">
+                        <SpinnerIcon className="h-14 w-14 text-amber-500 mb-5 animate-spin" />
+                        <h3 className="text-xl font-extrabold text-white mb-2">Processando</h3>
+                        <p className="text-sm font-medium text-gray-400">{bulkProgress.text}</p>
+                        <p className="text-xs text-gray-600 mt-4">Por favor, não feche esta janela.</p>
                     </div>
                 </motion.div>
             )}
@@ -12660,54 +12654,55 @@ const AdminProducts = ({ onNavigate }) => {
 
         <AnimatePresence>
             {isBulkPromoModalOpen && (
-                <Modal isOpen={isBulkPromoModalOpen} onClose={() => setIsBulkPromoModalOpen(false)} title={`Aplicar Promoção em ${selectedProducts.length} Produtos`}>
-                    <form onSubmit={handleBulkPromotion} className="space-y-6">
-                        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-                            <p className="text-sm text-yellow-800">
+                <Modal isOpen={isBulkPromoModalOpen} onClose={() => setIsBulkPromoModalOpen(false)} title={`Aplicar Promoção em ${selectedProducts.length} Produtos`} isDark={true}>
+                    <form onSubmit={handleBulkPromotion} className="space-y-6 text-gray-200">
+                        <div className="bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-md">
+                            <p className="text-sm text-amber-200">
                                 <strong>Atenção:</strong> Isso atualizará o preço promocional de todos os produtos selecionados baseado no desconto escolhido sobre o preço original atual.
                             </p>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Porcentagem de Desconto (%)</label>
+                            <label className="block text-sm font-medium text-gray-400 mb-1">Porcentagem de Desconto (%)</label>
                             <input 
                                 type="number" 
                                 min="1" 
                                 max="99" 
                                 value={bulkDiscount} 
                                 onChange={(e) => setBulkDiscount(e.target.value)} 
-                                className="w-full p-2 border border-gray-300 rounded-md text-lg font-bold text-gray-800"
+                                className="w-full p-2 bg-[#111] border border-gray-700 rounded-md text-lg font-bold text-white focus:ring-1 focus:ring-amber-500 outline-none"
                             />
                         </div>
 
-                        <div className="flex items-center space-x-3 p-3 border rounded-md">
+                        <div className="flex items-center space-x-3 p-3 bg-[#111] border border-gray-800 rounded-md">
                             <input 
                                 type="checkbox" 
                                 id="bulkTimeLimit" 
                                 checked={isBulkLimitedTime} 
                                 onChange={(e) => setIsBulkLimitedTime(e.target.checked)} 
-                                className="h-5 w-5 text-amber-600 rounded"
+                                className="h-5 w-5 bg-gray-800 border-gray-700 text-amber-500 rounded focus:ring-amber-500"
                             />
-                            <label htmlFor="bulkTimeLimit" className="text-gray-800 font-medium cursor-pointer">Definir Tempo Limitado?</label>
+                            <label htmlFor="bulkTimeLimit" className="text-gray-300 font-medium cursor-pointer">Definir Tempo Limitado?</label>
                         </div>
 
                         {isBulkLimitedTime && (
                             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
-                                <label className="block text-sm font-bold text-red-600 mb-1">Data/Hora de Término</label>
+                                <label className="block text-sm font-bold text-red-400 mb-1">Data/Hora de Término</label>
                                 <input 
                                     type="datetime-local" 
                                     value={bulkEndDate} 
                                     onChange={(e) => setBulkEndDate(e.target.value)} 
-                                    className="w-full p-2 border border-red-300 rounded-md focus:ring-red-500"
+                                    className="w-full p-2 bg-[#111] border border-red-900/50 rounded-md focus:ring-1 focus:ring-red-500 text-white outline-none"
                                     required={isBulkLimitedTime}
+                                    style={{ colorScheme: 'dark' }}
                                 />
                                 <p className="text-xs text-gray-500 mt-1">Os produtos voltarão ao preço original automaticamente após esta data.</p>
                             </motion.div>
                         )}
 
-                        <div className="flex justify-end gap-3 pt-4 border-t">
-                            <button type="button" onClick={() => setIsBulkPromoModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50" disabled={isApplyingBulk}>Cancelar</button>
-                            <button type="submit" disabled={isApplyingBulk} className="px-6 py-2 bg-amber-500 text-black font-bold rounded-md hover:bg-amber-400 flex items-center gap-2 disabled:opacity-50">
+                        <div className="flex justify-end gap-3 pt-4 border-t border-gray-800 mt-4">
+                            <button type="button" onClick={() => setIsBulkPromoModalOpen(false)} className="px-4 py-2 bg-gray-800 text-gray-300 rounded-md hover:bg-gray-700 font-bold disabled:opacity-50 transition-colors" disabled={isApplyingBulk}>Cancelar</button>
+                            <button type="submit" disabled={isApplyingBulk} className="px-6 py-2 bg-amber-500 text-black font-bold rounded-md hover:bg-amber-400 flex items-center gap-2 disabled:opacity-50 transition-colors shadow-md">
                                 {isApplyingBulk ? <SpinnerIcon className="h-5 w-5"/> : <SaleIcon className="h-5 w-5"/>}
                                 Aplicar Desconto
                             </button>
@@ -12724,6 +12719,7 @@ const AdminProducts = ({ onNavigate }) => {
                     onClose={() => setIsModalOpen(false)} 
                     title={editingProduct ? 'Editar Produto' : 'Adicionar Novo Produto'}
                     size="3xl"
+                    isDark={true}
                 >
                     <ProductForm
                         item={editingProduct} 
@@ -12739,9 +12735,9 @@ const AdminProducts = ({ onNavigate }) => {
         </AnimatePresence>
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-            <h1 className="text-3xl font-bold">Gerenciar Produtos</h1>
+            <h1 className="text-3xl font-bold text-white tracking-tight">Gerenciar Produtos</h1>
             <div className="flex flex-wrap gap-2">
-                <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2 shadow-sm transition-colors">
+                <button onClick={() => handleOpenModal()} className="bg-amber-500 text-black px-5 py-2.5 rounded-lg hover:bg-amber-400 font-bold flex items-center space-x-2 shadow-lg hover:shadow-amber-500/20 transition-all active:scale-95">
                     <PlusIcon className="h-5 w-5"/> <span>Novo Produto</span>
                 </button>
             </div>
@@ -12754,33 +12750,33 @@ const AdminProducts = ({ onNavigate }) => {
                     initial={{ opacity: 0, y: -10 }} 
                     animate={{ opacity: 1, y: 0 }} 
                     exit={{ opacity: 0, y: -10 }}
-                    className="bg-indigo-50 border border-indigo-200 p-3 rounded-lg mb-6 flex flex-wrap items-center justify-between gap-3 sticky top-16 z-20 shadow-md"
+                    className="bg-amber-900/20 border border-amber-500/30 p-3 rounded-xl mb-6 flex flex-wrap items-center justify-between gap-3 sticky top-24 z-20 shadow-xl backdrop-blur-md"
                 >
-                    <div className="text-sm font-bold text-indigo-800 flex items-center gap-2">
-                        <span className="bg-indigo-200 text-indigo-900 px-2.5 py-0.5 rounded-full">{selectedProducts.length}</span>
+                    <div className="text-sm font-bold text-amber-400 flex items-center gap-2">
+                        <span className="bg-amber-500 text-black px-2.5 py-0.5 rounded-full">{selectedProducts.length}</span>
                         itens selecionados
                     </div>
                     <div className="flex flex-wrap gap-2">
                         {hasInactiveSelected && (
-                            <button onClick={() => handleBulkStatusUpdate(true)} disabled={isUpdatingStatus} className="px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700 flex items-center gap-1 shadow-sm disabled:opacity-50">
+                            <button onClick={() => handleBulkStatusUpdate(true)} disabled={isUpdatingStatus} className="px-3 py-1.5 bg-green-900/50 text-green-400 border border-green-500/50 text-xs font-bold rounded hover:bg-green-900 flex items-center gap-1 shadow-sm disabled:opacity-50 transition-colors">
                                 <CheckIcon className="h-3 w-3"/> Ativar
                             </button>
                         )}
                         {hasActiveSelected && (
-                            <button onClick={() => handleBulkStatusUpdate(false)} disabled={isUpdatingStatus} className="px-3 py-1.5 bg-gray-600 text-white text-xs font-bold rounded hover:bg-gray-700 flex items-center gap-1 shadow-sm disabled:opacity-50">
+                            <button onClick={() => handleBulkStatusUpdate(false)} disabled={isUpdatingStatus} className="px-3 py-1.5 bg-gray-800 text-gray-300 border border-gray-600 text-xs font-bold rounded hover:bg-gray-700 flex items-center gap-1 shadow-sm disabled:opacity-50 transition-colors">
                                 <XMarkIcon className="h-3 w-3"/> Inativar
                             </button>
                         )}
-                        <button onClick={() => setIsBulkPromoModalOpen(true)} disabled={isApplyingBulk} className="px-3 py-1.5 bg-amber-500 text-black text-xs font-bold rounded hover:bg-amber-400 flex items-center gap-1 shadow-sm disabled:opacity-50">
+                        <button onClick={() => setIsBulkPromoModalOpen(true)} disabled={isApplyingBulk} className="px-3 py-1.5 bg-amber-500 text-black border border-amber-400 text-xs font-bold rounded hover:bg-amber-400 flex items-center gap-1 shadow-sm disabled:opacity-50 transition-colors">
                             <SaleIcon className="h-3 w-3"/> Promoção
                         </button>
-                        <button onClick={handleClearSelectedPromotions} disabled={isClearingPromos} className="px-3 py-1.5 bg-orange-600 text-white text-xs font-bold rounded hover:bg-orange-700 flex items-center gap-1 shadow-sm disabled:opacity-50">
+                        <button onClick={handleClearSelectedPromotions} disabled={isClearingPromos} className="px-3 py-1.5 bg-orange-900/50 text-orange-400 border border-orange-500/50 text-xs font-bold rounded hover:bg-orange-900/80 flex items-center gap-1 shadow-sm disabled:opacity-50 transition-colors">
                             <XMarkIcon className="h-3 w-3"/> Encerrar Promo
                         </button>
-                        <button onClick={handleBulkDelete} disabled={bulkProgress.isRunning} className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded hover:bg-red-700 flex items-center gap-1 shadow-sm disabled:opacity-50">
+                        <button onClick={handleBulkDelete} disabled={bulkProgress.isRunning} className="px-3 py-1.5 bg-red-900/50 text-red-400 border border-red-500/50 text-xs font-bold rounded hover:bg-red-900/80 flex items-center gap-1 shadow-sm disabled:opacity-50 transition-colors">
                             <TrashIcon className="h-3 w-3"/> Excluir
                         </button>
-                        <button onClick={() => setSelectedProducts([])} disabled={bulkProgress.isRunning} className="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 text-xs font-bold rounded hover:bg-gray-100 shadow-sm ml-1 disabled:opacity-50">
+                        <button onClick={() => setSelectedProducts([])} disabled={bulkProgress.isRunning} className="px-3 py-1.5 bg-transparent border border-gray-700 text-gray-400 text-xs font-bold rounded hover:bg-gray-800 shadow-sm ml-1 disabled:opacity-50 transition-colors">
                             Cancelar
                         </button>
                     </div>
@@ -12789,96 +12785,106 @@ const AdminProducts = ({ onNavigate }) => {
         </AnimatePresence>
         
         <div className="mb-6">
-            <input 
-                type="text" 
-                name="search_products_no_autofill" 
-                autoComplete="new-password" 
-                spellCheck="false"
-                data-lpignore="true"
-                data-form-type="other"
-                placeholder="Pesquisar por nome, marca ou categoria..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-            />
+            <div className="relative">
+                <input 
+                    type="text" 
+                    name="search_products_no_autofill" 
+                    autoComplete="new-password" 
+                    spellCheck="false"
+                    data-lpignore="true"
+                    data-form-type="other"
+                    placeholder="Pesquisar por nome, marca ou categoria..."
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="w-full pl-11 pr-4 py-3 bg-[#111] border border-gray-800 text-white rounded-xl shadow-sm focus:outline-none focus:ring-1 focus:ring-amber-500 placeholder-gray-600 transition-all"
+                />
+                <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
+            </div>
         </div>
 
-        <div className="bg-white shadow-md rounded-lg overflow-hidden">
+        <div className="bg-[#0a0a0a] shadow-lg rounded-xl overflow-hidden border border-gray-800">
             {/* --- VERSÃO DESKTOP --- */}
             <div className="hidden md:block">
                 <table className="w-full text-left">
-                    <thead className="bg-gray-100">
+                    <thead className="bg-[#111] border-b border-gray-800">
                         <tr>
                             <th className="p-4 w-4">
-                                <input type="checkbox" onChange={handleSelectAll} checked={filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length} />
+                                <input type="checkbox" onChange={handleSelectAll} checked={filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length} className="h-4 w-4 bg-gray-800 border-gray-700 rounded text-amber-500 focus:ring-amber-500" />
                             </th>
-                            <th className="p-4">Produto</th>
-                            <th className="p-4">Tipo</th>
-                            <th className="p-4">Preço</th>
-                            <th className="p-4">Promoção</th>
-                            <th className="p-4">Vendas</th>
-                            <th className="p-4">Estoque</th>
-                            <th className="p-4">Status</th>
-                            <th className="p-4">Ações</th>
+                            <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Produto</th>
+                            <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Tipo</th>
+                            <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Preço</th>
+                            <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Promoção</th>
+                            <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Vendas</th>
+                            <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Estoque</th>
+                            <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Status</th>
+                            <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-center">Ações</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-gray-800">
                         {filteredProducts.map(p => {
                             const isTimeLimited = p.is_on_sale && p.sale_end_date && new Date(p.sale_end_date).getTime() > new Date().getTime();
                             
                             return (
-                                <tr key={p.id} className={`border-b ${selectedProducts.includes(p.id) ? 'bg-indigo-50' : ''} ${p.stock < LOW_STOCK_THRESHOLD ? 'bg-red-50' : ''}`}>
-                                    <td className="p-4"><input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="h-4 w-4 text-indigo-600 rounded focus:ring-indigo-500" /></td>
+                                <tr key={p.id} className={`transition-colors ${selectedProducts.includes(p.id) ? 'bg-amber-900/10' : 'hover:bg-gray-900/50'} ${p.stock < LOW_STOCK_THRESHOLD ? 'bg-red-900/10' : ''}`}>
+                                    <td className="p-4">
+                                        <input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="h-4 w-4 bg-gray-800 border-gray-700 rounded text-amber-500 focus:ring-amber-500" />
+                                    </td>
                                     <td className="p-4 flex items-center">
-                                        <div className="w-10 h-10 mr-4 flex-shrink-0 bg-gray-200 rounded-md flex items-center justify-center">
+                                        <div className="w-10 h-10 mr-4 flex-shrink-0 bg-white rounded-md flex items-center justify-center p-0.5">
                                             <img src={getFirstImage(p.images, 'https://placehold.co/40x40/222/fff?text=Img')} className="max-h-full max-w-full object-contain" alt={p.name}/>
                                         </div>
                                         <div>
-                                            <p className="font-semibold">{p.name}</p>
-                                            <p className="text-xs text-gray-500">{p.brand}</p>
+                                            <p className="font-bold text-white line-clamp-1">{p.name}</p>
+                                            <p className="text-[10px] text-gray-500 uppercase tracking-widest">{p.brand}</p>
                                         </div>
                                     </td>
-                                    <td className="p-4 capitalize">
+                                    <td className="p-4 text-xs font-bold text-gray-400 uppercase tracking-widest">
                                         {p.product_type === 'clothing' ? 'Roupa' : (p.product_type === 'perfume' ? 'Perfume' : p.product_type)}
                                     </td>
                                     <td className="p-4">
                                         {p.is_on_sale && p.sale_price > 0 ? (
                                             <div className="flex flex-col">
-                                                <span className="text-red-600 font-bold">R$ {Number(p.sale_price).toFixed(2)}</span>
+                                                <span className="text-amber-400 font-bold">R$ {Number(p.sale_price).toFixed(2)}</span>
                                                 <span className="text-gray-500 text-xs line-through">R$ {Number(p.price).toFixed(2)}</span>
                                             </div>
                                         ) : (
-                                            <span>R$ {Number(p.price).toFixed(2)}</span>
+                                            <span className="text-white font-bold">R$ {Number(p.price).toFixed(2)}</span>
                                         )}
                                     </td>
                                     <td className="p-4">
                                         {p.is_on_sale ? (
-                                            <div className="flex flex-col items-start gap-1">
-                                                <span className="bg-green-100 text-green-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">Ativa</span>
+                                            <div className="flex flex-col items-start gap-1.5">
+                                                <span className="bg-green-900/30 text-green-400 border border-green-500/30 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">Ativa</span>
                                                 {isTimeLimited ? (
-                                                    <div className="flex items-center gap-1 bg-red-50 px-2 py-0.5 rounded border border-red-200">
-                                                        <ClockIcon className="h-3 w-3 text-red-500"/>
+                                                    <div className="flex items-center gap-1 bg-red-900/20 px-2 py-0.5 rounded border border-red-500/20 w-fit">
+                                                        <ClockIcon className="h-3 w-3 text-red-400"/>
                                                         <AdminCountdown endDate={p.sale_end_date} />
                                                     </div>
                                                 ) : (
-                                                    <span className="text-gray-400 text-[10px]">Sem data fim</span>
+                                                    <span className="text-gray-500 text-[10px] italic">Sem limite</span>
                                                 )}
                                             </div>
                                         ) : (
-                                            <span className="text-gray-400 text-xs">-</span>
+                                            <span className="text-gray-600 text-xs font-bold">-</span>
                                         )}
                                     </td>
-                                    <td className="p-4 font-semibold text-gray-700">
+                                    <td className="p-4 font-bold text-gray-300">
                                         {p.sales || 0}
                                     </td>
-                                    <td className={`p-4 font-bold ${p.stock < LOW_STOCK_THRESHOLD ? 'text-red-600' : ''}`}>
-                                        {p.stock < LOW_STOCK_THRESHOLD && <ExclamationIcon className="h-4 w-4 inline-block mr-1 text-yellow-500"/>}
+                                    <td className={`p-4 font-bold ${p.stock < LOW_STOCK_THRESHOLD ? 'text-red-400' : 'text-white'}`}>
+                                        {p.stock < LOW_STOCK_THRESHOLD && <ExclamationIcon className="h-4 w-4 inline-block mr-1 text-red-500"/>}
                                         {p.stock}
                                     </td>
                                     <td className="p-4">
-                                        <span className={`px-2 py-0.5 text-xs rounded-full ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700'}`}>{p.is_active ? 'Ativo' : 'Inativo'}</span>
+                                        <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full ${p.is_active ? 'bg-green-900/30 text-green-400 border border-green-500/30' : 'bg-gray-800 text-gray-400 border border-gray-700'}`}>{p.is_active ? 'Ativo' : 'Inativo'}</span>
                                     </td>
-                                    <td className="p-4 space-x-2"><button onClick={() => handleOpenModal(p)}><EditIcon className="h-5 w-5"/></button><button onClick={() => handleDelete(p.id)}><TrashIcon className="h-5 w-5"/></button></td>
+                                    <td className="p-4 text-center">
+                                        <div className="flex justify-center gap-2">
+                                            <button onClick={() => handleOpenModal(p)} className="p-2 text-gray-400 hover:text-amber-400 hover:bg-gray-800 rounded-full transition-colors" title="Editar"><EditIcon className="h-5 w-5"/></button>
+                                            <button onClick={() => handleDelete(p.id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-gray-800 rounded-full transition-colors" title="Excluir"><TrashIcon className="h-5 w-5"/></button>
+                                        </div>
+                                    </td>
                                 </tr>
                             );
                         })}
@@ -12888,78 +12894,80 @@ const AdminProducts = ({ onNavigate }) => {
             
             {/* --- VERSÃO MOBILE DO ADMIN --- */}
             <div className="md:hidden">
-                <div className="flex items-center justify-between p-4 bg-gray-50 border-b border-gray-200">
-                     <label className="flex items-center gap-3 font-bold text-gray-700">
-                        <input type="checkbox" onChange={handleSelectAll} checked={filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length} className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                <div className="flex items-center justify-between p-4 bg-[#111] border-b border-gray-800">
+                     <label className="flex items-center gap-3 font-bold text-gray-300">
+                        <input type="checkbox" onChange={handleSelectAll} checked={filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length} className="h-5 w-5 rounded bg-gray-800 border-gray-700 text-amber-500 focus:ring-amber-500" />
                         Selecionar Todos
                      </label>
-                     <span className="text-xs text-gray-500">{filteredProducts.length} itens</span>
+                     <span className="text-xs text-gray-500 font-bold">{filteredProducts.length} itens</span>
                 </div>
 
                 <div className="space-y-4 p-4">
                     {filteredProducts.map(p => {
                         const isTimeLimited = p.is_on_sale && p.sale_end_date && new Date(p.sale_end_date).getTime() > new Date().getTime();
                         return (
-                            <div key={p.id} className={`bg-white border rounded-lg p-4 shadow-sm transition-colors ${selectedProducts.includes(p.id) ? 'border-indigo-400 bg-indigo-50 ring-1 ring-indigo-400' : ''}`}>
-                                <div className="flex justify-between items-start">
+                            <div key={p.id} className={`bg-[#0a0a0a] border rounded-xl p-4 shadow-sm transition-colors ${selectedProducts.includes(p.id) ? 'border-amber-500/50 bg-amber-900/10' : 'border-gray-800'}`}>
+                                <div className="flex justify-between items-start mb-3">
                                     <div className="flex items-center">
-                                        <input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="mr-4 h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"/>
-                                        <img src={getFirstImage(p.images, 'https://placehold.co/40x40/222/fff?text=Img')} className="h-14 w-14 object-contain mr-3 bg-gray-100 rounded"/>
-                                        <div>
-                                            <p className="font-bold text-gray-900 line-clamp-1">{p.name}</p>
-                                            <p className="text-sm text-gray-500">{p.brand}</p>
+                                        <input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="mr-3 h-5 w-5 rounded bg-gray-800 border-gray-700 text-amber-500 focus:ring-amber-500"/>
+                                        <div className="h-12 w-12 bg-white rounded flex items-center justify-center p-0.5 mr-3 flex-shrink-0">
+                                            <img src={getFirstImage(p.images, 'https://placehold.co/40x40/222/fff?text=Img')} className="max-h-full max-w-full object-contain" alt={p.name}/>
                                         </div>
-                                    </div>
-                                    
-                                    {/* Badge de Status e TIPO DE PRODUTO Mobile */}
-                                    <div className="flex flex-col items-end gap-1">
-                                         <span className="bg-indigo-100 text-indigo-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase whitespace-nowrap">
-                                             {p.product_type === 'clothing' ? 'Roupa' : (p.product_type === 'perfume' ? 'Perfume' : p.product_type)}
-                                         </span>
-                                         <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold uppercase whitespace-nowrap ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'}`}>
-                                             {p.is_active ? 'Ativo' : 'Inativo'}
-                                         </span>
-                                         {!!p.is_on_sale && (
-                                             <span className="bg-red-100 text-red-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase whitespace-nowrap">Promo</span>
-                                         )}
+                                        <div>
+                                            <p className="font-bold text-white line-clamp-1 text-sm">{p.name}</p>
+                                            <p className="text-[10px] text-gray-500 uppercase tracking-widest">{p.brand}</p>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-3 gap-4 mt-4 text-sm border-t pt-4">
+                                {/* Badges */}
+                                <div className="flex flex-wrap items-center gap-2 mb-4 pl-8">
+                                    <span className="bg-blue-900/30 text-blue-400 border border-blue-500/30 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">
+                                        {p.product_type === 'clothing' ? 'Roupa' : (p.product_type === 'perfume' ? 'Perfume' : p.product_type)}
+                                    </span>
+                                    <span className={`px-2 py-0.5 text-[9px] rounded-full font-bold uppercase tracking-widest ${p.is_active ? 'bg-green-900/30 text-green-400 border border-green-500/30' : 'bg-gray-800 text-gray-400 border border-gray-700'}`}>
+                                        {p.is_active ? 'Ativo' : 'Inativo'}
+                                    </span>
+                                    {!!p.is_on_sale && (
+                                        <span className="bg-red-900/30 text-red-400 border border-red-500/30 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">Promo</span>
+                                    )}
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-3 bg-[#111] p-3 rounded-lg border border-gray-800 text-sm mb-4">
                                     <div>
-                                        <strong className="text-gray-500 block text-xs uppercase tracking-wide mb-1">Preço</strong> 
+                                        <strong className="text-gray-500 block text-[10px] uppercase tracking-wider mb-1">Preço</strong> 
                                         {!!p.is_on_sale && p.sale_price > 0 ? (
                                             <div className="flex flex-col">
-                                                <span className="text-red-600 font-bold text-lg">R$ {Number(p.sale_price).toFixed(2)}</span>
-                                                <span className="text-gray-400 text-xs line-through">R$ {Number(p.price).toFixed(2)}</span>
+                                                <span className="text-amber-400 font-bold">R$ {Number(p.sale_price).toFixed(2)}</span>
+                                                <span className="text-gray-600 text-[10px] line-through">R$ {Number(p.price).toFixed(2)}</span>
                                                 {isTimeLimited && (
-                                                    <div className="flex items-center gap-1 mt-1 bg-red-50 px-1.5 py-0.5 rounded w-fit">
+                                                    <div className="flex items-center gap-1 mt-1 bg-red-900/20 px-1.5 py-0.5 rounded border border-red-500/20 w-fit">
                                                         <ClockIcon className="h-3 w-3 text-red-500"/>
                                                         <AdminCountdown endDate={p.sale_end_date} />
                                                     </div>
                                                 )}
                                             </div>
                                         ) : (
-                                            <span className="font-bold text-gray-800">R$ {Number(p.price).toFixed(2)}</span>
+                                            <span className="font-bold text-white">R$ {Number(p.price).toFixed(2)}</span>
                                         )}
                                     </div>
-                                    <div>
-                                        <strong className="text-gray-500 block text-xs uppercase tracking-wide mb-1">Vendas</strong> 
-                                        <div className="font-bold text-gray-800">
+                                    <div className="text-center">
+                                        <strong className="text-gray-500 block text-[10px] uppercase tracking-wider mb-1">Vendas</strong> 
+                                        <div className="font-bold text-white">
                                             {p.sales || 0} un.
                                         </div>
                                     </div>
-                                    <div>
-                                        <strong className="text-gray-500 block text-xs uppercase tracking-wide mb-1">Estoque</strong> 
-                                        <div className={`font-bold ${p.stock < LOW_STOCK_THRESHOLD ? 'text-red-600 flex items-center gap-1' : 'text-gray-800'}`}>
-                                            {p.stock < LOW_STOCK_THRESHOLD && <ExclamationIcon className="h-4 w-4"/>}
+                                    <div className="text-right">
+                                        <strong className="text-gray-500 block text-[10px] uppercase tracking-wider mb-1">Estoque</strong> 
+                                        <div className={`font-bold flex justify-end items-center gap-1 ${p.stock < LOW_STOCK_THRESHOLD ? 'text-red-400' : 'text-white'}`}>
+                                            {p.stock < LOW_STOCK_THRESHOLD && <ExclamationIcon className="h-3 w-3"/>}
                                             {p.stock} un.
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex justify-end space-x-2 mt-4 pt-2 border-t">
-                                    <button onClick={() => handleOpenModal(p)} className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 rounded hover:bg-blue-100 font-medium text-xs"><EditIcon className="h-4 w-4"/> Editar</button>
-                                    <button onClick={() => handleDelete(p.id)} className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-700 rounded hover:bg-red-100 font-medium text-xs"><TrashIcon className="h-4 w-4"/> Excluir</button>
+                                <div className="flex justify-end gap-2 pt-2">
+                                    <button onClick={() => handleOpenModal(p)} className="flex-1 flex justify-center items-center gap-1.5 px-3 py-2.5 bg-gray-800 text-white rounded-lg hover:bg-gray-700 font-bold text-xs transition-colors"><EditIcon className="h-4 w-4"/> Editar</button>
+                                    <button onClick={() => handleDelete(p.id)} className="flex-1 flex justify-center items-center gap-1.5 px-3 py-2.5 bg-red-900/20 border border-red-900/50 text-red-500 rounded-lg hover:bg-red-900/40 font-bold text-xs transition-colors"><TrashIcon className="h-4 w-4"/> Excluir</button>
                                 </div>
                             </div>
                         );
