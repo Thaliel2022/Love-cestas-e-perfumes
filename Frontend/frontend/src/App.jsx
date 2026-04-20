@@ -1080,7 +1080,7 @@ const ConfirmationProvider = ({ children }) => {
 };
 
 
-const Modal = memo(({ isOpen, onClose, title, children, size = 'lg', isDark = false }) => {
+const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
   if (!isOpen) return null;
 
   const backdropVariants = {
@@ -1105,7 +1105,7 @@ const Modal = memo(({ isOpen, onClose, title, children, size = 'lg', isDark = fa
 
   return (
     <motion.div 
-      className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex justify-center items-center p-4" 
+      className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex justify-center items-center p-4" 
       variants={backdropVariants}
       initial="hidden"
       animate="visible"
@@ -1113,16 +1113,16 @@ const Modal = memo(({ isOpen, onClose, title, children, size = 'lg', isDark = fa
       onClick={onClose}
     >
       <motion.div 
-        className={`${isDark ? 'bg-[#0a0a0a] border-gray-800' : 'bg-white border-gray-200'} rounded-2xl shadow-2xl w-full flex flex-col border ${sizeClasses[size]}`} 
+        className={`bg-white rounded-lg shadow-2xl w-full flex flex-col border border-gray-200 ${sizeClasses[size]}`} 
         style={{ maxHeight: '90vh' }} 
         variants={modalVariants}
         onClick={e => e.stopPropagation()}
       >
-        <div className={`flex-shrink-0 p-6 pb-4 flex justify-between items-center border-b ${isDark ? 'border-gray-800' : 'border-gray-200'}`}>
-            <h2 className={`text-xl md:text-2xl font-extrabold ${isDark ? 'text-white' : 'text-gray-800'}`}>{title}</h2>
-            <button onClick={onClose} className={`text-3xl leading-none transition-colors ${isDark ? 'text-gray-500 hover:text-red-500' : 'text-gray-400 hover:text-red-500'}`}>×</button>
+        <div className="flex-shrink-0 p-6 pb-4 flex justify-between items-center border-b border-gray-200">
+            <h2 className="text-xl md:text-2xl font-bold text-gray-800">{title}</h2>
+            <button onClick={onClose} className="text-3xl text-gray-400 hover:text-red-500 leading-none transition-colors">×</button>
         </div>
-        <div className="flex-grow p-4 sm:p-6 overflow-y-auto custom-scrollbar">
+        <div className="flex-grow p-6 overflow-y-auto custom-scrollbar">
           {children}
         </div>
       </motion.div>
@@ -10383,7 +10383,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
        {
             title: "Sistema",
             items: [
-                { key: 'theme', label: 'Tema e Cores', icon: <SparklesIcon className="h-5 w-5"/> },
+                { key: 'theme', label: 'Tema e Cores', icon: <SparklesIcon className="h-5 w-5"/> }, // NOVO ITEM AQUI
                 { key: 'app-icons', label: 'Ícones e Nomes', icon: <CameraIcon className="h-5 w-5"/> }, 
                 { key: 'shipping', label: 'Frete Local', icon: <TruckIcon className="h-5 w-5"/> }, 
                 { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
@@ -10393,23 +10393,18 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     ];
 
     return (
-        <div className="h-screen flex overflow-hidden bg-[#050505] text-gray-200 font-sans selection:bg-amber-500/30 selection:text-amber-200">
-            {isSidebarOpen && <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
+        <div className="h-screen flex overflow-hidden bg-gray-50 text-slate-800 font-sans selection:bg-indigo-100 selection:text-indigo-700">
+            {isSidebarOpen && <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
 
-            <aside className={`bg-[#0a0a0a] w-72 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 flex flex-col border-r border-gray-800 shadow-2xl lg:shadow-none`}>
-                
-                {/* CABEÇALHO DA SIDEBAR PREMIUM */}
-                <div className="h-20 flex items-center px-6 border-b border-gray-800 flex-shrink-0 bg-[#0a0a0a]">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-gradient-to-br from-amber-400 to-amber-600 rounded-lg shadow-lg shadow-amber-900/20 flex items-center justify-center">
-                            <AdminIcon className="h-6 w-6 text-black"/>
+            <aside className={`bg-white w-72 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 flex flex-col border-r border-gray-200 shadow-xl lg:shadow-none`}>
+                <div className="h-16 flex items-center px-6 border-b border-gray-100 flex-shrink-0 bg-white">
+                    <div className="flex items-center gap-3 text-indigo-600">
+                        <div className="p-1.5 bg-indigo-600 rounded-lg">
+                            <AdminIcon className="h-5 w-5 text-white"/>
                         </div>
-                        <div className="flex flex-col justify-center">
-                            <span className="text-lg font-black tracking-tight text-white leading-none">ADMINISTRAÇÃO</span>
-                            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mt-1">Love Cestas e Perfumes</span>
-                        </div>
+                        <span className="text-lg font-extrabold tracking-tight text-slate-900">ADMINISTRAÇÃO</span>
                     </div>
-                    <button className="lg:hidden ml-auto text-gray-500 hover:text-white transition-colors" onClick={() => setIsSidebarOpen(false)}>
+                    <button className="lg:hidden ml-auto text-gray-400 hover:text-gray-600" onClick={() => setIsSidebarOpen(false)}>
                         <CloseIcon className="h-6 w-6"/>
                     </button>
                 </div>
@@ -10417,7 +10412,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                 <nav className="flex-grow p-4 space-y-6 overflow-y-auto custom-scrollbar">
                     {menuGroups.map((group, idx) => (
                         <div key={idx}>
-                            <h3 className="px-3 text-[10px] font-black text-gray-600 uppercase tracking-widest mb-2">{group.title}</h3>
+                            <h3 className="px-3 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{group.title}</h3>
                             <div className="space-y-1">
                                 {group.items.map(item => {
                                     const isActive = activePage.startsWith(item.key);
@@ -10426,20 +10421,20 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                                             href="#" 
                                             key={item.key} 
                                             onClick={(e) => { e.preventDefault(); onNavigate(`admin/${item.key}`); setIsSidebarOpen(false); }} 
-                                            className={`group flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-sm font-bold ${
+                                            className={`group flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium ${
                                                 isActive 
-                                                ? 'bg-gradient-to-r from-amber-500/10 to-transparent text-amber-400 shadow-[inset_3px_0_0_0_#fbbf24]' 
-                                                : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
+                                                ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' 
+                                                : 'text-slate-600 hover:bg-gray-50 hover:text-slate-900'
                                             }`}
                                         >
                                             <div className="flex items-center gap-3">
-                                                <span className={`transition-colors ${isActive ? 'text-amber-400' : 'text-gray-500 group-hover:text-gray-300'}`}>
+                                                <span className={`transition-colors ${isActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`}>
                                                     {item.icon}
                                                 </span>
                                                 <span>{item.label}</span>
                                             </div>
                                             {item.badge > 0 && (
-                                                <span className="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">
+                                                <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
                                                     {item.badge}
                                                 </span>
                                             )}
@@ -10451,21 +10446,21 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                     ))}
                 </nav>
 
-                <div className="p-4 border-t border-gray-800 bg-[#050505]">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-amber-400 font-bold border border-gray-700 shadow-inner">
+                <div className="p-4 border-t border-gray-100 bg-gray-50/50">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold border border-indigo-200">
                             {user?.name?.charAt(0).toUpperCase()}
                         </div>
                         <div className="overflow-hidden">
-                            <p className="text-sm font-bold text-white truncate">{user?.name}</p>
-                            <p className="text-xs text-gray-500 truncate">Administrador Premium</p>
+                            <p className="text-sm font-bold text-slate-800 truncate">{user?.name}</p>
+                            <p className="text-xs text-slate-500 truncate">Administrador</p>
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                        <button onClick={() => onNavigate('home')} className="flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-gray-800 border border-gray-700 text-gray-300 text-xs font-bold hover:bg-gray-700 hover:text-amber-400 transition-all shadow-sm">
+                        <button onClick={() => onNavigate('home')} className="flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-white border border-gray-200 text-slate-600 text-xs font-semibold hover:bg-gray-50 hover:text-indigo-600 transition-all shadow-sm">
                             <EyeIcon className="h-3 w-3"/> Ver Loja
                         </button>
-                        <button onClick={handleLogout} className="flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-red-900/20 border border-red-900/50 text-red-500 text-xs font-bold hover:bg-red-900/40 hover:text-red-400 transition-all shadow-sm">
+                        <button onClick={handleLogout} className="flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-white border border-red-100 text-red-600 text-xs font-semibold hover:bg-red-50 hover:border-red-200 transition-all shadow-sm">
                             <ArrowUturnLeftIcon className="h-3 w-3"/> Sair
                         </button>
                     </div>
@@ -10473,19 +10468,18 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
             </aside>
 
             <div className="flex-1 flex flex-col overflow-hidden relative">
-                {/* CABEÇALHO SUPERIOR (TOPBAR) */}
-                <header className="bg-[#0a0a0a]/90 backdrop-blur-md h-20 flex items-center justify-between px-6 sm:px-8 flex-shrink-0 z-20 border-b border-gray-800 sticky top-0 shadow-sm">
+                <header className="bg-white/80 backdrop-blur-md h-16 flex items-center justify-between px-6 sm:px-8 flex-shrink-0 z-20 border-b border-gray-200 sticky top-0">
                      <div className="flex items-center gap-4">
-                         <button onClick={() => setIsSidebarOpen(true)} className="p-2 lg:hidden text-gray-400 hover:bg-gray-800 rounded-md transition-colors">
+                         <button onClick={() => setIsSidebarOpen(true)} className="p-2 lg:hidden text-slate-500 hover:bg-gray-100 rounded-md">
                             <MenuIcon className="h-6 w-6"/>
                          </button>
-                         <h1 className="text-2xl font-extrabold text-white capitalize tracking-tight hidden sm:block">
+                         <h1 className="text-xl font-bold text-slate-800 capitalize tracking-tight hidden sm:block">
                             {activePage.split('/')[0].replace('-', ' ')}
                          </h1>
                      </div>
                      <div className="flex items-center gap-4">
                         {isMaintenance ? (
-                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-amber-900/30 text-amber-400 rounded-full border border-amber-500/50 shadow-sm">
+                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full border border-amber-200 shadow-sm">
                                 <span className="relative flex h-2 w-2">
                                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                                   <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
@@ -10493,7 +10487,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                                 <span className="text-xs font-bold tracking-wide">EM MANUTENÇÃO</span>
                             </div>
                         ) : (
-                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-900/30 text-green-400 rounded-full border border-green-500/50 shadow-sm">
+                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-full border border-green-100 shadow-sm">
                                 <span className="relative flex h-2 w-2">
                                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
@@ -10504,7 +10498,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                      </div>
                 </header>
 
-                <main ref={mainContentRef} className="flex-grow p-6 sm:p-8 overflow-y-auto bg-[#050505]">
+                <main ref={mainContentRef} className="flex-grow p-6 sm:p-8 overflow-y-auto bg-gray-50">
                     <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
                         {children}
                     </div>
@@ -10977,8 +10971,8 @@ const AdminDashboard = ({ onNavigate }) => {
                 maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
                 scales: {
-                    x: { grid: { display: false }, ticks: { font: { size: 10, family: 'sans-serif' }, color: '#9ca3af' } },
-                    y: { grid: { borderDash: [2, 4], color: '#374151' }, ticks: { font: { size: 10 }, color: '#9ca3af' }, beginAtZero: true }
+                    x: { grid: { display: false }, ticks: { font: { size: 10, family: 'sans-serif' }, color: '#64748b' } },
+                    y: { grid: { borderDash: [2, 4], color: '#f1f5f9' }, ticks: { font: { size: 10 }, color: '#64748b' }, beginAtZero: true }
                 }
             };
 
@@ -10993,18 +10987,17 @@ const AdminDashboard = ({ onNavigate }) => {
                 return dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
             });
 
-            // GRÁFICO DE LINHA (Amber/Gold Premium)
             renderChart('dailySalesChart', 'line', {
                 labels: safeLabels,
                 datasets: [{
                     label: 'Faturamento',
                     data: dailySalesData.map(d => d.daily_total),
-                    borderColor: '#fbbf24', // Amber 400
+                    borderColor: '#4f46e5', // Indigo 600
                     backgroundColor: (context) => {
                         const ctx = context.chart.ctx;
                         const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-                        gradient.addColorStop(0, 'rgba(251, 191, 36, 0.3)');
-                        gradient.addColorStop(1, 'rgba(251, 191, 36, 0.0)');
+                        gradient.addColorStop(0, 'rgba(79, 70, 229, 0.2)');
+                        gradient.addColorStop(1, 'rgba(79, 70, 229, 0.0)');
                         return gradient;
                     },
                     borderWidth: 2,
@@ -11015,13 +11008,12 @@ const AdminDashboard = ({ onNavigate }) => {
                 }]
             }, commonOptions);
 
-            // GRÁFICO DE BARRAS (Amber Premium)
             renderChart('bestSellersChart', 'bar', {
                 labels: bestSellersData.map(p => p.name.substring(0, 15) + '...'),
                 datasets: [{
                     label: 'Vendas',
                     data: bestSellersData.map(p => p.sales || 0),
-                    backgroundColor: '#fbbf24', // Amber 400
+                    backgroundColor: '#0ea5e9', // Sky 500
                     borderRadius: 4,
                     barThickness: 20
                 }]
@@ -11049,23 +11041,23 @@ const AdminDashboard = ({ onNavigate }) => {
         <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-[#0a0a0a] p-6 rounded-xl shadow-lg border border-gray-800 flex items-start justify-between hover:shadow-xl transition-all duration-300"
+            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-start justify-between hover:shadow-md transition-all duration-300"
         >
             <div>
-                <p className="text-sm font-semibold text-gray-400 mb-1 tracking-wide uppercase text-[10px]">{title}</p>
-                <h4 className="text-2xl font-extrabold text-white">{value}</h4>
+                <p className="text-sm font-semibold text-gray-500 mb-1 tracking-wide uppercase text-[10px]">{title}</p>
+                <h4 className="text-2xl font-extrabold text-slate-800">{value}</h4>
                 {(growth || subtext) && (
                     <div className="flex items-center gap-2 mt-2">
                         {growth && (
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${growth.isPositive ? 'bg-green-900/30 text-green-400 border border-green-500/30' : 'bg-red-900/30 text-red-400 border border-red-500/30'}`}>
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${growth.isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                 {growth.text}
                             </span>
                         )}
-                        {subtext && <span className="text-xs text-gray-500">{subtext}</span>}
+                        {subtext && <span className="text-xs text-gray-400">{subtext}</span>}
                     </div>
                 )}
             </div>
-            <div className={`p-3 rounded-lg border ${iconBg.replace('bg-', 'border-').replace('100', '800/50')} bg-gray-900/50`}>
+            <div className={`p-3 rounded-lg ${iconBg}`}>
                 <Icon className={`h-6 w-6 ${iconColor}`} />
             </div>
         </motion.div>
@@ -11076,24 +11068,24 @@ const AdminDashboard = ({ onNavigate }) => {
         const filtered = lowStockProducts.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
         return (
-            <div className="bg-[#0a0a0a] rounded-xl shadow-lg border border-gray-800 flex flex-col h-full overflow-hidden">
-                <div className="p-5 border-b border-gray-800 flex justify-between items-center bg-[#111]">
-                    <h3 className="font-bold text-white flex items-center gap-2 text-sm">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col h-full overflow-hidden">
+                <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm">
                         <ExclamationCircleIcon className="h-5 w-5 text-amber-500" />
                         Reposição Necessária
                     </h3>
-                    <span className="text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2.5 py-0.5 rounded-full">{lowStockProducts.length}</span>
+                    <span className="text-xs font-bold bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full">{lowStockProducts.length}</span>
                 </div>
-                <div className="p-3 bg-[#0a0a0a] border-b border-gray-800">
+                <div className="p-3 bg-white border-b border-gray-50">
                     <div className="relative">
                         <input 
                             type="text" 
                             placeholder="Buscar produto..." 
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-3 py-2 text-xs bg-gray-900 border border-gray-700 text-white rounded-md focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all placeholder-gray-500"
+                            className="w-full pl-9 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
                         />
-                        <SearchIcon className="absolute left-3 top-2.5 h-3.5 w-3.5 text-gray-500" />
+                        <SearchIcon className="absolute left-3 top-2 h-3.5 w-3.5 text-gray-400" />
                     </div>
                 </div>
                 <div className="flex-grow overflow-y-auto max-h-[320px] p-2 space-y-1 custom-scrollbar">
@@ -11101,29 +11093,29 @@ const AdminDashboard = ({ onNavigate }) => {
                         <div 
                             key={item.id + item.name} 
                             onClick={() => { setSelectedStockItem(item); setIsStockModalOpen(true); }}
-                            className="flex items-center justify-between p-3 hover:bg-gray-800/50 rounded-lg transition-colors group border border-transparent hover:border-gray-700 cursor-pointer"
+                            className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors group border border-transparent hover:border-gray-100 cursor-pointer"
                         >
                             <div className="flex items-center gap-3 overflow-hidden">
-                                <div className="w-8 h-8 rounded bg-white flex-shrink-0 p-0.5">
+                                <div className="w-8 h-8 rounded bg-gray-100 flex-shrink-0 border border-gray-200 p-0.5">
                                     <img src={getFirstImage(item.images)} alt={item.name} className="w-full h-full object-contain rounded-sm" />
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-xs font-semibold text-gray-200 truncate">{item.name}</p>
-                                    <p className="text-[10px] text-gray-500">{item.brand}</p>
+                                    <p className="text-xs font-semibold text-slate-700 truncate">{item.name}</p>
+                                    <p className="text-[10px] text-slate-400">{item.brand}</p>
                                 </div>
                             </div>
                             <div className="text-right flex-shrink-0 flex flex-col items-end">
-                                <span className="text-xs font-bold text-red-400 bg-red-900/30 border border-red-500/20 px-2 py-0.5 rounded">{item.stock} un.</span>
+                                <span className="text-xs font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">{item.stock} un.</span>
                                 <span 
-                                    className="text-[10px] text-amber-400 font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="text-[10px] text-indigo-600 font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
                                     Repor
                                 </span>
                             </div>
                         </div>
                     )) : (
-                        <div className="flex flex-col items-center justify-center py-10 text-gray-500">
-                            <CheckCircleIcon className="h-8 w-8 text-green-500/30 mb-2"/>
+                        <div className="flex flex-col items-center justify-center py-10 text-gray-400">
+                            <CheckCircleIcon className="h-8 w-8 text-green-100 mb-2"/>
                             <p className="text-xs">Estoque saudável!</p>
                         </div>
                     )}
@@ -11140,20 +11132,20 @@ const AdminDashboard = ({ onNavigate }) => {
                 )}
             </AnimatePresence>
 
-            {/* Header com Filtros Premium */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-gray-800 pb-5">
+            {/* Header com Filtros */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-gray-200 pb-5">
                 <div>
-                    <h2 className="text-2xl font-bold text-white tracking-tight">Dashboard</h2>
-                    <p className="text-gray-400 text-sm mt-1">Bem-vindo de volta, {user?.name.split(' ')[0]}. Aqui está o resumo das suas vendas.</p>
+                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Dashboard</h2>
+                    <p className="text-slate-500 text-sm mt-1">Bem-vindo de volta, {user?.name.split(' ')[0]}. Aqui está o que está acontecendo hoje.</p>
                 </div>
-                <div className="flex bg-[#0a0a0a] p-1 rounded-lg border border-gray-800 shadow-sm">
+                <div className="flex bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
                     {['today', 'week', 'month', 'year'].map(f => {
                         const labels = { today: 'Hoje', week: '7 Dias', month: 'Este Mês', year: 'Este Ano' };
                         return (
                             <button
                                 key={f}
                                 onClick={() => setActiveFilter(f)}
-                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeFilter === f ? 'bg-amber-500 text-black shadow-md' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeFilter === f ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-gray-50'}`}
                             >
                                 {labels[f]}
                             </button>
@@ -11163,7 +11155,7 @@ const AdminDashboard = ({ onNavigate }) => {
             </div>
 
             {isLoadingData ? (
-                <div className="flex justify-center py-20"><SpinnerIcon className="h-10 w-10 text-amber-500 animate-spin"/></div>
+                <div className="flex justify-center py-20"><SpinnerIcon className="h-10 w-10 text-indigo-500 animate-spin"/></div>
             ) : (
                 <>
                     {/* Cards de KPIs */}
@@ -11174,53 +11166,53 @@ const AdminDashboard = ({ onNavigate }) => {
                             growth={growth}
                             subtext="vs. período anterior"
                             icon={CurrencyDollarIcon}
-                            iconBg="bg-green-900"
-                            iconColor="text-green-400"
+                            iconBg="bg-green-100"
+                            iconColor="text-green-600"
                         />
                         <StatCard 
                             title="Vendas Realizadas" 
                             value={stats.totalSales} 
                             icon={BoxIcon}
-                            iconBg="bg-blue-900"
-                            iconColor="text-blue-400"
+                            iconBg="bg-blue-100"
+                            iconColor="text-blue-600"
                         />
                         <StatCard 
                             title="Novos Clientes" 
                             value={stats.newCustomers} 
                             icon={UsersIcon}
-                            iconBg="bg-purple-900"
-                            iconColor="text-purple-400"
+                            iconBg="bg-purple-100"
+                            iconColor="text-purple-600"
                         />
                         <StatCard 
                             title="Pedidos Pendentes" 
                             value={stats.pendingOrders} 
                             icon={ClockIcon}
-                            iconBg="bg-amber-900"
-                            iconColor="text-amber-400"
+                            iconBg="bg-amber-100"
+                            iconColor="text-amber-600"
                         />
                     </div>
 
                     {/* Seção de Exportação */}
-                    <div className="bg-[#0a0a0a] p-6 rounded-xl shadow-lg border border-gray-800">
-                        <h3 className="font-bold text-white text-lg mb-4">Exportar Relatórios</h3>
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <h3 className="font-bold text-slate-800 text-lg mb-4">Exportar Relatórios</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <button 
                                 onClick={() => handleSalesExport('excel')} 
-                                className="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
+                                className="bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
                             >
-                                <DownloadIcon className="h-5 w-5 text-green-400"/> <span>Vendas (Excel)</span>
+                                <DownloadIcon className="h-5 w-5"/> <span>Vendas (Excel)</span>
                             </button>
                             <button 
                                 onClick={() => handleStockExport('excel')} 
-                                className="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
+                                className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
                             >
-                                <DownloadIcon className="h-5 w-5 text-blue-400"/> <span>Estoque (Excel)</span>
+                                <DownloadIcon className="h-5 w-5"/> <span>Estoque (Excel)</span>
                             </button>
                             <button 
                                 onClick={() => handleSalesExport('pdf')} 
-                                className="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
+                                className="bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
                             >
-                                <DownloadIcon className="h-5 w-5 text-red-400"/> <span>Vendas (PDF)</span>
+                                <DownloadIcon className="h-5 w-5"/> <span>Vendas (PDF)</span>
                             </button>
                         </div>
                     </div>
@@ -11228,10 +11220,10 @@ const AdminDashboard = ({ onNavigate }) => {
                     {/* Área Principal: Gráfico e Estoque */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Gráfico Principal */}
-                        <div className="lg:col-span-2 bg-[#0a0a0a] p-6 rounded-xl shadow-lg border border-gray-800">
+                        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                             <div className="flex justify-between items-center mb-6">
                                 <div>
-                                    <h3 className="font-bold text-white text-lg">Performance de Vendas</h3>
+                                    <h3 className="font-bold text-slate-800 text-lg">Performance de Vendas</h3>
                                     <p className="text-xs text-gray-400">Receita bruta ao longo do tempo</p>
                                 </div>
                             </div>
@@ -11251,8 +11243,8 @@ const AdminDashboard = ({ onNavigate }) => {
                     {/* Área Inferior: Ações e Secundários */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Gráfico Secundário */}
-                        <div className="lg:col-span-1 bg-[#0a0a0a] p-6 rounded-xl shadow-lg border border-gray-800">
-                            <h3 className="font-bold text-white text-lg mb-4">Top 5 Mais Vendidos</h3>
+                        <div className="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <h3 className="font-bold text-slate-800 text-lg mb-4">Top 5 Mais Vendidos</h3>
                             <div className="h-64 relative">
                                 <canvas id="bestSellersChart"></canvas>
                             </div>
@@ -11260,28 +11252,29 @@ const AdminDashboard = ({ onNavigate }) => {
                         
                         {/* Manutenção e Ações Rápidas */}
                         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-                             <div className="bg-[#0a0a0a] p-6 rounded-xl shadow-lg border border-gray-800 flex flex-col justify-center">
+                             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
+                                <h3 className="font-bold text-slate-800 mb-2">Status da Loja</h3>
                                 <MaintenanceModeToggle />
                             </div>
 
-                            <div className="bg-gradient-to-br from-amber-900/40 to-black p-6 rounded-xl shadow-lg border border-amber-900/30 text-white">
+                            <div className="bg-gradient-to-br from-indigo-900 to-slate-900 p-6 rounded-xl shadow-lg text-white">
                                 <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
                                     <SparklesIcon className="h-5 w-5 text-amber-400"/> Ações Rápidas
                                 </h3>
                                 <div className="grid grid-cols-2 gap-3">
-                                    <button onClick={() => onNavigate('admin/products')} className="bg-white/5 hover:bg-white/10 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/10">
+                                    <button onClick={() => onNavigate('admin/products')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
                                         <PlusIcon className="h-5 w-5 mb-2 text-green-400"/>
                                         <span className="text-xs font-bold block text-gray-200">Novo Produto</span>
                                     </button>
-                                    <button onClick={() => onNavigate('admin/banners')} className="bg-white/5 hover:bg-white/10 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/10">
+                                    <button onClick={() => onNavigate('admin/banners')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
                                         <PhotoIcon className="h-5 w-5 mb-2 text-blue-400"/>
                                         <span className="text-xs font-bold block text-gray-200">Banners</span>
                                     </button>
-                                    <button onClick={() => handleStockExport('excel')} className="bg-white/5 hover:bg-white/10 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/10">
+                                    <button onClick={() => handleStockExport('excel')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
                                         <FileIcon className="h-5 w-5 mb-2 text-amber-400"/>
                                         <span className="text-xs font-bold block text-gray-200">Rel. Estoque</span>
                                     </button>
-                                    <button onClick={() => onNavigate('admin/coupons')} className="bg-white/5 hover:bg-white/10 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/10">
+                                    <button onClick={() => onNavigate('admin/coupons')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
                                         <TagIcon className="h-5 w-5 mb-2 text-pink-400"/>
                                         <span className="text-xs font-bold block text-gray-200">Cupom</span>
                                     </button>
@@ -13894,12 +13887,12 @@ const AdminOrders = ({ appName }) => {
     const getShippingDisplay = (method) => {
         const lower = method ? method.toLowerCase() : '';
         if (lower.includes('retirar') || lower.includes('loja')) {
-            return { icon: <BoxIcon className="h-4 w-4"/>, label: 'Retirada', fullText: 'Retirada na Loja', classes: 'bg-purple-900/30 text-purple-400 border border-purple-500/30' };
+            return { icon: <BoxIcon className="h-4 w-4"/>, label: 'Retirada', fullText: 'Retirada na Loja', classes: 'bg-purple-100 text-purple-700 border border-purple-200' };
         }
         if (lower.includes('motoboy') || lower.includes('delivery') || lower.includes('local')) {
-            return { icon: <TruckIcon className="h-4 w-4"/>, label: 'Motoboy', fullText: 'Entrega Local (Moto)', classes: 'bg-blue-900/30 text-blue-400 border border-blue-500/30' };
+            return { icon: <TruckIcon className="h-4 w-4"/>, label: 'Motoboy', fullText: 'Entrega Local (Moto)', classes: 'bg-blue-100 text-blue-700 border border-blue-200' };
         }
-        return { icon: <TruckIcon className="h-4 w-4"/>, label: 'Correios', fullText: method || 'Envio Padrão', classes: 'bg-amber-900/30 text-amber-400 border border-amber-500/30' };
+        return { icon: <TruckIcon className="h-4 w-4"/>, label: 'Correios', fullText: method || 'Envio Padrão', classes: 'bg-amber-100 text-amber-700 border border-amber-200' };
     };
 
     const TimelineDisplay = ({ order }) => {
@@ -13922,11 +13915,11 @@ const AdminOrders = ({ appName }) => {
 
         if (['Cancelado', 'Pagamento Recusado', 'Reembolsado'].includes(order.status)) {
             return (
-                <div className="w-full p-4 bg-red-900/20 border border-red-800/50 rounded-xl flex items-center justify-center gap-3 mb-6">
-                     <XCircleIcon className="h-6 w-6 text-red-500" />
+                <div className="w-full p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-center gap-3 mb-6">
+                     <XCircleIcon className="h-6 w-6 text-red-600" />
                      <div className="text-center">
-                         <p className="font-bold text-red-400 text-lg uppercase tracking-wide">{order.status}</p>
-                         <p className="text-xs text-red-500/80">O fluxo deste pedido foi interrompido.</p>
+                         <p className="font-bold text-red-800 text-lg uppercase tracking-wide">{order.status}</p>
+                         <p className="text-xs text-red-600">O fluxo deste pedido foi interrompido.</p>
                      </div>
                 </div>
             );
@@ -13938,17 +13931,17 @@ const AdminOrders = ({ appName }) => {
         return (
             <div className="w-full py-6 mb-4">
                 <div className="flex items-center justify-between relative">
-                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-800 -z-10 rounded-full"></div>
-                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 bg-amber-500 -z-10 rounded-full transition-all duration-500" style={{ width: `${progressWidth}%` }}></div>
+                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-200 -z-10 rounded-full"></div>
+                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 bg-green-500 -z-10 rounded-full transition-all duration-500" style={{ width: `${progressWidth}%` }}></div>
                     {timelineOrder.map((statusKey, index) => {
                         const isCompleted = index <= currentStatusIndex;
                         const isCurrent = statusKey === order.status;
                         return (
                             <div key={statusKey} className="flex flex-col items-center group">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center border-4 transition-all duration-300 z-10 ${isCompleted ? 'bg-amber-500 border-amber-500 scale-110 shadow-[0_0_10px_rgba(251,191,36,0.5)]' : 'bg-[#111] border-gray-700'}`}>
-                                    {isCompleted && <CheckIcon className="h-4 w-4 text-black stroke-2" />}
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center border-4 transition-all duration-300 z-10 ${isCompleted ? 'bg-green-500 border-green-500 scale-110' : 'bg-white border-gray-300'}`}>
+                                    {isCompleted && <CheckIcon className="h-4 w-4 text-white stroke-2" />}
                                 </div>
-                                <p className={`absolute -bottom-8 text-[10px] font-bold text-center w-20 transition-colors ${isCurrent ? 'text-amber-400' : (isCompleted ? 'text-gray-400' : 'text-gray-600')}`}>
+                                <p className={`absolute -bottom-8 text-[10px] font-bold text-center w-20 transition-colors ${isCurrent ? 'text-green-700' : (isCompleted ? 'text-gray-600' : 'text-gray-400')}`}>
                                     {displayLabels[statusKey]}
                                 </p>
                             </div>
@@ -14106,12 +14099,12 @@ const AdminOrders = ({ appName }) => {
     };
 
     const DetailCard = ({ title, icon: Icon, children, className = "" }) => (
-        <div className={`bg-[#0a0a0a] p-5 rounded-xl border border-gray-800 shadow-sm ${className}`}>
-            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-gray-800 pb-3">
-                {Icon && <Icon className="h-4 w-4 text-amber-500"/>}
+        <div className={`bg-white p-5 rounded-xl border border-gray-200 shadow-sm ${className}`}>
+            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-gray-100 pb-2">
+                {Icon && <Icon className="h-4 w-4 text-indigo-500"/>}
                 {title}
             </h4>
-            <div className="text-sm text-gray-300 space-y-2">
+            <div className="text-sm text-gray-700 space-y-2">
                 {children}
             </div>
         </div>
@@ -14157,10 +14150,10 @@ const AdminOrders = ({ appName }) => {
 
     const getStatusChipClass = (status) => {
         const lowerStatus = status ? status.toLowerCase() : '';
-        if (lowerStatus.includes('entregue')) return 'bg-green-900/30 text-green-400 border border-green-500/30';
-        if (lowerStatus.includes('cancelado') || lowerStatus.includes('recusado') || lowerStatus.includes('reembolsado')) return 'bg-red-900/30 text-red-400 border border-red-500/30';
-        if (lowerStatus.includes('pendente')) return 'bg-yellow-900/30 text-yellow-400 border border-yellow-500/30';
-        return 'bg-blue-900/30 text-blue-400 border border-blue-500/30';
+        if (lowerStatus.includes('entregue')) return 'bg-green-100 text-green-800';
+        if (lowerStatus.includes('cancelado') || lowerStatus.includes('recusado') || lowerStatus.includes('reembolsado')) return 'bg-red-100 text-red-800';
+        if (lowerStatus.includes('pendente')) return 'bg-yellow-100 text-yellow-800';
+        return 'bg-blue-100 text-blue-800';
     };
 
     const renderUpdateOrderForm = () => {
@@ -14176,15 +14169,15 @@ const AdminOrders = ({ appName }) => {
         if (!availableStatuses.includes(editingOrder.status)) availableStatuses.push(editingOrder.status);
 
         return (
-            <div className="bg-[#0a0a0a] p-6 rounded-xl shadow-lg border border-amber-500/20 mt-6 lg:mt-0">
-                <h4 className="font-bold text-white mb-4 flex items-center gap-2 border-b border-gray-800 pb-3">
-                    <EditIcon className="h-5 w-5 text-amber-500"/> Atualizar Status e Entrega
+            <div className="bg-white p-6 rounded-xl shadow-md border border-indigo-100 mt-6 lg:mt-0">
+                <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2 border-b pb-3">
+                    <EditIcon className="h-5 w-5 text-indigo-600"/> Atualizar Status e Entrega
                 </h4>
                 <form onSubmit={handleSaveOrder} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Status do Pedido</label>
-                            <select name="status" value={editFormData.status} onChange={handleEditFormChange} className="w-full p-3 bg-[#111] border border-gray-800 rounded-lg text-sm text-white focus:ring-1 focus:ring-amber-500 outline-none">
+                            <select name="status" value={editFormData.status} onChange={handleEditFormChange} className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 bg-white">
                                 {availableStatuses.map(s => <option key={s} value={s}>{getStatusLabel(s)}</option>)}
                             </select>
                         </div>
@@ -14193,32 +14186,32 @@ const AdminOrders = ({ appName }) => {
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
                                     {isLocalDelivery ? "Link de Acompanhamento (Uber/Moto)" : "Código de Rastreio"}
                                 </label>
-                                <input type="text" name="tracking_code" value={editFormData.tracking_code} onChange={handleEditFormChange} placeholder={isLocalDelivery ? "Cole o link da viagem aqui" : "Ex: AA123456789BR"} className="w-full p-3 bg-[#111] border border-gray-800 rounded-lg text-sm text-white focus:ring-1 focus:ring-amber-500 outline-none placeholder-gray-600" />
+                                <input type="text" name="tracking_code" value={editFormData.tracking_code} onChange={handleEditFormChange} placeholder={isLocalDelivery ? "Cole o link da viagem aqui" : "Ex: AA123456789BR"} className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" />
                                 {isLocalDelivery && <p className="text-xs text-gray-500 mt-1">Link para o cliente acompanhar o motoboy.</p>}
                             </div>
                         )}
                     </div>
                     
-                    <div className="flex flex-col-reverse md:flex-row justify-between items-center pt-4 border-t border-gray-800 gap-4">
+                    <div className="flex flex-col-reverse md:flex-row justify-between items-center pt-4 border-t border-gray-100 gap-4">
                         <div className="flex flex-wrap gap-3 w-full md:w-auto justify-start">
                             {canRequestRefund ? (
-                                <button type="button" onClick={handleOpenRefundModal} className="px-4 py-2.5 bg-orange-900/30 text-orange-400 border border-orange-500/30 rounded-lg hover:bg-orange-900/50 font-bold text-sm flex items-center gap-2 transition-colors flex-grow md:flex-grow-0 justify-center">
+                                <button type="button" onClick={handleOpenRefundModal} className="px-4 py-2.5 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 font-bold text-sm flex items-center gap-2 transition-colors flex-grow md:flex-grow-0 justify-center">
                                     <CurrencyDollarIcon className="h-5 w-5"/> Reembolso
                                 </button>
                             ) : editingOrder.refund_id ? (
-                                <span className="text-xs font-bold text-orange-400 bg-orange-900/30 px-3 py-1 rounded-full border border-orange-500/30 self-center">Reembolso Solicitado</span>
+                                <span className="text-xs font-bold text-orange-600 bg-orange-50 px-3 py-1 rounded-full border border-orange-200 self-center">Reembolso Solicitado</span>
                             ) : null}
 
                             {editingOrder.user_phone && (
-                                <button type="button" onClick={handleManualWhatsAppNotification} className="px-4 py-2.5 bg-green-900/30 text-green-400 border border-green-500/30 rounded-lg hover:bg-green-900/50 font-bold text-sm flex items-center gap-2 transition-colors flex-grow md:flex-grow-0 justify-center">
+                                <button type="button" onClick={handleManualWhatsAppNotification} className="px-4 py-2.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-bold text-sm flex items-center gap-2 transition-colors flex-grow md:flex-grow-0 justify-center">
                                     <WhatsappIcon className="h-5 w-5"/> Notificar
                                 </button>
                             )}
                         </div>
 
                         <div className="flex flex-wrap gap-3 w-full md:w-auto">
-                            <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 md:flex-none px-6 py-2.5 bg-transparent border border-gray-700 text-gray-300 font-bold rounded-lg hover:bg-gray-800 text-sm transition-colors">Cancelar</button>
-                            <button type="submit" className="flex-1 md:flex-none px-8 py-2.5 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 shadow-md text-sm transition-colors flex items-center justify-center gap-2">
+                            <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 md:flex-none px-6 py-2.5 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 text-sm transition-colors">Cancelar</button>
+                            <button type="submit" className="flex-1 md:flex-none px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-md text-sm transition-colors flex items-center justify-center gap-2">
                                 <CheckIcon className="h-5 w-5"/> Salvar
                             </button>
                         </div>
@@ -14235,17 +14228,17 @@ const AdminOrders = ({ appName }) => {
                     <Modal isOpen={true} onClose={() => setIsRefundModalOpen(false)} title={`Solicitar Reembolso para Pedido #${editingOrder.id}`}>
                         <form onSubmit={handleRequestRefund} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-300">Valor a Reembolsar</label>
-                                <input type="number" step="0.01" value={refundAmount} onChange={e => setRefundAmount(e.target.value)} max={editingOrder.total} required className="mt-1 block w-full p-3 bg-[#111] border border-gray-700 text-white rounded-md focus:ring-1 focus:ring-amber-500 outline-none"/>
+                                <label className="block text-sm font-medium text-gray-700">Valor a Reembolsar</label>
+                                <input type="number" step="0.01" value={refundAmount} onChange={e => setRefundAmount(e.target.value)} max={editingOrder.total} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
                                 <p className="text-xs text-gray-500 mt-1">Valor total do pedido: R$ {Number(editingOrder.total).toFixed(2)}</p>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-300">Motivo do Reembolso</label>
-                                <textarea value={refundReason} onChange={e => setRefundReason(e.target.value)} required rows="4" className="mt-1 block w-full p-3 bg-[#111] border border-gray-700 text-white rounded-md focus:ring-1 focus:ring-amber-500 outline-none"></textarea>
+                                <label className="block text-sm font-medium text-gray-700">Motivo do Reembolso</label>
+                                <textarea value={refundReason} onChange={e => setRefundReason(e.target.value)} required rows="4" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"></textarea>
                             </div>
-                            <div className="flex justify-end gap-3 pt-4 border-t border-gray-800">
-                                <button type="button" onClick={() => setIsRefundModalOpen(false)} className="px-4 py-2 bg-gray-800 text-gray-300 rounded-md hover:bg-gray-700 transition-colors font-bold">Cancelar</button>
-                                <button type="submit" disabled={isProcessing} className="px-6 py-2 bg-amber-500 text-black font-bold rounded-md flex items-center gap-2 hover:bg-amber-400 transition-colors disabled:opacity-50">
+                            <div className="flex justify-end gap-3 pt-4">
+                                <button type="button" onClick={() => setIsRefundModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md">Cancelar</button>
+                                <button type="submit" disabled={isProcessing} className="px-4 py-2 bg-amber-600 text-white rounded-md flex items-center gap-2 disabled:bg-amber-300">
                                     {isProcessing && <SpinnerIcon className="h-5 w-5" />}
                                     Enviar Solicitação
                                 </button>
@@ -14262,17 +14255,21 @@ const AdminOrders = ({ appName }) => {
                     const isPAddressObj = typeof pAddress === 'object' && pAddress !== null;
 
                     return (
-                        <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={<>Pedido <span className="text-amber-500">#{editingOrder.id}</span></>} size="3xl">
-                            <div className="bg-[#050505] -m-6 p-4 sm:p-6 pb-24 text-gray-200">
+                        <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Pedido #${editingOrder.id}`} size="3xl">
+                            <div className="bg-gray-50/50 -m-6 p-4 sm:p-6 pb-24">
                                 
                                 {/* 1. Timeline */}
-                                <div className="bg-[#0a0a0a] p-4 sm:p-6 rounded-xl shadow-lg border border-gray-800 mb-6">
+                                <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
                                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-2">
                                         <div>
                                             <p className="text-xs text-gray-500 font-medium">Realizado em</p>
-                                            <p className="text-sm font-bold text-white">{new Date(editingOrder.date).toLocaleString('pt-BR')}</p>
+                                            <p className="text-sm font-bold text-gray-900">{new Date(editingOrder.date).toLocaleString('pt-BR')}</p>
                                         </div>
-                                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border self-start sm:self-auto ${getStatusChipClass(editingOrder.status)}`}>
+                                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border self-start sm:self-auto ${
+                                            editingOrder.status === 'Entregue' ? 'bg-green-50 text-green-700 border-green-200' :
+                                            editingOrder.status === 'Cancelado' ? 'bg-red-50 text-red-700 border-red-200' :
+                                            'bg-blue-50 text-blue-700 border-blue-200'
+                                        }`}>
                                             {editingOrder.status}
                                         </span>
                                     </div>
@@ -14282,16 +14279,16 @@ const AdminOrders = ({ appName }) => {
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                     {/* COLUNA DA ESQUERDA: Itens */}
                                     <div className="lg:col-span-2 space-y-6">
-                                        <div className="bg-[#0a0a0a] rounded-xl shadow-lg border border-gray-800 overflow-hidden">
+                                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                                             {/* Header do Accordion */}
                                             <div 
-                                                className="px-6 py-4 border-b border-gray-800 bg-[#111] flex justify-between items-center cursor-pointer select-none hover:bg-gray-900 transition-colors"
+                                                className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center cursor-pointer select-none hover:bg-gray-100 transition-colors"
                                                 onClick={() => setItemsExpanded(!itemsExpanded)}
                                             >
-                                                <h4 className="font-bold text-white flex items-center gap-2"><BoxIcon className="h-4 w-4 text-amber-500"/> Itens do Pedido</h4>
+                                                <h4 className="font-bold text-gray-700 flex items-center gap-2"><BoxIcon className="h-4 w-4"/> Itens do Pedido</h4>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-xs font-medium text-gray-400">{editingOrder.items?.length || 0} itens</span>
-                                                    <ChevronDownIcon className={`h-5 w-5 text-gray-500 transition-transform duration-300 ${itemsExpanded ? 'rotate-180' : ''}`} />
+                                                    <span className="text-xs font-medium text-gray-500">{editingOrder.items?.length || 0} itens</span>
+                                                    <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform duration-300 ${itemsExpanded ? 'rotate-180' : ''}`} />
                                                 </div>
                                             </div>
 
@@ -14305,7 +14302,7 @@ const AdminOrders = ({ appName }) => {
                                                         transition={{ duration: 0.3 }}
                                                     >
                                                         {/* Lista de Itens com Scroll e Badges */}
-                                                        <div className="divide-y divide-gray-800 max-h-[60vh] overflow-y-auto custom-scrollbar bg-[#0a0a0a]">
+                                                        <div className="divide-y divide-gray-100 max-h-[60vh] overflow-y-auto custom-scrollbar">
                                                             {editingOrder.items?.map((item, idx) => {
                                                                 let variation = item.variation;
                                                                 if (typeof variation === 'string') {
@@ -14314,11 +14311,11 @@ const AdminOrders = ({ appName }) => {
                                                                 
                                                                 const isClothing = !!variation;
                                                                 const itemTypeLabel = isClothing ? 'ROUPA' : 'PERFUME';
-                                                                const itemTypeClass = isClothing ? 'bg-blue-900/30 text-blue-400 border-blue-500/30' : 'bg-purple-900/30 text-purple-400 border-purple-500/30';
+                                                                const itemTypeClass = isClothing ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-purple-100 text-purple-700 border-purple-200';
                                                                 
                                                                 return (
-                                                                <div key={idx} className="p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 hover:bg-gray-900/50 transition-colors">
-                                                                    <div className="w-12 h-12 rounded-lg border border-gray-700 bg-white flex-shrink-0 p-1">
+                                                                <div key={idx} className="p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 hover:bg-gray-50 transition-colors">
+                                                                    <div className="w-12 h-12 rounded-lg border border-gray-200 bg-white flex-shrink-0 p-1">
                                                                         <img src={getFirstImage(item.images)} alt="" className="w-full h-full object-contain"/>
                                                                     </div>
                                                                     <div className="flex-grow">
@@ -14327,13 +14324,13 @@ const AdminOrders = ({ appName }) => {
                                                                                 {itemTypeLabel}
                                                                             </span>
                                                                         </div>
-                                                                        <p className="text-sm font-bold text-white line-clamp-1">{item.name}</p>
+                                                                        <p className="text-sm font-bold text-gray-800 line-clamp-1">{item.name}</p>
                                                                         {variation && (
                                                                             <div className="flex items-center gap-2 mt-1">
-                                                                                <span className="text-[10px] bg-gray-800 text-gray-300 px-1.5 py-0.5 rounded border border-gray-700">
+                                                                                <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
                                                                                     Cor: {variation.color}
                                                                                 </span>
-                                                                                <span className="text-[10px] bg-gray-800 text-gray-300 px-1.5 py-0.5 rounded border border-gray-700">
+                                                                                <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
                                                                                     Tam: {variation.size}
                                                                                 </span>
                                                                             </div>
@@ -14341,29 +14338,29 @@ const AdminOrders = ({ appName }) => {
                                                                     </div>
                                                                     <div className="text-right w-full sm:w-auto">
                                                                         <p className="text-xs text-gray-500">{item.quantity} x R$ {Number(item.price).toFixed(2)}</p>
-                                                                        <p className="text-sm font-bold text-amber-400">R$ {(item.quantity * item.price).toFixed(2)}</p>
+                                                                        <p className="text-sm font-bold text-gray-900">R$ {(item.quantity * item.price).toFixed(2)}</p>
                                                                     </div>
                                                                 </div>
                                                             )})}
                                                         </div>
-                                                        <div className="bg-[#111] p-4 border-t border-gray-800 space-y-2">
-                                                            <div className="flex justify-between text-xs text-gray-400">
+                                                        <div className="bg-gray-50 p-4 border-t border-gray-200 space-y-2">
+                                                            <div className="flex justify-between text-xs text-gray-600">
                                                                 <span>Subtotal</span>
                                                                 <span>R$ {(Number(editingOrder.total) - Number(editingOrder.shipping_cost) + Number(editingOrder.discount_amount)).toFixed(2)}</span>
                                                             </div>
-                                                            <div className="flex justify-between text-xs text-gray-400">
+                                                            <div className="flex justify-between text-xs text-gray-600">
                                                                 <span>Frete ({editingOrder.shipping_method})</span>
                                                                 <span>R$ {Number(editingOrder.shipping_cost).toFixed(2)}</span>
                                                             </div>
                                                             {Number(editingOrder.discount_amount) > 0 && (
-                                                                <div className="flex justify-between text-xs text-green-400 font-medium">
+                                                                <div className="flex justify-between text-xs text-green-600 font-medium">
                                                                     <span>Desconto ({editingOrder.coupon_code})</span>
                                                                     <span>- R$ {Number(editingOrder.discount_amount).toFixed(2)}</span>
                                                                 </div>
                                                             )}
-                                                            <div className="flex justify-between text-base font-bold text-white pt-2 border-t border-gray-800">
+                                                            <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-200">
                                                                 <span>Total Geral</span>
-                                                                <span className="text-amber-400">R$ {Number(editingOrder.total).toFixed(2)}</span>
+                                                                <span>R$ {Number(editingOrder.total).toFixed(2)}</span>
                                                             </div>
                                                         </div>
                                                     </motion.div>
@@ -14381,22 +14378,22 @@ const AdminOrders = ({ appName }) => {
                                     <div className="space-y-6">
                                         <DetailCard title="Cliente" icon={UserIcon}>
                                             <div className="flex items-center gap-3 mb-3">
-                                                <div className="w-10 h-10 rounded-full bg-indigo-900/30 flex items-center justify-center text-indigo-400 font-bold text-lg border border-indigo-500/30">
+                                                <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-lg">
                                                     {editingOrder.user_name.charAt(0)}
                                                 </div>
                                                 <div className="overflow-hidden">
-                                                    <p className="font-bold text-white leading-tight truncate">{editingOrder.user_name}</p>
-                                                    <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-0.5">ID: {editingOrder.user_id}</p>
+                                                    <p className="font-bold text-gray-900 leading-tight truncate">{editingOrder.user_name}</p>
+                                                    <p className="text-xs text-gray-500">ID: {editingOrder.user_id}</p>
                                                 </div>
                                             </div>
                                             <div className="space-y-2 text-xs">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-8 text-right font-bold text-gray-500">CPF:</div>
-                                                    <span className="font-mono bg-gray-800 px-2 py-0.5 rounded border border-gray-700 text-gray-300">{maskCPF(editingOrder.user_cpf || '---')}</span>
+                                                    <div className="w-8 text-right font-semibold text-gray-500">CPF:</div>
+                                                    <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">{maskCPF(editingOrder.user_cpf || '---')}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-8 text-right"><WhatsappIcon className="h-4 w-4 text-green-500 mx-auto"/></div>
-                                                    <a href={`https://wa.me/55${editingOrder.user_phone?.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-gray-300 hover:underline hover:text-green-400 transition-colors">
+                                                    <a href={`https://wa.me/55${editingOrder.user_phone?.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="hover:underline hover:text-green-600">
                                                         {maskPhone(editingOrder.user_phone || '')}
                                                     </a>
                                                 </div>
@@ -14405,7 +14402,7 @@ const AdminOrders = ({ appName }) => {
                                                         href={`https://api.whatsapp.com/send?phone=55${editingOrder.user_phone.replace(/\D/g, '')}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="mt-4 w-full flex items-center justify-center gap-2 bg-green-600 text-white py-2 rounded-lg hover:bg-green-500 font-bold transition-colors shadow-md"
+                                                        className="mt-3 w-full flex items-center justify-center gap-2 bg-green-500 text-white py-2 rounded-md hover:bg-green-600 font-bold transition-colors shadow-sm"
                                                         title="Abrir conversa no WhatsApp"
                                                     >
                                                         <WhatsappIcon className="h-4 w-4 text-white"/> Conversar no WhatsApp
@@ -14415,68 +14412,68 @@ const AdminOrders = ({ appName }) => {
                                         </DetailCard>
 
                                         <DetailCard title="Entrega" icon={MapPinIcon}>
-                                            <div className="mb-3 pb-3 border-b border-gray-800">
-                                                <span className="text-[10px] text-gray-500 block uppercase tracking-widest font-bold mb-1">Método Escolhido</span>
-                                                <p className="font-bold text-amber-400 text-sm">{editingOrder.shipping_method || 'Não informado'}</p>
+                                            <div className="mb-3 pb-2 border-b border-gray-100">
+                                                <span className="text-xs text-gray-500 block">Método Escolhido</span>
+                                                <p className="font-bold text-indigo-700 text-sm">{editingOrder.shipping_method || 'Não informado'}</p>
                                             </div>
 
                                             {isPickup ? (
-                                                <div className="bg-purple-900/20 border border-purple-500/30 rounded-lg p-3 text-xs text-purple-300 space-y-2">
-                                                    <p className="font-bold text-purple-400 uppercase tracking-widest text-[10px]">Retirada na Loja</p>
+                                                <div className="bg-amber-50 border border-amber-200 rounded p-3 text-xs text-amber-800 space-y-1.5">
+                                                    <p className="font-bold text-amber-900 mb-1">Retirada na Loja</p>
                                                     {isPAddressObj ? (
-                                                        <div className="space-y-1 bg-black/40 p-2.5 rounded-md border border-purple-900/50">
-                                                            <div className="flex"><span className="font-semibold text-purple-500/70 w-14">Rua:</span> <span className="text-gray-300">{pAddress.rua}</span></div>
-                                                            <div className="flex"><span className="font-semibold text-purple-500/70 w-14">Nº:</span> <span className="text-gray-300">{pAddress.numero}</span></div>
-                                                            <div className="flex"><span className="font-semibold text-purple-500/70 w-14">Bairro:</span> <span className="text-gray-300">{pAddress.bairro}</span></div>
-                                                            <div className="flex"><span className="font-semibold text-purple-500/70 w-14">Cidade:</span> <span className="text-gray-300">{pAddress.cidade}</span></div>
-                                                            <div className="flex"><span className="font-semibold text-purple-500/70 w-14">UF:</span> <span className="text-gray-300">{pAddress.estado || pAddress.uf}</span></div>
-                                                            <div className="flex"><span className="font-semibold text-purple-500/70 w-14">CEP:</span> <span className="text-gray-300 font-mono">{pAddress.cep}</span></div>
+                                                        <div className="space-y-0.5 text-amber-900 bg-amber-100/50 p-2 rounded">
+                                                            <div className="flex"><span className="font-semibold w-12">Rua:</span> <span>{pAddress.rua}</span></div>
+                                                            <div className="flex"><span className="font-semibold w-12">Nº:</span> <span>{pAddress.numero}</span></div>
+                                                            <div className="flex"><span className="font-semibold w-12">Bairro:</span> <span>{pAddress.bairro}</span></div>
+                                                            <div className="flex"><span className="font-semibold w-12">Cidade:</span> <span>{pAddress.cidade}</span></div>
+                                                            <div className="flex"><span className="font-semibold w-12">Estado:</span> <span>{pAddress.estado || pAddress.uf}</span></div>
+                                                            <div className="flex"><span className="font-semibold w-12">CEP:</span> <span>{pAddress.cep}</span></div>
                                                         </div>
                                                     ) : (
-                                                        <p className="text-gray-400">{pAddress || 'Endereço não configurado'}</p>
+                                                        <p>{pAddress || 'Endereço não configurado'}</p>
                                                     )}
                                                     
                                                     {pickupConfig?.mapsLink && (
-                                                        <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 hover:underline font-bold mt-2 inline-block">Ver no Mapa →</a>
+                                                        <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline font-bold mt-2 inline-block">Ver no Mapa &rarr;</a>
                                                     )}
 
                                                     {editingOrder.pickup_details && (() => {
                                                         try {
                                                             const p = JSON.parse(editingOrder.pickup_details);
-                                                            return <div className="mt-3 pt-3 border-t border-purple-900/50"><p className="font-semibold text-purple-400 uppercase text-[10px] tracking-widest mb-1">Autorizado a retirar:</p><p className="text-gray-300">{p.personName} (CPF: {p.personCpf})</p></div>
+                                                            return <div className="mt-3 pt-2 border-t border-amber-200"><p className="font-semibold text-amber-900">Retirado por:</p><p>{p.personName} (CPF: {p.personCpf})</p></div>
                                                         } catch { return null; }
                                                     })()}
                                                 </div>
                                             ) : (
-                                                <div className="text-xs space-y-2 text-gray-400">
+                                                <div className="text-xs space-y-2">
                                                     {(() => {
                                                         try {
                                                             const addr = JSON.parse(editingOrder.shipping_address);
                                                             return (
                                                                 <>
                                                                     <div className="flex gap-2">
-                                                                        <span className="font-bold text-gray-500 w-14 flex-shrink-0 text-right uppercase text-[10px] tracking-widest pt-0.5">Rua:</span>
-                                                                        <span className="text-gray-300 font-medium">{addr.logradouro}</span>
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Rua:</span>
+                                                                        <span className="text-gray-800 font-medium">{addr.logradouro}</span>
                                                                     </div>
                                                                     <div className="flex gap-2">
-                                                                        <span className="font-bold text-gray-500 w-14 flex-shrink-0 text-right uppercase text-[10px] tracking-widest pt-0.5">Nº:</span>
-                                                                        <span className="text-gray-300">{addr.numero} {addr.complemento ? `(${addr.complemento})` : ''}</span>
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Nº:</span>
+                                                                        <span className="text-gray-800">{addr.numero} {addr.complemento ? `(${addr.complemento})` : ''}</span>
                                                                     </div>
                                                                     <div className="flex gap-2">
-                                                                        <span className="font-bold text-gray-500 w-14 flex-shrink-0 text-right uppercase text-[10px] tracking-widest pt-0.5">Bairro:</span>
-                                                                        <span className="text-gray-300">{addr.bairro}</span>
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Bairro:</span>
+                                                                        <span className="text-gray-800">{addr.bairro}</span>
                                                                     </div>
                                                                     <div className="flex gap-2">
-                                                                        <span className="font-bold text-gray-500 w-14 flex-shrink-0 text-right uppercase text-[10px] tracking-widest pt-0.5">Cidade:</span>
-                                                                        <span className="text-gray-300">{addr.localidade}</span>
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Cidade:</span>
+                                                                        <span className="text-gray-800">{addr.localidade}</span>
                                                                     </div>
                                                                     <div className="flex gap-2">
-                                                                        <span className="font-bold text-gray-500 w-14 flex-shrink-0 text-right uppercase text-[10px] tracking-widest pt-0.5">Estado:</span>
-                                                                        <span className="text-gray-300">{addr.uf}</span>
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Estado:</span>
+                                                                        <span className="text-gray-800">{addr.uf}</span>
                                                                     </div>
                                                                     <div className="flex gap-2">
-                                                                        <span className="font-bold text-gray-500 w-14 flex-shrink-0 text-right uppercase text-[10px] tracking-widest pt-0.5">CEP:</span>
-                                                                        <span className="font-mono text-gray-300 bg-gray-800 px-1.5 py-0.5 rounded border border-gray-700">{addr.cep}</span>
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">CEP:</span>
+                                                                        <span className="font-mono text-gray-800 bg-gray-100 px-1 rounded">{addr.cep}</span>
                                                                     </div>
                                                                 </>
                                                             );
@@ -14487,7 +14484,7 @@ const AdminOrders = ({ appName }) => {
                                         </DetailCard>
 
                                         <DetailCard title="Pagamento" icon={CreditCardIcon}>
-                                            <div className="flex flex-col gap-3">
+                                            <div className="flex flex-col gap-2">
                                                 {(() => {
                                                     let details = {};
                                                     try { 
@@ -14497,18 +14494,18 @@ const AdminOrders = ({ appName }) => {
                                                     
                                                     return (
                                                         <>
-                                                            <span className="inline-flex items-center w-fit px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-blue-900/30 text-blue-400 border border-blue-500/30">
+                                                            <span className="inline-flex items-center w-fit px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
                                                                 {details.method === 'pix' ? 'Pix' : details.method === 'boleto' ? 'Boleto' : details.method === 'credit_card' ? 'Cartão' : 'Outro'}
                                                             </span>
                                                             {details.method === 'credit_card' && (
-                                                                <div className="text-xs text-gray-400 bg-gray-800 p-3 rounded-lg border border-gray-700">
-                                                                    <p className="capitalize font-bold text-white mb-1">{details.card_brand} •••• {details.card_last_four}</p>
+                                                                <div className="text-xs text-gray-600">
+                                                                    <p className="capitalize">{details.card_brand} •••• {details.card_last_four}</p>
                                                                     <p>{details.installments}x de R$ {(Number(editingOrder.total)/details.installments).toFixed(2)}</p>
                                                                 </div>
                                                             )}
-                                                            <div className="mt-1 pt-3 border-t border-gray-800 flex justify-between items-center">
-                                                                <span className="text-[10px] uppercase font-bold tracking-widest text-gray-500">Status MP</span>
-                                                                <span className={`text-xs font-bold ${editingOrder.payment_status === 'approved' ? 'text-green-500' : 'text-amber-500'}`}>
+                                                            <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center">
+                                                                <span className="text-xs text-gray-500">Status</span>
+                                                                <span className={`text-xs font-bold ${editingOrder.payment_status === 'approved' ? 'text-green-600' : 'text-amber-600'}`}>
                                                                     {editingOrder.payment_status === 'approved' ? 'Aprovado' : 'Pendente'}
                                                                 </span>
                                                             </div>
@@ -14537,95 +14534,92 @@ const AdminOrders = ({ appName }) => {
                         initial={{ opacity: 0, y: -50 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -50 }}
-                        className="relative bg-blue-900/80 border border-blue-500/50 backdrop-blur-md text-white p-4 rounded-xl shadow-lg mb-6 flex justify-between items-center"
+                        className="relative bg-blue-600 text-white p-4 rounded-lg shadow-lg mb-6 flex justify-between items-center"
                     >
                         <div className="flex items-center gap-3">
-                            <CheckCircleIcon className="h-6 w-6 text-blue-400"/>
-                            <span className="font-semibold text-sm">
+                            <CheckCircleIcon className="h-6 w-6"/>
+                            <span className="font-semibold">
                                 Você tem {newOrdersCount} novo(s) pedido(s) nas últimas 24 horas!
                             </span>
                         </div>
-                        <button onClick={() => setShowNewOrderNotification(false)} className="p-1 rounded-full hover:bg-blue-800 transition-colors">
-                            <XMarkIcon className="h-5 w-5 text-blue-200"/>
+                        <button onClick={() => setShowNewOrderNotification(false)} className="p-1 rounded-full hover:bg-blue-500">
+                            <XMarkIcon className="h-5 w-5"/>
                         </button>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            <h1 className="text-3xl font-bold mb-6 text-white tracking-tight">Gerenciar Pedidos</h1>
-            
-            <div className="bg-[#0a0a0a] p-5 rounded-xl shadow-lg border border-gray-800 mb-6 space-y-4">
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                    <SearchIcon className="h-5 w-5 text-amber-500" /> Pesquisa Avançada
-                </h2>
+            <h1 className="text-3xl font-bold mb-6">Gerenciar Pedidos</h1>
+            {/* ... Filtros ... */}
+            <div className="bg-white p-4 rounded-lg shadow-md mb-6 space-y-4">
+                <h2 className="text-xl font-semibold">Pesquisa Avançada</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <input type="text" name="orderIdSearch" placeholder="Pesquisar por ID, Nome ou CPF..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="p-3 bg-[#111] border border-gray-800 text-white rounded-lg col-span-1 md:col-span-2 lg:col-span-4 focus:ring-1 focus:ring-amber-500 outline-none placeholder-gray-600 transition-shadow"/>
-                    <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="p-3 bg-[#111] border border-gray-800 text-white rounded-lg focus:ring-1 focus:ring-amber-500 outline-none transition-shadow" title="Data de Início" style={{ colorScheme: 'dark' }}/>
-                    <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="p-3 bg-[#111] border border-gray-800 text-white rounded-lg focus:ring-1 focus:ring-amber-500 outline-none transition-shadow" title="Data Final" style={{ colorScheme: 'dark' }}/>
-                    <input type="number" name="minPrice" placeholder="Preço Mín." value={filters.minPrice} onChange={handleFilterChange} className="p-3 bg-[#111] border border-gray-800 text-white rounded-lg focus:ring-1 focus:ring-amber-500 outline-none placeholder-gray-600 transition-shadow"/>
-                    <input type="number" name="maxPrice" placeholder="Preço Máx." value={filters.maxPrice} onChange={handleFilterChange} className="p-3 bg-[#111] border border-gray-800 text-white rounded-lg focus:ring-1 focus:ring-amber-500 outline-none placeholder-gray-600 transition-shadow"/>
-                    <select name="status" value={filters.status} onChange={handleFilterChange} className="p-3 bg-[#111] border border-gray-800 text-white rounded-lg focus:ring-1 focus:ring-amber-500 outline-none transition-shadow lg:col-span-4">
+                    <input type="text" name="orderIdSearch" placeholder="Pesquisar por ID, Nome ou CPF..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="p-2 border rounded-md col-span-1 md:col-span-2 lg:col-span-4"/>
+                    <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data de Início"/>
+                    <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data Final"/>
+                    <input type="number" name="minPrice" placeholder="Preço Mín." value={filters.minPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
+                    <input type="number" name="maxPrice" placeholder="Preço Máx." value={filters.maxPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
+                    <select name="status" value={filters.status} onChange={handleFilterChange} className="p-2 border rounded-md bg-white">
                         <option value="">Todos os Status</option>
                         {[...new Set(allStatuses)].map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                 </div>
-                <div className="mt-4 flex gap-3 flex-wrap">
-                    <button onClick={applyFilters} className="bg-amber-500 text-black font-bold px-6 py-2.5 rounded-lg hover:bg-amber-400 transition-colors shadow-md active:scale-95 flex items-center gap-2">
-                        <CheckIcon className="h-4 w-4"/> Aplicar Filtros
-                    </button>
-                    <button onClick={clearFilters} className="bg-transparent border border-gray-700 text-gray-300 font-bold px-6 py-2.5 rounded-lg hover:bg-gray-800 transition-colors active:scale-95">Limpar Filtros</button>
+                <div className="mt-4 flex gap-2 flex-wrap">
+                    <button onClick={applyFilters} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Aplicar Filtros</button>
+                    <button onClick={clearFilters} className="bg-gray-400 text-white px-4 py-2 rounded-md hover:bg-gray-500">Limpar Filtros</button>
                 </div>
             </div>
             
-            <div className="bg-[#0a0a0a] shadow-lg rounded-xl border border-gray-800 overflow-hidden">
+            {/* Tabela de Listagem de Pedidos (COM ESTADO VAZIO) */}
+            <div className="bg-white shadow-md rounded-lg overflow-hidden">
                 <div className="hidden lg:block overflow-x-auto">
                      <table className="w-full text-left">
-                         <thead className="bg-[#111] border-b border-gray-800">
+                         <thead className="bg-gray-100">
                             <tr>
-                                <th className="p-4 font-bold text-gray-400 uppercase tracking-wider text-[10px]">ID</th>
-                                <th className="p-4 font-bold text-gray-400 uppercase tracking-wider text-[10px]">Cliente</th>
-                                <th className="p-4 font-bold text-gray-400 uppercase tracking-wider text-[10px]">Contato</th>
-                                <th className="p-4 font-bold text-gray-400 uppercase tracking-wider text-[10px]">Envio</th>
-                                <th className="p-4 font-bold text-gray-400 uppercase tracking-wider text-[10px]">Total</th>
-                                <th className="p-4 font-bold text-gray-400 uppercase tracking-wider text-[10px]">Status</th>
-                                <th className="p-4 font-bold text-gray-400 uppercase tracking-wider text-[10px] text-center">Ações</th>
+                                <th className="p-4 font-semibold text-gray-600">ID</th>
+                                <th className="p-4 font-semibold text-gray-600">Cliente</th>
+                                <th className="p-4 font-semibold text-gray-600">Contato</th>
+                                <th className="p-4 font-semibold text-gray-600">Envio</th>
+                                <th className="p-4 font-semibold text-gray-600">Total</th>
+                                <th className="p-4 font-semibold text-gray-600">Status</th>
+                                <th className="p-4 font-semibold text-gray-600">Ações</th>
                             </tr>
                          </thead>
-                         <tbody className="divide-y divide-gray-800">
+                         <tbody className="divide-y divide-gray-100">
                             {currentOrders.length > 0 ? (
                                 currentOrders.map(o => {
                                     const shipInfo = getShippingDisplay(o.shipping_method);
                                     return (
-                                    <tr key={o.id} className="hover:bg-gray-900/50 transition-colors">
+                                    <tr key={o.id} className="hover:bg-gray-50 transition-colors">
                                         <td className="p-4">
-                                            <span className="font-mono text-amber-400 font-bold bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded">#{o.id}</span>
-                                            <p className="text-xs text-gray-500 mt-1.5">{new Date(o.date).toLocaleDateString('pt-BR')}</p>
+                                            <span className="font-mono text-indigo-600 font-bold bg-indigo-50 px-2 py-1 rounded">#{o.id}</span>
+                                            <p className="text-xs text-gray-400 mt-1">{new Date(o.date).toLocaleDateString('pt-BR')}</p>
                                         </td>
                                         <td className="p-4">
-                                            <p className="font-bold text-white">{o.user_name}</p>
-                                            <p className="text-[10px] text-gray-500 flex items-center gap-1 mt-1 uppercase tracking-widest font-mono">
+                                            <p className="font-bold text-gray-900">{o.user_name}</p>
+                                            <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
                                                 <UserIcon className="h-3 w-3"/> {maskCPF(o.user_cpf || '')}
                                             </p>
                                         </td>
                                         <td className="p-4">
                                             {o.user_phone ? (
-                                                <a href={`https://wa.me/55${o.user_phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-green-400 font-bold hover:underline text-xs bg-green-900/20 border border-green-500/30 px-2.5 py-1.5 rounded w-fit transition-colors">
+                                                <a href={`https://wa.me/55${o.user_phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-green-600 font-bold hover:underline text-sm bg-green-50 px-2 py-1 rounded w-fit">
                                                     <WhatsappIcon className="h-4 w-4"/> {maskPhone(o.user_phone)}
                                                 </a>
-                                            ) : <span className="text-gray-600 text-xs italic">Sem contato</span>}
+                                            ) : <span className="text-gray-400 text-xs">Sem contato</span>}
                                         </td>
                                         <td className="p-4">
-                                            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md w-fit text-[10px] uppercase font-bold tracking-widest ${shipInfo.classes}`}>
+                                            <div className={`flex items-center gap-2 px-2 py-1 rounded-md w-fit ${shipInfo.classes}`}>
                                                 {shipInfo.icon}
-                                                <span>{shipInfo.label}</span>
+                                                <span className="text-xs font-bold">{shipInfo.label}</span>
                                             </div>
                                         </td>
-                                        <td className="p-4 font-bold text-white">R$ {Number(o.total).toFixed(2)}</td>
+                                        <td className="p-4 font-bold text-gray-800">R$ {Number(o.total).toFixed(2)}</td>
                                         <td className="p-4">
-                                            <span className={`px-2.5 py-1 text-[10px] uppercase font-bold tracking-widest rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
+                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
                                         </td>
-                                        <td className="p-4 text-center">
-                                            <button onClick={() => handleOpenEditModal(o)} className="text-gray-400 hover:text-amber-400 transition-colors p-2 rounded-full hover:bg-gray-800" title="Ver Detalhes">
+                                        <td className="p-4">
+                                            <button onClick={() => handleOpenEditModal(o)} className="text-gray-500 hover:text-indigo-600 transition-colors p-2 rounded-full hover:bg-indigo-50" title="Ver Detalhes">
                                                 <EyeIcon className="h-5 w-5"/>
                                             </button>
                                         </td>
@@ -14635,8 +14629,8 @@ const AdminOrders = ({ appName }) => {
                                 <tr>
                                     <td colSpan="7" className="p-12 text-center">
                                         <div className="flex flex-col items-center justify-center">
-                                            <PackageIcon className="h-12 w-12 text-gray-600 mb-3" />
-                                            <h3 className="text-lg font-bold text-white">Nenhum pedido encontrado</h3>
+                                            <PackageIcon className="h-12 w-12 text-gray-300 mb-3" />
+                                            <h3 className="text-lg font-bold text-gray-700">Nenhum pedido encontrado</h3>
                                             <p className="text-sm text-gray-500 mt-1">
                                                 {searchTerm || filters.status || filters.startDate || filters.endDate || filters.minPrice || filters.maxPrice 
                                                     ? 'Nenhum pedido corresponde aos filtros aplicados.' 
@@ -14651,58 +14645,58 @@ const AdminOrders = ({ appName }) => {
                 </div>
                 
                 {/* Mobile List View (Cards Melhorados) */}
-                <div className="lg:hidden space-y-4 p-4 bg-[#050505]">
+                <div className="lg:hidden space-y-4 p-4 bg-gray-50">
                     {currentOrders.length > 0 ? (
                         currentOrders.map(o => {
                             const shipInfo = getShippingDisplay(o.shipping_method);
                             return (
-                            <div key={o.id} className="bg-[#0a0a0a] border border-gray-800 rounded-xl p-4 shadow-sm relative overflow-hidden">
+                            <div key={o.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm relative overflow-hidden">
                                 {/* Faixa lateral de status */}
-                                <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${o.status === 'Entregue' ? 'bg-green-500' : (o.status === 'Cancelado' || o.status.includes('Recusado') ? 'bg-red-500' : 'bg-amber-500')}`}></div>
+                                <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${o.status === 'Entregue' ? 'bg-green-500' : (o.status === 'Cancelado' ? 'bg-red-500' : 'bg-indigo-500')}`}></div>
                                 
                                 <div className="pl-3">
                                     <div className="flex justify-between items-start mb-3">
                                         <div>
                                             <div className="flex items-center gap-2">
-                                                <span className="font-mono font-bold text-amber-400 text-lg">#{o.id}</span>
-                                                <span className="text-[10px] uppercase font-bold tracking-widest text-gray-500">{new Date(o.date).toLocaleDateString('pt-BR')}</span>
+                                                <span className="font-mono font-bold text-indigo-700 text-lg">#{o.id}</span>
+                                                <span className="text-xs text-gray-400">{new Date(o.date).toLocaleDateString('pt-BR')}</span>
                                             </div>
-                                            <p className="font-bold text-white text-sm">{o.user_name}</p>
+                                            <p className="font-bold text-gray-800 text-sm">{o.user_name}</p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="font-bold text-white">R$ {Number(o.total).toFixed(2)}</p>
-                                            <span className={`inline-block mt-1 px-2 py-0.5 text-[9px] uppercase font-bold tracking-widest rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
+                                            <p className="font-bold text-gray-900">R$ {Number(o.total).toFixed(2)}</p>
+                                            <span className={`inline-block mt-1 px-2 py-0.5 text-[10px] uppercase font-bold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
                                         </div>
                                     </div>
 
                                     {/* Dados do Cliente (Mobile) */}
-                                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-400 bg-[#111] p-3 rounded-lg border border-gray-800 mb-3">
+                                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 bg-gray-50 p-2.5 rounded-lg border border-gray-100 mb-3">
                                         <div className="flex items-center gap-1.5">
-                                            <UserIcon className="h-3.5 w-3.5 text-gray-500"/>
+                                            <UserIcon className="h-3.5 w-3.5 text-gray-400"/>
                                             <span className="font-mono">{maskCPF(o.user_cpf || '---')}</span>
                                         </div>
                                         <div className="flex items-center gap-1.5">
                                             <WhatsappIcon className="h-3.5 w-3.5 text-green-500"/>
-                                            <span className="font-bold text-green-400">{maskPhone(o.user_phone || '---')}</span>
+                                            <span className="font-bold text-green-700">{maskPhone(o.user_phone || '---')}</span>
                                         </div>
                                     </div>
 
                                     {/* Dados de Envio (Mobile) */}
-                                    <div className={`flex items-center gap-2 p-2.5 rounded-lg mb-3 border text-[10px] uppercase font-bold tracking-widest ${shipInfo.classes}`}>
+                                    <div className={`flex items-center gap-2 p-2 rounded-lg mb-3 ${shipInfo.classes}`}>
                                         {shipInfo.icon}
-                                        <span>{shipInfo.fullText}</span>
+                                        <span className="text-xs font-bold">{shipInfo.fullText}</span>
                                     </div>
 
-                                    <button onClick={() => handleOpenEditModal(o)} className="w-full bg-gray-800 hover:bg-gray-700 text-white py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-md active:scale-95 border border-gray-700">
-                                        <EyeIcon className="h-4 w-4 text-amber-400"/> Ver Detalhes do Pedido
+                                    <button onClick={() => handleOpenEditModal(o)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-md active:scale-95">
+                                        <EyeIcon className="h-4 w-4"/> Ver Detalhes do Pedido
                                     </button>
                                 </div>
                             </div>
                         )})
                     ) : (
-                        <div className="text-center p-8 bg-[#0a0a0a] rounded-xl border border-gray-800 shadow-sm">
-                            <PackageIcon className="h-12 w-12 text-gray-600 mx-auto mb-3" />
-                            <h3 className="text-lg font-bold text-white">Nenhum pedido encontrado</h3>
+                        <div className="text-center p-8 bg-white rounded-xl border border-gray-200 shadow-sm">
+                            <PackageIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                            <h3 className="text-lg font-bold text-gray-700">Nenhum pedido encontrado</h3>
                             <p className="text-sm text-gray-500 mt-1">
                                 {searchTerm || filters.status || filters.startDate || filters.endDate || filters.minPrice || filters.maxPrice 
                                     ? 'Tente limpar os filtros para ver mais resultados.' 
@@ -14716,9 +14710,9 @@ const AdminOrders = ({ appName }) => {
             {/* Paginação */}
             {totalPages > 1 && (
                 <div className="flex justify-between items-center mt-6">
-                    <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-5 py-2.5 bg-[#0a0a0a] border border-gray-800 rounded-lg disabled:opacity-50 font-bold text-gray-300 hover:bg-gray-800 transition-colors shadow-sm">Anterior</button>
-                    <span className="text-sm font-bold text-gray-500 uppercase tracking-widest">Página {currentPage} de {totalPages}</span>
-                    <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-5 py-2.5 bg-[#0a0a0a] border border-gray-800 rounded-lg disabled:opacity-50 font-bold text-gray-300 hover:bg-gray-800 transition-colors shadow-sm">Próxima</button>
+                    <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-white border rounded-md disabled:opacity-50 font-bold text-gray-700">Anterior</button>
+                    <span className="text-sm font-medium text-gray-600">Página {currentPage} de {totalPages}</span>
+                    <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-4 py-2 bg-white border rounded-md disabled:opacity-50 font-bold text-gray-700">Próxima</button>
                 </div>
             )}
         </div>
@@ -15289,6 +15283,7 @@ const MaintenanceModeToggle = () => {
             await apiService('/settings/maintenance', 'PUT', { status: newStatus ? 'on' : 'off' });
             setIsOn(newStatus);
             notification.show(`Modo de manutenção foi ${newStatus ? 'ATIVADO' : 'DESATIVADO'}.`);
+            // Dispara um evento global para atualizar a barra do topo (AdminLayout) na hora
             window.dispatchEvent(new CustomEvent('maintenance-changed', { detail: newStatus ? 'on' : 'off' }));
         } catch (error) {
             notification.show(`Erro ao alterar status: ${error.message}`, 'error');
@@ -15300,20 +15295,20 @@ const MaintenanceModeToggle = () => {
     const spring = { type: "spring", stiffness: 700, damping: 30 };
 
     return (
-        <div className={`bg-[#0a0a0a] p-6 rounded-xl border border-gray-800 shadow-lg ${isOn ? 'border-l-4 border-l-red-500' : ''}`}>
-            <h3 className="font-bold text-lg mb-3 text-white">Modo de Manutenção</h3>
+        <div className={`bg-white p-6 rounded-lg shadow ${isOn ? 'border-l-4 border-red-500' : ''}`}>
+            <h3 className="font-bold text-lg mb-3">Modo de Manutenção</h3>
             <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-400 max-w-xs">
+                <p className="text-sm text-gray-600 max-w-xs">
                     {isOn 
                         ? "O site está em manutenção. Apenas administradores logados podem acessar." 
                         : "O site está online e acessível para todos os usuários."
                     }
                 </p>
                 {isLoading ? (
-                    <SpinnerIcon className="h-6 w-6 text-gray-600"/>
+                    <SpinnerIcon className="h-6 w-6 text-gray-400"/>
                 ) : (
                     <div 
-                        className={`flex items-center w-14 h-8 rounded-full p-1 cursor-pointer transition-colors ${isOn ? 'bg-red-500 justify-end' : 'bg-gray-700 justify-start'}`}
+                        className={`flex items-center w-14 h-8 rounded-full p-1 cursor-pointer transition-colors ${isOn ? 'bg-red-500 justify-end' : 'bg-gray-300 justify-start'}`}
                         onClick={handleToggle}
                     >
                         <motion.div 
