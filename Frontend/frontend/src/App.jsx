@@ -13142,7 +13142,6 @@ const AdminCoupons = () => {
     const notification = useNotification();
     const confirmation = useConfirmation();
 
-    // Helper robusto para JSON
     const tryParse = (data) => {
         if (Array.isArray(data)) return data;
         try {
@@ -13255,268 +13254,177 @@ const AdminCoupons = () => {
                 const h = Math.floor((diff % 86400000) / 3600000);
                 const m = Math.floor((diff % 3600000) / 60000);
                 const s = Math.floor((diff % 60000) / 1000);
-                setTimeLeft(`${d}d ${h}h ${m}m ${s}s`);
+                setTimeLeft(`${d}d ${h}h`);
             };
             calc();
-            const i = setInterval(calc, 1000);
+            const i = setInterval(calc, 60000); // Atualiza a cada minuto para não pesar
             return () => clearInterval(i);
         }, [createdAt, validityDays]);
         
         let color = 'text-gray-500';
         if(timeLeft === 'Expirado') color = 'text-red-500 font-bold';
-        else if(timeLeft === 'Permanente') color = 'text-green-600 font-bold';
-        else color = 'text-amber-600 font-mono';
-        return <span className={`text-xs ${color}`}>{timeLeft}</span>;
-    };
-
-   const CouponForm = ({ item, onSave, onCancel }) => {
-        const [form, setForm] = useState(item || {
-            code: '', type: 'percentage', value: '', is_active: 1, is_global: 1,
-            allowed_categories: [], allowed_brands: [], validity_days: '',
-            is_first_purchase: 0, is_single_use_per_user: 0
-        });
-
-        const toggleSelection = (field, value) => {
-            setForm(prev => {
-                const list = prev[field] || [];
-                if (list.includes(value)) {
-                    return { ...prev, [field]: list.filter(v => v !== value) };
-                } else {
-                    return { ...prev, [field]: [...list, value], is_global: 0 };
-                }
-            });
-        };
-
-        return (
-            <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-5 max-h-[75vh] overflow-y-auto px-1 text-gray-200 custom-scrollbar">
-                 <div className="grid grid-cols-2 gap-5">
-                    <div>
-                        <label className="block text-sm font-bold text-gray-400 mb-1">Código</label>
-                        <input type="text" value={form.code} onChange={e => setForm({...form, code: e.target.value.toUpperCase()})} className="w-full px-4 py-2.5 bg-[#111] border border-gray-700 text-white font-mono rounded-lg focus:ring-1 focus:ring-amber-500 outline-none uppercase transition-colors" required />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-bold text-gray-400 mb-1">Tipo</label>
-                        <select value={form.type} onChange={e => setForm({...form, type: e.target.value})} className="w-full px-4 py-2.5 bg-[#111] border border-gray-700 text-white rounded-lg focus:ring-1 focus:ring-amber-500 outline-none transition-colors">
-                            <option value="percentage">Porcentagem (%)</option>
-                            <option value="fixed">Valor Fixo (R$)</option>
-                            <option value="free_shipping">Frete Grátis</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-5">
-                     {form.type !== 'free_shipping' && (
-                        <div>
-                            <label className="block text-sm font-bold text-gray-400 mb-1">Valor do Desconto</label>
-                            <input type="number" value={form.value} onChange={e => setForm({...form, value: e.target.value})} className="w-full px-4 py-2.5 bg-[#111] border border-gray-700 text-white rounded-lg focus:ring-1 focus:ring-amber-500 outline-none transition-colors" step="0.01" required />
-                        </div>
-                    )}
-                    <div>
-                        <label className="block text-sm font-bold text-gray-400 mb-1">Validade (Dias)</label>
-                        <input type="number" value={form.validity_days} onChange={e => setForm({...form, validity_days: e.target.value})} placeholder="Vazio = Eterno" className="w-full px-4 py-2.5 bg-[#111] border border-gray-700 text-white rounded-lg focus:ring-1 focus:ring-amber-500 outline-none transition-colors" />
-                    </div>
-                </div>
-
-                <div className="border-t border-gray-800 pt-5 mt-2">
-                     <label className="flex items-center space-x-3 cursor-pointer mb-4 bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
-                        <input 
-                            type="checkbox" 
-                            checked={!!form.is_global} 
-                            onChange={e => {
-                                const checked = e.target.checked;
-                                setForm({...form, is_global: checked ? 1 : 0, allowed_categories: checked ? [] : form.allowed_categories, allowed_brands: checked ? [] : form.allowed_brands});
-                            }} 
-                            className="h-5 w-5 bg-gray-800 border-gray-700 text-amber-500 rounded focus:ring-amber-500"
-                        />
-                        <span className="font-bold text-white">Cupom Global (Válido para loja toda)</span>
-                    </label>
-
-                    {(!form.is_global || form.allowed_categories.length > 0 || form.allowed_brands.length > 0) && (
-                        <div className="bg-[#111] p-5 border border-gray-700 rounded-lg space-y-4">
-                             <p className="text-xs text-amber-500 font-bold uppercase tracking-widest">* Restrições (Selecione para aplicar):</p>
-                             
-                             <div>
-                                <span className="block text-xs font-bold text-gray-400 mb-2">CATEGORIAS PERMITIDAS</span>
-                                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar pr-2">
-                                    {productsData.categories.map(cat => (
-                                        <button 
-                                            type="button" 
-                                            key={cat} 
-                                            onClick={() => toggleSelection('allowed_categories', cat)} 
-                                            className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md border transition-all ${form.allowed_categories?.includes(cat) ? 'bg-blue-900/30 text-blue-400 border-blue-500/50' : 'bg-gray-800 text-gray-500 border-gray-700 hover:text-white'}`}
-                                        >
-                                            {cat}
-                                        </button>
-                                    ))}
-                                </div>
-                             </div>
-
-                             <div className="pt-2 border-t border-gray-800">
-                                <span className="block text-xs font-bold text-gray-400 mb-2">MARCAS PERMITIDAS</span>
-                                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar pr-2">
-                                    {productsData.brands.map(brand => (
-                                        <button 
-                                            type="button" 
-                                            key={brand} 
-                                            onClick={() => toggleSelection('allowed_brands', brand)} 
-                                            className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md border transition-all ${form.allowed_brands?.includes(brand) ? 'bg-purple-900/30 text-purple-400 border-purple-500/50' : 'bg-gray-800 text-gray-500 border-gray-700 hover:text-white'}`}
-                                        >
-                                            {brand}
-                                        </button>
-                                    ))}
-                                </div>
-                             </div>
-                        </div>
-                    )}
-                </div>
-                
-                 <div className="border-t border-gray-800 pt-5 space-y-3 bg-[#0a0a0a] p-4 rounded-lg mt-4 border">
-                     <label className="flex items-center space-x-3 cursor-pointer">
-                         <input type="checkbox" checked={!!form.is_first_purchase} onChange={e => setForm({...form, is_first_purchase: e.target.checked ? 1 : 0})} className="h-5 w-5 bg-gray-800 border-gray-700 text-amber-500 rounded focus:ring-amber-500"/> 
-                         <span className="text-sm font-bold text-white">Apenas para 1ª Compra do Cliente</span>
-                     </label>
-                     <label className="flex items-center space-x-3 cursor-pointer">
-                         <input type="checkbox" checked={!!form.is_single_use_per_user} onChange={e => setForm({...form, is_single_use_per_user: e.target.checked ? 1 : 0})} className="h-5 w-5 bg-gray-800 border-gray-700 text-amber-500 rounded focus:ring-amber-500"/> 
-                         <span className="text-sm font-bold text-white">Uso Único (Um por Cliente)</span>
-                     </label>
-                </div>
-
-                <div className="pt-4 border-t border-gray-800">
-                    <label className="flex items-center space-x-3 cursor-pointer">
-                        <input type="checkbox" checked={!!form.is_active} onChange={e => setForm({...form, is_active: e.target.checked ? 1 : 0})} className="h-5 w-5 bg-gray-800 border-gray-700 text-green-500 rounded focus:ring-green-500"/> 
-                        <span className="font-bold text-green-500">Cupom Ativo</span>
-                    </label>
-                </div>
-
-                <div className="flex justify-end gap-3 pt-6 border-t border-gray-800 mt-6">
-                    <button type="button" onClick={onCancel} className="px-6 py-2.5 bg-gray-800 text-gray-300 font-bold rounded-lg hover:bg-gray-700 transition-colors">Cancelar</button>
-                    <button type="submit" className="px-8 py-2.5 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 shadow-md transition-all active:scale-95 flex items-center gap-2">
-                        <CheckIcon className="h-5 w-5"/> Salvar Cupom
-                    </button>
-                </div>
-            </form>
-        );
+        else if(timeLeft === 'Permanente') color = 'text-green-500 font-bold';
+        else color = 'text-amber-500 font-mono';
+        return <span className={`text-[10px] ${color}`}>{timeLeft}</span>;
     };
 
     return (
         <div>
             <AnimatePresence>
-                {isModalOpen && <Modal isOpen={true} onClose={() => setIsModalOpen(false)} title={editingCoupon ? 'Editar' : 'Novo'}><CouponForm item={editingCoupon} onSave={handleSave} onCancel={() => setIsModalOpen(false)} /></Modal>}
+                {isModalOpen && <Modal isOpen={true} onClose={() => setIsModalOpen(false)} title={editingCoupon ? 'Editar Cupom' : 'Novo Cupom'} isDark={true}><CouponForm item={editingCoupon} onSave={handleSave} onCancel={() => setIsModalOpen(false)} /></Modal>}
             </AnimatePresence>
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold">Gerenciar Cupons</h1>
-                <button onClick={() => { setEditingCoupon(null); setIsModalOpen(true); }} className="bg-gray-800 text-white px-4 py-2 rounded flex items-center gap-2"><PlusIcon className="h-5 w-5"/> Novo</button>
+            
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-white tracking-tight">Gerenciar Cupons</h1>
+                    <p className="text-gray-500 text-sm mt-1">Crie códigos de desconto e configure restrições de uso.</p>
+                </div>
+                <button onClick={() => { setEditingCoupon(null); setIsModalOpen(true); }} className="bg-amber-500 text-black px-5 py-2.5 rounded-lg hover:bg-amber-400 font-bold flex items-center gap-2 shadow-lg hover:shadow-amber-500/20 transition-all active:scale-95">
+                    <PlusIcon className="h-5 w-5"/> Novo Cupom
+                </button>
             </div>
             
             {/* Barra de Pesquisa */}
             <div className="mb-6 relative">
-                <input type="text" placeholder="Pesquisar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-3 pl-10 border rounded shadow-sm" />
-                <div className="absolute top-1/2 left-3 transform -translate-y-1/2 text-gray-400"><SearchIcon className="h-5 w-5" /></div>
+                <input type="text" placeholder="Pesquisar por código..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-3 pl-11 bg-[#111] border border-gray-800 text-white rounded-xl shadow-sm focus:outline-none focus:ring-1 focus:ring-amber-500 transition-all placeholder-gray-600" />
+                <div className="absolute top-1/2 left-4 transform -translate-y-1/2 text-gray-500"><SearchIcon className="h-5 w-5" /></div>
             </div>
 
-            {/* Barra de Ações em Massa (Visível apenas se houver seleção) */}
+            {/* Barra de Ações em Massa */}
             <AnimatePresence>
                 {selectedCoupons.length > 0 && (
                     <motion.div 
                         initial={{ opacity: 0, y: -10 }} 
                         animate={{ opacity: 1, y: 0 }} 
                         exit={{ opacity: 0, y: -10 }}
-                        className="bg-blue-50 border border-blue-200 p-3 rounded-lg mb-6 flex flex-wrap items-center justify-between gap-3 sticky top-16 z-20 shadow-md"
+                        className="bg-indigo-900/20 border border-indigo-500/30 p-3 rounded-xl mb-6 flex flex-wrap items-center justify-between gap-3 sticky top-24 z-20 shadow-xl backdrop-blur-md"
                     >
-                        <div className="text-sm font-bold text-blue-800">
-                            {selectedCoupons.length} selecionado(s)
+                        <div className="text-sm font-bold text-indigo-400 flex items-center gap-2">
+                            <span className="bg-indigo-500 text-white px-2.5 py-0.5 rounded-full">{selectedCoupons.length}</span>
+                            selecionado(s)
                         </div>
-                        <div className="flex gap-2">
-                            <button onClick={() => handleBulkAction('activate')} className="px-2 py-1 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700">Ativar</button>
-                            <button onClick={() => handleBulkAction('deactivate')} className="px-2 py-1 bg-yellow-500 text-white text-xs font-bold rounded hover:bg-yellow-600">Desativar</button>
-                            <button onClick={() => handleBulkAction('delete')} className="px-2 py-1 bg-red-600 text-white text-xs font-bold rounded hover:bg-red-700 flex items-center gap-1"><TrashIcon className="h-3 w-3"/> Excluir</button>
-                            <button onClick={() => setSelectedCoupons([])} className="px-2 py-1 bg-white border border-gray-300 text-gray-600 text-xs font-bold rounded hover:bg-gray-100">Cancelar</button>
+                        <div className="flex flex-wrap gap-2">
+                            <button onClick={() => handleBulkAction('activate')} className="px-3 py-1.5 bg-green-900/30 text-green-400 border border-green-500/30 text-xs font-bold rounded hover:bg-green-900 shadow-sm transition-colors">Ativar</button>
+                            <button onClick={() => handleBulkAction('deactivate')} className="px-3 py-1.5 bg-yellow-900/30 text-yellow-400 border border-yellow-500/30 text-xs font-bold rounded hover:bg-yellow-900 shadow-sm transition-colors">Desativar</button>
+                            <button onClick={() => handleBulkAction('delete')} className="px-3 py-1.5 bg-red-900/30 text-red-400 border border-red-500/30 text-xs font-bold rounded hover:bg-red-900 flex items-center gap-1 shadow-sm transition-colors"><TrashIcon className="h-3 w-3"/> Excluir</button>
+                            <button onClick={() => setSelectedCoupons([])} className="px-3 py-1.5 bg-transparent border border-gray-700 text-gray-400 text-xs font-bold rounded hover:bg-gray-800 shadow-sm ml-1 transition-colors">Cancelar</button>
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {/* Seleção Múltipla Mobile (Apenas Checkbox) */}
             <div className="md:hidden flex items-center mb-4 px-1">
                 <input 
                     type="checkbox" 
                     id="mobile-select-all"
                     onChange={handleSelectAll} 
                     checked={filteredCoupons.length > 0 && selectedCoupons.length === filteredCoupons.length}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-5 w-5 mr-2"
+                    className="rounded bg-gray-800 border-gray-700 text-amber-500 focus:ring-amber-500 h-5 w-5 mr-2"
                 />
-                <label htmlFor="mobile-select-all" className="text-sm font-bold text-gray-700">Selecionar Todos</label>
+                <label htmlFor="mobile-select-all" className="text-sm font-bold text-gray-400">Selecionar Todos</label>
             </div>
 
-            <div className="hidden md:block bg-white rounded shadow overflow-hidden">
+            <div className="hidden md:block bg-[#0a0a0a] rounded-xl shadow-lg overflow-hidden border border-gray-800">
                 <table className="w-full text-left">
-                    <thead className="bg-gray-100">
+                    <thead className="bg-[#111] border-b border-gray-800">
                         <tr>
-                            <th className="p-3 w-10"><input type="checkbox" onChange={handleSelectAll} checked={filteredCoupons.length > 0 && selectedCoupons.length === filteredCoupons.length}/></th>
-                            <th className="p-3">Código</th><th className="p-3">Regra</th><th className="p-3">Desc.</th><th className="p-3">Restrições</th><th className="p-3">Valid.</th><th className="p-3">Status</th><th className="p-3">Ações</th>
+                            <th className="p-4 w-10"><input type="checkbox" onChange={handleSelectAll} checked={filteredCoupons.length > 0 && selectedCoupons.length === filteredCoupons.length} className="h-4 w-4 bg-gray-800 border-gray-700 rounded text-amber-500 focus:ring-amber-500"/></th>
+                            <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Código</th>
+                            <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Regra</th>
+                            <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Desconto</th>
+                            <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Restrições</th>
+                            <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Validade</th>
+                            <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Status</th>
+                            <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-center">Ações</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-gray-800">
                         {filteredCoupons.map(c => (
-                            <tr key={c.id} className="border-b hover:bg-gray-50">
-                                <td className="p-3"><input type="checkbox" checked={selectedCoupons.includes(c.id)} onChange={() => handleSelectCoupon(c.id)}/></td>
-                                <td className="p-3 font-mono font-bold text-blue-600">{c.code}</td>
-                                <td className="p-3 text-xs">{c.is_global ? <span className="text-green-600 font-bold">Global</span> : <span className="text-amber-600 font-bold">Restrito</span>}</td>
-                                <td className="p-3 text-sm">{c.type === 'free_shipping' ? 'Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$${c.value}`)}</td>
-                                <td className="p-3 text-xs text-gray-500">
+                            <tr key={c.id} className={`hover:bg-gray-900/50 transition-colors ${selectedCoupons.includes(c.id) ? 'bg-indigo-900/10' : ''}`}>
+                                <td className="p-4"><input type="checkbox" checked={selectedCoupons.includes(c.id)} onChange={() => handleSelectCoupon(c.id)} className="h-4 w-4 bg-gray-800 border-gray-700 rounded text-amber-500 focus:ring-amber-500"/></td>
+                                <td className="p-4 font-mono font-bold text-amber-400 text-lg tracking-wider">{c.code}</td>
+                                <td className="p-4">
+                                    {c.is_global 
+                                        ? <span className="bg-green-900/30 text-green-400 border border-green-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest">Global</span> 
+                                        : <span className="bg-indigo-900/30 text-indigo-400 border border-indigo-500/30 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest">Restrito</span>
+                                    }
+                                </td>
+                                <td className="p-4 font-bold text-white text-base">
+                                    {c.type === 'free_shipping' ? 'Frete Grátis' : (c.type === 'percentage' ? `${c.value}% OFF` : `R$ ${c.value} OFF`)}
+                                </td>
+                                <td className="p-4 text-xs text-gray-500 space-y-1">
                                     {!c.is_global && (
                                         <div className="flex flex-col gap-1">
-                                            {tryParse(c.allowed_brands).length > 0 && <span className="text-purple-700">M: {tryParse(c.allowed_brands).join(', ')}</span>}
-                                            {tryParse(c.allowed_categories).length > 0 && <span className="text-blue-700">C: {tryParse(c.allowed_categories).join(', ')}</span>}
+                                            {tryParse(c.allowed_brands).length > 0 && <span className="text-purple-400 bg-purple-900/20 px-1.5 rounded w-fit">Marcas: {tryParse(c.allowed_brands).join(', ')}</span>}
+                                            {tryParse(c.allowed_categories).length > 0 && <span className="text-blue-400 bg-blue-900/20 px-1.5 rounded w-fit">Categ: {tryParse(c.allowed_categories).join(', ')}</span>}
                                         </div>
                                     )}
-                                    {!!c.is_first_purchase && <div className="text-amber-700 font-semibold">• 1ª Compra</div>}
-                                    {!!c.is_single_use_per_user && <div className="text-blue-700 font-semibold">• Uso Único</div>}
+                                    {!!c.is_first_purchase && <div className="text-amber-500 font-semibold flex items-center gap-1"><SparklesIcon className="h-3 w-3"/> 1ª Compra</div>}
+                                    {!!c.is_single_use_per_user && <div className="text-blue-400 font-semibold flex items-center gap-1"><UserIcon className="h-3 w-3"/> Uso Único</div>}
+                                    {c.is_global && !c.is_first_purchase && !c.is_single_use_per_user && <span>Sem restrições extras</span>}
                                 </td>
-                                <td className="p-3"><CouponCountdown createdAt={c.created_at} validityDays={c.validity_days}/></td>
-                                <td className="p-3"><span className={`px-2 py-0.5 text-xs rounded ${c.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100'}`}>{c.is_active ? 'Ativo' : 'Inativo'}</span></td>
-                                <td className="p-3 flex gap-2">
-                                    <button onClick={() => { setEditingCoupon({ ...c, allowed_categories: tryParse(c.allowed_categories), allowed_brands: tryParse(c.allowed_brands) }); setIsModalOpen(true); }}><EditIcon className="h-4 w-4 text-gray-500"/></button>
-                                    <button onClick={() => handleDelete(c.id)}><TrashIcon className="h-4 w-4 text-red-500"/></button>
+                                <td className="p-4"><CouponCountdown createdAt={c.created_at} validityDays={c.validity_days}/></td>
+                                <td className="p-4">
+                                    <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full ${c.is_active ? 'bg-green-900/30 text-green-400 border border-green-500/30' : 'bg-gray-800 text-gray-500 border border-gray-700'}`}>
+                                        {c.is_active ? 'Ativo' : 'Inativo'}
+                                    </span>
+                                </td>
+                                <td className="p-4 text-center">
+                                    <div className="flex justify-center gap-2">
+                                        <button onClick={() => { setEditingCoupon({ ...c, allowed_categories: tryParse(c.allowed_categories), allowed_brands: tryParse(c.allowed_brands) }); setIsModalOpen(true); }} className="p-2 text-gray-400 hover:text-amber-400 hover:bg-gray-800 rounded-full transition-colors"><EditIcon className="h-5 w-5"/></button>
+                                        <button onClick={() => handleDelete(c.id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-gray-800 rounded-full transition-colors"><TrashIcon className="h-5 w-5"/></button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
+                {filteredCoupons.length === 0 && <div className="p-8 text-center text-gray-500">Nenhum cupom encontrado.</div>}
             </div>
             
-            <div className="md:hidden space-y-3">
+            <div className="md:hidden space-y-4">
                  {filteredCoupons.map(c => (
-                    <div key={c.id} className={`bg-white border rounded p-3 relative ${selectedCoupons.includes(c.id) ? 'border-blue-400 ring-1 ring-blue-400' : ''}`}>
-                         <div className="flex justify-between">
-                            <div><h3 className="font-bold text-blue-700">{c.code}</h3><p className="text-xs">{c.type === 'free_shipping' ? 'Frete Grátis' : `${c.value}${c.type==='percentage'?'%':'R$'}`}</p></div>
-                            <input type="checkbox" checked={selectedCoupons.includes(c.id)} onChange={() => handleSelectCoupon(c.id)}/>
+                    <div key={c.id} className={`bg-[#0a0a0a] border rounded-xl p-4 shadow-sm relative overflow-hidden transition-colors ${selectedCoupons.includes(c.id) ? 'border-amber-500/50 bg-amber-900/10' : 'border-gray-800'}`}>
+                         <div className="flex justify-between items-start mb-3">
+                            <div className="flex items-center gap-3">
+                                <input type="checkbox" checked={selectedCoupons.includes(c.id)} onChange={() => handleSelectCoupon(c.id)} className="h-5 w-5 rounded bg-gray-800 border-gray-700 text-amber-500 focus:ring-amber-500"/>
+                                <div>
+                                    <h3 className="font-mono font-bold text-amber-400 text-xl tracking-widest">{c.code}</h3>
+                                    <span className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest rounded-full ${c.is_active ? 'bg-green-900/30 text-green-400 border border-green-500/30' : 'bg-gray-800 text-gray-500 border border-gray-700'}`}>
+                                        {c.is_active ? 'Ativo' : 'Inativo'}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <p className="font-bold text-white text-lg">{c.type === 'free_shipping' ? 'Frete Grátis' : `${c.value}${c.type==='percentage'?'%':'R$'}`}</p>
+                                <div className="mt-1"><CouponCountdown createdAt={c.created_at} validityDays={c.validity_days}/></div>
+                            </div>
                          </div>
                          
-                         <div className="flex justify-between mt-2 text-xs text-gray-500 items-center">
-                            <span className="bg-gray-100 px-2 py-0.5 rounded">{c.is_global ? 'Global' : 'Restrito'}</span>
-                            <span className={`font-bold px-2 py-0.5 rounded ${c.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                {c.is_active ? 'Ativo' : 'Inativo'}
-                            </span>
-                            <CouponCountdown createdAt={c.created_at} validityDays={c.validity_days}/>
-                         </div>
-
-                         <div className="text-xs mt-2">
+                         <div className="bg-[#111] p-3 rounded-lg border border-gray-800 text-xs text-gray-400 mb-3 space-y-1.5">
+                            <div className="flex items-center justify-between border-b border-gray-800 pb-1.5">
+                                <span className="uppercase tracking-widest text-[9px] font-bold">Regra Padrão</span>
+                                <span className={`font-bold ${c.is_global ? 'text-green-400' : 'text-indigo-400'}`}>{c.is_global ? 'Global' : 'Restrito'}</span>
+                            </div>
                             {!c.is_global && (
-                                <div className="flex flex-col gap-1 text-gray-600 bg-gray-50 p-1 rounded">
-                                    {tryParse(c.allowed_brands).length > 0 && <span>M: {tryParse(c.allowed_brands).join(', ')}</span>}
-                                    {tryParse(c.allowed_categories).length > 0 && <span>C: {tryParse(c.allowed_categories).join(', ')}</span>}
+                                <div className="flex flex-col gap-1 pt-1">
+                                    {tryParse(c.allowed_brands).length > 0 && <span><strong className="text-purple-400">M:</strong> {tryParse(c.allowed_brands).join(', ')}</span>}
+                                    {tryParse(c.allowed_categories).length > 0 && <span><strong className="text-blue-400">C:</strong> {tryParse(c.allowed_categories).join(', ')}</span>}
                                 </div>
                             )}
-                            {!!c.is_first_purchase && <span className="block text-amber-700 font-semibold">• 1ª Compra</span>}
-                            {!!c.is_single_use_per_user && <span className="block text-blue-700 font-semibold">• Uso Único</span>}
+                            <div className="flex gap-4 pt-1">
+                                {!!c.is_first_purchase && <span className="text-amber-500 font-semibold flex items-center gap-1"><SparklesIcon className="h-3 w-3"/> 1ª Compra</span>}
+                                {!!c.is_single_use_per_user && <span className="text-blue-400 font-semibold flex items-center gap-1"><UserIcon className="h-3 w-3"/> Uso Único</span>}
+                            </div>
                          </div>
-                         <div className="flex justify-end gap-3 mt-2 border-t pt-2">
-                            <button onClick={() => { setEditingCoupon({ ...c, allowed_categories: tryParse(c.allowed_categories), allowed_brands: tryParse(c.allowed_brands) }); setIsModalOpen(true); }} className="text-blue-600 text-xs font-bold flex gap-1"><EditIcon className="h-3 w-3"/> Edit</button>
-                            <button onClick={() => handleDelete(c.id)} className="text-red-600 text-xs font-bold flex gap-1"><TrashIcon className="h-3 w-3"/> Del</button>
+
+                         <div className="flex justify-end gap-2 pt-2">
+                            <button onClick={() => { setEditingCoupon({ ...c, allowed_categories: tryParse(c.allowed_categories), allowed_brands: tryParse(c.allowed_brands) }); setIsModalOpen(true); }} className="flex-1 flex justify-center items-center gap-1.5 px-3 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 font-bold text-xs transition-colors"><EditIcon className="h-4 w-4"/> Editar</button>
+                            <button onClick={() => handleDelete(c.id)} className="flex-1 flex justify-center items-center gap-1.5 px-3 py-2 bg-red-900/20 border border-red-900/50 text-red-500 rounded-lg hover:bg-red-900/40 font-bold text-xs transition-colors"><TrashIcon className="h-4 w-4"/> Excluir</button>
                          </div>
                     </div>
                  ))}
+                 {filteredCoupons.length === 0 && <div className="text-center p-8 bg-[#0a0a0a] rounded-xl border border-gray-800 text-gray-500">Nenhum cupom.</div>}
             </div>
         </div>
     );
