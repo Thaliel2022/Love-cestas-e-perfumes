@@ -13269,7 +13269,7 @@ const AdminCoupons = () => {
         return <span className={`text-xs ${color}`}>{timeLeft}</span>;
     };
 
-    const CouponForm = ({ item, onSave, onCancel }) => {
+   const CouponForm = ({ item, onSave, onCancel }) => {
         const [form, setForm] = useState(item || {
             code: '', type: 'percentage', value: '', is_active: 1, is_global: 1,
             allowed_categories: [], allowed_brands: [], validity_days: '',
@@ -13288,36 +13288,37 @@ const AdminCoupons = () => {
         };
 
         return (
-            <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4 max-h-[75vh] overflow-y-auto px-1">
-                 <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-5 max-h-[75vh] overflow-y-auto px-1 text-gray-200 custom-scrollbar">
+                 <div className="grid grid-cols-2 gap-5">
                     <div>
-                        <label className="block text-sm font-bold">Código</label>
-                        <input type="text" value={form.code} onChange={e => setForm({...form, code: e.target.value.toUpperCase()})} className="w-full p-2 border rounded uppercase" required />
+                        <label className="block text-sm font-bold text-gray-400 mb-1">Código</label>
+                        <input type="text" value={form.code} onChange={e => setForm({...form, code: e.target.value.toUpperCase()})} className="w-full px-4 py-2.5 bg-[#111] border border-gray-700 text-white font-mono rounded-lg focus:ring-1 focus:ring-amber-500 outline-none uppercase transition-colors" required />
                     </div>
                     <div>
-                        <label className="block text-sm font-bold">Tipo</label>
-                        <select value={form.type} onChange={e => setForm({...form, type: e.target.value})} className="w-full p-2 border rounded">
-                            <option value="percentage">%</option>
-                            <option value="fixed">R$</option>
+                        <label className="block text-sm font-bold text-gray-400 mb-1">Tipo</label>
+                        <select value={form.type} onChange={e => setForm({...form, type: e.target.value})} className="w-full px-4 py-2.5 bg-[#111] border border-gray-700 text-white rounded-lg focus:ring-1 focus:ring-amber-500 outline-none transition-colors">
+                            <option value="percentage">Porcentagem (%)</option>
+                            <option value="fixed">Valor Fixo (R$)</option>
                             <option value="free_shipping">Frete Grátis</option>
                         </select>
                     </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                
+                <div className="grid grid-cols-2 gap-5">
                      {form.type !== 'free_shipping' && (
                         <div>
-                            <label className="block text-sm font-bold">Valor</label>
-                            <input type="number" value={form.value} onChange={e => setForm({...form, value: e.target.value})} className="w-full p-2 border rounded" required />
+                            <label className="block text-sm font-bold text-gray-400 mb-1">Valor do Desconto</label>
+                            <input type="number" value={form.value} onChange={e => setForm({...form, value: e.target.value})} className="w-full px-4 py-2.5 bg-[#111] border border-gray-700 text-white rounded-lg focus:ring-1 focus:ring-amber-500 outline-none transition-colors" step="0.01" required />
                         </div>
                     )}
                     <div>
-                        <label className="block text-sm font-bold">Validade (Dias)</label>
-                        <input type="number" value={form.validity_days} onChange={e => setForm({...form, validity_days: e.target.value})} placeholder="Vazio = Eterno" className="w-full p-2 border rounded" />
+                        <label className="block text-sm font-bold text-gray-400 mb-1">Validade (Dias)</label>
+                        <input type="number" value={form.validity_days} onChange={e => setForm({...form, validity_days: e.target.value})} placeholder="Vazio = Eterno" className="w-full px-4 py-2.5 bg-[#111] border border-gray-700 text-white rounded-lg focus:ring-1 focus:ring-amber-500 outline-none transition-colors" />
                     </div>
                 </div>
 
-                <div className="border-t pt-4">
-                     <label className="flex items-center space-x-2 cursor-pointer mb-2 bg-gray-100 p-2 rounded">
+                <div className="border-t border-gray-800 pt-5 mt-2">
+                     <label className="flex items-center space-x-3 cursor-pointer mb-4 bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
                         <input 
                             type="checkbox" 
                             checked={!!form.is_global} 
@@ -13325,26 +13326,43 @@ const AdminCoupons = () => {
                                 const checked = e.target.checked;
                                 setForm({...form, is_global: checked ? 1 : 0, allowed_categories: checked ? [] : form.allowed_categories, allowed_brands: checked ? [] : form.allowed_brands});
                             }} 
+                            className="h-5 w-5 bg-gray-800 border-gray-700 text-amber-500 rounded focus:ring-amber-500"
                         />
-                        <span className="font-bold">Cupom Global</span>
+                        <span className="font-bold text-white">Cupom Global (Válido para loja toda)</span>
                     </label>
 
                     {(!form.is_global || form.allowed_categories.length > 0 || form.allowed_brands.length > 0) && (
-                        <div className="bg-white p-3 border rounded">
-                             <p className="text-xs text-red-600 font-bold mb-2">*Restrições (Selecione para ativar):</p>
-                             <div className="mb-2">
-                                <span className="block text-xs font-bold uppercase">Categorias</span>
-                                <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                        <div className="bg-[#111] p-5 border border-gray-700 rounded-lg space-y-4">
+                             <p className="text-xs text-amber-500 font-bold uppercase tracking-widest">* Restrições (Selecione para aplicar):</p>
+                             
+                             <div>
+                                <span className="block text-xs font-bold text-gray-400 mb-2">CATEGORIAS PERMITIDAS</span>
+                                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar pr-2">
                                     {productsData.categories.map(cat => (
-                                        <button type="button" key={cat} onClick={() => toggleSelection('allowed_categories', cat)} className={`px-2 py-0.5 text-[10px] rounded border ${form.allowed_categories?.includes(cat) ? 'bg-blue-600 text-white' : 'bg-gray-50'}`}>{cat}</button>
+                                        <button 
+                                            type="button" 
+                                            key={cat} 
+                                            onClick={() => toggleSelection('allowed_categories', cat)} 
+                                            className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md border transition-all ${form.allowed_categories?.includes(cat) ? 'bg-blue-900/30 text-blue-400 border-blue-500/50' : 'bg-gray-800 text-gray-500 border-gray-700 hover:text-white'}`}
+                                        >
+                                            {cat}
+                                        </button>
                                     ))}
                                 </div>
                              </div>
-                             <div>
-                                <span className="block text-xs font-bold uppercase">Marcas</span>
-                                <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+
+                             <div className="pt-2 border-t border-gray-800">
+                                <span className="block text-xs font-bold text-gray-400 mb-2">MARCAS PERMITIDAS</span>
+                                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar pr-2">
                                     {productsData.brands.map(brand => (
-                                        <button type="button" key={brand} onClick={() => toggleSelection('allowed_brands', brand)} className={`px-2 py-0.5 text-[10px] rounded border ${form.allowed_brands?.includes(brand) ? 'bg-purple-600 text-white' : 'bg-gray-50'}`}>{brand}</button>
+                                        <button 
+                                            type="button" 
+                                            key={brand} 
+                                            onClick={() => toggleSelection('allowed_brands', brand)} 
+                                            className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md border transition-all ${form.allowed_brands?.includes(brand) ? 'bg-purple-900/30 text-purple-400 border-purple-500/50' : 'bg-gray-800 text-gray-500 border-gray-700 hover:text-white'}`}
+                                        >
+                                            {brand}
+                                        </button>
                                     ))}
                                 </div>
                              </div>
@@ -13352,15 +13370,29 @@ const AdminCoupons = () => {
                     )}
                 </div>
                 
-                 <div className="border-t pt-2 space-y-2 bg-yellow-50 p-2 rounded">
-                     <label className="flex items-center space-x-2"><input type="checkbox" checked={!!form.is_first_purchase} onChange={e => setForm({...form, is_first_purchase: e.target.checked ? 1 : 0})}/> <span className="text-xs">Apenas 1ª Compra</span></label>
-                     <label className="flex items-center space-x-2"><input type="checkbox" checked={!!form.is_single_use_per_user} onChange={e => setForm({...form, is_single_use_per_user: e.target.checked ? 1 : 0})}/> <span className="text-xs">Uso Único por Cliente</span></label>
+                 <div className="border-t border-gray-800 pt-5 space-y-3 bg-[#0a0a0a] p-4 rounded-lg mt-4 border">
+                     <label className="flex items-center space-x-3 cursor-pointer">
+                         <input type="checkbox" checked={!!form.is_first_purchase} onChange={e => setForm({...form, is_first_purchase: e.target.checked ? 1 : 0})} className="h-5 w-5 bg-gray-800 border-gray-700 text-amber-500 rounded focus:ring-amber-500"/> 
+                         <span className="text-sm font-bold text-white">Apenas para 1ª Compra do Cliente</span>
+                     </label>
+                     <label className="flex items-center space-x-3 cursor-pointer">
+                         <input type="checkbox" checked={!!form.is_single_use_per_user} onChange={e => setForm({...form, is_single_use_per_user: e.target.checked ? 1 : 0})} className="h-5 w-5 bg-gray-800 border-gray-700 text-amber-500 rounded focus:ring-amber-500"/> 
+                         <span className="text-sm font-bold text-white">Uso Único (Um por Cliente)</span>
+                     </label>
                 </div>
-                <div className="pt-2"><label className="flex items-center space-x-2"><input type="checkbox" checked={!!form.is_active} onChange={e => setForm({...form, is_active: e.target.checked ? 1 : 0})}/> <span className="font-bold">Ativo</span></label></div>
 
-                <div className="flex justify-end gap-2 pt-4 border-t">
-                    <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-200 rounded">Cancelar</button>
-                    <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded font-bold">Salvar</button>
+                <div className="pt-4 border-t border-gray-800">
+                    <label className="flex items-center space-x-3 cursor-pointer">
+                        <input type="checkbox" checked={!!form.is_active} onChange={e => setForm({...form, is_active: e.target.checked ? 1 : 0})} className="h-5 w-5 bg-gray-800 border-gray-700 text-green-500 rounded focus:ring-green-500"/> 
+                        <span className="font-bold text-green-500">Cupom Ativo</span>
+                    </label>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-6 border-t border-gray-800 mt-6">
+                    <button type="button" onClick={onCancel} className="px-6 py-2.5 bg-gray-800 text-gray-300 font-bold rounded-lg hover:bg-gray-700 transition-colors">Cancelar</button>
+                    <button type="submit" className="px-8 py-2.5 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 shadow-md transition-all active:scale-95 flex items-center gap-2">
+                        <CheckIcon className="h-5 w-5"/> Salvar Cupom
+                    </button>
                 </div>
             </form>
         );
@@ -16187,47 +16219,55 @@ const CollectionCategoryForm = ({ item, onSave, onCancel }) => {
     const productTypeAssociations = [{value: 'none', label: 'Nenhuma'}, {value: 'perfume', label: 'Perfume'}, {value: 'clothing', label: 'Roupa'}];
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5 text-gray-200">
             <div>
-                <label className="block text-sm font-medium text-gray-700">Nome da Categoria</label>
-                <input type="text" name="name" value={formData.name} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+                <label className="block text-sm font-bold text-gray-400 mb-1">Nome da Categoria</label>
+                <input type="text" name="name" value={formData.name} onChange={handleChange} required className="w-full px-4 py-2.5 bg-[#111] border border-gray-700 text-white rounded-lg focus:ring-1 focus:ring-amber-500 outline-none transition-colors"/>
             </div>
             <div>
-                <label className="block text-sm font-medium text-gray-700">Valor do Filtro</label>
-                <input type="text" name="filter" value={formData.filter} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" />
+                <label className="block text-sm font-bold text-gray-400 mb-1">Valor do Filtro</label>
+                <input type="text" name="filter" value={formData.filter} onChange={handleChange} required className="w-full px-4 py-2.5 bg-[#111] border border-gray-700 text-white rounded-lg focus:ring-1 focus:ring-amber-500 outline-none transition-colors" />
             </div>
             <div>
-                <label className="block text-sm font-medium text-gray-700">Imagem</label>
-                <div className="flex items-center gap-2 mt-1">
-                    <img src={formData.image || 'https://placehold.co/100x100/eee/ccc?text=?'} alt="Preview" className="w-20 h-20 object-cover rounded-md border bg-gray-100"/>
+                <label className="block text-sm font-bold text-gray-400 mb-1">Imagem</label>
+                <div className="flex items-center gap-3 mt-1">
+                    <div className="w-20 h-20 bg-white rounded-lg p-1 border border-gray-700 flex-shrink-0">
+                        <img src={formData.image || 'https://placehold.co/100x100/eee/ccc?text=?'} alt="Preview" className="w-full h-full object-contain rounded-md"/>
+                    </div>
                     <div className="flex-grow">
-                        <input type="text" name="image" value={formData.image} onChange={handleChange} required placeholder="https://..." className="block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+                        <input type="text" name="image" value={formData.image} onChange={handleChange} required placeholder="https://..." className="w-full px-4 py-2.5 bg-[#111] border border-gray-700 text-white rounded-lg focus:ring-1 focus:ring-amber-500 outline-none transition-colors mb-2"/>
                         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
-                        <button type="button" onClick={() => fileInputRef.current.click()} disabled={isUploading} className="mt-2 w-full text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-3 rounded-md flex items-center justify-center gap-2 disabled:opacity-50">
+                        <button type="button" onClick={() => fileInputRef.current.click()} disabled={isUploading} className="w-full py-2.5 text-sm bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 transition-colors shadow-sm">
                             {isUploading ? <><SpinnerIcon className="h-4 w-4"/> Enviando...</> : <><UploadIcon className="h-4 w-4"/> Fazer Upload</>}
                         </button>
                     </div>
                 </div>
             </div>
-             <div>
-                <label className="block text-sm font-medium text-gray-700">Seção Principal do Menu</label>
-                <select name="menu_section" value={formData.menu_section} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md">
-                    {menuSections.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div>
+                    <label className="block text-sm font-bold text-gray-400 mb-1">Seção Principal do Menu</label>
+                    <select name="menu_section" value={formData.menu_section} onChange={handleChange} className="w-full px-4 py-2.5 bg-[#111] border border-gray-700 text-white rounded-lg focus:ring-1 focus:ring-amber-500 outline-none transition-colors">
+                        {menuSections.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-sm font-bold text-gray-400 mb-1">Associação (Filtro de Produto)</label>
+                    <select name="product_type_association" value={formData.product_type_association} onChange={handleChange} className="w-full px-4 py-2.5 bg-[#111] border border-gray-700 text-white rounded-lg focus:ring-1 focus:ring-amber-500 outline-none transition-colors">
+                         {productTypeAssociations.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                </div>
             </div>
-            <div>
-                <label className="block text-sm font-medium text-gray-700">Associar à Categoria de Produto (no form de produto)</label>
-                <select name="product_type_association" value={formData.product_type_association} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md">
-                     {productTypeAssociations.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
+            
+            <div className="flex items-center bg-[#0a0a0a] p-4 rounded-lg border border-gray-800 mt-2">
+                <input type="checkbox" name="is_active" id="is_active_form" checked={!!formData.is_active} onChange={handleChange} className="h-5 w-5 bg-gray-800 border-gray-700 text-amber-500 rounded focus:ring-amber-500 cursor-pointer"/>
+                <label htmlFor="is_active_form" className="ml-3 block text-sm font-bold text-white cursor-pointer select-none">Ativa (visível na loja)</label>
             </div>
-             <div className="flex items-center">
-                <input type="checkbox" name="is_active" id="is_active_form" checked={!!formData.is_active} onChange={handleChange} className="h-4 w-4 text-amber-600 border-gray-300 rounded"/>
-                <label htmlFor="is_active_form" className="ml-2 block text-sm text-gray-700">Ativa (visível na loja)</label>
-            </div>
-            <div className="flex justify-end space-x-3 pt-4 border-t mt-6">
-                <button type="button" onClick={onCancel} className="px-6 py-2 bg-gray-200 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
-                <button type="submit" className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 font-semibold">Salvar</button>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-gray-800 mt-6">
+                <button type="button" onClick={onCancel} className="px-6 py-2.5 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 font-bold transition-colors">Cancelar</button>
+                <button type="submit" className="px-8 py-2.5 bg-amber-500 text-black rounded-lg hover:bg-amber-400 font-bold shadow-md transition-all active:scale-95 flex items-center gap-2">
+                    <CheckIcon className="h-5 w-5"/> Salvar
+                </button>
             </div>
         </form>
     );
@@ -16248,28 +16288,29 @@ const SortableCategoryCard = ({ cat, onEdit, onDelete }) => {
     };
 
     return (
-        <div ref={setNodeRef} style={style} className={`bg-white border rounded-lg shadow-sm overflow-hidden group flex flex-col relative ${!cat.is_active ? 'opacity-60' : ''}`}>
+        <div ref={setNodeRef} style={style} className={`bg-[#0a0a0a] border border-gray-800 rounded-xl shadow-lg overflow-hidden group flex flex-col relative transition-opacity ${!cat.is_active ? 'opacity-50 grayscale' : ''}`}>
             <div 
                 {...attributes} 
                 {...listeners} 
-                style={{ touchAction: 'none' }} // Aplica a regra de toque apenas no ícone
-                className="absolute top-2 right-2 p-1.5 bg-black/30 rounded-full cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                style={{ touchAction: 'none' }}
+                className="absolute top-2 right-2 p-1.5 bg-black/60 backdrop-blur-sm rounded-full cursor-grab active:cursor-grabbing opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity z-10"
                 title="Arraste para reordenar"
             >
                 <BarsGripIcon className="h-5 w-5 text-white" />
             </div>
 
-            <div className="relative aspect-[4/5]">
-                <img src={cat.image || 'https://placehold.co/400x500/eee/ccc?text=Sem+Imagem'} alt={cat.name} className="w-full h-full object-cover"/>
-                <div className={`absolute top-2 left-2 px-2 py-0.5 text-xs font-bold text-white rounded-full ${cat.is_active ? 'bg-green-500' : 'bg-gray-500'}`}>
+            <div className="relative aspect-[4/5] bg-white p-2">
+                <img src={cat.image || 'https://placehold.co/400x500/eee/ccc?text=Sem+Imagem'} alt={cat.name} className="w-full h-full object-contain mix-blend-multiply"/>
+                <div className={`absolute top-2 left-2 px-2.5 py-1 text-[9px] uppercase tracking-widest font-bold rounded-full shadow-md ${cat.is_active ? 'bg-green-500 text-white' : 'bg-gray-600 text-white'}`}>
                     {cat.is_active ? 'Ativa' : 'Inativa'}
                 </div>
             </div>
-            <div className="p-3 bg-gray-50 flex-grow flex flex-col">
-                <h3 className="font-semibold text-gray-800 text-sm text-center truncate flex-grow" title={cat.name}>{cat.name}</h3>
-                <div className="flex items-center justify-center space-x-4 mt-3 pt-3 border-t">
-                    <button onClick={() => onEdit(cat)} className="p-2 text-gray-500 hover:text-amber-600" title="Editar"><EditIcon className="h-5 w-5"/></button>
-                    <button onClick={() => onDelete(cat.id)} className="p-2 text-gray-500 hover:text-red-600" title="Excluir"><TrashIcon className="h-5 w-5"/></button>
+            
+            <div className="p-3 bg-[#111] flex-grow flex flex-col border-t border-gray-800">
+                <h3 className="font-bold text-white text-sm text-center truncate flex-grow mt-1" title={cat.name}>{cat.name}</h3>
+                <div className="flex items-center justify-center gap-4 mt-3 pt-3 border-t border-gray-800">
+                    <button onClick={() => onEdit(cat)} className="p-1.5 text-gray-400 hover:text-amber-500 bg-gray-800 rounded-full hover:bg-gray-700 transition-colors" title="Editar"><EditIcon className="h-4 w-4"/></button>
+                    <button onClick={() => onDelete(cat.id)} className="p-1.5 text-gray-400 hover:text-red-500 bg-gray-800 rounded-full hover:bg-gray-700 transition-colors" title="Excluir"><TrashIcon className="h-4 w-4"/></button>
                 </div>
             </div>
         </div>
@@ -16351,7 +16392,7 @@ const AdminCollections = () => {
             const newIndex = categories.findIndex((c) => c.id === over.id);
             const newOrder = arrayMove(categories, oldIndex, newIndex);
             
-            setCategories(newOrder); // Atualização otimista da UI
+            setCategories(newOrder); 
 
             setIsSavingOrder(true);
             const orderedIds = newOrder.map(c => c.id);
@@ -16360,7 +16401,7 @@ const AdminCollections = () => {
                 notification.show('Ordem salva com sucesso!');
             } catch (error) {
                 notification.show(`Erro ao salvar a ordem: ${error.message}`, 'error');
-                fetchCategories(); // Reverte para a ordem do servidor em caso de erro
+                fetchCategories(); 
             } finally {
                 setIsSavingOrder(false);
             }
@@ -16371,24 +16412,27 @@ const AdminCollections = () => {
         <div>
             <AnimatePresence>
                 {isModalOpen && (
-                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingCategory && editingCategory.id ? 'Editar Categoria' : 'Adicionar Nova Categoria'}>
+                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingCategory && editingCategory.id ? 'Editar Categoria' : 'Adicionar Nova Categoria'} isDark={true}>
                         <CollectionCategoryForm item={editingCategory} onSave={handleSave} onCancel={() => setIsModalOpen(false)} />
                     </Modal>
                 )}
             </AnimatePresence>
 
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                <h1 className="text-3xl font-bold">Gerenciar Coleções</h1>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-white tracking-tight">Gerenciar Coleções</h1>
+                    <p className="text-gray-500 text-sm mt-1">Organize as categorias exibidas no menu e na página inicial. Arraste para reordenar.</p>
+                </div>
                 <div className="flex items-center gap-4">
-                    {isSavingOrder && <div className="flex items-center gap-2 text-sm text-gray-500"><SpinnerIcon/> Salvando ordem...</div>}
-                    <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2 flex-shrink-0">
+                    {isSavingOrder && <div className="flex items-center gap-2 text-sm text-amber-500 font-bold animate-pulse"><SpinnerIcon/> Salvando ordem...</div>}
+                    <button onClick={() => handleOpenModal()} className="bg-amber-500 text-black px-5 py-2.5 rounded-lg hover:bg-amber-400 font-bold flex items-center space-x-2 flex-shrink-0 shadow-lg hover:shadow-amber-500/20 transition-all active:scale-95">
                         <PlusIcon className="h-5 w-5"/> <span>Nova Categoria</span>
                     </button>
                 </div>
             </div>
 
             {isLoading ? (
-                <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-500"/></div>
+                <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-10 w-10 text-amber-500 animate-spin"/></div>
             ) : (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                     <SortableContext items={categories} strategy={rectSortingStrategy}>
