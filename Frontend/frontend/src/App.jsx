@@ -14262,7 +14262,8 @@ const AdminOrders = ({ appName }) => {
                     const isPAddressObj = typeof pAddress === 'object' && pAddress !== null;
 
                     return (
-                        <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Pedido #${editingOrder.id}`} size="3xl">
+                        {/* ATUALIZADO AQUI: Título do modal com o número em destaque âmbar */}
+                        <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={<>Pedido <span className="text-amber-500">#{editingOrder.id}</span></>} size="3xl">
                             <div className="bg-[#050505] -m-6 p-4 sm:p-6 pb-24 text-gray-200">
                                 
                                 {/* 1. Timeline */}
