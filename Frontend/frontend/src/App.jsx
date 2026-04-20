@@ -10393,32 +10393,31 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     ];
 
     return (
-        <div className="h-screen flex overflow-hidden bg-gray-50 text-slate-800 font-sans selection:bg-indigo-100 selection:text-indigo-700">
-            {isSidebarOpen && <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
+        <div className="h-screen flex overflow-hidden bg-gray-50 text-slate-800 font-sans selection:bg-amber-100 selection:text-amber-900">
+            {isSidebarOpen && <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
 
-            <aside className={`bg-white w-72 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 flex flex-col border-r border-gray-200 shadow-xl lg:shadow-none`}>
+            <aside className={`bg-[#0a0a0a] w-72 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 flex flex-col border-r border-gray-800 shadow-2xl lg:shadow-none`}>
                 
-                {/* --- AQUI ESTÁ A ATUALIZAÇÃO DO CABEÇALHO PREMIUM --- */}
-                <div className="h-20 flex items-center px-6 border-b border-gray-100 flex-shrink-0 bg-white">
+                {/* CABEÇALHO DA SIDEBAR PREMIUM */}
+                <div className="h-20 flex items-center px-6 border-b border-gray-800 flex-shrink-0 bg-[#0a0a0a]">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-lg shadow-md flex items-center justify-center">
-                            <AdminIcon className="h-6 w-6 text-white"/>
+                        <div className="p-2 bg-gradient-to-br from-amber-400 to-amber-600 rounded-lg shadow-lg shadow-amber-900/20 flex items-center justify-center">
+                            <AdminIcon className="h-6 w-6 text-black"/>
                         </div>
                         <div className="flex flex-col justify-center">
-                            <span className="text-lg font-black tracking-tight text-slate-900 leading-none">ADMINISTRAÇÃO</span>
+                            <span className="text-lg font-black tracking-tight text-white leading-none">ADMINISTRAÇÃO</span>
                             <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mt-1">Love Cestas e Perfumes</span>
                         </div>
                     </div>
-                    <button className="lg:hidden ml-auto text-gray-400 hover:text-gray-600" onClick={() => setIsSidebarOpen(false)}>
+                    <button className="lg:hidden ml-auto text-gray-500 hover:text-white transition-colors" onClick={() => setIsSidebarOpen(false)}>
                         <CloseIcon className="h-6 w-6"/>
                     </button>
                 </div>
-                {/* ----------------------------------------------------- */}
 
                 <nav className="flex-grow p-4 space-y-6 overflow-y-auto custom-scrollbar">
                     {menuGroups.map((group, idx) => (
                         <div key={idx}>
-                            <h3 className="px-3 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{group.title}</h3>
+                            <h3 className="px-3 text-[10px] font-black text-gray-600 uppercase tracking-widest mb-2">{group.title}</h3>
                             <div className="space-y-1">
                                 {group.items.map(item => {
                                     const isActive = activePage.startsWith(item.key);
@@ -10427,20 +10426,20 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                                             href="#" 
                                             key={item.key} 
                                             onClick={(e) => { e.preventDefault(); onNavigate(`admin/${item.key}`); setIsSidebarOpen(false); }} 
-                                            className={`group flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium ${
+                                            className={`group flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-sm font-bold ${
                                                 isActive 
-                                                ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' 
-                                                : 'text-slate-600 hover:bg-gray-50 hover:text-slate-900'
+                                                ? 'bg-gradient-to-r from-amber-500/10 to-transparent text-amber-400 shadow-[inset_3px_0_0_0_#fbbf24]' 
+                                                : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
                                             }`}
                                         >
                                             <div className="flex items-center gap-3">
-                                                <span className={`transition-colors ${isActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`}>
+                                                <span className={`transition-colors ${isActive ? 'text-amber-400' : 'text-gray-500 group-hover:text-gray-300'}`}>
                                                     {item.icon}
                                                 </span>
                                                 <span>{item.label}</span>
                                             </div>
                                             {item.badge > 0 && (
-                                                <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                                                <span className="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">
                                                     {item.badge}
                                                 </span>
                                             )}
@@ -10452,21 +10451,21 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                     ))}
                 </nav>
 
-                <div className="p-4 border-t border-gray-100 bg-gray-50/50">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold border border-indigo-200">
+                <div className="p-4 border-t border-gray-800 bg-[#050505]">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-amber-400 font-bold border border-gray-700 shadow-inner">
                             {user?.name?.charAt(0).toUpperCase()}
                         </div>
                         <div className="overflow-hidden">
-                            <p className="text-sm font-bold text-slate-800 truncate">{user?.name}</p>
-                            <p className="text-xs text-slate-500 truncate">Administrador</p>
+                            <p className="text-sm font-bold text-white truncate">{user?.name}</p>
+                            <p className="text-xs text-gray-500 truncate">Administrador Premium</p>
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                        <button onClick={() => onNavigate('home')} className="flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-white border border-gray-200 text-slate-600 text-xs font-semibold hover:bg-gray-50 hover:text-indigo-600 transition-all shadow-sm">
+                        <button onClick={() => onNavigate('home')} className="flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-gray-800 border border-gray-700 text-gray-300 text-xs font-bold hover:bg-gray-700 hover:text-amber-400 transition-all shadow-sm">
                             <EyeIcon className="h-3 w-3"/> Ver Loja
                         </button>
-                        <button onClick={handleLogout} className="flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-white border border-red-100 text-red-600 text-xs font-semibold hover:bg-red-50 hover:border-red-200 transition-all shadow-sm">
+                        <button onClick={handleLogout} className="flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-red-900/20 border border-red-900/50 text-red-500 text-xs font-bold hover:bg-red-900/40 hover:text-red-400 transition-all shadow-sm">
                             <ArrowUturnLeftIcon className="h-3 w-3"/> Sair
                         </button>
                     </div>
@@ -10474,12 +10473,12 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
             </aside>
 
             <div className="flex-1 flex flex-col overflow-hidden relative">
-                <header className="bg-white/80 backdrop-blur-md h-16 flex items-center justify-between px-6 sm:px-8 flex-shrink-0 z-20 border-b border-gray-200 sticky top-0">
+                <header className="bg-white/90 backdrop-blur-md h-20 flex items-center justify-between px-6 sm:px-8 flex-shrink-0 z-20 border-b border-gray-200 sticky top-0 shadow-sm">
                      <div className="flex items-center gap-4">
-                         <button onClick={() => setIsSidebarOpen(true)} className="p-2 lg:hidden text-slate-500 hover:bg-gray-100 rounded-md">
+                         <button onClick={() => setIsSidebarOpen(true)} className="p-2 lg:hidden text-slate-500 hover:bg-gray-100 rounded-md transition-colors">
                             <MenuIcon className="h-6 w-6"/>
                          </button>
-                         <h1 className="text-xl font-bold text-slate-800 capitalize tracking-tight hidden sm:block">
+                         <h1 className="text-2xl font-extrabold text-slate-800 capitalize tracking-tight hidden sm:block">
                             {activePage.split('/')[0].replace('-', ' ')}
                          </h1>
                      </div>
@@ -10504,7 +10503,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                      </div>
                 </header>
 
-                <main ref={mainContentRef} className="flex-grow p-6 sm:p-8 overflow-y-auto bg-gray-50">
+                <main ref={mainContentRef} className="flex-grow p-6 sm:p-8 overflow-y-auto bg-gray-50/50">
                     <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
                         {children}
                     </div>
@@ -10993,17 +10992,18 @@ const AdminDashboard = ({ onNavigate }) => {
                 return dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
             });
 
+            // ATUALIZAÇÃO DA COR DO GRÁFICO DE LINHA (Amber/Gold Premium)
             renderChart('dailySalesChart', 'line', {
                 labels: safeLabels,
                 datasets: [{
                     label: 'Faturamento',
                     data: dailySalesData.map(d => d.daily_total),
-                    borderColor: '#4f46e5', // Indigo 600
+                    borderColor: '#d97706', // Amber 600
                     backgroundColor: (context) => {
                         const ctx = context.chart.ctx;
                         const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-                        gradient.addColorStop(0, 'rgba(79, 70, 229, 0.2)');
-                        gradient.addColorStop(1, 'rgba(79, 70, 229, 0.0)');
+                        gradient.addColorStop(0, 'rgba(217, 119, 6, 0.2)');
+                        gradient.addColorStop(1, 'rgba(217, 119, 6, 0.0)');
                         return gradient;
                     },
                     borderWidth: 2,
@@ -11014,12 +11014,13 @@ const AdminDashboard = ({ onNavigate }) => {
                 }]
             }, commonOptions);
 
+            // ATUALIZAÇÃO DA COR DO GRÁFICO DE BARRAS (Slate Escuro Premium)
             renderChart('bestSellersChart', 'bar', {
                 labels: bestSellersData.map(p => p.name.substring(0, 15) + '...'),
                 datasets: [{
                     label: 'Vendas',
                     data: bestSellersData.map(p => p.sales || 0),
-                    backgroundColor: '#0ea5e9', // Sky 500
+                    backgroundColor: '#0f172a', // Slate 900
                     borderRadius: 4,
                     barThickness: 20
                 }]
@@ -11089,7 +11090,7 @@ const AdminDashboard = ({ onNavigate }) => {
                             placeholder="Buscar produto..." 
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                            className="w-full pl-9 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-slate-900 focus:border-slate-900 outline-none transition-all"
                         />
                         <SearchIcon className="absolute left-3 top-2 h-3.5 w-3.5 text-gray-400" />
                     </div>
@@ -11113,7 +11114,7 @@ const AdminDashboard = ({ onNavigate }) => {
                             <div className="text-right flex-shrink-0 flex flex-col items-end">
                                 <span className="text-xs font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">{item.stock} un.</span>
                                 <span 
-                                    className="text-[10px] text-indigo-600 font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="text-[10px] text-amber-600 font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
                                     Repor
                                 </span>
@@ -11138,7 +11139,7 @@ const AdminDashboard = ({ onNavigate }) => {
                 )}
             </AnimatePresence>
 
-            {/* Header com Filtros */}
+            {/* Header com Filtros Premium */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-gray-200 pb-5">
                 <div>
                     <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Dashboard</h2>
@@ -11151,7 +11152,7 @@ const AdminDashboard = ({ onNavigate }) => {
                             <button
                                 key={f}
                                 onClick={() => setActiveFilter(f)}
-                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeFilter === f ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-gray-50'}`}
+                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeFilter === f ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-gray-50'}`}
                             >
                                 {labels[f]}
                             </button>
@@ -11161,7 +11162,7 @@ const AdminDashboard = ({ onNavigate }) => {
             </div>
 
             {isLoadingData ? (
-                <div className="flex justify-center py-20"><SpinnerIcon className="h-10 w-10 text-indigo-500 animate-spin"/></div>
+                <div className="flex justify-center py-20"><SpinnerIcon className="h-10 w-10 text-amber-500 animate-spin"/></div>
             ) : (
                 <>
                     {/* Cards de KPIs */}
@@ -11263,7 +11264,7 @@ const AdminDashboard = ({ onNavigate }) => {
                                 <MaintenanceModeToggle />
                             </div>
 
-                            <div className="bg-gradient-to-br from-indigo-900 to-slate-900 p-6 rounded-xl shadow-lg text-white">
+                            <div className="bg-gradient-to-br from-slate-900 to-black p-6 rounded-xl shadow-lg text-white border border-gray-800">
                                 <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
                                     <SparklesIcon className="h-5 w-5 text-amber-400"/> Ações Rápidas
                                 </h3>
