@@ -13554,14 +13554,14 @@ const AdminRefunds = ({ onNavigate }) => {
 
     const getStatusChip = (status) => {
         const statuses = {
-            'pending_approval': { text: 'Pendente', class: 'bg-yellow-100 text-yellow-800' },
-            'approved': { text: 'Aprovado', class: 'bg-blue-100 text-blue-800' },
-            'denied': { text: 'Negado', class: 'bg-red-100 text-red-800' },
-            'processed': { text: 'Processado', class: 'bg-green-100 text-green-800' },
-            'failed': { text: 'Falhou', class: 'bg-gray-200 text-gray-800' }
+            'pending_approval': { text: 'Pendente', class: 'bg-yellow-900/30 text-yellow-400 border border-yellow-500/30' },
+            'approved': { text: 'Aprovado', class: 'bg-blue-900/30 text-blue-400 border border-blue-500/30' },
+            'denied': { text: 'Negado', class: 'bg-red-900/30 text-red-400 border border-red-500/30' },
+            'processed': { text: 'Processado', class: 'bg-green-900/30 text-green-400 border border-green-500/30' },
+            'failed': { text: 'Falhou', class: 'bg-gray-800 text-gray-400 border border-gray-700' }
         };
-        const s = statuses[status] || { text: 'Desconhecido', class: 'bg-gray-200 text-gray-800' };
-        return <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${s.class}`}>{s.text}</span>;
+        const s = statuses[status] || { text: 'Desconhecido', class: 'bg-gray-800 text-gray-400 border border-gray-700' };
+        return <span className={`px-2.5 py-1 text-[10px] uppercase tracking-widest font-bold rounded-full ${s.class}`}>{s.text}</span>;
     };
     
     const getPaymentMethodName = (method, details) => {
@@ -13585,12 +13585,11 @@ const AdminRefunds = ({ onNavigate }) => {
         </div> 
     );
 
-    // FUNÇÃO SEGURA PARA LER IMAGENS E ITENS
     const safeParseJSON = (data, fallback = []) => {
         if (!data) return fallback;
         try {
             let parsed = typeof data === 'string' ? JSON.parse(data) : data;
-            if (typeof parsed === 'string') parsed = JSON.parse(parsed); // Para duplo stringify
+            if (typeof parsed === 'string') parsed = JSON.parse(parsed); 
             return Array.isArray(parsed) ? parsed : fallback;
         } catch (e) {
             return fallback;
@@ -13605,13 +13604,13 @@ const AdminRefunds = ({ onNavigate }) => {
 
             <AnimatePresence>
                 {isDenyModalOpen && selectedRefund && (
-                     <Modal isOpen={true} onClose={() => setIsDenyModalOpen(false)} title={`Negar Reembolso #${selectedRefund.id}`}>
-                        <form onSubmit={handleDeny}>
-                            <label className="block text-sm font-medium text-gray-700">Por favor, informe o motivo da negação (será registrado internamente e visível para o cliente):</label>
-                            <textarea value={denyReason} onChange={e => setDenyReason(e.target.value)} required rows="4" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
-                            <div className="flex justify-end gap-3 mt-6 border-t pt-4">
-                                <button type="button" onClick={() => setIsDenyModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md font-semibold text-gray-700 hover:bg-gray-300 transition-colors">Cancelar</button>
-                                <button type="submit" disabled={isProcessing} className="px-4 py-2 bg-gray-800 text-white rounded-md font-bold hover:bg-gray-900 transition-colors flex items-center gap-2 disabled:bg-gray-400">
+                     <Modal isOpen={true} onClose={() => setIsDenyModalOpen(false)} title={`Negar Reembolso #${selectedRefund.id}`} isDark={true}>
+                        <form onSubmit={handleDeny} className="text-gray-200">
+                            <label className="block text-sm font-medium text-gray-300 mb-2">Por favor, informe o motivo da negação (será registrado internamente e visível para o cliente):</label>
+                            <textarea value={denyReason} onChange={e => setDenyReason(e.target.value)} required rows="4" className="mt-1 block w-full p-3 bg-[#111] border border-gray-700 text-white rounded-md outline-none focus:ring-1 focus:ring-amber-500"></textarea>
+                            <div className="flex justify-end gap-3 mt-6 border-t border-gray-800 pt-4">
+                                <button type="button" onClick={() => setIsDenyModalOpen(false)} className="px-4 py-2 bg-gray-800 rounded-md font-bold text-gray-300 hover:bg-gray-700 transition-colors">Cancelar</button>
+                                <button type="submit" disabled={isProcessing} className="px-6 py-2 bg-amber-500 text-black rounded-md font-bold hover:bg-amber-400 transition-colors flex items-center gap-2 disabled:opacity-50">
                                     {isProcessing && <SpinnerIcon className="h-5 w-5" />}
                                     Confirmar Negação
                                 </button>
@@ -13621,92 +13620,92 @@ const AdminRefunds = ({ onNavigate }) => {
                 )}
             </AnimatePresence>
 
-            <h1 className="text-3xl font-bold mb-6 text-slate-800 tracking-tight">Gerenciar Devoluções e Reembolsos</h1>
+            <h1 className="text-3xl font-bold mb-6 text-white tracking-tight">Gerenciar Devoluções e Reembolsos</h1>
             
             {isLoading ? (
-                <div className="flex justify-center py-20"><SpinnerIcon className="h-8 w-8 text-indigo-600" /></div>
+                <div className="flex justify-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-500 animate-spin" /></div>
             ) : (
-                <div className="bg-white shadow-md rounded-lg overflow-hidden border border-gray-100">
+                <div className="bg-[#0a0a0a] shadow-lg rounded-xl overflow-hidden border border-gray-800">
                     <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-left text-sm">
-                            <thead className="bg-gray-50 border-b border-gray-200">
+                            <thead className="bg-[#111] border-b border-gray-800">
                                 <tr>
-                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs">Pedido</th>
-                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs">Cliente e Contato</th>
-                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs">Valor / Data</th>
-                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs w-1/3">Itens e Motivo</th>
-                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs">Status</th>
-                                    <th className="p-4 font-bold text-gray-600 uppercase tracking-wide text-xs text-center">Ações</th>
+                                    <th className="p-4 font-bold text-gray-400 uppercase tracking-wider text-[10px]">Pedido</th>
+                                    <th className="p-4 font-bold text-gray-400 uppercase tracking-wider text-[10px]">Cliente e Contato</th>
+                                    <th className="p-4 font-bold text-gray-400 uppercase tracking-wider text-[10px]">Valor / Data</th>
+                                    <th className="p-4 font-bold text-gray-400 uppercase tracking-wider text-[10px] w-1/3">Itens e Motivo</th>
+                                    <th className="p-4 font-bold text-gray-400 uppercase tracking-wider text-[10px]">Status</th>
+                                    <th className="p-4 font-bold text-gray-400 uppercase tracking-wider text-[10px] text-center">Ações</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100">
+                            <tbody className="divide-y divide-gray-800">
                                 {filteredRefunds.length > 0 ? (
                                     filteredRefunds.map(r => {
                                         const images = safeParseJSON(r.images);
                                         const items = safeParseJSON(r.order_items);
 
                                         return (
-                                        <tr key={r.id} className="hover:bg-gray-50 transition-colors align-top">
+                                        <tr key={r.id} className="hover:bg-gray-900/50 transition-colors align-top">
                                             <td className="p-4">
                                                 <div className="flex flex-col gap-1 items-start">
-                                                    <div className="font-mono font-bold text-indigo-600 text-base">#{r.order_id}</div>
+                                                    <div className="font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded text-sm">#{r.order_id}</div>
                                                     {r.request_count > 1 && (
-                                                        <span className="bg-orange-100 text-orange-800 text-[10px] px-2 py-0.5 rounded border border-orange-200 font-bold uppercase animate-pulse">
-                                                            Reaberto ({r.request_count}ª vez)
+                                                        <span className="bg-orange-900/30 text-orange-400 border border-orange-500/30 text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-widest animate-pulse mt-1">
+                                                            Reaberto ({r.request_count}ª)
                                                         </span>
                                                     )}
                                                 </div>
-                                                <div className="text-xs text-gray-500 mt-1">Atualizado em:<br/>{new Date(r.created_at).toLocaleDateString('pt-BR')}</div>
+                                                <div className="text-[10px] text-gray-500 uppercase tracking-widest mt-2">Atualizado em:<br/>{new Date(r.created_at).toLocaleDateString('pt-BR')}</div>
                                             </td>
                                             
                                             <td className="p-4">
-                                                <p className="font-bold text-gray-900">{r.customer_name}</p>
+                                                <p className="font-bold text-white">{r.customer_name}</p>
                                                 <p className="text-xs text-gray-500 font-mono mt-0.5">CPF: {maskCPF(r.customer_cpf || '---')}</p>
                                                 
                                                 {/* Contato para Coleta */}
                                                 {r.contact_phone ? (
-                                                    <div className="mt-2 bg-blue-50 border border-blue-100 p-2 rounded-md inline-block">
-                                                        <p className="text-[10px] font-bold text-blue-800 uppercase tracking-wide mb-1">WhatsApp Coleta:</p>
-                                                        <a href={`https://wa.me/55${r.contact_phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-green-700 font-bold hover:underline text-xs">
+                                                    <div className="mt-2 bg-blue-900/20 border border-blue-500/30 p-2.5 rounded-md inline-block">
+                                                        <p className="text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-1">WhatsApp Coleta:</p>
+                                                        <a href={`https://wa.me/55${r.contact_phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-green-400 font-bold hover:underline text-xs">
                                                             <WhatsappIcon className="h-4 w-4"/> {maskPhone(r.contact_phone)}
                                                         </a>
                                                     </div>
                                                 ) : (
-                                                    <p className="text-xs text-gray-400 mt-2 italic">Telefone p/ coleta não informado.</p>
+                                                    <p className="text-[10px] text-gray-500 mt-2 italic uppercase tracking-widest">Telefone p/ coleta não informado.</p>
                                                 )}
                                             </td>
 
                                             <td className="p-4">
-                                                <p className="font-bold text-green-600 text-lg">R$ {Number(r.amount).toFixed(2)}</p>
-                                                <p className="text-xs text-gray-500 mt-1 capitalize">{getPaymentMethodName(r.payment_method, r.payment_details)}</p>
-                                                <p className="text-xs text-gray-400 mt-0.5">Pago em: {new Date(r.order_date).toLocaleDateString('pt-BR')}</p>
+                                                <p className="font-bold text-amber-400 text-lg">R$ {Number(r.amount).toFixed(2)}</p>
+                                                <p className="text-xs text-gray-400 mt-1 capitalize font-medium">{getPaymentMethodName(r.payment_method, r.payment_details)}</p>
+                                                <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Pago em: {new Date(r.order_date).toLocaleDateString('pt-BR')}</p>
                                             </td>
                                             
                                             <td className="p-4">
                                                 {/* Lista de Produtos */}
-                                                <div className="mb-3 bg-gray-100 p-2 rounded border border-gray-200">
-                                                    <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Itens do Pedido:</p>
-                                                    <ul className="text-xs text-gray-700 space-y-1">
+                                                <div className="mb-3 bg-[#111] p-3 rounded-lg border border-gray-800">
+                                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Itens do Pedido:</p>
+                                                    <ul className="text-xs text-gray-300 space-y-1.5">
                                                         {items.map((item, idx) => (
-                                                            <li key={idx} className="flex gap-1 truncate">
-                                                                <span className="font-bold">{item.quantity}x</span> {item.name}
+                                                            <li key={idx} className="flex gap-2 truncate">
+                                                                <span className="font-bold text-amber-500">{item.quantity}x</span> {item.name}
                                                             </li>
                                                         ))}
                                                     </ul>
                                                 </div>
 
-                                                <div className="bg-yellow-50 p-2 rounded border border-yellow-100">
-                                                    <p className="text-[10px] font-bold text-yellow-800 uppercase mb-1">Motivo / Relato:</p>
-                                                    <p className="text-sm text-gray-800 font-medium break-words leading-snug">{r.reason}</p>
+                                                <div className="bg-yellow-900/20 p-3 rounded-lg border border-yellow-500/30">
+                                                    <p className="text-[10px] font-bold text-yellow-500 uppercase tracking-widest mb-1.5">Motivo / Relato:</p>
+                                                    <p className="text-sm text-gray-200 font-medium break-words leading-snug">{r.reason}</p>
                                                 </div>
 
                                                 {/* Galeria de Fotos */}
                                                 {images.length > 0 && (
                                                     <div className="mt-3">
-                                                        <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Fotos Anexadas ({images.length}):</p>
-                                                        <div className="flex gap-2 overflow-x-auto py-1">
+                                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Fotos Anexadas ({images.length}):</p>
+                                                        <div className="flex gap-2 overflow-x-auto py-1 custom-scrollbar">
                                                             {images.map((img, idx) => (
-                                                                <div key={idx} onClick={() => setLightboxImage(img)} className="w-12 h-12 flex-shrink-0 cursor-zoom-in rounded border border-gray-300 shadow-sm overflow-hidden hover:scale-110 transition-transform bg-white">
+                                                                <div key={idx} onClick={() => setLightboxImage(img)} className="w-12 h-12 flex-shrink-0 cursor-zoom-in rounded border border-gray-700 shadow-sm overflow-hidden hover:scale-110 transition-transform bg-[#111]">
                                                                     <img src={img} alt="Anexo" className="w-full h-full object-cover" />
                                                                 </div>
                                                             ))}
@@ -13722,15 +13721,15 @@ const AdminRefunds = ({ onNavigate }) => {
                                             <td className="p-4 align-middle text-center">
                                                 {r.status === 'pending_approval' ? (
                                                     <div className="flex flex-col gap-2 items-center">
-                                                        <button onClick={() => handleApprove(r)} className="w-full py-2 bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800 font-bold rounded-lg transition-colors border border-green-200 text-xs shadow-sm flex items-center justify-center gap-1">
+                                                        <button onClick={() => handleApprove(r)} className="w-full py-2 bg-green-900/30 text-green-400 hover:bg-green-900/50 font-bold rounded-lg transition-colors border border-green-500/30 text-xs shadow-sm flex items-center justify-center gap-1.5">
                                                             <CheckIcon className="h-4 w-4"/> Aprovar
                                                         </button>
-                                                        <button onClick={() => { setSelectedRefund(r); setIsDenyModalOpen(true); }} className="w-full py-2 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 font-bold rounded-lg transition-colors border border-red-200 text-xs shadow-sm flex items-center justify-center gap-1">
+                                                        <button onClick={() => { setSelectedRefund(r); setIsDenyModalOpen(true); }} className="w-full py-2 bg-red-900/30 text-red-400 hover:bg-red-900/50 font-bold rounded-lg transition-colors border border-red-500/30 text-xs shadow-sm flex items-center justify-center gap-1.5">
                                                             <XMarkIcon className="h-4 w-4"/> Negar
                                                         </button>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-xs text-gray-400 italic">Finalizado</span>
+                                                    <span className="text-[10px] text-gray-500 italic uppercase tracking-widest font-bold">Finalizado</span>
                                                 )}
                                             </td>
                                         </tr>
@@ -13739,8 +13738,8 @@ const AdminRefunds = ({ onNavigate }) => {
                                     <tr>
                                         <td colSpan="6" className="p-12 text-center text-gray-500">
                                             <div className="flex flex-col items-center justify-center">
-                                                <CurrencyDollarArrowIcon className="h-12 w-12 text-gray-300 mb-3" />
-                                                <h3 className="text-lg font-bold text-gray-700">Nenhum reembolso encontrado</h3>
+                                                <CurrencyDollarArrowIcon className="h-12 w-12 text-gray-700 mb-3" />
+                                                <h3 className="text-lg font-bold text-white">Nenhum reembolso encontrado</h3>
                                                 <p className="text-sm text-gray-500 mt-1">Ainda não há solicitações de reembolso no sistema.</p>
                                             </div>
                                         </td>
@@ -13751,72 +13750,72 @@ const AdminRefunds = ({ onNavigate }) => {
                     </div>
 
                      {/* Mobile Card View */}
-                     <div className="md:hidden p-4 bg-gray-50 space-y-4">
+                     <div className="md:hidden p-4 bg-[#050505] space-y-4">
                         {filteredRefunds.length > 0 ? (
                             filteredRefunds.map(r => {
                                 const images = safeParseJSON(r.images);
                                 const items = safeParseJSON(r.order_items);
                                 return (
-                                <div key={r.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm text-sm">
-                                    <div className="flex justify-between items-start mb-3 pb-3 border-b border-gray-100">
+                                <div key={r.id} className="bg-[#0a0a0a] border border-gray-800 rounded-xl p-4 shadow-sm text-sm">
+                                    <div className="flex justify-between items-start mb-3 pb-3 border-b border-gray-800">
                                         <div className="flex flex-col gap-1 items-start">
                                             <div className="flex items-center gap-2">
-                                                <p className="font-bold text-indigo-700 text-lg">Pedido #{r.order_id}</p>
+                                                <p className="font-bold text-amber-400 text-lg">Pedido #{r.order_id}</p>
                                             </div>
                                             {r.request_count > 1 && (
-                                                <span className="bg-orange-100 text-orange-800 text-[10px] px-2 py-0.5 rounded border border-orange-200 font-bold uppercase animate-pulse mb-1">
-                                                    Reaberto ({r.request_count}ª vez)
+                                                <span className="bg-orange-900/30 text-orange-400 text-[9px] px-2 py-0.5 rounded border border-orange-500/30 font-bold uppercase tracking-widest animate-pulse mb-1">
+                                                    Reaberto ({r.request_count}ª)
                                                 </span>
                                             )}
-                                            <p className="text-xs text-gray-500">{new Date(r.created_at).toLocaleString('pt-BR')}</p>
+                                            <p className="text-[10px] uppercase tracking-widest text-gray-500">{new Date(r.created_at).toLocaleString('pt-BR')}</p>
                                         </div>
                                         {getStatusChip(r.status)}
                                     </div>
                                     
-                                    <div className="grid grid-cols-2 gap-y-3 gap-x-4 mb-3">
+                                    <div className="grid grid-cols-2 gap-y-4 gap-x-4 mb-4">
                                         <div>
-                                            <strong className="text-gray-500 block text-[10px] uppercase tracking-wide">Cliente</strong> 
-                                            <span className="font-medium text-gray-900">{r.customer_name}</span>
-                                            <span className="block text-xs font-mono text-gray-500">{maskCPF(r.customer_cpf || '')}</span>
+                                            <strong className="text-gray-500 block text-[10px] uppercase tracking-widest mb-1">Cliente</strong> 
+                                            <span className="font-bold text-white block">{r.customer_name}</span>
+                                            <span className="block text-[10px] font-mono text-gray-500 mt-0.5">{maskCPF(r.customer_cpf || '')}</span>
                                         </div>
-                                        <div>
-                                            <strong className="text-gray-500 block text-[10px] uppercase tracking-wide">Valor do Reembolso</strong> 
-                                            <span className="font-bold text-green-600 text-lg">R$ {Number(r.amount).toFixed(2)}</span>
+                                        <div className="text-right">
+                                            <strong className="text-gray-500 block text-[10px] uppercase tracking-widest mb-1">Valor Reembolso</strong> 
+                                            <span className="font-bold text-amber-400 text-lg">R$ {Number(r.amount).toFixed(2)}</span>
                                         </div>
                                     </div>
 
                                     {/* Whatsapp da Coleta Mobile */}
                                     {r.contact_phone && (
-                                        <div className="mb-3 bg-blue-50 border border-blue-100 p-3 rounded-lg">
-                                            <strong className="text-blue-800 block text-[10px] uppercase tracking-wide mb-1">Agendar Coleta (WhatsApp)</strong>
-                                            <a href={`https://wa.me/55${r.contact_phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-green-700 font-bold hover:underline text-sm">
+                                        <div className="mb-4 bg-blue-900/20 border border-blue-500/30 p-3 rounded-lg">
+                                            <strong className="text-blue-400 block text-[10px] uppercase tracking-widest mb-2">Agendar Coleta (WhatsApp)</strong>
+                                            <a href={`https://wa.me/55${r.contact_phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-green-400 font-bold hover:underline text-sm">
                                                 <WhatsappIcon className="h-5 w-5"/> {maskPhone(r.contact_phone)}
                                             </a>
                                         </div>
                                     )}
 
                                     {/* Itens do Pedido Mobile */}
-                                    <div className="mb-3 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                                        <strong className="text-gray-500 block text-[10px] uppercase tracking-wide mb-1.5">Itens Comprados</strong>
-                                        <ul className="text-xs text-gray-700 space-y-1">
+                                    <div className="mb-4 bg-[#111] p-3 rounded-lg border border-gray-800">
+                                        <strong className="text-gray-500 block text-[10px] uppercase tracking-widest mb-2">Itens Comprados</strong>
+                                        <ul className="text-xs text-gray-300 space-y-1.5">
                                             {items.map((item, idx) => (
-                                                <li key={idx} className="flex gap-1">
-                                                    <span className="font-bold">{item.quantity}x</span> <span className="truncate">{item.name}</span>
+                                                <li key={idx} className="flex gap-2">
+                                                    <span className="font-bold text-amber-500">{item.quantity}x</span> <span className="truncate">{item.name}</span>
                                                 </li>
                                             ))}
                                         </ul>
                                     </div>
 
-                                    <div className="border-t border-gray-100 pt-3">
-                                        <strong className="text-gray-500 block text-[10px] uppercase tracking-wide mb-1">Motivo do Cliente</strong>
-                                        <p className="text-gray-900 break-words bg-yellow-50 p-3 rounded-lg border border-yellow-100 font-medium leading-snug">{r.reason}</p>
+                                    <div className="border-t border-gray-800 pt-4">
+                                        <strong className="text-gray-500 block text-[10px] uppercase tracking-widest mb-2">Motivo do Cliente</strong>
+                                        <p className="text-white break-words bg-yellow-900/20 p-3 rounded-lg border border-yellow-500/30 font-medium leading-snug">{r.reason}</p>
                                         
                                         {images.length > 0 && (
-                                            <div className="mt-3">
-                                                <strong className="text-gray-500 block text-[10px] uppercase tracking-wide mb-2">Fotos Anexadas</strong>
-                                                <div className="flex gap-2 overflow-x-auto py-1">
+                                            <div className="mt-4">
+                                                <strong className="text-gray-500 block text-[10px] uppercase tracking-widest mb-2">Fotos Anexadas</strong>
+                                                <div className="flex gap-2 overflow-x-auto py-1 custom-scrollbar">
                                                     {images.map((img, idx) => (
-                                                        <div key={idx} onClick={() => setLightboxImage(img)} className="w-16 h-16 flex-shrink-0 cursor-zoom-in rounded-lg border border-gray-300 shadow-sm overflow-hidden active:scale-95 transition-transform bg-white">
+                                                        <div key={idx} onClick={() => setLightboxImage(img)} className="w-16 h-16 flex-shrink-0 cursor-zoom-in rounded-lg border border-gray-700 shadow-sm overflow-hidden active:scale-95 transition-transform bg-[#111]">
                                                             <img src={img} alt="Anexo do cliente" className="w-full h-full object-cover" />
                                                         </div>
                                                     ))}
@@ -13826,17 +13825,17 @@ const AdminRefunds = ({ onNavigate }) => {
                                     </div>
                                     
                                     {r.status === 'pending_approval' && (
-                                        <div className="flex gap-2 mt-4 pt-4 border-t border-gray-100">
-                                            <button onClick={() => { setSelectedRefund(r); setIsDenyModalOpen(true); }} className="flex-1 py-3 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold rounded-xl transition-colors shadow-sm">Negar</button>
-                                            <button onClick={() => handleApprove(r)} className="flex-1 py-3 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 font-bold rounded-xl transition-colors shadow-sm">Aprovar</button>
+                                        <div className="flex gap-3 mt-5 pt-4 border-t border-gray-800">
+                                            <button onClick={() => { setSelectedRefund(r); setIsDenyModalOpen(true); }} className="flex-1 py-3 bg-red-900/30 hover:bg-red-900/50 text-red-400 border border-red-500/30 font-bold rounded-xl transition-colors shadow-sm">Negar</button>
+                                            <button onClick={() => handleApprove(r)} className="flex-1 py-3 bg-green-900/30 hover:bg-green-900/50 text-green-400 border border-green-500/30 font-bold rounded-xl transition-colors shadow-sm">Aprovar</button>
                                         </div>
                                     )}
                                 </div>
                             )})
                         ) : (
-                            <div className="text-center p-8 bg-white rounded-xl border border-gray-200 shadow-sm">
-                                <CurrencyDollarArrowIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                                <h3 className="text-lg font-bold text-gray-700">Nenhum reembolso</h3>
+                            <div className="text-center p-8 bg-[#0a0a0a] rounded-xl border border-gray-800 shadow-sm">
+                                <CurrencyDollarArrowIcon className="h-12 w-12 text-gray-600 mx-auto mb-3" />
+                                <h3 className="text-lg font-bold text-white">Nenhum reembolso</h3>
                                 <p className="text-sm text-gray-500 mt-1">Ainda não há solicitações.</p>
                             </div>
                         )}
