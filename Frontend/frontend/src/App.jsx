@@ -1080,7 +1080,7 @@ const ConfirmationProvider = ({ children }) => {
 };
 
 
-const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
+const Modal = memo(({ isOpen, onClose, title, children, size = 'lg', isDark = false }) => {
   if (!isOpen) return null;
 
   const backdropVariants = {
@@ -1105,7 +1105,7 @@ const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
 
   return (
     <motion.div 
-      className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex justify-center items-center p-4" 
+      className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex justify-center items-center p-4" 
       variants={backdropVariants}
       initial="hidden"
       animate="visible"
@@ -1113,16 +1113,16 @@ const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
       onClick={onClose}
     >
       <motion.div 
-        className={`bg-white rounded-lg shadow-2xl w-full flex flex-col border border-gray-200 ${sizeClasses[size]}`} 
+        className={`${isDark ? 'bg-[#0a0a0a] border-gray-800' : 'bg-white border-gray-200'} rounded-2xl shadow-2xl w-full flex flex-col border ${sizeClasses[size]}`} 
         style={{ maxHeight: '90vh' }} 
         variants={modalVariants}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex-shrink-0 p-6 pb-4 flex justify-between items-center border-b border-gray-200">
-            <h2 className="text-xl md:text-2xl font-bold text-gray-800">{title}</h2>
-            <button onClick={onClose} className="text-3xl text-gray-400 hover:text-red-500 leading-none transition-colors">×</button>
+        <div className={`flex-shrink-0 p-6 pb-4 flex justify-between items-center border-b ${isDark ? 'border-gray-800' : 'border-gray-200'}`}>
+            <h2 className={`text-xl md:text-2xl font-extrabold ${isDark ? 'text-white' : 'text-gray-800'}`}>{title}</h2>
+            <button onClick={onClose} className={`text-3xl leading-none transition-colors ${isDark ? 'text-gray-500 hover:text-red-500' : 'text-gray-400 hover:text-red-500'}`}>×</button>
         </div>
-        <div className="flex-grow p-6 overflow-y-auto custom-scrollbar">
+        <div className="flex-grow p-4 sm:p-6 overflow-y-auto custom-scrollbar">
           {children}
         </div>
       </motion.div>
