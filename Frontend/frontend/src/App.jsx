@@ -10383,7 +10383,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
        {
             title: "Sistema",
             items: [
-                { key: 'theme', label: 'Tema e Cores', icon: <SparklesIcon className="h-5 w-5"/> }, // NOVO ITEM AQUI
+                { key: 'theme', label: 'Tema e Cores', icon: <SparklesIcon className="h-5 w-5"/> },
                 { key: 'app-icons', label: 'Ícones e Nomes', icon: <CameraIcon className="h-5 w-5"/> }, 
                 { key: 'shipping', label: 'Frete Local', icon: <TruckIcon className="h-5 w-5"/> }, 
                 { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
@@ -10397,17 +10397,23 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
             {isSidebarOpen && <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
 
             <aside className={`bg-white w-72 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 flex flex-col border-r border-gray-200 shadow-xl lg:shadow-none`}>
-                <div className="h-16 flex items-center px-6 border-b border-gray-100 flex-shrink-0 bg-white">
-                    <div className="flex items-center gap-3 text-indigo-600">
-                        <div className="p-1.5 bg-indigo-600 rounded-lg">
-                            <AdminIcon className="h-5 w-5 text-white"/>
+                
+                {/* --- AQUI ESTÁ A ATUALIZAÇÃO DO CABEÇALHO PREMIUM --- */}
+                <div className="h-20 flex items-center px-6 border-b border-gray-100 flex-shrink-0 bg-white">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-lg shadow-md flex items-center justify-center">
+                            <AdminIcon className="h-6 w-6 text-white"/>
                         </div>
-                        <span className="text-lg font-extrabold tracking-tight text-slate-900">ADMINISTRAÇÃO</span>
+                        <div className="flex flex-col justify-center">
+                            <span className="text-lg font-black tracking-tight text-slate-900 leading-none">ADMINISTRAÇÃO</span>
+                            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mt-1">Love Cestas e Perfumes</span>
+                        </div>
                     </div>
                     <button className="lg:hidden ml-auto text-gray-400 hover:text-gray-600" onClick={() => setIsSidebarOpen(false)}>
                         <CloseIcon className="h-6 w-6"/>
                     </button>
                 </div>
+                {/* ----------------------------------------------------- */}
 
                 <nav className="flex-grow p-4 space-y-6 overflow-y-auto custom-scrollbar">
                     {menuGroups.map((group, idx) => (
