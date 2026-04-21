@@ -10393,15 +10393,15 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     ];
 
     return (
-        <div className="h-screen flex overflow-hidden bg-gray-50 text-slate-800 font-sans selection:bg-indigo-100 selection:text-indigo-700">
+        <div className="h-screen flex overflow-hidden bg-gray-50 text-slate-800 font-sans selection:bg-amber-100 selection:text-amber-700">
             {isSidebarOpen && <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
 
             <aside className={`bg-white w-72 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 flex flex-col border-r border-gray-200 shadow-xl lg:shadow-none`}>
                 
-                {/* --- AQUI ESTÁ A ATUALIZAÇÃO DO CABEÇALHO PREMIUM --- */}
+                {/* --- AQUI ESTÁ A ATUALIZAÇÃO DO CABEÇALHO PREMIUM COM CORES DOURADAS --- */}
                 <div className="h-20 flex items-center px-6 border-b border-gray-100 flex-shrink-0 bg-white">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-lg shadow-md flex items-center justify-center">
+                        <div className="p-2 bg-gradient-to-br from-amber-500 to-amber-700 rounded-lg shadow-md flex items-center justify-center">
                             <AdminIcon className="h-6 w-6 text-white"/>
                         </div>
                         <div className="flex flex-col justify-center">
@@ -10413,7 +10413,6 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                         <CloseIcon className="h-6 w-6"/>
                     </button>
                 </div>
-                {/* ----------------------------------------------------- */}
 
                 <nav className="flex-grow p-4 space-y-6 overflow-y-auto custom-scrollbar">
                     {menuGroups.map((group, idx) => (
@@ -10429,12 +10428,12 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                                             onClick={(e) => { e.preventDefault(); onNavigate(`admin/${item.key}`); setIsSidebarOpen(false); }} 
                                             className={`group flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium ${
                                                 isActive 
-                                                ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' 
+                                                ? 'bg-amber-50 text-amber-700 shadow-sm ring-1 ring-amber-200' 
                                                 : 'text-slate-600 hover:bg-gray-50 hover:text-slate-900'
                                             }`}
                                         >
                                             <div className="flex items-center gap-3">
-                                                <span className={`transition-colors ${isActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`}>
+                                                <span className={`transition-colors ${isActive ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'}`}>
                                                     {item.icon}
                                                 </span>
                                                 <span>{item.label}</span>
@@ -10454,7 +10453,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
 
                 <div className="p-4 border-t border-gray-100 bg-gray-50/50">
                     <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold border border-indigo-200">
+                        <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold border border-amber-200">
                             {user?.name?.charAt(0).toUpperCase()}
                         </div>
                         <div className="overflow-hidden">
@@ -10463,7 +10462,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                        <button onClick={() => onNavigate('home')} className="flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-white border border-gray-200 text-slate-600 text-xs font-semibold hover:bg-gray-50 hover:text-indigo-600 transition-all shadow-sm">
+                        <button onClick={() => onNavigate('home')} className="flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-white border border-gray-200 text-slate-600 text-xs font-semibold hover:bg-gray-50 hover:text-amber-600 transition-all shadow-sm">
                             <EyeIcon className="h-3 w-3"/> Ver Loja
                         </button>
                         <button onClick={handleLogout} className="flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-white border border-red-100 text-red-600 text-xs font-semibold hover:bg-red-50 hover:border-red-200 transition-all shadow-sm">
@@ -10479,7 +10478,8 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                          <button onClick={() => setIsSidebarOpen(true)} className="p-2 lg:hidden text-slate-500 hover:bg-gray-100 rounded-md">
                             <MenuIcon className="h-6 w-6"/>
                          </button>
-                         <h1 className="text-xl font-bold text-slate-800 capitalize tracking-tight hidden sm:block">
+                         {/* CORREÇÃO AQUI: 'hidden sm:block' removido para o título do Menu aparecer no Mobile e preencher o vazio */}
+                         <h1 className="text-lg sm:text-xl font-bold text-slate-800 capitalize tracking-tight block">
                             {activePage.split('/')[0].replace('-', ' ')}
                          </h1>
                      </div>
