@@ -4729,6 +4729,16 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             }
         } 
     };
+    
+    // Função auxiliar para formatar a URL do YouTube para Embed
+    const getYouTubeEmbedUrl = (url) => {
+        if (!url) return '';
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+        const match = url.match(regExp);
+        return (match && match[2].length === 11)
+            ? `https://www.youtube.com/embed/${match[2]}?autoplay=1`
+            : url;
+    };
 
     const TabButton = ({ label, tabName, isVisible = true }) => { if (!isVisible) return null; return ( <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-amber-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'}`} > {label} </button> ); };
     const Lightbox = ({ mainImage, onClose }) => ( <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}> <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">×</button> <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div> </div> );
@@ -4785,6 +4795,24 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             {reviewLightboxImage && (
                  <Lightbox mainImage={reviewLightboxImage} onClose={() => setReviewLightboxImage(null)} />
             )}
+            
+            {/* NOVO: Modal para o vídeo do YouTube */}
+            <AnimatePresence>
+                {isVideoModalOpen && product.video_url && (
+                    <Modal isOpen={true} onClose={() => setIsVideoModalOpen(false)} title="Vídeo do Produto" size="3xl">
+                        <div className="relative w-full overflow-hidden bg-black rounded-lg" style={{ paddingTop: '56.25%' }}>
+                            <iframe
+                                className="absolute top-0 left-0 w-full h-full rounded-lg"
+                                src={getYouTubeEmbedUrl(product.video_url)}
+                                title="YouTube video player"
+                                frameBorder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                allowFullScreen
+                            ></iframe>
+                        </div>
+                    </Modal>
+                )}
+            </AnimatePresence>
 
             <AnimatePresence>
                 {isSizeGuideModalOpen && product.size_guide && (
