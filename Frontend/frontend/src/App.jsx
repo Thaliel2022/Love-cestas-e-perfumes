@@ -10333,6 +10333,33 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     const [isMaintenance, setIsMaintenance] = useState(false); 
     const mainContentRef = useRef(null);
 
+    // Estado para o nome dinâmico (começa com o nome padrão)
+    const [adminLogoText, setAdminLogoText] = useState('LOVE CESTAS E PERFUMES');
+
+    // Efeito para carregar e ouvir o nome dinâmico
+    useEffect(() => {
+        // Carrega inicialmente as configurações da API
+        apiService('/settings/app-name')
+            .then(data => {
+                if (data && (data.short_name || data.name)) {
+                    // Prioriza o short_name por ser mais curto e caber melhor no menu lateral
+                    setAdminLogoText(data.short_name || data.name);
+                }
+            })
+            .catch(() => {});
+
+        // Ouve o evento de atualização global do nome (disparado na tela Ícones e Nomes)
+        const handleNameUpdate = (event) => {
+            if (event.detail && (event.detail.short_name || event.detail.name)) {
+                setAdminLogoText(event.detail.short_name || event.detail.name);
+            }
+        };
+
+        window.addEventListener('app-name-updated', handleNameUpdate);
+        
+        return () => window.removeEventListener('app-name-updated', handleNameUpdate);
+    }, []);
+
     useEffect(() => {
         apiService('/settings/maintenance')
             .then(data => setIsMaintenance(data.status === 'on'))
@@ -10426,7 +10453,6 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
 
             <aside className={`bg-white w-72 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 flex flex-col border-r border-gray-200 shadow-xl lg:shadow-none`}>
                 
-                {/* --- AQUI ESTÁ A ATUALIZAÇÃO DO CABEÇALHO PREMIUM COM CORES DOURADAS --- */}
                 <div className="h-20 flex items-center px-6 border-b border-gray-100 flex-shrink-0 bg-white">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-gradient-to-br from-amber-500 to-amber-700 rounded-lg shadow-md flex items-center justify-center">
@@ -10434,7 +10460,9 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                         </div>
                         <div className="flex flex-col justify-center">
                             <span className="text-lg font-black tracking-tight text-slate-900 leading-none">ADMINISTRAÇÃO</span>
-                            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mt-1">Love Cestas e Perfumes</span>
+                            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mt-1 truncate max-w-[150px]" title={adminLogoText}>
+                                {adminLogoText}
+                            </span>
                         </div>
                     </div>
                     <button className="lg:hidden ml-auto text-gray-400 hover:text-gray-600" onClick={() => setIsSidebarOpen(false)}>
@@ -10506,7 +10534,6 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                          <button onClick={() => setIsSidebarOpen(true)} className="p-2 lg:hidden text-slate-500 hover:bg-gray-100 rounded-md">
                             <MenuIcon className="h-6 w-6"/>
                          </button>
-                         {/* CORREÇÃO AQUI: 'hidden sm:block' removido para o título do Menu aparecer no Mobile e preencher o vazio */}
                          <h1 className="text-lg sm:text-xl font-bold text-slate-800 capitalize tracking-tight block">
                             {activePage.split('/')[0].replace('-', ' ')}
                          </h1>
@@ -16781,14 +16808,19 @@ const AdminAppIcons = () => {
                 </div>
             </div>
 
+            {/* BOTÃO MELHORADO AQUI */}
             <div className="flex justify-end pt-6 border-t border-gray-200">
                 <button 
                     onClick={handleSave} 
                     disabled={isSaving}
-                    className="bg-green-600 text-white px-10 py-3 rounded-xl font-bold hover:bg-green-700 shadow-md flex items-center gap-2.5 disabled:opacity-70 transition-all active:scale-95"
+                    className="bg-gradient-to-r from-emerald-500 to-green-600 text-white px-8 py-3.5 rounded-xl font-bold hover:from-emerald-600 hover:to-green-700 shadow-lg shadow-green-500/30 flex items-center gap-3 disabled:opacity-70 disabled:shadow-none transition-all duration-300 active:scale-95 transform hover:-translate-y-0.5"
                 >
-                    <CheckIcon className="h-5 w-5"/>
-                    Salvar Definitivamente
+                    {isSaving ? (
+                        <SpinnerIcon className="h-6 w-6 animate-spin" />
+                    ) : (
+                        <CheckBadgeIcon className="h-6 w-6"/>
+                    )}
+                    <span className="text-base uppercase tracking-wide">Salvar Definitivamente</span>
                 </button>
             </div>
         </div>
