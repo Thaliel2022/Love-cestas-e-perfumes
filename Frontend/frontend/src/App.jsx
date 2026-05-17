@@ -12388,6 +12388,7 @@ const AdminProducts = ({ onNavigate }) => {
   const confirmation = useConfirmation();
   const notification = useNotification();
   
+  // Estados para Importação Inteligente
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [importMessage, setImportMessage] = useState('');
@@ -12527,6 +12528,36 @@ const AdminProducts = ({ onNavigate }) => {
           },
           { requiresAuth: true, confirmText: 'Deletar', confirmColor: 'bg-red-600 hover:bg-red-700' }
       );
+  };
+
+  // --- Importação Inteligente (IA e XML) ---
+  const handleFileSelect = (e) => {
+      setSelectedFile(e.target.files[0]);
+      setImportMessage('');
+  };
+
+  const handleImportSubmit = async (e) => {
+      e.preventDefault();
+      if (!selectedFile) {
+          setImportMessage('Por favor, selecione um arquivo válido (PDF, XML ou Imagem).');
+          return;
+      }
+
+      setIsImporting(true);
+      setImportMessage('');
+
+      try {
+          // Utiliza a função global apiUploadService que já anexa o token de autenticação e usa FormData
+          const response = await apiUploadService('/products/import-invoice', selectedFile);
+          notification.show(response.message, 'success');
+          setIsImportModalOpen(false);
+          setSelectedFile(null);
+          fetchProducts(); // Recarrega a lista de produtos imediatamente após importar
+      } catch (error) {
+          setImportMessage(error.message || 'Erro ao importar o arquivo. Tente novamente.');
+      } finally {
+          setIsImporting(false);
+      }
   };
 
   // --- Exclusão em Massa ---
@@ -12727,6 +12758,69 @@ const AdminProducts = ({ onNavigate }) => {
                 </motion.div>
             )}
         </AnimatePresence>
+        
+        {/* MODAL DE IMPORTAÇÃO INTELIGENTE (IA & XML) */}
+        <AnimatePresence>
+            {isImportModalOpen && (
+                <Modal isOpen={true} onClose={() => setIsImportModalOpen(false)} title="Importação Inteligente (IA & XML)">
+                    <form onSubmit={handleImportSubmit} className="space-y-4">
+                        <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-lg">
+                            <h4 className="font-bold text-indigo-800 flex items-center gap-2 mb-2">
+                                <SparklesIcon className="h-5 w-5"/> Como funciona?
+                            </h4>
+                            <p className="text-sm text-indigo-700 leading-relaxed">
+                                Faça o upload do <strong>XML da NF-e</strong> ou de uma <strong>foto/PDF</strong> do recibo ou nota fiscal. Nossa Inteligência Artificial (Google Gemini) fará a leitura estruturada dos dados e criará os produtos no sistema automaticamente como <span className="font-bold">Inativos (Rascunho)</span> para você revisar preços e adicionar fotos.
+                            </p>
+                        </div>
+                        
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-gray-50 transition-colors">
+                            <input 
+                                type="file" 
+                                id="invoice-upload"
+                                accept=".xml, .pdf, image/png, image/jpeg, image/webp"
+                                onChange={handleFileSelect}
+                                className="hidden"
+                            />
+                            <label htmlFor="invoice-upload" className="cursor-pointer flex flex-col items-center justify-center">
+                                <UploadIcon className="h-10 w-10 text-gray-400 mb-3" />
+                                <span className="text-sm font-bold text-indigo-600 hover:text-indigo-800 underline">
+                                    Clique para selecionar o arquivo
+                                </span>
+                                <span className="text-xs text-gray-500 mt-2 font-medium">Arquivos suportados: PDF, XML, JPG ou PNG (Máx. 15MB)</span>
+                            </label>
+                            
+                            {selectedFile && (
+                                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 font-bold flex items-center justify-center gap-2 shadow-sm animate-fade-in">
+                                    <CheckCircleIcon className="h-5 w-5" /> 
+                                    <span className="truncate max-w-xs">{selectedFile.name}</span>
+                                </div>
+                            )}
+                        </div>
+
+                        <AnimatePresence>
+                            {importMessage && (
+                                <motion.p 
+                                    initial={{ opacity: 0, y: -10 }} 
+                                    animate={{ opacity: 1, y: 0 }} 
+                                    exit={{ opacity: 0 }}
+                                    className={`text-sm font-bold p-3 rounded-md ${importMessage.includes('Erro') || importMessage.includes('falhou') ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-green-50 text-green-600 border border-green-200'}`}
+                                >
+                                    {importMessage}
+                                </motion.p>
+                            )}
+                        </AnimatePresence>
+
+                        <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-6">
+                            <button type="button" onClick={() => setIsImportModalOpen(false)} className="px-5 py-2.5 bg-gray-200 rounded-lg font-bold text-gray-700 hover:bg-gray-300 transition-colors">Cancelar</button>
+                            <button type="submit" disabled={isImporting || !selectedFile} className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 disabled:bg-indigo-400 flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 min-w-[200px]">
+                                {isImporting ? <SpinnerIcon className="h-5 w-5" /> : <SparklesIcon className="h-5 w-5" />}
+                                {isImporting ? 'Processando dados...' : 'Iniciar Importação'}
+                            </button>
+                        </div>
+                    </form>
+                </Modal>
+            )}
+        </AnimatePresence>
 
         <AnimatePresence>
             {isBulkPromoModalOpen && (
@@ -12811,6 +12905,9 @@ const AdminProducts = ({ onNavigate }) => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
             <h1 className="text-3xl font-bold">Gerenciar Produtos</h1>
             <div className="flex flex-wrap gap-2">
+                <button onClick={() => { setSelectedFile(null); setImportMessage(''); setIsImportModalOpen(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center space-x-2 shadow-sm transition-colors">
+                    <SparklesIcon className="h-5 w-5"/> <span>Importar com IA</span>
+                </button>
                 <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2 shadow-sm transition-colors">
                     <PlusIcon className="h-5 w-5"/> <span>Novo Produto</span>
                 </button>
