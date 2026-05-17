@@ -2134,7 +2134,7 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             const parser = new xml2js.Parser({ explicitArray: false });
             const result = await parser.parseStringPromise(req.file.buffer.toString('utf-8'));
             
-            // Navega na estrutura do XML da NF-e padrão
+            // Navega na estrutura do XML da NF-e padrão brasileiro
             const detArray = result?.nfeProc?.NFe?.infNFe?.det || result?.NFe?.infNFe?.det;
             if (!detArray) throw new Error("Estrutura de produtos não encontrada neste XML.");
 
@@ -2155,20 +2155,14 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             }
 
             const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-            
-            // FORÇA O MODELO A RESPONDER APENAS EM JSON PURO
-            const model = genAI.getGenerativeModel({ 
-                model: "gemini-1.5-flash",
-                generationConfig: {
-                    responseMimeType: "application/json",
-                }
-            });
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
             const prompt = `
                 Extraia todos os produtos contidos nesta nota fiscal, recibo ou fatura.
                 Retorne ESTRITAMENTE um ARRAY JSON contendo objetos com as seguintes chaves:
                 "name" (string), "price" (number), "stock" (number), "brand" (string), "category" (string).
                 Se não souber a marca ou categoria, use "Desconhecida" e "Diversos".
+                Não inclua nenhum texto adicional, nem formatação markdown. Apenas o array [ ... ].
             `;
 
             const imageParts = [
@@ -2182,13 +2176,23 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
 
             try {
                 const aiResult = await model.generateContent([prompt, ...imageParts]);
-                const responseText = aiResult.response.text();
+                let responseText = aiResult.response.text().trim();
                 
-                console.log("[GEMINI AI] Resposta recebida da IA:", responseText); // Log para depuração
+                console.log("[GEMINI AI] Resposta original:", responseText); // Útil para debugar na Render
                 
+                // LIMPEZA EXTREMA: Remove qualquer markdown (```json e ```)
+                responseText = responseText.replace(/^```(json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+                
+                // CINTURÃO DE SEGURANÇA: Extrai apenas o que estiver entre os colchetes [ ]
+                const startIndex = responseText.indexOf('[');
+                const endIndex = responseText.lastIndexOf(']');
+                if (startIndex !== -1 && endIndex !== -1) {
+                    responseText = responseText.substring(startIndex, endIndex + 1);
+                }
+
                 extractedProducts = JSON.parse(responseText);
             } catch (aiError) {
-                console.error("[GEMINI AI ERRO] Falha ao processar ou converter JSON:", aiError);
+                console.error("[GEMINI AI ERRO] Falha ao processar JSON. Erro:", aiError);
                 return res.status(500).json({ message: "A IA processou o documento, mas não conseguiu formatar os produtos corretamente. Tente uma imagem mais nítida." });
             }
         }
@@ -2209,7 +2213,7 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 const width = 11;
                 const height = 11;
                 const length = 16;
-                const isActive = 0; // Entra como INATIVO para revisão
+                const isActive = 0; // Entra como INATIVO para revisão do Admin
 
                 const sql = `
                     INSERT INTO products 
@@ -2231,7 +2235,7 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             logAdminAction(req.user, 'IMPORTAÇÃO IA', `Importou ${insertedCount} produtos do ficheiro: ${req.file.originalname}`, clientIp);
             
             res.status(201).json({ 
-                message: `Sucesso! ${insertedCount} produtos foram importados como RASCUNHO (Inativos). Verifique o painel para editá-los e ativá-los.`,
+                message: `Sucesso! ${insertedCount} produtos foram importados como RASCUNHO (Inativos). Verifique a lista.`,
                 importedCount: insertedCount,
                 extractedPreview: extractedProducts
             });
@@ -2245,7 +2249,7 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
 
     } catch (error) {
         console.error("Erro global na importação inteligente:", error);
-        res.status(500).json({ message: "Falha na extração de dados. O ficheiro pode estar ilegível ou o servidor encontrou um erro interno." });
+        res.status(500).json({ message: "Falha na extração de dados. O ficheiro pode estar ilegível." });
     }
 });
 
