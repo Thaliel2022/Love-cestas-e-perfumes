@@ -22,6 +22,9 @@ const compression = require('compression');
 const { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } = require('@simplewebauthn/server');
 const sanitizeHtml = require('sanitize-html'); // NOVO: Biblioteca profissional contra XSS
 const Fuse = require('fuse.js');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const xml2js = require('xml2js');
+
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
 
@@ -551,6 +554,27 @@ const csvUpload = multer({
             cb(null, true);
         } else {
             cb(new Error('Tipo de arquivo inválido. Apenas arquivos .csv são permitidos.'), false);
+        }
+    }
+}).single('file');
+
+// --- NOVO: UPLOAD DE NOTAS FISCAIS E IMAGENS PARA IA ---
+const invoiceUpload = multer({
+    storage: memoryStorage,
+    limits: { fileSize: 15 * 1024 * 1024 }, // Limite de 15MB
+    fileFilter: (req, file, cb) => {
+        const allowedMimes = [
+            'application/pdf', 
+            'text/xml', 
+            'application/xml',
+            'image/jpeg', 
+            'image/png', 
+            'image/webp'
+        ];
+        if (allowedMimes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Formato inválido para nota fiscal. Envie PDF, XML ou Imagem (JPG/PNG).'), false);
         }
     }
 }).single('file');
@@ -2093,6 +2117,128 @@ setInterval(async () => {
         }
     }
 }, 60000); // Verifica a cada minuto
+
+// --- NOVA ROTA: IMPORTAÇÃO INTELIGENTE POR IA (NOTA FISCAL / PDF / XML) ---
+app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload, async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ message: 'Nenhum arquivo enviado. Anexe um XML, PDF ou Imagem.' });
+    }
+
+    const fileExt = req.file.mimetype;
+    let extractedProducts = [];
+    const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
+
+    try {
+        // LÓGICA 1: SE FOR XML (Parse determinístico, 100% preciso e rápido)
+        if (fileExt === 'text/xml' || fileExt === 'application/xml') {
+            const parser = new xml2js.Parser({ explicitArray: false });
+            const result = await parser.parseStringPromise(req.file.buffer.toString('utf-8'));
+            
+            // Navega na estrutura do XML da NF-e padrão brasileiro
+            const detArray = result?.nfeProc?.NFe?.infNFe?.det || result?.NFe?.infNFe?.det;
+            if (!detArray) throw new Error("Estrutura de produtos não encontrada neste XML.");
+
+            const items = Array.isArray(detArray) ? detArray : [detArray];
+            extractedProducts = items.map(item => ({
+                name: item.prod.xProd,
+                price: parseFloat(item.prod.vUnCom),
+                stock: parseInt(Math.floor(parseFloat(item.prod.qCom)), 10),
+                brand: "Marca Genérica", // XML não costuma trazer marca explícita, a IA ajuda depois
+                category: "Diversos"
+            }));
+        } 
+        // LÓGICA 2: SE FOR IMAGEM OU PDF (Google Gemini Vision AI)
+        else {
+            if (!process.env.GEMINI_API_KEY) {
+                return res.status(500).json({ message: "A chave GEMINI_API_KEY não está configurada no servidor para ler PDFs/Imagens." });
+            }
+
+            const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // Modelo rápido e visual
+
+            const prompt = `
+                Você é um assistente de e-commerce profissional. Extraia todos os produtos contidos nesta nota fiscal, recibo ou boleto.
+                Retorne ESTRITAMENTE um array JSON com os seguintes campos para cada produto:
+                "name" (string, nome do produto),
+                "price" (number, preço unitário),
+                "stock" (number, quantidade),
+                "brand" (string, tente deduzir a marca pelo nome, ou "Desconhecida"),
+                "category" (string, deduza a categoria: "Perfumes Feminino", "Perfumes Masculino", "Roupas", etc. ou "Diversos").
+                Não inclua nenhuma formatação markdown (sem \`\`\`json), apenas o array bruto.
+            `;
+
+            const imageParts = [
+                {
+                    inlineData: {
+                        data: req.file.buffer.toString("base64"),
+                        mimeType: req.file.mimetype
+                    }
+                }
+            ];
+
+            const aiResult = await model.generateContent([prompt, ...imageParts]);
+            // CORREÇÃO APLICADA AQUI NA LINHA ABAIXO (Sem quebra de linha)
+            const responseText = aiResult.response.text().trim().replace(/```json/g, "").replace(/```/g, "");
+            
+            extractedProducts = JSON.parse(responseText);
+        }
+
+        if (!extractedProducts || extractedProducts.length === 0) {
+            return res.status(400).json({ message: "A inteligência artificial não conseguiu encontrar produtos neste documento." });
+        }
+
+        // SALVANDO PRODUTOS NO BANCO DE DADOS
+        const connection = await db.getConnection();
+        let insertedCount = 0;
+        
+        try {
+            await connection.beginTransaction();
+            for (const prod of extractedProducts) {
+                // Parâmetros padrão para produtos importados automaticamente
+                const productType = 'perfume'; 
+                const weight = 0.30;
+                const width = 11;
+                const height = 11;
+                const length = 16;
+                const isActive = 0; // Entra como INATIVO para que o Admin revise antes de publicar
+
+                const sql = `
+                    INSERT INTO products 
+                    (name, brand, category, price, stock, weight, width, height, length, product_type, is_active) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `;
+                await connection.query(sql, [
+                    prod.name || 'Produto Sem Nome', 
+                    prod.brand || 'Desconhecida', 
+                    prod.category || 'Diversos', 
+                    prod.price || 0.00, 
+                    prod.stock || 1, 
+                    weight, width, height, length, productType, isActive
+                ]);
+                insertedCount++;
+            }
+            await connection.commit();
+            
+            logAdminAction(req.user, 'IMPORTAÇÃO IA', `Importou ${insertedCount} produtos do arquivo: ${req.file.originalname}`, clientIp);
+            
+            res.status(201).json({ 
+                message: `Sucesso! ${insertedCount} produtos foram importados como RASCUNHO (Inativos). Verifique o painel para editá-los e ativá-los.`,
+                importedCount: insertedCount,
+                extractedPreview: extractedProducts
+            });
+
+        } catch (dbErr) {
+            await connection.rollback();
+            throw dbErr;
+        } finally {
+            connection.release();
+        }
+
+    } catch (error) {
+        console.error("Erro na importação inteligente:", error);
+        res.status(500).json({ message: "Falha na extração de dados. O arquivo pode estar ilegível ou o formato da IA falhou." });
+    }
+});
 
 // 1. Criação de Produto (Bloqueado e Validado)
 

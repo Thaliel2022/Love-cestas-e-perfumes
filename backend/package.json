@@ -14,6 +14,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@simplewebauthn/server": "^13.3.0",
     "bcryptjs": "^3.0.2",
     "cheerio": "^1.0.0-rc.12",
@@ -38,6 +39,7 @@
     "sanitize-html": "^2.17.2",
     "speakeasy": "^2.0.0",
     "web-push": "^3.6.7",
+    "xml2js": "^0.6.2",
     "xss-clean": "^0.1.4",
     "zod": "^4.2.1"
   }
