@@ -2155,7 +2155,9 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             }
 
             const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+            
+            // CORREÇÃO: Nome do modelo atualizado para a versão "latest" (mais compatível e estável)
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
             const prompt = `
                 Extraia todos os produtos contidos nesta nota fiscal, recibo ou fatura.
