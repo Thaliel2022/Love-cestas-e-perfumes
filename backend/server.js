@@ -2205,7 +2205,7 @@ const fetchOnlineProductData = async (productName, brandName, invoiceCost, volum
     };
 };
 
-// --- ROTA DE IMPORTAÇÃO INTELIGENTE (COM BLOQUEIO DE DUPLICATAS) ---
+// --- ROTA DE IMPORTAÇÃO INTELIGENTE (AGORA COM COPYWRITER AUTOMÁTICO) ---
 app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload, async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'Nenhum ficheiro enviado. Anexe um XML, PDF ou Imagem.' });
@@ -2252,22 +2252,26 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
             const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
+            // PROMPT ATUALIZADO: ORDEM PARA CRIAR CONTEÚDO RICO (DESCRIÇÃO, NOTAS, ETC)
             const prompt = `
                 Você é um especialista em e-commerce de cosméticos e perfumaria brasileira (O Boticário, Natura, Eudora, Avon, etc.).
-                Sua missão é extrair os produtos desta nota fiscal/fatura.
+                Sua missão é extrair os produtos desta nota fiscal/fatura e GERAR CONTEÚDO para a loja.
                 
-                1. DESABREVIAÇÃO INTELIGENTE: Expanda as siglas para o nome comercial real. Ex: "REF MATCH COND HID/BRLH" -> "Refil Condicionador Match Hidratação e Brilho".
-                Remova qualquer "ml", "L", "g" ou "kg" do nome do produto.
-                
-                2. EXTRAÇÃO DE VOLUME: Se houver medida (ex: 250ml, 100g, 75ml) na nota, coloque APENAS a medida no campo "volume".
+                1. DESABREVIAÇÃO: Expanda as siglas para o nome comercial real. Ex: "REF MATCH COND HID/BRLH" -> "Refil Condicionador Match Hidratação e Brilho". Remova ml/g/kg do nome.
+                2. EXTRAÇÃO DE VOLUME: Coloque a medida (ex: 250ml) APENAS no campo "volume".
+                3. GERAÇÃO DE CONTEÚDO: Como você conhece os produtos dessas marcas, crie textos comerciais reais para as descrições.
 
                 Retorne ESTRITAMENTE um ARRAY JSON contendo objetos com as chaves:
                 "name" (string): Nome desabreviado e sem ml/g.
                 "volume" (string): Medida exata (ex: "250ml"). Se não tiver, retorne "".
-                "invoice_cost" (number): O valor unitário de custo pago/impresso na nota.
-                "stock" (number): A quantidade comprada na nota.
+                "invoice_cost" (number): O valor unitário pago/impresso na nota.
+                "stock" (number): A quantidade comprada.
                 "brand" (string): Deduza a marca pelo nome.
                 "category" (string): Classifique inteligentemente.
+                "description" (string): Uma descrição comercial completa, atraente e persuasiva sobre o produto (mínimo de 2 parágrafos curtos).
+                "notes" (string): Notas Olfativas (Topo, Corpo, Fundo) se for perfume, OU principais ativos/ingredientes se for creme/shampoo.
+                "how_to_use" (string): Instruções claras de como usar o produto.
+                "ideal_for" (string): Para qual tipo de ocasião, pele ou cabelo este produto é ideal (Ex: "Ocasiões Especiais", "Cabelos Ressecados").
                 
                 Apenas o array JSON puro.
             `;
@@ -2288,7 +2292,7 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 extractedProducts = JSON.parse(responseText);
             } catch (aiError) {
                 console.error("[GEMINI AI ERRO]:", aiError);
-                return res.status(500).json({ message: "Falha na extração por IA." });
+                return res.status(500).json({ message: "Falha na geração de conteúdo por IA." });
             }
         }
 
@@ -2306,22 +2310,20 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 const cleanName = prod.name || 'Produto Sem Nome';
                 const addedStock = prod.stock || 1;
 
-                // VERIFICAÇÃO ANTI-DUPLICAÇÃO: O produto já existe no banco?
                 const [existingRows] = await connection.query(`SELECT id, stock FROM products WHERE name = ? LIMIT 1`, [cleanName]);
 
                 if (existingRows && existingRows.length > 0) {
-                    // O PRODUTO JÁ EXISTE! Apenas atualizamos o estoque somando o que veio na nota
                     console.log(`[ESTOQUE] Produto já existe: ${cleanName}. Somando +${addedStock} ao estoque.`);
                     await connection.query(`UPDATE products SET stock = stock + ? WHERE id = ?`, [addedStock, existingRows[0].id]);
                     updatedCount++;
                 } else {
-                    // PRODUTO NOVO! Faz a busca de preço e imagem e insere
                     const marketData = await fetchOnlineProductData(cleanName, prod.brand, prod.invoice_cost || 0, prod.volume);
 
+                    // COMANDO SQL ATUALIZADO PARA SALVAR AS DESCRIÇÕES RICAS E NOTAS
                     const sql = `
                         INSERT INTO products 
-                        (name, brand, category, price, sale_price, is_on_sale, stock, weight, width, height, length, product_type, is_active, volume, images) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        (name, brand, category, price, sale_price, is_on_sale, stock, weight, width, height, length, product_type, is_active, volume, images, description, notes, how_to_use, ideal_for) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     `;
                     await connection.query(sql, [
                         cleanName, 
@@ -2331,19 +2333,23 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                         marketData.salePrice,
                         marketData.isOnSale,
                         addedStock, 
-                        0.30, 11, 11, 16, 'perfume', 0, // Entra inativo (rascunho)
+                        0.30, 11, 11, 16, 'perfume', 0, 
                         prod.volume || null,
-                        marketData.images
+                        marketData.images,
+                        prod.description || '',     // Salva a Descrição Completa
+                        prod.notes || '',           // Salva as Notas Olfativas
+                        prod.how_to_use || '',      // Salva o Como Usar
+                        prod.ideal_for || ''        // Salva o Ideal Para
                     ]);
                     insertedCount++;
                 }
             }
             await connection.commit();
             
-            logAdminAction(req.user, 'IMPORTAÇÃO INTELIGENTE', `Importou ${insertedCount} novos e atualizou o estoque de ${updatedCount} produtos.`, clientIp);
+            logAdminAction(req.user, 'IMPORTAÇÃO INTELIGENTE COMPLETA', `Importou ${insertedCount} novos (com descrições automáticas) e atualizou o estoque de ${updatedCount} produtos.`, clientIp);
             
             res.status(201).json({ 
-                message: `Sucesso! ${insertedCount} novos produtos criados e ${updatedCount} produtos já existentes tiveram o estoque atualizado.`,
+                message: `Sucesso, Meu Rei! ${insertedCount} novos produtos foram criados com textos, notas olfativas e preços automáticos. ${updatedCount} tiveram apenas o estoque somado.`,
                 importedCount: insertedCount + updatedCount,
                 extractedPreview: extractedProducts
             });
