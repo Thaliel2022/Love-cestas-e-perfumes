@@ -12392,8 +12392,10 @@ const AdminProducts = ({ onNavigate }) => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [importMessage, setImportMessage] = useState('');
-  const [isImporting, setIsImporting] = useState(false);
   
+  // NOVO ESTADO: Tela de carregamento futurista da IA
+  const [aiLoading, setAiLoading] = useState({ isOpen: false, step: 0 });
+
   // Estados para Promoção em Massa
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [isBulkPromoModalOpen, setIsBulkPromoModalOpen] = useState(false);
@@ -12404,7 +12406,7 @@ const AdminProducts = ({ onNavigate }) => {
   const [isClearingPromos, setIsClearingPromos] = useState(false); 
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
-  // NOVO ESTADO: Controle da tela de carregamento em tela cheia para ações em massa
+  // Estado para tela de carregamento de ações em massa normais
   const [bulkProgress, setBulkProgress] = useState({ isRunning: false, text: '' });
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -12413,6 +12415,15 @@ const AdminProducts = ({ onNavigate }) => {
   const [productType, setProductType] = useState('perfume');
   
   const LOW_STOCK_THRESHOLD = 5;
+
+  // Frases que a IA vai mostrar enquanto trabalha
+  const aiSteps = [
+      "Iniciando os motores da Inteligência Artificial...",
+      "Lendo o documento com Visão Computacional...",
+      "Desabreviando nomes e organizando categorias...",
+      "Pesquisando imagens reais dos produtos na internet...",
+      "Fazendo upload das fotos e salvando no banco..."
+  ];
 
   const AdminCountdown = ({ endDate }) => {
       const [timeLeft, setTimeLeft] = useState('');
@@ -12521,7 +12532,7 @@ const AdminProducts = ({ onNavigate }) => {
                 await apiService(`/products/${id}`, 'DELETE');
                 fetchProducts();
                 notification.show('Produto deletado com sucesso.');
-                setSearchTerm(''); // Limpa a barra de pesquisa para evitar o bug de tela vazia com autofill
+                setSearchTerm('');
               } catch(error) {
                 notification.show(`Erro ao deletar produto: ${error.message}`, 'error');
               }
@@ -12530,7 +12541,7 @@ const AdminProducts = ({ onNavigate }) => {
       );
   };
 
-  // --- Importação Inteligente (IA e XML) ---
+  // --- Importação Inteligente (IA, XML e SerpAPI) ---
   const handleFileSelect = (e) => {
       setSelectedFile(e.target.files[0]);
       setImportMessage('');
@@ -12543,20 +12554,29 @@ const AdminProducts = ({ onNavigate }) => {
           return;
       }
 
-      setIsImporting(true);
-      setImportMessage('');
+      // Fecha o modal normal e abre a tela cheia da IA
+      setIsImportModalOpen(false);
+      setAiLoading({ isOpen: true, step: 0 });
+
+      // Cria um intervalo para mudar o texto da IA a cada 3,5 segundos
+      const stepInterval = setInterval(() => {
+          setAiLoading(prev => {
+              // Para no último passo para não voltar ao início enquanto salva
+              if (prev.step >= aiSteps.length - 1) return prev;
+              return { ...prev, step: prev.step + 1 };
+          });
+      }, 3500);
 
       try {
-          // Utiliza a função global apiUploadService que já anexa o token de autenticação e usa FormData
           const response = await apiUploadService('/products/import-invoice', selectedFile);
           notification.show(response.message, 'success');
-          setIsImportModalOpen(false);
           setSelectedFile(null);
-          fetchProducts(); // Recarrega a lista de produtos imediatamente após importar
+          fetchProducts(); 
       } catch (error) {
-          setImportMessage(error.message || 'Erro ao importar o arquivo. Tente novamente.');
+          notification.show(error.message || 'Erro ao importar o arquivo. Tente novamente.', 'error');
       } finally {
-          setIsImporting(false);
+          clearInterval(stepInterval);
+          setAiLoading({ isOpen: false, step: 0 });
       }
   };
 
@@ -12595,18 +12615,15 @@ const AdminProducts = ({ onNavigate }) => {
               setIsUpdatingStatus(true);
               setBulkProgress({ isRunning: true, text: `${newStatus ? 'Ativando' : 'Inativando'} ${selectedProducts.length} produto(s)...` });
               try {
-                  // Processa de forma sequencial para não sobrecarregar o pool de conexões do MySQL
                   for (const id of selectedProducts) {
                       const product = products.find(p => p.id === id);
                       if (!product) continue;
 
-                      // Clona o produto e limpa campos excedentes gerados pelo select de agregação (evita conflito)
                       const payload = { ...product, is_active: newStatus ? 1 : 0 };
                       delete payload.avg_rating;
                       delete payload.review_count;
                       delete payload.created_at;
 
-                      // Converte null para string vazia em todos os campos de texto opcionais
                       const textFields = ['description', 'notes', 'how_to_use', 'ideal_for', 'volume', 'size_guide', 'care_instructions', 'video_url'];
                       textFields.forEach(field => {
                           if (payload[field] === null || payload[field] === undefined) {
@@ -12622,7 +12639,6 @@ const AdminProducts = ({ onNavigate }) => {
 
                       if (!payload.sale_price) payload.sale_price = null;
                       
-                      // Sanitização de arrays/objetos
                       if (payload.product_type === 'clothing') {
                           if (!payload.variations || payload.variations === 'null') {
                               payload.variations = '[]';
@@ -12734,20 +12750,73 @@ const AdminProducts = ({ onNavigate }) => {
       );
   };
 
-  // Verificações lógicas para exibir botões apropriados na barra de ações em massa
   const hasInactiveSelected = selectedProducts.some(id => products.find(p => p.id === id)?.is_active === 0);
   const hasActiveSelected = selectedProducts.some(id => products.find(p => p.id === id)?.is_active === 1);
 
   return (
     <div>
-        {/* OVERLAY DE CARREGAMENTO EM TELA CHEIA */}
+        {/* TELA CHEIA: CARREGAMENTO FUTURISTA DA IA */}
         <AnimatePresence>
-            {bulkProgress.isRunning && (
+            {aiLoading.isOpen && (
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-900/80 backdrop-blur-sm"
+                    className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gray-900/95 backdrop-blur-md"
+                >
+                    <div className="relative flex items-center justify-center mb-10">
+                        {/* Efeitos de brilho e pulso por trás do ícone */}
+                        <div className="absolute w-32 h-32 bg-indigo-500 rounded-full animate-ping opacity-20"></div>
+                        <div className="absolute w-24 h-24 bg-amber-400 rounded-full animate-pulse opacity-30"></div>
+                        <div className="bg-gray-800 p-4 rounded-full relative z-10 border border-gray-700 shadow-[0_0_30px_rgba(212,175,55,0.4)]">
+                            <SparklesIcon className="h-14 w-14 text-[#D4AF37] animate-bounce" />
+                        </div>
+                    </div>
+                    
+                    <h2 className="text-3xl font-extrabold text-white mb-4 tracking-wider">
+                        Gemini AI <span className="text-[#D4AF37]">Operando</span>
+                    </h2>
+                    
+                    <div className="h-10 flex items-center justify-center">
+                        <motion.p 
+                            key={aiLoading.step}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="text-[#D4AF37] font-medium text-xl text-center px-6"
+                        >
+                            {aiSteps[aiLoading.step]}
+                        </motion.p>
+                    </div>
+
+                    {/* Barra de progresso animada */}
+                    <div className="w-80 h-2 bg-gray-800 rounded-full mt-10 overflow-hidden relative">
+                        <motion.div 
+                            className="absolute top-0 left-0 h-full bg-gradient-to-r from-indigo-500 via-[#D4AF37] to-indigo-500"
+                            animate={{ 
+                                width: ['0%', '100%'],
+                                x: ['-100%', '0%']
+                            }}
+                            transition={{ 
+                                repeat: Infinity, 
+                                duration: 1.5, 
+                                ease: "linear" 
+                            }}
+                        />
+                    </div>
+                    <p className="text-gray-500 text-sm mt-6">Este processo pode levar até 20 segundos. Por favor, aguarde.</p>
+                </motion.div>
+            )}
+        </AnimatePresence>
+
+        {/* OVERLAY DE CARREGAMENTO PADRÃO (Ações em Massa) */}
+        <AnimatePresence>
+            {bulkProgress.isRunning && !aiLoading.isOpen && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[9998] flex flex-col items-center justify-center bg-slate-900/80 backdrop-blur-sm"
                 >
                     <div className="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center transform transition-all">
                         <SpinnerIcon className="h-14 w-14 text-indigo-600 mb-5 animate-spin" />
@@ -12759,7 +12828,7 @@ const AdminProducts = ({ onNavigate }) => {
             )}
         </AnimatePresence>
         
-        {/* MODAL DE IMPORTAÇÃO INTELIGENTE (IA & XML) */}
+        {/* MODAL DE IMPORTAÇÃO INTELIGENTE (PONTO DE ENTRADA) */}
         <AnimatePresence>
             {isImportModalOpen && (
                 <Modal isOpen={true} onClose={() => setIsImportModalOpen(false)} title="Importação Inteligente (IA & XML)">
@@ -12769,52 +12838,55 @@ const AdminProducts = ({ onNavigate }) => {
                                 <SparklesIcon className="h-5 w-5"/> Como funciona?
                             </h4>
                             <p className="text-sm text-indigo-700 leading-relaxed">
-                                Faça o upload do <strong>XML da NF-e</strong> ou de uma <strong>foto/PDF</strong> do recibo ou nota fiscal. Nossa Inteligência Artificial (Google Gemini) fará a leitura estruturada dos dados e criará os produtos no sistema automaticamente como <span className="font-bold">Inativos (Rascunho)</span> para você revisar preços e adicionar fotos.
+                                Faça o upload do <strong>XML da NF-e</strong> ou de uma <strong>foto/PDF</strong> do recibo. Nossa IA (Gemini) fará a leitura, corrigirá as abreviações dos nomes, separará os MLs e buscará <strong>imagens reais na internet</strong> automaticamente!
                             </p>
                         </div>
                         
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-gray-50 transition-colors">
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-gray-50 transition-colors relative overflow-hidden group">
                             <input 
                                 type="file" 
                                 id="invoice-upload"
                                 accept=".xml, .pdf, image/png, image/jpeg, image/webp"
                                 onChange={handleFileSelect}
-                                className="hidden"
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                             />
-                            <label htmlFor="invoice-upload" className="cursor-pointer flex flex-col items-center justify-center">
-                                <UploadIcon className="h-10 w-10 text-gray-400 mb-3" />
-                                <span className="text-sm font-bold text-indigo-600 hover:text-indigo-800 underline">
-                                    Clique para selecionar o arquivo
+                            <div className="flex flex-col items-center justify-center pointer-events-none">
+                                <UploadIcon className={`h-12 w-12 mb-3 transition-colors ${selectedFile ? 'text-green-500' : 'text-gray-400 group-hover:text-indigo-500'}`} />
+                                <span className="text-sm font-bold text-indigo-600 underline decoration-indigo-300">
+                                    {selectedFile ? 'Trocar arquivo selecionado' : 'Clique ou arraste o arquivo aqui'}
                                 </span>
-                                <span className="text-xs text-gray-500 mt-2 font-medium">Arquivos suportados: PDF, XML, JPG ou PNG (Máx. 15MB)</span>
-                            </label>
-                            
-                            {selectedFile && (
-                                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 font-bold flex items-center justify-center gap-2 shadow-sm animate-fade-in">
-                                    <CheckCircleIcon className="h-5 w-5" /> 
-                                    <span className="truncate max-w-xs">{selectedFile.name}</span>
-                                </div>
-                            )}
+                                <span className="text-xs text-gray-500 mt-2 font-medium">Suporta PDF, XML, JPG ou PNG (Máx. 15MB)</span>
+                            </div>
                         </div>
 
                         <AnimatePresence>
-                            {importMessage && (
-                                <motion.p 
-                                    initial={{ opacity: 0, y: -10 }} 
-                                    animate={{ opacity: 1, y: 0 }} 
-                                    exit={{ opacity: 0 }}
-                                    className={`text-sm font-bold p-3 rounded-md ${importMessage.includes('Erro') || importMessage.includes('falhou') ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-green-50 text-green-600 border border-green-200'}`}
+                            {selectedFile && (
+                                <motion.div 
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
+                                    className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 font-bold flex items-center justify-between shadow-sm"
                                 >
-                                    {importMessage}
-                                </motion.p>
+                                    <div className="flex items-center gap-2 overflow-hidden">
+                                        <CheckCircleIcon className="h-5 w-5 flex-shrink-0" /> 
+                                        <span className="truncate">{selectedFile.name}</span>
+                                    </div>
+                                    <button 
+                                        type="button" 
+                                        onClick={(e) => { e.preventDefault(); setSelectedFile(null); }}
+                                        className="text-green-600 hover:text-red-600 ml-2"
+                                    >
+                                        <XMarkIcon className="h-5 w-5" />
+                                    </button>
+                                </motion.div>
                             )}
                         </AnimatePresence>
 
                         <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-6">
                             <button type="button" onClick={() => setIsImportModalOpen(false)} className="px-5 py-2.5 bg-gray-200 rounded-lg font-bold text-gray-700 hover:bg-gray-300 transition-colors">Cancelar</button>
-                            <button type="submit" disabled={isImporting || !selectedFile} className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 disabled:bg-indigo-400 flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 min-w-[200px]">
-                                {isImporting ? <SpinnerIcon className="h-5 w-5" /> : <SparklesIcon className="h-5 w-5" />}
-                                {isImporting ? 'Processando dados...' : 'Iniciar Importação'}
+                            <button type="submit" disabled={!selectedFile} className="px-6 py-2.5 bg-[#D4AF37] text-black rounded-lg font-bold hover:bg-yellow-500 disabled:bg-gray-300 disabled:text-gray-500 flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 min-w-[200px]">
+                                <SparklesIcon className="h-5 w-5" />
+                                Iniciar Importação
                             </button>
                         </div>
                     </form>
@@ -13078,7 +13150,6 @@ const AdminProducts = ({ onNavigate }) => {
                                         </div>
                                     </div>
                                     
-                                    {/* Badge de Status e TIPO DE PRODUTO Mobile */}
                                     <div className="flex flex-col items-end gap-1">
                                          <span className="bg-indigo-100 text-indigo-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase whitespace-nowrap">
                                              {p.product_type === 'clothing' ? 'Roupa' : (p.product_type === 'perfume' ? 'Perfume' : p.product_type)}
