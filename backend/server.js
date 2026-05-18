@@ -2118,46 +2118,6 @@ setInterval(async () => {
     }
 }, 60000); // Verifica a cada minuto
 
-// --- FUNÇÃO AUXILIAR: BUSCA IMAGEM NO GOOGLE E SUBIR PARA O CLOUDINARY ---
-const autoFetchProductImage = async (productName, brandName) => {
-    if (!process.env.SERPAPI_KEY) {
-        console.warn("[AUTO-IMAGE] Aviso: SERPAPI_KEY não configurada. Produto ficará sem imagem.");
-        return JSON.stringify([]);
-    }
-
-    try {
-        const query = `${productName} ${brandName}`;
-        console.log(`[AUTO-IMAGE] Buscando imagem para: ${query}`);
-        
-        // Busca o primeiro resultado no Google Imagens via SerpAPI
-        const serpUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&tbm=isch&api_key=${process.env.SERPAPI_KEY}`;
-        const response = await fetch(serpUrl);
-        const data = await response.json();
-
-        const imageUrl = data?.images_results?.[0]?.original;
-
-        if (imageUrl) {
-            console.log(`[AUTO-IMAGE] Imagem encontrada: ${imageUrl}. Fazendo upload para o Cloudinary...`);
-            
-            // Sobe a imagem diretamente da URL da internet para o seu Cloudinary de forma segura
-            const uploadResult = await cloudinary.uploader.upload(imageUrl, {
-                folder: "products_auto_import",
-                sanitize: true
-            });
-
-            // Retorna no formato esperado pela tabela de produtos (Array JSON em formato string)
-            return JSON.stringify([uploadResult.secure_url]);
-        }
-
-        console.log(`[AUTO-IMAGE] Nenhuma imagem encontrada no Google para o produto.`);
-        return JSON.stringify([]);
-    } catch (imgError) {
-        console.error("[AUTO-IMAGE ERRO] Falha ao buscar ou processar imagem automática:", imgError.message);
-        return JSON.stringify([]); // Retorna array vazio em caso de erro para não travar a importação
-    }
-};
-
-// --- ROTA DE IMPORTAÇÃO INTELIGENTE ATUALIZADA COM COMPONENTES VISUAIS ---
 // --- FUNÇÃO AUXILIAR: BUSCA IMAGEM NO GOOGLE E SUBE PARA O CLOUDINARY ---
 const autoFetchProductImage = async (productName, brandName) => {
     if (!process.env.SERPAPI_KEY) {
