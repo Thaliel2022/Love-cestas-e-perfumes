@@ -2206,7 +2206,7 @@ const fetchOnlineProductData = async (productName, brandName, invoiceCost, volum
 };
 
 // --- ROTA DE IMPORTAÇÃO INTELIGENTE (MULTICATEGORIA COM CAMPOS ESPECÍFICOS PARA ROUPAS E PERFUMES) ---
-// --- ROTA DE IMPORTAÇÃO INTELIGENTE (HÍBRIDA: PRECIFICAÇÃO REAL PARA PERFUMES E VALOR DA NOTA PARA ROUPAS) ---
+// --- ROTA DE IMPORTAÇÃO INTELIGENTE (AGORA COM ENRIQUECIMENTO DE MARCA E CATEGORIA REAL PARA XML E IMAGENS) ---
 app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload, async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'Nenhum ficheiro enviado. Anexe um XML, PDF ou Imagem.' });
@@ -2217,6 +2217,14 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
     const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
 
     try {
+        if (!process.env.GEMINI_API_KEY) {
+            return res.status(500).json({ message: "A chave da IA não está configurada no servidor." });
+        }
+
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+        // LÓGICA 1: SE FOR XML (Extração estrutural exata + enriquecimento de IA para Marca e Categoria Real)
         if (fileExt === 'text/xml' || fileExt === 'application/xml') {
             const parser = new xml2js.Parser({ explicitArray: false });
             const result = await parser.parseStringPromise(req.file.buffer.toString('utf-8'));
@@ -2225,75 +2233,96 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             if (!detArray) throw new Error("Estrutura de produtos não encontrada neste XML.");
 
             const items = Array.isArray(detArray) ? detArray : [detArray];
-            extractedProducts = items.map(item => {
-                const rawName = item.prod.xProd || "";
-                let volumeMatch = rawName.match(/(\d+)\s*(ml|l|g|kg|oz)/i);
-                let cleanName = rawName;
-                let volume = "";
-                
-                if (volumeMatch) {
-                    volume = volumeMatch[0].trim();
-                    cleanName = rawName.replace(volumeMatch[0], '').trim();
-                }
+            const rawNames = items.map(item => item.prod.xProd || "");
 
-                return {
-                    name: cleanName,
-                    volume: volume,
-                    invoice_cost: parseFloat(item.prod.vUnCom),
-                    stock: parseInt(Math.floor(parseFloat(item.prod.qCom)), 10),
-                    brand: "Marca Genérica", 
-                    category: "Diversos",
-                    product_type: "perfume",
-                    variations: []
-                };
-            });
-        } else {
-            if (!process.env.GEMINI_API_KEY) {
-                return res.status(500).json({ message: "A chave da IA não está configurada no servidor." });
+            // Prompt focado em normalizar os dados brutos e abreviados do XML de forma real
+            const xmlPrompt = `
+                Você é um ERP inteligente especialista em cosméticos e perfumaria brasileira (O Boticário, Natura, Eudora, Avon, etc.).
+                Analise esta lista de nomes brutos vindos de um XML de Nota Fiscal e gere os dados comerciais REAIS de cada um:
+                ${JSON.stringify(rawNames)}
+
+                REGRAS OBRIGATÓRIAS PARA CADA ITEM:
+                1. DESABREVIAÇÃO: Expanda as siglas para o nome comercial completo. Remova ml/g/kg do nome principal.
+                2. PRODUCT_TYPE: 'perfume' ou 'clothing'.
+                3. VOLUME: Medida exata (ex: "95ml", "250ml", "50g"). Se for roupa, "".
+                4. MARCA REAL (CRÍTICO): Deduza a marca real exata através do nome da linha (Ex: Malbec, Lily, Zaad, Egeo, Match, Cuide-se Bem pertencem à marca "O Boticário". Essencial, Kaiak, Luna, Tododia pertencem à "Natura". Club 6, Impression pertencem à "Eudora").
+                5. CATEGORIA REAL: Classifique estritamente em uma destas: "Perfumes Feminino", "Perfumes Masculino", "Cabelos", "Corpo e Banho", "Maquiagem", "Skincare" ou "Roupas".
+                6. CONTEÚDO: Gere descrição comercial ("description"), Notas Olfativas ("notes"), instruções de uso ("how_to_use") e ideal para ("ideal_for").
+
+                Retorne ESTRITAMENTE um ARRAY JSON na mesma ordem dos itens recebidos, sem formatação markdown.
+            `;
+
+            const aiResult = await model.generateContent(xmlPrompt);
+            let responseText = aiResult.response.text().trim();
+            responseText = responseText.replace(/^```(json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+            
+            const startIndex = responseText.indexOf('[');
+            const endIndex = responseText.lastIndexOf(']');
+            if (startIndex !== -1 && endIndex !== -1) {
+                responseText = responseText.substring(startIndex, endIndex + 1);
             }
 
-            const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-            const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+            const aiProducts = JSON.parse(responseText);
 
+            extractedProducts = items.map((item, index) => {
+                const aiProd = aiProducts[index] || {};
+                return {
+                    name: aiProd.name || item.prod.xProd,
+                    product_type: aiProd.product_type || 'perfume',
+                    volume: aiProd.volume || '',
+                    invoice_cost: parseFloat(item.prod.vUnCom),
+                    stock: parseInt(Math.floor(parseFloat(item.prod.qCom)), 10),
+                    brand: aiProd.brand || 'Desconhecida',
+                    category: aiProd.category || 'Diversos',
+                    description: aiProd.description || '',
+                    notes: aiProd.notes || '',
+                    how_to_use: aiProd.how_to_use || '',
+                    care_instructions: '',
+                    ideal_for: aiProd.ideal_for || '',
+                    variations: aiProd.variations || []
+                };
+            });
+        } 
+        // LÓGICA 2: SE FOR IMAGEM OU PDF (Leitura visual direta por IA)
+        else {
             const prompt = `
-                Você é um ERP inteligente especialista em e-commerce de Perfumaria/Cosméticos e Vestuário/Moda.
-                Sua missão é analisar esta nota fiscal, identificar a categoria correta e gerar dados comerciais ricos e específicos para cada formulário.
+                Você é um ERP inteligente especialista em e-commerce de Perfumaria, Cosméticos e Moda brasileira (O Boticário, Natura, Eudora, Avon, etc.).
+                Sua missão é analisar esta nota fiscal/fatura visual, identificar a categoria correta e gerar dados comerciais ricos e específicos.
+
+                REGRAS DE MARCA E CATEGORIA REAL (CRÍTICO):
+                - Identifique a MARCA REAL exata através do nome do produto (Ex: Malbec, Lily, Zaad, Egeo, Match, Cuide-se Bem pertencem à marca "O Boticário". Essencial, Kaiak, Luna, Tododia pertencem à "Natura". Club 6, Impression pertencem à "Eudora"). Nunca use marcas genéricas se o produto for de marca conhecida.
+                - Classifique a CATEGORIA REAL estritamente dentro das categorias do site: "Perfumes Feminino", "Perfumes Masculino", "Cabelos", "Corpo e Banho", "Maquiagem", "Skincare" ou "Roupas".
 
                 REGRAS DE CLASSIFICAÇÃO ("product_type"):
                 - Perfume, maquiagem ou cosmético -> "perfume".
                 - Roupa, blazer, calça, camisa, moda -> "clothing".
 
-                REGRA DE GRADE DE VARIANTES (APENAS ROUPAS):
-                - Crie o array no formato: [{"color": "Cor", "size": "Tamanho", "stock": Quantidade}].
-                - Distribua o estoque entre P, M, G de forma equilibrada caso a nota não detalhe.
-
-                GERAÇÃO DE CONTEÚDO ESPECÍFICO (CRÍTICO):
+                GERAÇÃO DE CONTEÚDO ESPECÍFICO:
                 - SE FOR PERFUME ("perfume"):
                   * "description": Texto comercial do perfume/creme.
-                  * "notes": Descreva as Notas Olfativas (Topo, Corpo, Fundo) ou ativos.
+                  * "notes": Descreva as Notas Olfativas (Topo, Corpo, Fundo) ou ativos principais.
                   * "how_to_use": Instruções de como aplicar.
                   * "ideal_for": Ocasião/Estação.
-                  * "care_instructions": Deixe VAZIO "".
-                  
+                  * "care_instructions": "".
                 - SE FOR ROUPA ("clothing"):
-                  * "description": Texto focado no design, caimento, tecido e estilo da peça.
-                  * "care_instructions": Dicas de conservação e lavagem (ex: "Lavar à mão, não usar alvejante...").
-                  * "notes": Deixe VAZIO "".
-                  * "how_to_use": Deixe VAZIO "".
-                  * "ideal_for": Ocasião/Look (ex: "Ambiente corporativo, Festas").
+                  * "description": Texto focado no design, caimento e estilo da peça.
+                  * "care_instructions": Dicas de conservação e lavagem.
+                  * "notes": "".
+                  * "how_to_use": "".
+                  * "ideal_for": Ocasião/Look.
 
                 Retorne ESTRITAMENTE um ARRAY JSON contendo objetos com as chaves:
-                "name" (string): Nome desabreviado e limpo.
+                "name" (string): Nome desabreviado e limpo (sem ml/g).
                 "product_type" (string): 'perfume' ou 'clothing'.
                 "volume" (string): Medida (ex: "100ml").
                 "invoice_cost" (number): Valor unitário pago na nota.
                 "stock" (number): Quantidade total.
-                "brand" (string): Marca.
-                "category" (string): Ex: "Perfumes Masculino", "Blazers".
+                "brand" (string): Marca Real Deduzida.
+                "category" (string): Categoria Real Deduzida.
                 "description" (string): Descrição Completa.
-                "notes" (string): Notas Olfativas (Apenas perfume).
-                "how_to_use" (string): Como usar (Apenas perfume).
-                "care_instructions" (string): Cuidados com a Peça (Apenas roupa).
+                "notes" (string): Notas Olfativas.
+                "how_to_use" (string): Como usar.
+                "care_instructions" (string): Cuidados com a Peça.
                 "ideal_for" (string): Ideal para...
                 "variations" (array): Grade de cores/tamanhos (Apenas roupa).
 
@@ -2302,22 +2331,17 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
 
             const imageParts = [{ inlineData: { data: req.file.buffer.toString("base64"), mimeType: req.file.mimetype } }];
 
-            try {
-                const aiResult = await model.generateContent([prompt, ...imageParts]);
-                let responseText = aiResult.response.text().trim();
-                responseText = responseText.replace(/^```(json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-                
-                const startIndex = responseText.indexOf('[');
-                const endIndex = responseText.lastIndexOf(']');
-                if (startIndex !== -1 && endIndex !== -1) {
-                    responseText = responseText.substring(startIndex, endIndex + 1);
-                }
-
-                extractedProducts = JSON.parse(responseText);
-            } catch (aiError) {
-                console.error("[GEMINI AI ERRO]:", aiError);
-                return res.status(500).json({ message: "Falha na modelagem dos dados por IA." });
+            const aiResult = await model.generateContent([prompt, ...imageParts]);
+            let responseText = aiResult.response.text().trim();
+            responseText = responseText.replace(/^```(json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+            
+            const startIndex = responseText.indexOf('[');
+            const endIndex = responseText.lastIndexOf(']');
+            if (startIndex !== -1 && endIndex !== -1) {
+                responseText = responseText.substring(startIndex, endIndex + 1);
             }
+
+            extractedProducts = JSON.parse(responseText);
         }
 
         if (!extractedProducts || extractedProducts.length === 0) {
@@ -2336,6 +2360,7 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 const finalProductType = prod.product_type || 'perfume';
                 const invoiceCost = prod.invoice_cost || 0.00;
 
+                // VERIFICAÇÃO ANTI-DUPLICAÇÃO
                 const [existingRows] = await connection.query(`SELECT id, stock FROM products WHERE name = ? LIMIT 1`, [cleanName]);
 
                 if (existingRows && existingRows.length > 0) {
@@ -2348,16 +2373,13 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                     let isOnSale = 0;
                     let productImagesJson = '[]';
 
-                    // --- NOVA REGRA CONDICIONAL POR CATEGORIA ---
                     if (finalProductType === 'clothing') {
-                        // ROUPAS: Não gasta API externa. Valor direto da nota, sem promoção e sem imagens automáticas
                         catalogPrice = invoiceCost;
                         salePrice = null;
                         isOnSale = 0;
                         productImagesJson = '[]'; 
-                        console.log(`[IMPORT-ROUPA] 👔 Roupa cadastrada com valor direto da nota: R$ ${catalogPrice}`);
                     } else {
-                        // PERFUMES: Mantém a varredura completa e precisa no Google Shopping
+                        // Utiliza o nome real e a marca real deduzida para fazer a varredura ultra precisa no Google Shopping
                         const marketData = await fetchOnlineProductData(cleanName, prod.brand, invoiceCost, prod.volume);
                         catalogPrice = marketData.catalogPrice;
                         salePrice = marketData.salePrice;
@@ -2397,10 +2419,10 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             }
             await connection.commit();
             
-            logAdminAction(req.user, 'IMPORTAÇÃO OTIMIZADA', `Importou ${insertedCount} novos e atualizou o estoque de ${updatedCount} produtos.`, clientIp);
+            logAdminAction(req.user, 'IMPORTAÇÃO INTELIGENTE REAL', `Importou ${insertedCount} novos e atualizou ${updatedCount} produtos.`, clientIp);
             
             res.status(201).json({ 
-                message: `Sucesso! Roupas precificadas diretamente pelo valor da nota fiscal e perfumes validados com preços reais de mercado.`,
+                message: `Sucesso! Marcas, categorias e descrições comerciais estruturadas perfeitamente com dados reais para perfumes e roupas.`,
                 importedCount: insertedCount + updatedCount,
                 extractedPreview: extractedProducts
             });
