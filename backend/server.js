@@ -2172,12 +2172,28 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
             const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-            // PROMPT MELHORADO E ENRIQUECIDO PARA O E-COMMERCE DE COSMÉTICOS
+            // PROMPT SUPER INTELIGENTE COM DESABREVIAÇÃO COMERCIAL
             const prompt = `
-                Você é um analista de dados especialista em e-commerce de cosméticos e perfumaria.
+                Você é um especialista em e-commerce de cosméticos e perfumaria brasileira (marcas como O Boticário, Natura, Eudora, Avon, etc.).
                 Extraia todos os produtos contidos nesta nota fiscal, recibo ou fatura.
+                
+                MUITO IMPORTANTE - DESABREVIAÇÃO INTELIGENTE:
+                Os nomes na nota fiscal geralmente estão muito abreviados. Você DEVE expandir essas abreviações para o nome comercial completo, legível e em português correto.
+                Exemplos de expansão:
+                - "REF" -> "Refil"
+                - "COND" -> "Condicionador"
+                - "HID" -> "Hidratação"
+                - "BRLH" -> "Brilho"
+                - "SH" ou "SHAMP" -> "Shampoo"
+                - "DES" ou "DESOD" -> "Desodorante"
+                - "COL" -> "Colônia"
+                - "MASC" -> "Máscara"
+                - "LO" ou "LOC" -> "Loção"
+                - "HIDR" ou "HIDRAT" -> "Hidratante"
+                Exemplo prático: Se ler "REF MATCH COND HID/BRLH", o "name" deve ser "Refil Condicionador Match Hidratação e Brilho".
+
                 Retorne ESTRITAMENTE um ARRAY JSON contendo objetos com as seguintes chaves:
-                "name" (string): O nome do produto LIMPO. Remova obrigatoriamente qualquer menção a ml, L, g ou kg do final ou meio do nome. Ex: "REF MATCH COND HID/BRLH".
+                "name" (string): O nome do produto DESABREVIADO e LIMPO. Remova obrigatoriamente qualquer menção a ml, L, g ou kg do final ou meio do nome.
                 "volume" (string): Extraia a medida/quantidade exata se houver no nome original. Ex: "250ml", "100ml", "50g". Se não houver, retorne string vazia "".
                 "price" (number): O preço unitário.
                 "stock" (number): A quantidade comprada/listada.
@@ -2235,7 +2251,6 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 const length = 16;
                 const isActive = 0; 
 
-                // COMANDO SQL ATUALIZADO: Inclui a nova coluna `volume`
                 const sql = `
                     INSERT INTO products 
                     (name, brand, category, price, stock, weight, width, height, length, product_type, is_active, volume) 
@@ -2248,7 +2263,7 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                     prod.price || 0.00, 
                     prod.stock || 1, 
                     weight, width, height, length, productType, isActive,
-                    prod.volume || null // Salva os ml ou deixa em branco se não houver
+                    prod.volume || null 
                 ]);
                 insertedCount++;
             }
