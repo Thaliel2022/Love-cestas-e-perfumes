@@ -2118,25 +2118,24 @@ setInterval(async () => {
     }
 }, 60000); // Verifica a cada minuto
 
-// --- FUNÇÃO AUXILIAR AVANÇADA: BUSCA PREÇO REAL NO GOOGLE SHOPPING E FOTO VIA CLOUDINARY ---
-const fetchOnlineProductData = async (productName, brandName, invoiceCost) => {
-    // Valores de fallback seguros caso a API falhe (Margem padrão de 40% sobre o custo da nota)
+// --- FUNÇÃO AUXILIAR AVANÇADA: BUSCA PREÇO REAL E FOTO (COM PROTEÇÃO CONTRA AMOSTRAS/DECANTS) ---
+const fetchOnlineProductData = async (productName, brandName, invoiceCost, volume) => {
+    // Margem de segurança padrão caso falhe (Custo + 40%)
     let catalogPrice = invoiceCost > 0 ? invoiceCost * 1.40 : 0.00;
     let salePrice = null;
     let isOnSale = 0;
     let images = [];
 
     if (!process.env.SERPAPI_KEY) {
-        console.warn("[MARKET-DATA] Aviso: SERPAPI_KEY não configurada. Usando precificação estimada.");
         return { catalogPrice, salePrice, isOnSale, images: JSON.stringify([]) };
     }
 
     try {
-        const query = `${productName} ${brandName}`;
-        console.log(`[MARKET-DATA] Pesquisando Ground Truth no Google Shopping para: ${query}`);
+        // CRÍTICO: Inclui o volume (ml/g) na pesquisa para evitar que o Google traga preço de amostras de 10ml!
+        const queryTerm = volume ? `${productName} ${brandName} ${volume}` : `${productName} ${brandName}`;
+        console.log(`[MARKET-DATA] Pesquisando Ground Truth no Google Shopping para: ${queryTerm}`);
         
-        // Consulta ao motor oficial do Google Shopping para buscar preços em tempo real
-        const serpUrl = `https://serpapi.com/search.json?engine=google_shopping&q=${encodeURIComponent(query)}&api_key=${process.env.SERPAPI_KEY}`;
+        const serpUrl = `https://serpapi.com/search.json?engine=google_shopping&q=${encodeURIComponent(queryTerm)}&api_key=${process.env.SERPAPI_KEY}`;
         const response = await fetch(serpUrl);
         const data = await response.json();
 
@@ -2145,7 +2144,6 @@ const fetchOnlineProductData = async (productName, brandName, invoiceCost) => {
         if (shoppingResults.length > 0) {
             const brandLower = brandName.toLowerCase();
             
-            // Tenta encontrar preferencialmente o resultado da loja oficial da marca
             const officialResult = shoppingResults.find(item => 
                 item.source?.toLowerCase().includes(brandLower) || 
                 item.source?.toLowerCase().includes("boticário") || 
@@ -2153,7 +2151,6 @@ const fetchOnlineProductData = async (productName, brandName, invoiceCost) => {
                 item.source?.toLowerCase().includes("eudora")
             ) || shoppingResults[0];
 
-            // Função interna para limpar strings de preços ("R$ 39,90" -> 39.90)
             const parsePrice = (priceStr) => {
                 if (!priceStr) return null;
                 const cleaned = priceStr.replace(/[^\d,.]/g, '').replace(',', '.');
@@ -2163,29 +2160,27 @@ const fetchOnlineProductData = async (productName, brandName, invoiceCost) => {
             const marketPrice = parsePrice(officialResult.price);
 
             if (marketPrice) {
-                // Mapeia todos os preços concorrentes reais encontrados para checar o maior valor (Preço cheio de Catálogo)
+                // TRAVA DE SEGURANÇA: Ignora qualquer preço da internet que seja mais barato que o seu custo da nota! (Evita decants de R$ 30)
                 const validPrices = shoppingResults
                     .map(item => parsePrice(item.price))
-                    .filter(p => p !== null && p > invoiceCost);
+                    .filter(p => p !== null && p > invoiceCost); // O preço online TEM que ser maior que o custo da nota
 
                 const maxCatalogPrice = validPrices.length > 0 ? Math.max(...validPrices) : marketPrice;
 
-                // COMPARATIVO REAL DE MERCADO: Se o preço de mercado atual for menor que o teto de catálogo, é uma promoção real de internet!
-                if (maxCatalogPrice > marketPrice && (maxCatalogPrice - marketPrice) > 1.00) {
+                if (maxCatalogPrice > marketPrice && (maxCatalogPrice - marketPrice) > 1.00 && marketPrice > invoiceCost) {
                     catalogPrice = maxCatalogPrice;
                     salePrice = marketPrice;
                     isOnSale = 1;
-                    console.log(`[MARKET-DATA] 📉 Preço Promocional Validado: Original R$${catalogPrice} | Promo R$${salePrice}`);
+                    console.log(`[MARKET-DATA] 📉 Promoção Validada: Original R$${catalogPrice} | Promo R$${salePrice}`);
                 } else {
-                    // Se não houver variação promocional nas redes, o valor de venda é o preço cheio real coletado
                     catalogPrice = Math.max(maxCatalogPrice, marketPrice);
+                    if (catalogPrice < invoiceCost) catalogPrice = invoiceCost * 1.40; // Proteção final
                     salePrice = null;
                     isOnSale = 0;
                     console.log(`[MARKET-DATA] 🏷️ Preço Regular Validado: R$${catalogPrice}`);
                 }
             }
 
-            // Captura o thumbnail oficial de alta fidelidade fornecido pelo lojista no Google Shopping
             if (officialResult.thumbnail) {
                 try {
                     const uploadResult = await cloudinary.uploader.upload(officialResult.thumbnail, {
@@ -2194,13 +2189,12 @@ const fetchOnlineProductData = async (productName, brandName, invoiceCost) => {
                     });
                     images.push(uploadResult.secure_url);
                 } catch (cloudinaryErr) {
-                    console.error("[MARKET-DATA CLOUDINARY ERRO]:", cloudinaryErr.message);
-                    images.push(officialResult.thumbnail); // Fallback para a URL original direto do Google Shopping
+                    images.push(officialResult.thumbnail); 
                 }
             }
         }
     } catch (error) {
-        console.error("[MARKET-DATA ERRO GLOBAL]: Falha ao rastrear concorrentes:", error.message);
+        console.error("[MARKET-DATA ERRO GLOBAL]:", error.message);
     }
 
     return {
@@ -2211,7 +2205,7 @@ const fetchOnlineProductData = async (productName, brandName, invoiceCost) => {
     };
 };
 
-// --- ROTA DE IMPORTAÇÃO INTELIGENTE PRINCIPAL ---
+// --- ROTA DE IMPORTAÇÃO INTELIGENTE (COM BLOQUEIO DE DUPLICATAS) ---
 app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload, async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'Nenhum ficheiro enviado. Anexe um XML, PDF ou Imagem.' });
@@ -2222,7 +2216,6 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
     const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
 
     try {
-        // LÓGICA 1: SE FOR XML (Parse determinístico)
         if (fileExt === 'text/xml' || fileExt === 'application/xml') {
             const parser = new xml2js.Parser({ explicitArray: false });
             const result = await parser.parseStringPromise(req.file.buffer.toString('utf-8'));
@@ -2251,9 +2244,7 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                     category: "Diversos"
                 };
             });
-        } 
-        // LÓGICA 2: SE FOR IMAGEM OU PDF (Google Gemini 2.5 Flash)
-        else {
+        } else {
             if (!process.env.GEMINI_API_KEY) {
                 return res.status(500).json({ message: "A chave da IA não está configurada no servidor." });
             }
@@ -2263,24 +2254,22 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
 
             const prompt = `
                 Você é um especialista em e-commerce de cosméticos e perfumaria brasileira (O Boticário, Natura, Eudora, Avon, etc.).
-                Sua missão é extrair os produtos desta nota fiscal/fatura e tratá-los para um sistema de loja virtual.
+                Sua missão é extrair os produtos desta nota fiscal/fatura.
                 
-                1. DESABREVIAÇÃO INTELIGENTE:
-                Expanda as siglas para o nome comercial real. Ex: "REF MATCH COND HID/BRLH" -> "Refil Condicionador Match Hidratação e Brilho".
-                O nome deve ficar totalmente limpo. Remova qualquer "ml", "L", "g" ou "kg" do nome do produto.
+                1. DESABREVIAÇÃO INTELIGENTE: Expanda as siglas para o nome comercial real. Ex: "REF MATCH COND HID/BRLH" -> "Refil Condicionador Match Hidratação e Brilho".
+                Remova qualquer "ml", "L", "g" ou "kg" do nome do produto.
                 
-                2. EXTRAÇÃO DE VOLUME:
-                Se houver medida (ex: 250ml, 100g, 75ml) na nota, coloque APENAS a medida no campo "volume".
+                2. EXTRAÇÃO DE VOLUME: Se houver medida (ex: 250ml, 100g, 75ml) na nota, coloque APENAS a medida no campo "volume".
 
-                Retorne ESTRITAMENTE um ARRAY JSON contendo objetos com as seguintes chaves:
+                Retorne ESTRITAMENTE um ARRAY JSON contendo objetos com as chaves:
                 "name" (string): Nome desabreviado e sem ml/g.
                 "volume" (string): Medida exata (ex: "250ml"). Se não tiver, retorne "".
-                "invoice_cost" (number): O valor unitário de custo pago/impresso na nota fiscal.
-                "stock" (number): A quantidade de itens comprados listados na nota.
-                "brand" (string): Deduza a marca pelo nome (Ex: O Boticário, Natura, Eudora). Se não achar, use "Desconhecida".
-                "category" (string): Classifique inteligentemente ("Perfumes Feminino", "Cabelos", "Corpo e Banho", "Maquiagem", "Skincare").
+                "invoice_cost" (number): O valor unitário de custo pago/impresso na nota.
+                "stock" (number): A quantidade comprada na nota.
+                "brand" (string): Deduza a marca pelo nome.
+                "category" (string): Classifique inteligentemente.
                 
-                Apenas o array JSON puro, sem crases de formatação markdown.
+                Apenas o array JSON puro.
             `;
 
             const imageParts = [{ inlineData: { data: req.file.buffer.toString("base64"), mimeType: req.file.mimetype } }];
@@ -2299,56 +2288,63 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 extractedProducts = JSON.parse(responseText);
             } catch (aiError) {
                 console.error("[GEMINI AI ERRO]:", aiError);
-                return res.status(500).json({ message: "A IA processou o documento, mas falhou ao extrair a estrutura." });
+                return res.status(500).json({ message: "Falha na extração por IA." });
             }
         }
 
         if (!extractedProducts || extractedProducts.length === 0) {
-            return res.status(400).json({ message: "Nenhum produto detectado no arquivo." });
+            return res.status(400).json({ message: "Nenhum produto detectado." });
         }
 
         const connection = await db.getConnection();
         let insertedCount = 0;
+        let updatedCount = 0;
         
         try {
             await connection.beginTransaction();
             for (const prod of extractedProducts) {
-                const productType = 'perfume'; 
-                const weight = 0.30;
-                const width = 11;
-                const height = 11;
-                const length = 16;
-                const isActive = 0; 
+                const cleanName = prod.name || 'Produto Sem Nome';
+                const addedStock = prod.stock || 1;
 
-                // NOVO: Faz a chamada única ao Google Shopping coletando preço de prateleira e imagens reais filtradas
-                const marketData = await fetchOnlineProductData(prod.name, prod.brand, prod.invoice_cost || 0);
+                // VERIFICAÇÃO ANTI-DUPLICAÇÃO: O produto já existe no banco?
+                const [existingRows] = await connection.query(`SELECT id, stock FROM products WHERE name = ? LIMIT 1`, [cleanName]);
 
-                const sql = `
-                    INSERT INTO products 
-                    (name, brand, category, price, sale_price, is_on_sale, stock, weight, width, height, length, product_type, is_active, volume, images) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                `;
-                await connection.query(sql, [
-                    prod.name || 'Produto Sem Nome', 
-                    prod.brand || 'Desconhecida', 
-                    prod.category || 'Diversos', 
-                    marketData.catalogPrice, 
-                    marketData.salePrice,
-                    marketData.isOnSale,
-                    prod.stock || 1, 
-                    weight, width, height, length, productType, isActive,
-                    prod.volume || null,
-                    marketData.images
-                ]);
-                insertedCount++;
+                if (existingRows && existingRows.length > 0) {
+                    // O PRODUTO JÁ EXISTE! Apenas atualizamos o estoque somando o que veio na nota
+                    console.log(`[ESTOQUE] Produto já existe: ${cleanName}. Somando +${addedStock} ao estoque.`);
+                    await connection.query(`UPDATE products SET stock = stock + ? WHERE id = ?`, [addedStock, existingRows[0].id]);
+                    updatedCount++;
+                } else {
+                    // PRODUTO NOVO! Faz a busca de preço e imagem e insere
+                    const marketData = await fetchOnlineProductData(cleanName, prod.brand, prod.invoice_cost || 0, prod.volume);
+
+                    const sql = `
+                        INSERT INTO products 
+                        (name, brand, category, price, sale_price, is_on_sale, stock, weight, width, height, length, product_type, is_active, volume, images) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    `;
+                    await connection.query(sql, [
+                        cleanName, 
+                        prod.brand || 'Desconhecida', 
+                        prod.category || 'Diversos', 
+                        marketData.catalogPrice, 
+                        marketData.salePrice,
+                        marketData.isOnSale,
+                        addedStock, 
+                        0.30, 11, 11, 16, 'perfume', 0, // Entra inativo (rascunho)
+                        prod.volume || null,
+                        marketData.images
+                    ]);
+                    insertedCount++;
+                }
             }
             await connection.commit();
             
-            logAdminAction(req.user, 'IMPORTAÇÃO IA GOOGLE SHOPPING', `Importou ${insertedCount} produtos com varredura de mercado em tempo real.`, clientIp);
+            logAdminAction(req.user, 'IMPORTAÇÃO INTELIGENTE', `Importou ${insertedCount} novos e atualizou o estoque de ${updatedCount} produtos.`, clientIp);
             
             res.status(201).json({ 
-                message: `Sucesso! ${insertedCount} produtos importados com varredura de mercado em tempo real (Google Shopping). Preços oficiais fixados com precisão!`,
-                importedCount: insertedCount,
+                message: `Sucesso! ${insertedCount} novos produtos criados e ${updatedCount} produtos já existentes tiveram o estoque atualizado.`,
+                importedCount: insertedCount + updatedCount,
                 extractedPreview: extractedProducts
             });
 
@@ -2360,7 +2356,7 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
         }
 
     } catch (error) {
-        console.error("Erro na importação inteligente:", error);
+        console.error("Erro na importação:", error);
         res.status(500).json({ message: "Falha na extração de dados do servidor." });
     }
 });
