@@ -2206,6 +2206,7 @@ const fetchOnlineProductData = async (productName, brandName, invoiceCost, volum
 };
 
 // --- ROTA DE IMPORTAÇÃO INTELIGENTE (MULTICATEGORIA COM CAMPOS ESPECÍFICOS PARA ROUPAS E PERFUMES) ---
+// --- ROTA DE IMPORTAÇÃO INTELIGENTE (HÍBRIDA: PRECIFICAÇÃO REAL PARA PERFUMES E VALOR DA NOTA PARA ROUPAS) ---
 app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload, async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'Nenhum ficheiro enviado. Anexe um XML, PDF ou Imagem.' });
@@ -2254,7 +2255,6 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
             const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-            // PROMPT MASTER: INTELIGÊNCIA SEPARADA POR TIPO DE FORMULÁRIO
             const prompt = `
                 Você é um ERP inteligente especialista em e-commerce de Perfumaria/Cosméticos e Vestuário/Moda.
                 Sua missão é analisar esta nota fiscal, identificar a categoria correta e gerar dados comerciais ricos e específicos para cada formulário.
@@ -2334,6 +2334,7 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 const cleanName = prod.name || 'Produto Sem Nome';
                 const addedStock = prod.stock || 1;
                 const finalProductType = prod.product_type || 'perfume';
+                const invoiceCost = prod.invoice_cost || 0.00;
 
                 const [existingRows] = await connection.query(`SELECT id, stock FROM products WHERE name = ? LIMIT 1`, [cleanName]);
 
@@ -2342,11 +2343,30 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                     await connection.query(`UPDATE products SET stock = stock + ? WHERE id = ?`, [addedStock, existingRows[0].id]);
                     updatedCount++;
                 } else {
-                    const marketData = await fetchOnlineProductData(cleanName, prod.brand, prod.invoice_cost || 0, prod.volume);
+                    let catalogPrice = 0.00;
+                    let salePrice = null;
+                    let isOnSale = 0;
+                    let productImagesJson = '[]';
+
+                    // --- NOVA REGRA CONDICIONAL POR CATEGORIA ---
+                    if (finalProductType === 'clothing') {
+                        // ROUPAS: Não gasta API externa. Valor direto da nota, sem promoção e sem imagens automáticas
+                        catalogPrice = invoiceCost;
+                        salePrice = null;
+                        isOnSale = 0;
+                        productImagesJson = '[]'; 
+                        console.log(`[IMPORT-ROUPA] 👔 Roupa cadastrada com valor direto da nota: R$ ${catalogPrice}`);
+                    } else {
+                        // PERFUMES: Mantém a varredura completa e precisa no Google Shopping
+                        const marketData = await fetchOnlineProductData(cleanName, prod.brand, invoiceCost, prod.volume);
+                        catalogPrice = marketData.catalogPrice;
+                        salePrice = marketData.salePrice;
+                        isOnSale = marketData.isOnSale;
+                        productImagesJson = marketData.images;
+                    }
                     
                     const finalVariationsJson = finalProductType === 'clothing' ? JSON.stringify(prod.variations || []) : '[]';
 
-                    // SQL ATUALIZADO: Agora insere explicitamente a coluna 'care_instructions'
                     const sql = `
                         INSERT INTO products 
                         (name, brand, category, price, sale_price, is_on_sale, stock, weight, width, height, length, product_type, is_active, volume, images, description, notes, how_to_use, care_instructions, ideal_for, variations) 
@@ -2356,19 +2376,19 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                         cleanName, 
                         prod.brand || 'Desconhecida', 
                         prod.category || 'Diversos', 
-                        marketData.catalogPrice, 
-                        marketData.salePrice,
-                        marketData.isOnSale,
+                        catalogPrice, 
+                        salePrice,
+                        isOnSale,
                         addedStock, 
                         0.30, 11, 11, 16, 
                         finalProductType, 
                         0, 
                         prod.volume || null,
-                        marketData.images,
+                        productImagesJson,
                         prod.description || '',
                         prod.notes || '',
                         prod.how_to_use || '',
-                        prod.care_instructions || '', // O novo campo de Cuidados com a Peça
+                        prod.care_instructions || '', 
                         prod.ideal_for || '',
                         finalVariationsJson
                     ]);
@@ -2377,10 +2397,10 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             }
             await connection.commit();
             
-            logAdminAction(req.user, 'IMPORTAÇÃO MULTICATEGORIA', `Importou ${insertedCount} novos e atualizou o estoque de ${updatedCount} produtos.`, clientIp);
+            logAdminAction(req.user, 'IMPORTAÇÃO OTIMIZADA', `Importou ${insertedCount} novos e atualizou o estoque de ${updatedCount} produtos.`, clientIp);
             
             res.status(201).json({ 
-                message: `Sucesso! Sistema processou com precisão. Novos itens criados com formulários corretos para roupas e perfumes.`,
+                message: `Sucesso! Roupas precificadas diretamente pelo valor da nota fiscal e perfumes validados com preços reais de mercado.`,
                 importedCount: insertedCount + updatedCount,
                 extractedPreview: extractedProducts
             });
