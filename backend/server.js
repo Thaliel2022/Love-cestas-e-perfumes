@@ -2158,6 +2158,7 @@ const autoFetchProductImage = async (productName, brandName) => {
 };
 
 // --- ROTA DE IMPORTAÇÃO INTELIGENTE ATUALIZADA COM COMPONENTES VISUAIS ---
+// --- ROTA DE IMPORTAÇÃO INTELIGENTE ATUALIZADA COM PRECIFICAÇÃO REALISTA ---
 app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload, async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'Nenhum ficheiro enviado. Anexe um XML, PDF ou Imagem.' });
@@ -2168,7 +2169,7 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
     const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
 
     try {
-        // LÓGICA 1: SE FOR XML (Parse determinístico, 100% preciso e rápido)
+        // LÓGICA 1: SE FOR XML (Parse determinístico)
         if (fileExt === 'text/xml' || fileExt === 'application/xml') {
             const parser = new xml2js.Parser({ explicitArray: false });
             const result = await parser.parseStringPromise(req.file.buffer.toString('utf-8'));
@@ -2189,17 +2190,20 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                     cleanName = rawName.replace(volumeMatch[0], '').trim();
                 }
 
+                // XML genérico não tem inteligência de mercado, pega o valor da nota e deixa sem promoção
                 return {
                     name: cleanName,
                     volume: volume,
                     price: parseFloat(item.prod.vUnCom),
+                    sale_price: null,
+                    is_on_sale: false,
                     stock: parseInt(Math.floor(parseFloat(item.prod.qCom)), 10),
                     brand: "Marca Genérica", 
                     category: "Diversos"
                 };
             });
         } 
-        // LÓGICA 2: SE FOR IMAGEM OU PDF (Google Gemini Vision AI)
+        // LÓGICA 2: SE FOR IMAGEM OU PDF (Google Gemini 2.5 Flash)
         else {
             if (!process.env.GEMINI_API_KEY) {
                 console.error("ERRO: GEMINI_API_KEY não encontrada nas variáveis de ambiente.");
@@ -2209,34 +2213,32 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
             const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
+            // PROMPT ABSOLUTO: DESABREVIAÇÃO + PRECIFICAÇÃO REALISTA DE MERCADO
             const prompt = `
-                Você é um especialista em e-commerce de cosméticos e perfumaria brasileira (marcas como O Boticário, Natura, Eudora, Avon, etc.).
-                Extraia todos os produtos contidos nesta nota fiscal, recibo ou fatura.
+                Você é um especialista em e-commerce de cosméticos e perfumaria brasileira (O Boticário, Natura, Eudora, Avon, etc.).
+                Sua missão é extrair os produtos desta nota fiscal/fatura e tratá-los para um sistema de loja virtual.
                 
-                MUITO IMPORTANTE - DESABREVIAÇÃO INTELIGENTE:
-                Os nomes na nota fiscal geralmente estão muito abreviados. Você DEVE expandir essas abreviações para o nome comercial completo, legível e em português correto.
-                Exemplos de expansão:
-                - "REF" -> "Refil"
-                - "COND" -> "Condicionador"
-                - "HID" -> "Hidratação"
-                - "BRLH" -> "Brilho"
-                - "SH" ou "SHAMP" -> "Shampoo"
-                - "DES" ou "DESOD" -> "Desodorante"
-                - "COL" -> "Colônia"
-                - "MASC" -> "Máscara"
-                - "LO" ou "LOC" -> "Loção"
-                - "HIDR" ou "HIDRAT" -> "Hidratante"
-                Exemplo prático: Se ler "REF MATCH COND HID/BRLH", o "name" deve ser "Refil Condicionador Match Hidratação e Brilho".
+                1. DESABREVIAÇÃO INTELIGENTE:
+                Expanda as siglas para o nome comercial completo e legível. Ex: "REF MATCH COND HID/BRLH" vira "Refil Condicionador Match Hidratação e Brilho".
+                
+                2. INTELIGÊNCIA DE PRECIFICAÇÃO REALISTA (CRÍTICO):
+                Ignore o valor de custo impresso na nota fiscal.
+                Acesse o seu conhecimento sobre o catálogo oficial dessas marcas e determine:
+                - O preço original oficial de catálogo para o consumidor final.
+                - Verifique se este produto costuma estar em promoção atualmente no mercado. 
+                - SE O PRODUTO NÃO ESTIVER em promoção na internet, não crie um preço falso.
 
                 Retorne ESTRITAMENTE um ARRAY JSON contendo objetos com as seguintes chaves:
-                "name" (string): O nome do produto DESABREVIADO e LIMPO. Remova obrigatoriamente qualquer menção a ml, L, g ou kg do final ou meio do nome.
-                "volume" (string): Extraia a medida/quantidade exata se houver no nome original. Ex: "250ml", "100ml", "50g". Se não houver, retorne string vazia "".
-                "price" (number): O preço unitário.
-                "stock" (number): A quantidade comprada/listada.
-                "brand" (string): Deduza a marca pelo nome (Ex: O Boticário, Natura, Eudora, Avon, etc). Se não achar, use "Desconhecida".
-                "category" (string): Classifique de forma super inteligente baseada em lojas de cosméticos. Use categorias como: "Perfumes Feminino", "Perfumes Masculino", "Cabelos", "Corpo e Banho", "Maquiagem", "Skincare", ou "Acessórios". Se for muito confuso, use "Diversos".
+                "name" (string): Nome desabreviado e limpo. Remova qualquer menção a ml, L, g ou kg do final ou meio do nome.
+                "volume" (string): Extraia a medida exata. Ex: "250ml", "100g". Se não houver, retorne "".
+                "price" (number): O preço Original de Catálogo estimado para o consumidor final.
+                "sale_price" (number ou null): Um preço promocional competitivo para a internet, APENAS se o produto estiver de fato em promoção no mercado. Caso contrário, retorne null.
+                "is_on_sale" (boolean): Retorne true APENAS se houver um sale_price definido e menor que o price. Caso contrário, retorne false.
+                "stock" (number): A quantidade de itens comprados listados na nota.
+                "brand" (string): Deduza a marca pelo nome. Se não achar, use "Desconhecida".
+                "category" (string): Classifique inteligentemente ("Perfumes Feminino", "Cabelos", "Corpo e Banho", etc).
                 
-                Não inclua nenhum texto adicional, nem formatação markdown. Apenas o array [ ... ].
+                Não inclua formatação markdown. Apenas o array [ ... ].
             `;
 
             const imageParts = [
@@ -2263,7 +2265,7 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 extractedProducts = JSON.parse(responseText);
             } catch (aiError) {
                 console.error("[GEMINI AI ERRO] Falha ao processar JSON. Erro:", aiError);
-                return res.status(500).json({ message: "A IA processou o documento, mas não conseguiu formatar os produtos corretamente. Tente uma imagem mais nítida." });
+                return res.status(500).json({ message: "A IA processou o documento, mas não conseguiu formatar os produtos corretamente." });
             }
         }
 
@@ -2283,34 +2285,40 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 const width = 11;
                 const height = 11;
                 const length = 16;
-                const isActive = 0; 
+                const isActive = 0; // Entra como Rascunho
 
-                // NOVO: Executa a busca de imagem em tempo real antes de salvar o produto
                 const productImagesJson = await autoFetchProductImage(prod.name, prod.brand);
+
+                // Variáveis de preço processadas dinamicamente pela IA
+                const finalPrice = prod.price || 0.00;
+                const finalSalePrice = prod.sale_price || null;
+                const finalIsOnSale = prod.is_on_sale ? 1 : 0;
 
                 const sql = `
                     INSERT INTO products 
-                    (name, brand, category, price, stock, weight, width, height, length, product_type, is_active, volume, images) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (name, brand, category, price, sale_price, is_on_sale, stock, weight, width, height, length, product_type, is_active, volume, images) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `;
                 await connection.query(sql, [
                     prod.name || 'Produto Sem Nome', 
                     prod.brand || 'Desconhecida', 
                     prod.category || 'Diversos', 
-                    prod.price || 0.00, 
+                    finalPrice, 
+                    finalSalePrice,
+                    finalIsOnSale,
                     prod.stock || 1, 
                     weight, width, height, length, productType, isActive,
                     prod.volume || null,
-                    productImagesJson // Salva as imagens hospedadas no Cloudinary automaticamente!
+                    productImagesJson
                 ]);
                 insertedCount++;
             }
             await connection.commit();
             
-            logAdminAction(req.user, 'IMPORTAÇÃO IA COM IMAGENS', `Importou ${insertedCount} produtos com fotos do arquivo: ${req.file.originalname}`, clientIp);
+            logAdminAction(req.user, 'IMPORTAÇÃO IA COM PRECIFICAÇÃO REALISTA', `Importou ${insertedCount} produtos do arquivo: ${req.file.originalname}`, clientIp);
             
             res.status(201).json({ 
-                message: `Sucesso! ${insertedCount} produtos foram importados com nomes comerciais expandidos, ml separados e IMAGENS automáticas salvas como rascunho.`,
+                message: `Sucesso! ${insertedCount} produtos importados. Nomes expandidos, preços realistas e imagens prontas no rascunho.`,
                 importedCount: insertedCount,
                 extractedPreview: extractedProducts
             });
