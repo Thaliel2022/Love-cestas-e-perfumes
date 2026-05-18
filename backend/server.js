@@ -2205,7 +2205,7 @@ const fetchOnlineProductData = async (productName, brandName, invoiceCost, volum
     };
 };
 
-// --- ROTA DE IMPORTAÇÃO INTELIGENTE (AGORA COM COPYWRITER AUTOMÁTICO) ---
+// --- ROTA DE IMPORTAÇÃO INTELIGENTE (MULTICATEGORIA COM CAMPOS ESPECÍFICOS PARA ROUPAS E PERFUMES) ---
 app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload, async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'Nenhum ficheiro enviado. Anexe um XML, PDF ou Imagem.' });
@@ -2241,7 +2241,9 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                     invoice_cost: parseFloat(item.prod.vUnCom),
                     stock: parseInt(Math.floor(parseFloat(item.prod.qCom)), 10),
                     brand: "Marca Genérica", 
-                    category: "Diversos"
+                    category: "Diversos",
+                    product_type: "perfume",
+                    variations: []
                 };
             });
         } else {
@@ -2252,28 +2254,50 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
             const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-            // PROMPT ATUALIZADO: ORDEM PARA CRIAR CONTEÚDO RICO (DESCRIÇÃO, NOTAS, ETC)
+            // PROMPT MASTER: INTELIGÊNCIA SEPARADA POR TIPO DE FORMULÁRIO
             const prompt = `
-                Você é um especialista em e-commerce de cosméticos e perfumaria brasileira (O Boticário, Natura, Eudora, Avon, etc.).
-                Sua missão é extrair os produtos desta nota fiscal/fatura e GERAR CONTEÚDO para a loja.
-                
-                1. DESABREVIAÇÃO: Expanda as siglas para o nome comercial real. Ex: "REF MATCH COND HID/BRLH" -> "Refil Condicionador Match Hidratação e Brilho". Remova ml/g/kg do nome.
-                2. EXTRAÇÃO DE VOLUME: Coloque a medida (ex: 250ml) APENAS no campo "volume".
-                3. GERAÇÃO DE CONTEÚDO: Como você conhece os produtos dessas marcas, crie textos comerciais reais para as descrições.
+                Você é um ERP inteligente especialista em e-commerce de Perfumaria/Cosméticos e Vestuário/Moda.
+                Sua missão é analisar esta nota fiscal, identificar a categoria correta e gerar dados comerciais ricos e específicos para cada formulário.
+
+                REGRAS DE CLASSIFICAÇÃO ("product_type"):
+                - Perfume, maquiagem ou cosmético -> "perfume".
+                - Roupa, blazer, calça, camisa, moda -> "clothing".
+
+                REGRA DE GRADE DE VARIANTES (APENAS ROUPAS):
+                - Crie o array no formato: [{"color": "Cor", "size": "Tamanho", "stock": Quantidade}].
+                - Distribua o estoque entre P, M, G de forma equilibrada caso a nota não detalhe.
+
+                GERAÇÃO DE CONTEÚDO ESPECÍFICO (CRÍTICO):
+                - SE FOR PERFUME ("perfume"):
+                  * "description": Texto comercial do perfume/creme.
+                  * "notes": Descreva as Notas Olfativas (Topo, Corpo, Fundo) ou ativos.
+                  * "how_to_use": Instruções de como aplicar.
+                  * "ideal_for": Ocasião/Estação.
+                  * "care_instructions": Deixe VAZIO "".
+                  
+                - SE FOR ROUPA ("clothing"):
+                  * "description": Texto focado no design, caimento, tecido e estilo da peça.
+                  * "care_instructions": Dicas de conservação e lavagem (ex: "Lavar à mão, não usar alvejante...").
+                  * "notes": Deixe VAZIO "".
+                  * "how_to_use": Deixe VAZIO "".
+                  * "ideal_for": Ocasião/Look (ex: "Ambiente corporativo, Festas").
 
                 Retorne ESTRITAMENTE um ARRAY JSON contendo objetos com as chaves:
-                "name" (string): Nome desabreviado e sem ml/g.
-                "volume" (string): Medida exata (ex: "250ml"). Se não tiver, retorne "".
-                "invoice_cost" (number): O valor unitário pago/impresso na nota.
-                "stock" (number): A quantidade comprada.
-                "brand" (string): Deduza a marca pelo nome.
-                "category" (string): Classifique inteligentemente.
-                "description" (string): Uma descrição comercial completa, atraente e persuasiva sobre o produto (mínimo de 2 parágrafos curtos).
-                "notes" (string): Notas Olfativas (Topo, Corpo, Fundo) se for perfume, OU principais ativos/ingredientes se for creme/shampoo.
-                "how_to_use" (string): Instruções claras de como usar o produto.
-                "ideal_for" (string): Para qual tipo de ocasião, pele ou cabelo este produto é ideal (Ex: "Ocasiões Especiais", "Cabelos Ressecados").
-                
-                Apenas o array JSON puro.
+                "name" (string): Nome desabreviado e limpo.
+                "product_type" (string): 'perfume' ou 'clothing'.
+                "volume" (string): Medida (ex: "100ml").
+                "invoice_cost" (number): Valor unitário pago na nota.
+                "stock" (number): Quantidade total.
+                "brand" (string): Marca.
+                "category" (string): Ex: "Perfumes Masculino", "Blazers".
+                "description" (string): Descrição Completa.
+                "notes" (string): Notas Olfativas (Apenas perfume).
+                "how_to_use" (string): Como usar (Apenas perfume).
+                "care_instructions" (string): Cuidados com a Peça (Apenas roupa).
+                "ideal_for" (string): Ideal para...
+                "variations" (array): Grade de cores/tamanhos (Apenas roupa).
+
+                Apenas o array JSON puro, sem marcações markdown.
             `;
 
             const imageParts = [{ inlineData: { data: req.file.buffer.toString("base64"), mimeType: req.file.mimetype } }];
@@ -2292,7 +2316,7 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 extractedProducts = JSON.parse(responseText);
             } catch (aiError) {
                 console.error("[GEMINI AI ERRO]:", aiError);
-                return res.status(500).json({ message: "Falha na geração de conteúdo por IA." });
+                return res.status(500).json({ message: "Falha na modelagem dos dados por IA." });
             }
         }
 
@@ -2309,21 +2333,24 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             for (const prod of extractedProducts) {
                 const cleanName = prod.name || 'Produto Sem Nome';
                 const addedStock = prod.stock || 1;
+                const finalProductType = prod.product_type || 'perfume';
 
                 const [existingRows] = await connection.query(`SELECT id, stock FROM products WHERE name = ? LIMIT 1`, [cleanName]);
 
                 if (existingRows && existingRows.length > 0) {
-                    console.log(`[ESTOQUE] Produto já existe: ${cleanName}. Somando +${addedStock} ao estoque.`);
+                    console.log(`[ESTOQUE] Sincronizando estoque de: ${cleanName}. Adicionando +${addedStock}.`);
                     await connection.query(`UPDATE products SET stock = stock + ? WHERE id = ?`, [addedStock, existingRows[0].id]);
                     updatedCount++;
                 } else {
                     const marketData = await fetchOnlineProductData(cleanName, prod.brand, prod.invoice_cost || 0, prod.volume);
+                    
+                    const finalVariationsJson = finalProductType === 'clothing' ? JSON.stringify(prod.variations || []) : '[]';
 
-                    // COMANDO SQL ATUALIZADO PARA SALVAR AS DESCRIÇÕES RICAS E NOTAS
+                    // SQL ATUALIZADO: Agora insere explicitamente a coluna 'care_instructions'
                     const sql = `
                         INSERT INTO products 
-                        (name, brand, category, price, sale_price, is_on_sale, stock, weight, width, height, length, product_type, is_active, volume, images, description, notes, how_to_use, ideal_for) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        (name, brand, category, price, sale_price, is_on_sale, stock, weight, width, height, length, product_type, is_active, volume, images, description, notes, how_to_use, care_instructions, ideal_for, variations) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     `;
                     await connection.query(sql, [
                         cleanName, 
@@ -2333,23 +2360,27 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                         marketData.salePrice,
                         marketData.isOnSale,
                         addedStock, 
-                        0.30, 11, 11, 16, 'perfume', 0, 
+                        0.30, 11, 11, 16, 
+                        finalProductType, 
+                        0, 
                         prod.volume || null,
                         marketData.images,
-                        prod.description || '',     // Salva a Descrição Completa
-                        prod.notes || '',           // Salva as Notas Olfativas
-                        prod.how_to_use || '',      // Salva o Como Usar
-                        prod.ideal_for || ''        // Salva o Ideal Para
+                        prod.description || '',
+                        prod.notes || '',
+                        prod.how_to_use || '',
+                        prod.care_instructions || '', // O novo campo de Cuidados com a Peça
+                        prod.ideal_for || '',
+                        finalVariationsJson
                     ]);
                     insertedCount++;
                 }
             }
             await connection.commit();
             
-            logAdminAction(req.user, 'IMPORTAÇÃO INTELIGENTE COMPLETA', `Importou ${insertedCount} novos (com descrições automáticas) e atualizou o estoque de ${updatedCount} produtos.`, clientIp);
+            logAdminAction(req.user, 'IMPORTAÇÃO MULTICATEGORIA', `Importou ${insertedCount} novos e atualizou o estoque de ${updatedCount} produtos.`, clientIp);
             
             res.status(201).json({ 
-                message: `Sucesso, Meu Rei! ${insertedCount} novos produtos foram criados com textos, notas olfativas e preços automáticos. ${updatedCount} tiveram apenas o estoque somado.`,
+                message: `Sucesso! Sistema processou com precisão. Novos itens criados com formulários corretos para roupas e perfumes.`,
                 importedCount: insertedCount + updatedCount,
                 extractedPreview: extractedProducts
             });
