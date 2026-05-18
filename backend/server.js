@@ -2139,13 +2139,28 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             if (!detArray) throw new Error("Estrutura de produtos não encontrada neste XML.");
 
             const items = Array.isArray(detArray) ? detArray : [detArray];
-            extractedProducts = items.map(item => ({
-                name: item.prod.xProd,
-                price: parseFloat(item.prod.vUnCom),
-                stock: parseInt(Math.floor(parseFloat(item.prod.qCom)), 10),
-                brand: "Marca Genérica", 
-                category: "Diversos"
-            }));
+            extractedProducts = items.map(item => {
+                const rawName = item.prod.xProd || "";
+                
+                // Regex básico para tentar extrair volume do XML, caso exista
+                let volumeMatch = rawName.match(/(\d+)\s*(ml|l|g|kg|oz)/i);
+                let cleanName = rawName;
+                let volume = "";
+                
+                if (volumeMatch) {
+                    volume = volumeMatch[0].trim();
+                    cleanName = rawName.replace(volumeMatch[0], '').trim();
+                }
+
+                return {
+                    name: cleanName,
+                    volume: volume,
+                    price: parseFloat(item.prod.vUnCom),
+                    stock: parseInt(Math.floor(parseFloat(item.prod.qCom)), 10),
+                    brand: "Marca Genérica", 
+                    category: "Diversos"
+                };
+            });
         } 
         // LÓGICA 2: SE FOR IMAGEM OU PDF (Google Gemini Vision AI)
         else {
@@ -2155,15 +2170,20 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             }
 
             const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-            
-            // CORREÇÃO MÁXIMA: O Google desligou o 1.5! Vamos usar a nova geração gemini-2.5-flash
             const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
+            // PROMPT MELHORADO E ENRIQUECIDO PARA O E-COMMERCE DE COSMÉTICOS
             const prompt = `
+                Você é um analista de dados especialista em e-commerce de cosméticos e perfumaria.
                 Extraia todos os produtos contidos nesta nota fiscal, recibo ou fatura.
                 Retorne ESTRITAMENTE um ARRAY JSON contendo objetos com as seguintes chaves:
-                "name" (string), "price" (number), "stock" (number), "brand" (string), "category" (string).
-                Se não souber a marca ou categoria, use "Desconhecida" e "Diversos".
+                "name" (string): O nome do produto LIMPO. Remova obrigatoriamente qualquer menção a ml, L, g ou kg do final ou meio do nome. Ex: "REF MATCH COND HID/BRLH".
+                "volume" (string): Extraia a medida/quantidade exata se houver no nome original. Ex: "250ml", "100ml", "50g". Se não houver, retorne string vazia "".
+                "price" (number): O preço unitário.
+                "stock" (number): A quantidade comprada/listada.
+                "brand" (string): Deduza a marca pelo nome (Ex: O Boticário, Natura, Eudora, Avon, etc). Se não achar, use "Desconhecida".
+                "category" (string): Classifique de forma super inteligente baseada em lojas de cosméticos. Use categorias como: "Perfumes Feminino", "Perfumes Masculino", "Cabelos", "Corpo e Banho", "Maquiagem", "Skincare", ou "Acessórios". Se for muito confuso, use "Diversos".
+                
                 Não inclua nenhum texto adicional, nem formatação markdown. Apenas o array [ ... ].
             `;
 
@@ -2180,12 +2200,10 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 const aiResult = await model.generateContent([prompt, ...imageParts]);
                 let responseText = aiResult.response.text().trim();
                 
-                console.log("[GEMINI AI] Resposta original:", responseText); // Útil para debugar na Render
+                console.log("[GEMINI AI] Resposta original:", responseText);
                 
-                // LIMPEZA EXTREMA: Remove qualquer markdown (```json e ```)
                 responseText = responseText.replace(/^```(json)?\s*/i, '').replace(/\s*```$/i, '').trim();
                 
-                // CINTURÃO DE SEGURANÇA: Extrai apenas o que estiver entre os colchetes [ ]
                 const startIndex = responseText.indexOf('[');
                 const endIndex = responseText.lastIndexOf(']');
                 if (startIndex !== -1 && endIndex !== -1) {
@@ -2215,12 +2233,13 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 const width = 11;
                 const height = 11;
                 const length = 16;
-                const isActive = 0; // Entra como INATIVO para revisão do Admin
+                const isActive = 0; 
 
+                // COMANDO SQL ATUALIZADO: Inclui a nova coluna `volume`
                 const sql = `
                     INSERT INTO products 
-                    (name, brand, category, price, stock, weight, width, height, length, product_type, is_active) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (name, brand, category, price, stock, weight, width, height, length, product_type, is_active, volume) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `;
                 await connection.query(sql, [
                     prod.name || 'Produto Sem Nome', 
@@ -2228,7 +2247,8 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                     prod.category || 'Diversos', 
                     prod.price || 0.00, 
                     prod.stock || 1, 
-                    weight, width, height, length, productType, isActive
+                    weight, width, height, length, productType, isActive,
+                    prod.volume || null // Salva os ml ou deixa em branco se não houver
                 ]);
                 insertedCount++;
             }
