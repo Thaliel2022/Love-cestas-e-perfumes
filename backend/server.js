@@ -2118,7 +2118,46 @@ setInterval(async () => {
     }
 }, 60000); // Verifica a cada minuto
 
-// --- NOVA ROTA: IMPORTAÇÃO INTELIGENTE POR IA (NOTA FISCAL / PDF / XML) ---
+// --- FUNÇÃO AUXILIAR: BUSCA IMAGEM NO GOOGLE E SUBIR PARA O CLOUDINARY ---
+const autoFetchProductImage = async (productName, brandName) => {
+    if (!process.env.SERPAPI_KEY) {
+        console.warn("[AUTO-IMAGE] Aviso: SERPAPI_KEY não configurada. Produto ficará sem imagem.");
+        return JSON.stringify([]);
+    }
+
+    try {
+        const query = `${productName} ${brandName}`;
+        console.log(`[AUTO-IMAGE] Buscando imagem para: ${query}`);
+        
+        // Busca o primeiro resultado no Google Imagens via SerpAPI
+        const serpUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&tbm=isch&api_key=${process.env.SERPAPI_KEY}`;
+        const response = await fetch(serpUrl);
+        const data = await response.json();
+
+        const imageUrl = data?.images_results?.[0]?.original;
+
+        if (imageUrl) {
+            console.log(`[AUTO-IMAGE] Imagem encontrada: ${imageUrl}. Fazendo upload para o Cloudinary...`);
+            
+            // Sobe a imagem diretamente da URL da internet para o seu Cloudinary de forma segura
+            const uploadResult = await cloudinary.uploader.upload(imageUrl, {
+                folder: "products_auto_import",
+                sanitize: true
+            });
+
+            // Retorna no formato esperado pela tabela de produtos (Array JSON em formato string)
+            return JSON.stringify([uploadResult.secure_url]);
+        }
+
+        console.log(`[AUTO-IMAGE] Nenhuma imagem encontrada no Google para o produto.`);
+        return JSON.stringify([]);
+    } catch (imgError) {
+        console.error("[AUTO-IMAGE ERRO] Falha ao buscar ou processar imagem automática:", imgError.message);
+        return JSON.stringify([]); // Retorna array vazio em caso de erro para não travar a importação
+    }
+};
+
+// --- ROTA DE IMPORTAÇÃO INTELIGENTE ATUALIZADA COM COMPONENTES VISUAIS ---
 app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload, async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'Nenhum ficheiro enviado. Anexe um XML, PDF ou Imagem.' });
@@ -2134,7 +2173,6 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             const parser = new xml2js.Parser({ explicitArray: false });
             const result = await parser.parseStringPromise(req.file.buffer.toString('utf-8'));
             
-            // Navega na estrutura do XML da NF-e padrão brasileiro
             const detArray = result?.nfeProc?.NFe?.infNFe?.det || result?.NFe?.infNFe?.det;
             if (!detArray) throw new Error("Estrutura de produtos não encontrada neste XML.");
 
@@ -2142,7 +2180,6 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             extractedProducts = items.map(item => {
                 const rawName = item.prod.xProd || "";
                 
-                // Regex básico para tentar extrair volume do XML, caso exista
                 let volumeMatch = rawName.match(/(\d+)\s*(ml|l|g|kg|oz)/i);
                 let cleanName = rawName;
                 let volume = "";
@@ -2172,7 +2209,6 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
             const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-            // PROMPT SUPER INTELIGENTE COM DESABREVIAÇÃO COMERCIAL
             const prompt = `
                 Você é um especialista em e-commerce de cosméticos e perfumaria brasileira (marcas como O Boticário, Natura, Eudora, Avon, etc.).
                 Extraia todos os produtos contidos nesta nota fiscal, recibo ou fatura.
@@ -2216,8 +2252,6 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 const aiResult = await model.generateContent([prompt, ...imageParts]);
                 let responseText = aiResult.response.text().trim();
                 
-                console.log("[GEMINI AI] Resposta original:", responseText);
-                
                 responseText = responseText.replace(/^```(json)?\s*/i, '').replace(/\s*```$/i, '').trim();
                 
                 const startIndex = responseText.indexOf('[');
@@ -2251,10 +2285,13 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 const length = 16;
                 const isActive = 0; 
 
+                // NOVO: Executa a busca de imagem em tempo real antes de salvar o produto
+                const productImagesJson = await autoFetchProductImage(prod.name, prod.brand);
+
                 const sql = `
                     INSERT INTO products 
-                    (name, brand, category, price, stock, weight, width, height, length, product_type, is_active, volume) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (name, brand, category, price, stock, weight, width, height, length, product_type, is_active, volume, images) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `;
                 await connection.query(sql, [
                     prod.name || 'Produto Sem Nome', 
@@ -2263,16 +2300,17 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                     prod.price || 0.00, 
                     prod.stock || 1, 
                     weight, width, height, length, productType, isActive,
-                    prod.volume || null 
+                    prod.volume || null,
+                    productImagesJson // Salva as imagens hospedadas no Cloudinary automaticamente!
                 ]);
                 insertedCount++;
             }
             await connection.commit();
             
-            logAdminAction(req.user, 'IMPORTAÇÃO IA', `Importou ${insertedCount} produtos do ficheiro: ${req.file.originalname}`, clientIp);
+            logAdminAction(req.user, 'IMPORTAÇÃO IA COM IMAGENS', `Importou ${insertedCount} produtos com fotos do arquivo: ${req.file.originalname}`, clientIp);
             
             res.status(201).json({ 
-                message: `Sucesso! ${insertedCount} produtos foram importados como RASCUNHO (Inativos). Verifique a lista.`,
+                message: `Sucesso! ${insertedCount} produtos foram importados com nomes comerciais expandidos, ml separados e IMAGENS automáticas salvas como rascunho.`,
                 importedCount: insertedCount,
                 extractedPreview: extractedProducts
             });
@@ -2289,7 +2327,6 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
         res.status(500).json({ message: "Falha na extração de dados. O ficheiro pode estar ilegível." });
     }
 });
-
 // 1. Criação de Produto (Bloqueado e Validado)
 
 app.post('/api/products', verifyToken, verifyAdmin, validate(productSchema), async (req, res) => {
