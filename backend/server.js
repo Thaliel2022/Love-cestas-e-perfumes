@@ -2210,7 +2210,7 @@ const normalizeProductName = (name) => {
     return n.replace(/[^a-z0-9]/g, ""); 
 };
 
-// --- ROTA DE IMPORTAÇÃO INTELIGENTE (ANTI-ERRO 500) ---
+// --- ROTA DE IMPORTAÇÃO INTELIGENTE (TRAVA DE ENUM DO BANCO DE DADOS) ---
 app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload, async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'Nenhum ficheiro enviado. Anexe um XML, PDF ou Imagem.' });
@@ -2266,6 +2266,11 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 2. Expanda siglas (EDP -> Eau de Parfum).
                 3. Remova ml, L, g, kg do nome principal.
 
+                REGRAS DE CLASSIFICAÇÃO ("product_type"):
+                - ATENÇÃO: USE APENAS AS PALAVRAS "perfume" OU "clothing". NUNCA USE OUTRA PALAVRA.
+                - Perfume, shampoo, maquiagem ou cosmético -> "perfume".
+                - Roupa, blazer, calça, camisa, moda -> "clothing".
+
                 Retorne ESTRITAMENTE um ARRAY JSON:
                 [
                   {
@@ -2297,7 +2302,6 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             extractedProducts = JSON.parse(responseText);
         }
 
-        // BLINDAGEM: Garantir que a IA retornou um Array iterável, caso contrário, extrai a lista.
         if (!Array.isArray(extractedProducts)) {
             if (extractedProducts.products && Array.isArray(extractedProducts.products)) {
                 extractedProducts = extractedProducts.products;
@@ -2324,11 +2328,12 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             for (const prod of extractedProducts) {
                 const cleanName = prod.name || 'Produto Sem Nome';
                 const cleanNameDNA = normalizeProductName(cleanName);
-                
-                // BLINDAGEM MATEMÁTICA: Garante que o estoque a adicionar é sempre um número inteiro válido
                 const addedStock = parseInt(prod.stock, 10) || 1;
                 
-                const finalProductType = prod.product_type || 'perfume';
+                // TRAVA ABSOLUTA: Se a IA inventar uma categoria (ex: 'shampoo'), o servidor força para 'perfume'
+                const rawProductType = String(prod.product_type || '').toLowerCase().trim();
+                const finalProductType = rawProductType === 'clothing' ? 'clothing' : 'perfume';
+                
                 const invoiceCost = parseFloat(prod.invoice_cost) || 0.00;
 
                 const existingProduct = existingDBProducts.find(p => normalizeProductName(p.name) === cleanNameDNA);
@@ -2336,7 +2341,6 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 if (existingProduct) {
                     console.log(`[ESTOQUE] Match de DNA: "${existingProduct.name}" com "${cleanName}". Somando +${addedStock}.`);
                     
-                    // BLINDAGEM SQL: COALESCE garante que se o estoque atual for NULL por acidente, ele assume 0 antes de somar.
                     await connection.query(`UPDATE products SET stock = COALESCE(stock, 0) + ? WHERE id = ?`, [addedStock, existingProduct.id]);
                     
                     existingProduct.stock = (existingProduct.stock || 0) + addedStock; 
@@ -2379,7 +2383,7 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             }
             await connection.commit();
             
-            try { logAdminAction(req.user, 'IMPORTAÇÃO ANTI-DUPLICIDADE', `Importou ${insertedCount} novos e atualizou o estoque de ${updatedCount} produtos.`, clientIp); } catch(e) {}
+            try { logAdminAction(req.user, 'IMPORTAÇÃO BLINDADA', `Importou ${insertedCount} novos e atualizou o estoque de ${updatedCount} produtos.`, clientIp); } catch(e) {}
             
             res.status(201).json({ 
                 message: `Sucesso! Nomes padronizados perfeitamente. ${insertedCount} produtos novos e ${updatedCount} duplicatas somadas ao estoque com segurança.`,
@@ -2389,14 +2393,13 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
 
         } catch (dbErr) {
             await connection.rollback();
-            throw dbErr; // Envia o erro do Banco de Dados para o Catch Principal
+            throw dbErr; 
         } finally {
             connection.release();
         }
 
     } catch (error) {
         console.error("Erro na importação:", error);
-        // O FRONTEND AGORA VAI MOSTRAR EXATAMENTE O QUE DEU ERRADO NO SERVIDOR
         res.status(500).json({ message: `Erro no servidor: ${error.message}` });
     }
 });
