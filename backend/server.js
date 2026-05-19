@@ -2118,9 +2118,8 @@ setInterval(async () => {
     }
 }, 60000); // Verifica a cada minuto
 
-// --- FUNÇÃO AUXILIAR AVANÇADA: BUSCA PREÇO REAL E FOTO (COM PROTEÇÃO CONTRA AMOSTRAS/DECANTS) ---
+// --- FUNÇÃO AUXILIAR 1: BUSCA DE PREÇO REAL NO GOOGLE SHOPPING ---
 const fetchOnlineProductData = async (productName, brandName, invoiceCost, volume) => {
-    // Margem de segurança padrão caso falhe (Custo + 40%)
     let catalogPrice = invoiceCost > 0 ? invoiceCost * 1.40 : 0.00;
     let salePrice = null;
     let isOnSale = 0;
@@ -2131,9 +2130,8 @@ const fetchOnlineProductData = async (productName, brandName, invoiceCost, volum
     }
 
     try {
-        // CRÍTICO: Inclui o volume (ml/g) na pesquisa para evitar que o Google traga preço de amostras de 10ml!
         const queryTerm = volume ? `${productName} ${brandName} ${volume}` : `${productName} ${brandName}`;
-        console.log(`[MARKET-DATA] Pesquisando Ground Truth no Google Shopping para: ${queryTerm}`);
+        console.log(`[MARKET-DATA] Pesquisando no Google Shopping: ${queryTerm}`);
         
         const serpUrl = `https://serpapi.com/search.json?engine=google_shopping&q=${encodeURIComponent(queryTerm)}&api_key=${process.env.SERPAPI_KEY}`;
         const response = await fetch(serpUrl);
@@ -2143,7 +2141,6 @@ const fetchOnlineProductData = async (productName, brandName, invoiceCost, volum
 
         if (shoppingResults.length > 0) {
             const brandLower = brandName.toLowerCase();
-            
             const officialResult = shoppingResults.find(item => 
                 item.source?.toLowerCase().includes(brandLower) || 
                 item.source?.toLowerCase().includes("boticário") || 
@@ -2153,17 +2150,15 @@ const fetchOnlineProductData = async (productName, brandName, invoiceCost, volum
 
             const parsePrice = (priceStr) => {
                 if (!priceStr) return null;
-                const cleaned = priceStr.replace(/[^\d,.]/g, '').replace(',', '.');
-                return parseFloat(cleaned);
+                return parseFloat(priceStr.replace(/[^\d,.]/g, '').replace(',', '.'));
             };
 
             const marketPrice = parsePrice(officialResult.price);
 
             if (marketPrice) {
-                // TRAVA DE SEGURANÇA: Ignora qualquer preço da internet que seja mais barato que o seu custo da nota! (Evita decants de R$ 30)
                 const validPrices = shoppingResults
                     .map(item => parsePrice(item.price))
-                    .filter(p => p !== null && p > invoiceCost); // O preço online TEM que ser maior que o custo da nota
+                    .filter(p => p !== null && p > invoiceCost); 
 
                 const maxCatalogPrice = validPrices.length > 0 ? Math.max(...validPrices) : marketPrice;
 
@@ -2171,22 +2166,17 @@ const fetchOnlineProductData = async (productName, brandName, invoiceCost, volum
                     catalogPrice = maxCatalogPrice;
                     salePrice = marketPrice;
                     isOnSale = 1;
-                    console.log(`[MARKET-DATA] 📉 Promoção Validada: Original R$${catalogPrice} | Promo R$${salePrice}`);
                 } else {
                     catalogPrice = Math.max(maxCatalogPrice, marketPrice);
-                    if (catalogPrice < invoiceCost) catalogPrice = invoiceCost * 1.40; // Proteção final
+                    if (catalogPrice < invoiceCost) catalogPrice = invoiceCost * 1.40; 
                     salePrice = null;
                     isOnSale = 0;
-                    console.log(`[MARKET-DATA] 🏷️ Preço Regular Validado: R$${catalogPrice}`);
                 }
             }
 
             if (officialResult.thumbnail) {
                 try {
-                    const uploadResult = await cloudinary.uploader.upload(officialResult.thumbnail, {
-                        folder: "products_auto_import",
-                        sanitize: true
-                    });
+                    const uploadResult = await cloudinary.uploader.upload(officialResult.thumbnail, { folder: "products_auto_import", sanitize: true });
                     images.push(uploadResult.secure_url);
                 } catch (cloudinaryErr) {
                     images.push(officialResult.thumbnail); 
@@ -2205,8 +2195,22 @@ const fetchOnlineProductData = async (productName, brandName, invoiceCost, volum
     };
 };
 
-// --- ROTA DE IMPORTAÇÃO INTELIGENTE (MULTICATEGORIA COM CAMPOS ESPECÍFICOS PARA ROUPAS E PERFUMES) ---
-// --- ROTA DE IMPORTAÇÃO INTELIGENTE (AGORA COM ENRIQUECIMENTO DE MARCA E CATEGORIA REAL PARA XML E IMAGENS) ---
+// --- FUNÇÃO AUXILIAR 2: ESCUDO ANTI-DUPLICAÇÃO (LEITURA DE DNA DO NOME) BLINDADO ---
+const normalizeProductName = (name) => {
+    if (!name) return '';
+    // Protege convertendo explicitamente para String antes de limpar
+    let n = String(name).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); 
+    n = n.replace(/\beau de parfum\b/g, "edp")
+         .replace(/\beau de toilette\b/g, "edt")
+         .replace(/\bdesodorante\b/g, "des")
+         .replace(/\bcondicionador\b/g, "cond")
+         .replace(/\bshampoo\b/g, "sh")
+         .replace(/\s+e\s+/g, " ");
+         
+    return n.replace(/[^a-z0-9]/g, ""); 
+};
+
+// --- ROTA DE IMPORTAÇÃO INTELIGENTE (ANTI-ERRO 500) ---
 app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload, async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'Nenhum ficheiro enviado. Anexe um XML, PDF ou Imagem.' });
@@ -2224,7 +2228,6 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-        // LÓGICA 1: SE FOR XML (Extração estrutural exata + enriquecimento de IA para Marca e Categoria Real)
         if (fileExt === 'text/xml' || fileExt === 'application/xml') {
             const parser = new xml2js.Parser({ explicitArray: false });
             const result = await parser.parseStringPromise(req.file.buffer.toString('utf-8'));
@@ -2235,116 +2238,77 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             const items = Array.isArray(detArray) ? detArray : [detArray];
             const rawNames = items.map(item => item.prod.xProd || "");
 
-            // Prompt focado em normalizar os dados brutos e abreviados do XML de forma real
             const xmlPrompt = `
-                Você é um ERP inteligente especialista em cosméticos e perfumaria brasileira (O Boticário, Natura, Eudora, Avon, etc.).
-                Analise esta lista de nomes brutos vindos de um XML de Nota Fiscal e gere os dados comerciais REAIS de cada um:
-                ${JSON.stringify(rawNames)}
+                Você é um ERP inteligente. Analise estes nomes do XML: ${JSON.stringify(rawNames)}
 
-                REGRAS OBRIGATÓRIAS PARA CADA ITEM:
-                1. DESABREVIAÇÃO: Expanda as siglas para o nome comercial completo. Remova ml/g/kg do nome principal.
-                2. PRODUCT_TYPE: 'perfume' ou 'clothing'.
-                3. VOLUME: Medida exata (ex: "95ml", "250ml", "50g"). Se for roupa, "".
-                4. MARCA REAL (CRÍTICO): Deduza a marca real exata através do nome da linha (Ex: Malbec, Lily, Zaad, Egeo, Match, Cuide-se Bem pertencem à marca "O Boticário". Essencial, Kaiak, Luna, Tododia pertencem à "Natura". Club 6, Impression pertencem à "Eudora").
-                5. CATEGORIA REAL: Classifique estritamente em uma destas: "Perfumes Feminino", "Perfumes Masculino", "Cabelos", "Corpo e Banho", "Maquiagem", "Skincare" ou "Roupas".
-                6. CONTEÚDO: Gere descrição comercial ("description"), Notas Olfativas ("notes"), instruções de uso ("how_to_use") e ideal para ("ideal_for").
+                REGRAS OBRIGATÓRIAS DE PADRONIZAÇÃO (CRÍTICO):
+                1. NUNCA escreva tudo em maiúsculas. Use sempre Primeira Letra Maiúscula (Title Case).
+                2. Expanda siglas (EDP -> Eau de Parfum).
+                3. Remova ml, L, g, kg do nome.
 
-                Retorne ESTRITAMENTE um ARRAY JSON na mesma ordem dos itens recebidos, sem formatação markdown.
+                Retorne ARRAY JSON: [{"name", "product_type", "volume", "brand", "category", "description", "notes", "how_to_use", "ideal_for", "variations"}]
             `;
 
             const aiResult = await model.generateContent(xmlPrompt);
-            let responseText = aiResult.response.text().trim();
-            responseText = responseText.replace(/^```(json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-            
+            let responseText = aiResult.response.text().trim().replace(/^```(json)?\s*/i, '').replace(/\s*```$/i, '').trim();
             const startIndex = responseText.indexOf('[');
             const endIndex = responseText.lastIndexOf(']');
-            if (startIndex !== -1 && endIndex !== -1) {
-                responseText = responseText.substring(startIndex, endIndex + 1);
-            }
+            if (startIndex !== -1 && endIndex !== -1) responseText = responseText.substring(startIndex, endIndex + 1);
 
-            const aiProducts = JSON.parse(responseText);
-
-            extractedProducts = items.map((item, index) => {
-                const aiProd = aiProducts[index] || {};
-                return {
-                    name: aiProd.name || item.prod.xProd,
-                    product_type: aiProd.product_type || 'perfume',
-                    volume: aiProd.volume || '',
-                    invoice_cost: parseFloat(item.prod.vUnCom),
-                    stock: parseInt(Math.floor(parseFloat(item.prod.qCom)), 10),
-                    brand: aiProd.brand || 'Desconhecida',
-                    category: aiProd.category || 'Diversos',
-                    description: aiProd.description || '',
-                    notes: aiProd.notes || '',
-                    how_to_use: aiProd.how_to_use || '',
-                    care_instructions: '',
-                    ideal_for: aiProd.ideal_for || '',
-                    variations: aiProd.variations || []
-                };
-            });
+            extractedProducts = JSON.parse(responseText);
         } 
-        // LÓGICA 2: SE FOR IMAGEM OU PDF (Leitura visual direta por IA)
         else {
             const prompt = `
-                Você é um ERP inteligente especialista em e-commerce de Perfumaria, Cosméticos e Moda brasileira (O Boticário, Natura, Eudora, Avon, etc.).
-                Sua missão é analisar esta nota fiscal/fatura visual, identificar a categoria correta e gerar dados comerciais ricos e específicos.
+                Você é um ERP inteligente. Analise esta nota fiscal/fatura.
 
-                REGRAS DE MARCA E CATEGORIA REAL (CRÍTICO):
-                - Identifique a MARCA REAL exata através do nome do produto (Ex: Malbec, Lily, Zaad, Egeo, Match, Cuide-se Bem pertencem à marca "O Boticário". Essencial, Kaiak, Luna, Tododia pertencem à "Natura". Club 6, Impression pertencem à "Eudora"). Nunca use marcas genéricas se o produto for de marca conhecida.
-                - Classifique a CATEGORIA REAL estritamente dentro das categorias do site: "Perfumes Feminino", "Perfumes Masculino", "Cabelos", "Corpo e Banho", "Maquiagem", "Skincare" ou "Roupas".
+                REGRAS OBRIGATÓRIAS DE PADRONIZAÇÃO DE NOME (CRÍTICO):
+                1. NUNCA escreva tudo em maiúsculas. Use sempre Primeira Letra Maiúscula (Title Case). Ex: "Zaad Eau De Parfum".
+                2. Expanda siglas (EDP -> Eau de Parfum).
+                3. Remova ml, L, g, kg do nome principal.
 
-                REGRAS DE CLASSIFICAÇÃO ("product_type"):
-                - Perfume, maquiagem ou cosmético -> "perfume".
-                - Roupa, blazer, calça, camisa, moda -> "clothing".
-
-                GERAÇÃO DE CONTEÚDO ESPECÍFICO:
-                - SE FOR PERFUME ("perfume"):
-                  * "description": Texto comercial do perfume/creme.
-                  * "notes": Descreva as Notas Olfativas (Topo, Corpo, Fundo) ou ativos principais.
-                  * "how_to_use": Instruções de como aplicar.
-                  * "ideal_for": Ocasião/Estação.
-                  * "care_instructions": "".
-                - SE FOR ROUPA ("clothing"):
-                  * "description": Texto focado no design, caimento e estilo da peça.
-                  * "care_instructions": Dicas de conservação e lavagem.
-                  * "notes": "".
-                  * "how_to_use": "".
-                  * "ideal_for": Ocasião/Look.
-
-                Retorne ESTRITAMENTE um ARRAY JSON contendo objetos com as chaves:
-                "name" (string): Nome desabreviado e limpo (sem ml/g).
-                "product_type" (string): 'perfume' ou 'clothing'.
-                "volume" (string): Medida (ex: "100ml").
-                "invoice_cost" (number): Valor unitário pago na nota.
-                "stock" (number): Quantidade total.
-                "brand" (string): Marca Real Deduzida.
-                "category" (string): Categoria Real Deduzida.
-                "description" (string): Descrição Completa.
-                "notes" (string): Notas Olfativas.
-                "how_to_use" (string): Como usar.
-                "care_instructions" (string): Cuidados com a Peça.
-                "ideal_for" (string): Ideal para...
-                "variations" (array): Grade de cores/tamanhos (Apenas roupa).
-
-                Apenas o array JSON puro, sem marcações markdown.
+                Retorne ESTRITAMENTE um ARRAY JSON:
+                [
+                  {
+                    "name": "Nome formatado",
+                    "product_type": "perfume",
+                    "volume": "100ml",
+                    "invoice_cost": 50.00,
+                    "stock": 1,
+                    "brand": "Marca",
+                    "category": "Categoria",
+                    "description": "Texto",
+                    "notes": "Notas",
+                    "how_to_use": "Como usar",
+                    "care_instructions": "Cuidados",
+                    "ideal_for": "Ideal",
+                    "variations": []
+                  }
+                ]
             `;
 
             const imageParts = [{ inlineData: { data: req.file.buffer.toString("base64"), mimeType: req.file.mimetype } }];
 
             const aiResult = await model.generateContent([prompt, ...imageParts]);
-            let responseText = aiResult.response.text().trim();
-            responseText = responseText.replace(/^```(json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-            
+            let responseText = aiResult.response.text().trim().replace(/^```(json)?\s*/i, '').replace(/\s*```$/i, '').trim();
             const startIndex = responseText.indexOf('[');
             const endIndex = responseText.lastIndexOf(']');
-            if (startIndex !== -1 && endIndex !== -1) {
-                responseText = responseText.substring(startIndex, endIndex + 1);
-            }
+            if (startIndex !== -1 && endIndex !== -1) responseText = responseText.substring(startIndex, endIndex + 1);
 
             extractedProducts = JSON.parse(responseText);
         }
 
-        if (!extractedProducts || extractedProducts.length === 0) {
+        // BLINDAGEM: Garantir que a IA retornou um Array iterável, caso contrário, extrai a lista.
+        if (!Array.isArray(extractedProducts)) {
+            if (extractedProducts.products && Array.isArray(extractedProducts.products)) {
+                extractedProducts = extractedProducts.products;
+            } else if (extractedProducts.produtos && Array.isArray(extractedProducts.produtos)) {
+                extractedProducts = extractedProducts.produtos;
+            } else {
+                throw new Error("A Inteligência Artificial não formatou a lista corretamente.");
+            }
+        }
+
+        if (extractedProducts.length === 0) {
             return res.status(400).json({ message: "Nenhum produto detectado." });
         }
 
@@ -2354,18 +2318,28 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
         
         try {
             await connection.beginTransaction();
+            
+            const [existingDBProducts] = await connection.query(`SELECT id, name, stock FROM products`);
+
             for (const prod of extractedProducts) {
                 const cleanName = prod.name || 'Produto Sem Nome';
-                const addedStock = prod.stock || 1;
+                const cleanNameDNA = normalizeProductName(cleanName);
+                
+                // BLINDAGEM MATEMÁTICA: Garante que o estoque a adicionar é sempre um número inteiro válido
+                const addedStock = parseInt(prod.stock, 10) || 1;
+                
                 const finalProductType = prod.product_type || 'perfume';
-                const invoiceCost = prod.invoice_cost || 0.00;
+                const invoiceCost = parseFloat(prod.invoice_cost) || 0.00;
 
-                // VERIFICAÇÃO ANTI-DUPLICAÇÃO
-                const [existingRows] = await connection.query(`SELECT id, stock FROM products WHERE name = ? LIMIT 1`, [cleanName]);
+                const existingProduct = existingDBProducts.find(p => normalizeProductName(p.name) === cleanNameDNA);
 
-                if (existingRows && existingRows.length > 0) {
-                    console.log(`[ESTOQUE] Sincronizando estoque de: ${cleanName}. Adicionando +${addedStock}.`);
-                    await connection.query(`UPDATE products SET stock = stock + ? WHERE id = ?`, [addedStock, existingRows[0].id]);
+                if (existingProduct) {
+                    console.log(`[ESTOQUE] Match de DNA: "${existingProduct.name}" com "${cleanName}". Somando +${addedStock}.`);
+                    
+                    // BLINDAGEM SQL: COALESCE garante que se o estoque atual for NULL por acidente, ele assume 0 antes de somar.
+                    await connection.query(`UPDATE products SET stock = COALESCE(stock, 0) + ? WHERE id = ?`, [addedStock, existingProduct.id]);
+                    
+                    existingProduct.stock = (existingProduct.stock || 0) + addedStock; 
                     updatedCount++;
                 } else {
                     let catalogPrice = 0.00;
@@ -2379,7 +2353,6 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                         isOnSale = 0;
                         productImagesJson = '[]'; 
                     } else {
-                        // Utiliza o nome real e a marca real deduzida para fazer a varredura ultra precisa no Google Shopping
                         const marketData = await fetchOnlineProductData(cleanName, prod.brand, invoiceCost, prod.volume);
                         catalogPrice = marketData.catalogPrice;
                         salePrice = marketData.salePrice;
@@ -2394,49 +2367,37 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                         (name, brand, category, price, sale_price, is_on_sale, stock, weight, width, height, length, product_type, is_active, volume, images, description, notes, how_to_use, care_instructions, ideal_for, variations) 
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     `;
-                    await connection.query(sql, [
-                        cleanName, 
-                        prod.brand || 'Desconhecida', 
-                        prod.category || 'Diversos', 
-                        catalogPrice, 
-                        salePrice,
-                        isOnSale,
-                        addedStock, 
-                        0.30, 11, 11, 16, 
-                        finalProductType, 
-                        0, 
-                        prod.volume || null,
-                        productImagesJson,
-                        prod.description || '',
-                        prod.notes || '',
-                        prod.how_to_use || '',
-                        prod.care_instructions || '', 
-                        prod.ideal_for || '',
-                        finalVariationsJson
+                    const [insertResult] = await connection.query(sql, [
+                        cleanName, prod.brand || 'Desconhecida', prod.category || 'Diversos', catalogPrice, salePrice, isOnSale,
+                        addedStock, 0.30, 11, 11, 16, finalProductType, 0, prod.volume || null, productImagesJson,
+                        prod.description || '', prod.notes || '', prod.how_to_use || '', prod.care_instructions || '', prod.ideal_for || '', finalVariationsJson
                     ]);
+                    
+                    existingDBProducts.push({ id: insertResult.insertId, name: cleanName, stock: addedStock });
                     insertedCount++;
                 }
             }
             await connection.commit();
             
-            logAdminAction(req.user, 'IMPORTAÇÃO INTELIGENTE REAL', `Importou ${insertedCount} novos e atualizou ${updatedCount} produtos.`, clientIp);
+            try { logAdminAction(req.user, 'IMPORTAÇÃO ANTI-DUPLICIDADE', `Importou ${insertedCount} novos e atualizou o estoque de ${updatedCount} produtos.`, clientIp); } catch(e) {}
             
             res.status(201).json({ 
-                message: `Sucesso! Marcas, categorias e descrições comerciais estruturadas perfeitamente com dados reais para perfumes e roupas.`,
+                message: `Sucesso! Nomes padronizados perfeitamente. ${insertedCount} produtos novos e ${updatedCount} duplicatas somadas ao estoque com segurança.`,
                 importedCount: insertedCount + updatedCount,
                 extractedPreview: extractedProducts
             });
 
         } catch (dbErr) {
             await connection.rollback();
-            throw dbErr;
+            throw dbErr; // Envia o erro do Banco de Dados para o Catch Principal
         } finally {
             connection.release();
         }
 
     } catch (error) {
         console.error("Erro na importação:", error);
-        res.status(500).json({ message: "Falha na extração de dados do servidor." });
+        // O FRONTEND AGORA VAI MOSTRAR EXATAMENTE O QUE DEU ERRADO NO SERVIDOR
+        res.status(500).json({ message: `Erro no servidor: ${error.message}` });
     }
 });
 // 1. Criação de Produto (Bloqueado e Validado)
