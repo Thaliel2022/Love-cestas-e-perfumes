@@ -2195,10 +2195,9 @@ const fetchOnlineProductData = async (productName, brandName, invoiceCost, volum
     };
 };
 
-// --- FUNÇÃO AUXILIAR 2: ESCUDO ANTI-DUPLICAÇÃO (LEITURA DE DNA DO NOME) BLINDADO ---
+// --- FUNÇÃO AUXILIAR 2: ESCUDO ANTI-DUPLICAÇÃO (LEITURA DE DNA DO NOME) ---
 const normalizeProductName = (name) => {
     if (!name) return '';
-    // Protege convertendo explicitamente para String antes de limpar
     let n = String(name).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); 
     n = n.replace(/\beau de parfum\b/g, "edp")
          .replace(/\beau de toilette\b/g, "edt")
@@ -2210,7 +2209,7 @@ const normalizeProductName = (name) => {
     return n.replace(/[^a-z0-9]/g, ""); 
 };
 
-// --- ROTA DE IMPORTAÇÃO INTELIGENTE (COM DICIONÁRIO DE DESABREVIAÇÃO E MARCAS) ---
+// --- ROTA DE IMPORTAÇÃO INTELIGENTE MÁXIMA ---
 app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload, async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'Nenhum ficheiro enviado. Anexe um XML, PDF ou Imagem.' });
@@ -2228,6 +2227,7 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
+        // LÓGICA 1: SE FOR ARQUIVO XML
         if (fileExt === 'text/xml' || fileExt === 'application/xml') {
             const parser = new xml2js.Parser({ explicitArray: false });
             const result = await parser.parseStringPromise(req.file.buffer.toString('utf-8'));
@@ -2239,24 +2239,33 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             const rawNames = items.map(item => item.prod.xProd || "");
 
             const xmlPrompt = `
-                Você é um ERP inteligente. Analise estes nomes do XML: ${JSON.stringify(rawNames)}
+                Você é um ERP inteligente especialista em e-commerce de cosméticos, perfumes e moda.
+                Analise estes nomes brutos do XML: ${JSON.stringify(rawNames)} e gere o conteúdo comercial completo e traduzido.
 
-                REGRAS OBRIGATÓRIAS DE PADRONIZAÇÃO E DESABREVIAÇÃO (CRÍTICO):
-                1. NUNCA escreva tudo em maiúsculas. Use sempre Primeira Letra Maiúscula (Title Case).
-                2. OBRIGATÓRIO EXPANDIR SIGLAS:
-                   - "REF" -> "Refil"
-                   - "COND" -> "Condicionador"
-                   - "SH" ou "SHAMP" -> "Shampoo"
-                   - "HID" -> "Hidratação"
-                   - "BRLH" -> "Brilho"
-                   - "EDP" -> "Eau de Parfum"
-                   - "EDT" -> "Eau de Toilette"
-                   - "DES" ou "DESOD" -> "Desodorante"
-                   - "COL" -> "Colônia"
-                3. Remova ml, L, g, kg do nome.
+                REGRAS OBRIGATÓRIAS DE PADRONIZAÇÃO E COPYWRITING:
+                1. NUNCA escreva nomes em maiúsculas. Use sempre Primeira Letra Maiúscula (Title Case).
+                2. DESABREVIE TUDO: "REF" -> "Refil", "COND" -> "Condicionador", "SHAMP" -> "Shampoo", "HID" -> "Hidratação", "BRLH" -> "Brilho", "EDP" -> "Eau de Parfum".
+                3. Remova ml, L, g, kg do nome principal.
                 4. MARCA FORÇADA: Se o nome tiver Zaad, Malbec, Match, Lily, Egeo, Cuide-se Bem ou Floratta, a marca DEVE ser "O Boticário". Se tiver Essencial, Kaiak ou Luna, DEVE ser "Natura".
+                5. CLASSIFICAÇÃO ("product_type"): Use APENAS "perfume" ou "clothing".
 
-                Retorne ARRAY JSON: [{"name", "product_type", "volume", "brand", "category", "description", "notes", "how_to_use", "ideal_for", "variations"}]
+                GERAÇÃO DE TEXTOS ESPECÍFICOS (OBRIGATÓRIO PREENCHER):
+                - SE FOR PERFUME/COSMÉTICO ("perfume"):
+                  * "description": Texto comercial atraente e longo (mínimo 2 parágrafos).
+                  * "notes": Descreva as Notas Olfativas detalhadas (Topo, Corpo, Fundo) ou ativos principais.
+                  * "how_to_use": Instruções passo a passo de como aplicar.
+                  * "ideal_for": Ocasião, tipo de pele ou cabelo ideal.
+                  * "care_instructions": Mantenha vazio "".
+                  * "variations": [].
+                - SE FOR ROUPA ("clothing"):
+                  * "description": Texto de moda focado no design, caimento e elegância da peça.
+                  * "care_instructions": Instruções reais de lavagem e conservação.
+                  * "ideal_for": Sugestão de looks e ocasiões.
+                  * "notes": Composição do tecido (ex: 100% Algodão).
+                  * "how_to_use": Mantenha vazio "".
+                  * "variations": Grade no formato [{"color": "Cor", "size": "Tamanho", "stock": Qtd}].
+
+                Retorne ESTRITAMENTE o array JSON puro com todos esses campos populados.
             `;
 
             const aiResult = await model.generateContent(xmlPrompt);
@@ -2265,50 +2274,58 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             const endIndex = responseText.lastIndexOf(']');
             if (startIndex !== -1 && endIndex !== -1) responseText = responseText.substring(startIndex, endIndex + 1);
 
-            extractedProducts = JSON.parse(responseText);
+            const aiProducts = JSON.parse(responseText);
+
+            extractedProducts = items.map((item, index) => {
+                const aiProd = aiProducts[index] || {};
+                return {
+                    name: aiProd.name || item.prod.xProd,
+                    product_type: aiProd.product_type || 'perfume',
+                    volume: aiProd.volume || '',
+                    invoice_cost: parseFloat(item.prod.vUnCom),
+                    stock: parseInt(Math.floor(parseFloat(item.prod.qCom)), 10),
+                    brand: aiProd.brand || 'Desconhecida',
+                    category: aiProd.category || 'Diversos',
+                    description: aiProd.description || '',
+                    notes: aiProd.notes || '',
+                    how_to_use: aiProd.how_to_use || '',
+                    care_instructions: aiProd.care_instructions || '',
+                    ideal_for: aiProd.ideal_for || '',
+                    variations: aiProd.variations || []
+                };
+            });
         } 
+        // LÓGICA 2: SE FOR IMAGEM OU PDF
         else {
             const prompt = `
-                Você é um ERP inteligente. Analise esta nota fiscal/fatura.
+                Você é um ERP inteligente especialista em e-commerce de Perfumaria, Cosméticos e Moda (O Boticário, Natura, Eudora, etc.).
+                Sua missão é analisar esta nota fiscal visual e gerar descrições e cadastros perfeitos.
 
-                REGRAS OBRIGATÓRIAS DE PADRONIZAÇÃO E DESABREVIAÇÃO (CRÍTICO):
-                1. NUNCA escreva tudo em maiúsculas. Use sempre Primeira Letra Maiúscula (Title Case). Ex: "Zaad Eau De Parfum Intense".
-                2. OBRIGATÓRIO EXPANDIR SIGLAS:
-                   - "REF" -> "Refil"
-                   - "COND" -> "Condicionador"
-                   - "SH" ou "SHAMP" -> "Shampoo"
-                   - "HID" -> "Hidratação"
-                   - "BRLH" -> "Brilho"
-                   - "EDP" -> "Eau de Parfum"
-                   - "EDT" -> "Eau de Toilette"
-                   - "DES" ou "DESOD" -> "Desodorante"
-                   - "COL" -> "Colônia"
-                   Exemplo: "REF MATCH COND HID/BRLH" VIRA "Refil Condicionador Match Hidratação e Brilho".
-                3. Remova ml, L, g, kg do nome principal.
-                4. MARCA FORÇADA: Se o nome tiver Zaad, Malbec, Match, Lily, Egeo, Cuide-se Bem ou Floratta, a marca DEVE ser "O Boticário". Se tiver Essencial ou Kaiak, DEVE ser "Natura".
+                REGRAS DE PADRONIZAÇÃO DE NOME:
+                1. NUNCA escreva em maiúsculas. Use sempre Title Case (Ex: "Zaad Eau De Parfum Intense").
+                2. EXPANDA AS SIGLAS: "REF" -> "Refil", "COND" -> "Condicionador", "SHAMP" -> "Shampoo", "HID" -> "Hidratação", "BRLH" -> "Brilho".
+                3. Remova ml, L, g, kg do nome principal e jogue no campo "volume".
+                4. MARCA FORÇADA: Se houver Zaad, Malbec, Match, Lily, Egeo, Cuide-se Bem, coloque "O Boticário". Se houver Essencial ou Kaiak, coloque "Natura".
+                5. CLASSIFICAÇÃO ("product_type"): Use APENAS "perfume" ou "clothing".
 
-                REGRAS DE CLASSIFICAÇÃO ("product_type"):
-                - ATENÇÃO: USE APENAS "perfume" OU "clothing".
-                - Perfume, shampoo, maquiagem -> "perfume". Roupa -> "clothing".
+                GERAÇÃO DE TEXTOS RICOS (OBRIGATÓRIO PREENCHER):
+                - SE FOR PERFUME/COSMÉTICO ("perfume"):
+                  * "description": Descrição completa e persuasiva para a loja (mínimo 2 parágrafos).
+                  * "notes": Notas Olfativas detalhadas (Topo, Corpo, Fundo) ou ativos.
+                  * "how_to_use": Modo de aplicação detalhado.
+                  * "ideal_for": Ocasião/Clima ideal.
+                  * "care_instructions": "".
+                  * "variations": [].
+                - SE FOR ROUPA ("clothing"):
+                  * "description": Descrição focada no estilo, corte, caimento e elegância da roupa.
+                  * "care_instructions": Cuidados com a Peça (Dicas de lavagem e secagem).
+                  * "notes": Composição do tecido.
+                  * "how_to_use": "".
+                  * "ideal_for": Sugestões de looks/ambientes.
+                  * "variations": Grade estruturada [{"color": "Cor", "size": "Tamanho", "stock": Quantidade}].
 
-                Retorne ESTRITAMENTE um ARRAY JSON:
-                [
-                  {
-                    "name": "Nome formatado e expandido",
-                    "product_type": "perfume",
-                    "volume": "250ml",
-                    "invoice_cost": 50.00,
-                    "stock": 1,
-                    "brand": "O Boticário",
-                    "category": "Cabelos",
-                    "description": "Texto",
-                    "notes": "Notas",
-                    "how_to_use": "Como usar",
-                    "care_instructions": "Cuidados",
-                    "ideal_for": "Ideal",
-                    "variations": []
-                  }
-                ]
+                Retorne ESTRITAMENTE o array JSON com as chaves:
+                "name", "product_type", "volume", "invoice_cost", "stock", "brand", "category", "description", "notes", "how_to_use", "care_instructions", "ideal_for", "variations"
             `;
 
             const imageParts = [{ inlineData: { data: req.file.buffer.toString("base64"), mimeType: req.file.mimetype } }];
@@ -2328,12 +2345,8 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             } else if (extractedProducts.produtos && Array.isArray(extractedProducts.produtos)) {
                 extractedProducts = extractedProducts.produtos;
             } else {
-                throw new Error("A Inteligência Artificial não formatou a lista corretamente.");
+                throw new Error("A Inteligência Artificial falhou ao estruturar a resposta.");
             }
-        }
-
-        if (extractedProducts.length === 0) {
-            return res.status(400).json({ message: "Nenhum produto detectado." });
         }
 
         const connection = await db.getConnection();
@@ -2358,10 +2371,8 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 const existingProduct = existingDBProducts.find(p => normalizeProductName(p.name) === cleanNameDNA);
 
                 if (existingProduct) {
-                    console.log(`[ESTOQUE] Match de DNA: "${existingProduct.name}" com "${cleanName}". Somando +${addedStock}.`);
-                    
+                    console.log(`[ESTOQUE] Sincronizando estoque de: ${cleanName}. Adicionando +${addedStock}.`);
                     await connection.query(`UPDATE products SET stock = COALESCE(stock, 0) + ? WHERE id = ?`, [addedStock, existingProduct.id]);
-                    
                     existingProduct.stock = (existingProduct.stock || 0) + addedStock; 
                     updatedCount++;
                 } else {
@@ -2376,7 +2387,6 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                         isOnSale = 0;
                         productImagesJson = '[]'; 
                     } else {
-                        // Como a marca e o nome agora estão perfeitos, a SerpAPI trará o preço real sem falsas promoções!
                         const marketData = await fetchOnlineProductData(cleanName, prod.brand, invoiceCost, prod.volume);
                         catalogPrice = marketData.catalogPrice;
                         salePrice = marketData.salePrice;
@@ -2403,10 +2413,8 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             }
             await connection.commit();
             
-            try { logAdminAction(req.user, 'IMPORTAÇÃO BLINDADA', `Importou ${insertedCount} novos e atualizou o estoque de ${updatedCount} produtos.`, clientIp); } catch(e) {}
-            
             res.status(201).json({ 
-                message: `Sucesso! Nomes padronizados perfeitamente. ${insertedCount} produtos novos e ${updatedCount} duplicatas somadas ao estoque com segurança.`,
+                message: `Sucesso, Meu Rei! Conteúdo completo restaurado. ${insertedCount} novos produtos gerados com descrições ricas e ${updatedCount} estoques atualizados.`,
                 importedCount: insertedCount + updatedCount,
                 extractedPreview: extractedProducts
             });
