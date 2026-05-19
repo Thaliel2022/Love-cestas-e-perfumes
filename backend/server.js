@@ -2118,7 +2118,6 @@ setInterval(async () => {
     }
 }, 60000); // Verifica a cada minuto
 
-// --- FUNÇÃO AUXILIAR 1: BUSCA DE PREÇO REAL NO GOOGLE SHOPPING ---
 const fetchOnlineProductData = async (productName, brandName, invoiceCost, volume) => {
     let catalogPrice = invoiceCost > 0 ? invoiceCost * 1.40 : 0.00;
     let salePrice = null;
@@ -2246,12 +2245,13 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 REGRAS OBRIGATÓRIAS DE PADRONIZAÇÃO E COPYWRITING:
                 1. NUNCA escreva nomes em maiúsculas. Use sempre Primeira Letra Maiúscula (Title Case).
                 2. DESABREVIE TUDO: "REF" -> "Refil", "COND" -> "Condicionador", "SHAMP" ou "SH" -> "Shampoo", "HID" -> "Hidratação", "BRLH" -> "Brilho", "EDP" -> "Eau de Parfum".
-                3. Remova ml, L, g, kg do nome principal e jogue para o campo "volume".
+                3. SUBSTITUA BARRAS: Substitua "/" por " e ". A ORDEM DAS PALAVRAS DEVE SOAR NATURAL. Exemplo EXATO OBRIGATÓRIO: "REF MATCH COND HID/BRLH" DEVE VIRAR "Refil Condicionador Match Hidratação e Brilho" (O "Match" vem depois do tipo de produto).
+                4. Remova ml, L, g, kg do nome principal e jogue para o campo "volume".
                 
                 REGRAS DE INTELIGÊNCIA DE MARCA E CATEGORIA (CRÍTICO):
-                4. MARCA FORÇADA: Se o nome tiver Zaad, Malbec, Match, Lily, Egeo, Cuide-se Bem ou Floratta, a marca DEVE ser "O Boticário". Se tiver Essencial, Kaiak ou Luna, DEVE ser "Natura". Se tiver Club 6 ou Eudora, DEVE ser "Eudora".
-                5. CLASSIFICAÇÃO ("product_type"): Use APENAS "perfume" (se for cosmético/perfume) ou "clothing" (se for roupa).
-                6. CATEGORIA REAL: Você DEVE classificar o produto em UMA destas categorias exatas: "Perfumes Feminino", "Perfumes Masculino", "Cabelos", "Corpo e Banho", "Maquiagem", "Skincare", "Acessórios" ou "Roupas". (Exemplo: se for Shampoo, a categoria é "Cabelos". Se for Desodorante, é "Corpo e Banho").
+                5. MARCA FORÇADA: Se o nome tiver Zaad, Malbec, Match, Lily, Egeo, Cuide-se Bem ou Floratta, a marca DEVE ser "O Boticário". Se tiver Essencial, Kaiak ou Luna, DEVE ser "Natura". Se for peça de roupa e não houver marca evidente, use "Moda Exclusiva" (NUNCA "Desconhecida").
+                6. CLASSIFICAÇÃO ("product_type"): Use APENAS "perfume" (se for cosmético/perfume) ou "clothing" (se for roupa).
+                7. CATEGORIA REAL: Você DEVE classificar o produto em UMA destas categorias exatas da loja: "Roupas", "Calçados", "Moda Íntima", "Acessórios", "Conjuntos", "Perfumes Feminino", "Perfumes Masculino", "Cabelos", "Corpo e Banho", "Maquiagem", "Skincare". (Ex: Saia, Shorts, Moletom = "Roupas". Condicionador = "Cabelos").
 
                 GERAÇÃO DE TEXTOS ESPECÍFICOS (OBRIGATÓRIO PREENCHER TUDO):
                 - SE FOR PERFUME/COSMÉTICO ("perfume"):
@@ -2283,14 +2283,16 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
 
             extractedProducts = items.map((item, index) => {
                 const aiProd = aiProducts[index] || {};
+                const finalBrand = aiProd.brand && !aiProd.brand.toLowerCase().includes('desconhecid') ? aiProd.brand : (aiProd.product_type === 'clothing' ? 'Moda Exclusiva' : 'Genérica');
+
                 return {
                     name: aiProd.name || item.prod.xProd,
                     product_type: aiProd.product_type || 'perfume',
                     volume: aiProd.volume || '',
                     invoice_cost: parseFloat(item.prod.vUnCom),
                     stock: parseInt(Math.floor(parseFloat(item.prod.qCom)), 10),
-                    brand: aiProd.brand || 'Desconhecida',
-                    category: aiProd.category || 'Diversos',
+                    brand: finalBrand,
+                    category: aiProd.category || (aiProd.product_type === 'clothing' ? 'Roupas' : 'Diversos'),
                     description: aiProd.description || '',
                     notes: aiProd.notes || '',
                     how_to_use: aiProd.how_to_use || '',
@@ -2305,15 +2307,16 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 Você é um ERP inteligente especialista em e-commerce de Perfumaria, Cosméticos e Moda.
                 Sua missão é analisar esta nota fiscal visual e gerar cadastros perfeitos.
 
-                REGRAS DE PADRONIZAÇÃO DE NOME:
+                REGRAS DE PADRONIZAÇÃO DE NOME E DESABREVIAÇÃO:
                 1. NUNCA escreva em maiúsculas. Use sempre Title Case (Ex: "Zaad Eau De Parfum Intense").
                 2. EXPANDA AS SIGLAS: "REF" -> "Refil", "COND" -> "Condicionador", "SHAMP" ou "SH" -> "Shampoo", "HID" -> "Hidratação", "BRLH" -> "Brilho".
-                3. Remova ml, L, g, kg do nome principal e jogue no campo "volume".
+                3. SUBSTITUA BARRAS: Substitua "/" por " e ". A ORDEM DAS PALAVRAS DEVE SOAR NATURAL. Exemplo EXATO OBRIGATÓRIO: "REF MATCH COND HID/BRLH" DEVE VIRAR "Refil Condicionador Match Hidratação e Brilho" (A marca "Match" vem depois do tipo de produto).
+                4. Remova ml, L, g, kg do nome principal e jogue no campo "volume".
                 
                 REGRAS DE INTELIGÊNCIA DE MARCA E CATEGORIA (CRÍTICO):
-                4. MARCA FORÇADA: Se houver Zaad, Malbec, Match, Lily, Egeo, Cuide-se Bem, coloque "O Boticário". Se houver Essencial ou Kaiak, coloque "Natura". Se houver Club 6, Eudora, Niina, coloque "Eudora".
-                5. CLASSIFICAÇÃO ("product_type"): Use APENAS "perfume" ou "clothing".
-                6. CATEGORIA REAL: Você DEVE classificar em UMA destas opções exatas: "Perfumes Feminino", "Perfumes Masculino", "Cabelos", "Corpo e Banho", "Maquiagem", "Skincare", "Acessórios" ou "Roupas". (Ex: Desodorante é "Corpo e Banho", Condicionador é "Cabelos").
+                5. MARCA FORÇADA: Se houver Zaad, Malbec, Match, Lily, Egeo, Cuide-se Bem, coloque "O Boticário". Se houver Essencial ou Kaiak, coloque "Natura". Se for uma Roupa (Shorts, Saia, etc) e a nota não informar a marca, coloque "Moda Exclusiva" (NUNCA use "Desconhecida" ou "Desconhecido").
+                6. CLASSIFICAÇÃO ("product_type"): Use APENAS "perfume" ou "clothing".
+                7. CATEGORIA REAL: Você DEVE classificar o produto obrigatoriamente em UMA destas opções exatas do seu catálogo: "Roupas", "Calçados", "Moda Íntima", "Acessórios", "Conjuntos", "Perfumes Feminino", "Perfumes Masculino", "Cabelos", "Corpo e Banho", "Maquiagem", "Skincare". (Ex: Shorts, Saia, Moletom -> "Roupas". Shampoo -> "Cabelos").
 
                 GERAÇÃO DE TEXTOS RICOS (OBRIGATÓRIO PREENCHER TUDO EXATAMENTE):
                 - SE FOR PERFUME/COSMÉTICO ("perfume"):
@@ -2374,6 +2377,10 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 const finalProductType = rawProductType === 'clothing' ? 'clothing' : 'perfume';
                 
                 const invoiceCost = parseFloat(prod.invoice_cost) || 0.00;
+                
+                // Tratamento final de segurança contra a marca "Desconhecida" vazando
+                const finalBrand = prod.brand && !prod.brand.toLowerCase().includes('desconhecid') ? prod.brand : (finalProductType === 'clothing' ? 'Moda Exclusiva' : 'Genérica');
+                const finalCategory = prod.category || (finalProductType === 'clothing' ? 'Roupas' : 'Diversos');
 
                 const existingProduct = existingDBProducts.find(p => normalizeProductName(p.name) === cleanNameDNA);
 
@@ -2394,7 +2401,7 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                         isOnSale = 0;
                         productImagesJson = '[]'; 
                     } else {
-                        const marketData = await fetchOnlineProductData(cleanName, prod.brand, invoiceCost, prod.volume);
+                        const marketData = await fetchOnlineProductData(cleanName, finalBrand, invoiceCost, prod.volume);
                         catalogPrice = marketData.catalogPrice;
                         salePrice = marketData.salePrice;
                         isOnSale = marketData.isOnSale;
@@ -2409,7 +2416,7 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     `;
                     const [insertResult] = await connection.query(sql, [
-                        cleanName, prod.brand || 'Desconhecida', prod.category || 'Diversos', catalogPrice, salePrice, isOnSale,
+                        cleanName, finalBrand, finalCategory, catalogPrice, salePrice, isOnSale,
                         addedStock, 0.30, 11, 11, 16, finalProductType, 0, prod.volume || null, productImagesJson,
                         prod.description || '', prod.notes || '', prod.how_to_use || '', prod.care_instructions || '', prod.ideal_for || '', finalVariationsJson
                     ]);
