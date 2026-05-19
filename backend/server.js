@@ -2173,31 +2173,12 @@ const fetchOnlineProductData = async (productName, brandName, invoiceCost, volum
                 }
             }
 
-            // Captura até 3 imagens diferentes dos resultados do Google Shopping
-            let imageUrlsToUpload = [];
             if (officialResult.thumbnail) {
-                imageUrlsToUpload.push(officialResult.thumbnail);
-            }
-            
-            // Tenta pegar mais 2 imagens de outros resultados para criar uma galeria visual
-            for (const item of shoppingResults) {
-                if (imageUrlsToUpload.length >= 3) break;
-                if (item.thumbnail && !imageUrlsToUpload.includes(item.thumbnail)) {
-                    imageUrlsToUpload.push(item.thumbnail);
-                }
-            }
-
-            if (imageUrlsToUpload.length > 0) {
                 try {
-                    // Faz o upload de todas as imagens em paralelo (simultaneamente) para não atrasar a IA
-                    const uploadPromises = imageUrlsToUpload.map(url => 
-                        cloudinary.uploader.upload(url, { folder: "products_auto_import", sanitize: true })
-                    );
-                    const uploadResults = await Promise.all(uploadPromises);
-                    images = uploadResults.map(res => res.secure_url);
+                    const uploadResult = await cloudinary.uploader.upload(officialResult.thumbnail, { folder: "products_auto_import", sanitize: true });
+                    images.push(uploadResult.secure_url);
                 } catch (cloudinaryErr) {
-                    console.error("[MARKET-DATA CLOUDINARY ERRO]:", cloudinaryErr.message);
-                    images = imageUrlsToUpload; // Fallback para usar as URLs do Google caso o Cloudinary falhe
+                    images.push(officialResult.thumbnail); 
                 }
             }
         }
