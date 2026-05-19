@@ -2118,7 +2118,6 @@ setInterval(async () => {
     }
 }, 60000); // Verifica a cada minuto
 
-// --- FUNÇÃO AUXILIAR 1: BUSCA DE PREÇO REAL NO GOOGLE SHOPPING ---
 const fetchOnlineProductData = async (productName, brandName, invoiceCost, volume) => {
     let catalogPrice = invoiceCost > 0 ? invoiceCost * 1.40 : 0.00;
     let salePrice = null;
@@ -2288,34 +2287,42 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 "name", "product_type", "volume", "brand", "category", "description", "notes", "how_to_use", "ideal_for", "care_instructions", "variations"
             `;
 
-            const aiResult = await model.generateContent(xmlPrompt);
-            let responseText = aiResult.response.text().trim().replace(/^```(json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-            const startIndex = responseText.indexOf('[');
-            const endIndex = responseText.lastIndexOf(']');
-            if (startIndex !== -1 && endIndex !== -1) responseText = responseText.substring(startIndex, endIndex + 1);
+            try {
+                const aiResult = await model.generateContent(xmlPrompt);
+                let responseText = aiResult.response.text().trim().replace(/^```(json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+                const startIndex = responseText.indexOf('[');
+                const endIndex = responseText.lastIndexOf(']');
+                if (startIndex !== -1 && endIndex !== -1) responseText = responseText.substring(startIndex, endIndex + 1);
 
-            const aiProducts = JSON.parse(responseText);
+                const aiProducts = JSON.parse(responseText);
 
-            extractedProducts = items.map((item, index) => {
-                const aiProd = aiProducts[index] || {};
-                const finalBrand = aiProd.brand && !aiProd.brand.toLowerCase().includes('desconhecid') ? aiProd.brand : (aiProd.product_type === 'clothing' ? 'Moda Exclusiva' : 'Genérica');
+                extractedProducts = items.map((item, index) => {
+                    const aiProd = aiProducts[index] || {};
+                    const finalBrand = aiProd.brand && !aiProd.brand.toLowerCase().includes('desconhecid') ? aiProd.brand : (aiProd.product_type === 'clothing' ? 'Moda Exclusiva' : 'Genérica');
 
-                return {
-                    name: aiProd.name || item.prod.xProd,
-                    product_type: aiProd.product_type || 'perfume',
-                    volume: aiProd.volume || '',
-                    invoice_cost: parseFloat(item.prod.vUnCom),
-                    stock: parseInt(Math.floor(parseFloat(item.prod.qCom)), 10),
-                    brand: finalBrand,
-                    category: aiProd.category || (aiProd.product_type === 'clothing' ? 'Roupas' : 'Diversos'),
-                    description: aiProd.description || '',
-                    notes: aiProd.notes || '',
-                    how_to_use: aiProd.how_to_use || '',
-                    care_instructions: aiProd.care_instructions || '',
-                    ideal_for: aiProd.ideal_for || '',
-                    variations: aiProd.variations || []
-                };
-            });
+                    return {
+                        name: aiProd.name || item.prod.xProd,
+                        product_type: aiProd.product_type || 'perfume',
+                        volume: aiProd.volume || '',
+                        invoice_cost: parseFloat(item.prod.vUnCom),
+                        stock: parseInt(Math.floor(parseFloat(item.prod.qCom)), 10),
+                        brand: finalBrand,
+                        category: aiProd.category || (aiProd.product_type === 'clothing' ? 'Roupas' : 'Diversos'),
+                        description: aiProd.description || '',
+                        notes: aiProd.notes || '',
+                        how_to_use: aiProd.how_to_use || '',
+                        care_instructions: aiProd.care_instructions || '',
+                        ideal_for: aiProd.ideal_for || '',
+                        variations: aiProd.variations || []
+                    };
+                });
+            } catch (aiError) {
+                console.error("[GEMINI AI ERRO]:", aiError);
+                if (aiError.message && (aiError.message.includes('429') || aiError.message.includes('Quota exceeded'))) {
+                    return res.status(429).json({ message: "O Google está pedindo uma pausa. Aguarde cerca de 1 minuto antes de enviar a próxima nota fiscal." });
+                }
+                throw aiError;
+            }
         } 
         else {
             const prompt = `
@@ -2357,13 +2364,21 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
 
             const imageParts = [{ inlineData: { data: req.file.buffer.toString("base64"), mimeType: req.file.mimetype } }];
 
-            const aiResult = await model.generateContent([prompt, ...imageParts]);
-            let responseText = aiResult.response.text().trim().replace(/^```(json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-            const startIndex = responseText.indexOf('[');
-            const endIndex = responseText.lastIndexOf(']');
-            if (startIndex !== -1 && endIndex !== -1) responseText = responseText.substring(startIndex, endIndex + 1);
+            try {
+                const aiResult = await model.generateContent([prompt, ...imageParts]);
+                let responseText = aiResult.response.text().trim().replace(/^```(json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+                const startIndex = responseText.indexOf('[');
+                const endIndex = responseText.lastIndexOf(']');
+                if (startIndex !== -1 && endIndex !== -1) responseText = responseText.substring(startIndex, endIndex + 1);
 
-            extractedProducts = JSON.parse(responseText);
+                extractedProducts = JSON.parse(responseText);
+            } catch (aiError) {
+                console.error("[GEMINI AI ERRO]:", aiError);
+                if (aiError.message && (aiError.message.includes('429') || aiError.message.includes('Quota exceeded'))) {
+                    return res.status(429).json({ message: "O Google está pedindo uma pausa. Atingiu o limite de consultas por minuto. Aguarde cerca de 1 minuto antes de enviar a próxima nota." });
+                }
+                throw aiError;
+            }
         }
 
         if (!Array.isArray(extractedProducts)) {
