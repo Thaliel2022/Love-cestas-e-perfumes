@@ -2118,6 +2118,7 @@ setInterval(async () => {
     }
 }, 60000); // Verifica a cada minuto
 
+// --- FUNÇÃO AUXILIAR 1: BUSCA DE PREÇO REAL NO GOOGLE SHOPPING ---
 const fetchOnlineProductData = async (productName, brandName, invoiceCost, volume) => {
     let catalogPrice = invoiceCost > 0 ? invoiceCost * 1.40 : 0.00;
     let salePrice = null;
@@ -2198,14 +2199,26 @@ const fetchOnlineProductData = async (productName, brandName, invoiceCost, volum
 const normalizeProductName = (name) => {
     if (!name) return '';
     let n = String(name).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); 
+    
+    // Troca barras e hifens por espaço para separar as palavras
+    n = n.replace(/[/\\-]/g, " ");
+    
     n = n.replace(/\beau de parfum\b/g, "edp")
          .replace(/\beau de toilette\b/g, "edt")
          .replace(/\bdesodorante\b/g, "des")
          .replace(/\bcondicionador\b/g, "cond")
-         .replace(/\bshampoo\b/g, "sh")
-         .replace(/\s+e\s+/g, " ");
+         .replace(/\bshampoo\b/g, "sh");
          
-    return n.replace(/[^a-z0-9]/g, ""); 
+    // Remove conectivos e preposições que causam falsa divergência
+    n = n.replace(/\b(e|de|do|da|com|para)\b/g, " ");
+         
+    // Extrai apenas as palavras alfanuméricas
+    const words = n.match(/[a-z0-9]+/g);
+    if (!words) return '';
+    
+    // O SEGREDO: Ordena as palavras alfabeticamente! 
+    // Assim "Condicionador Match" e "Match Condicionador" geram o mesmo código de DNA.
+    return words.sort().join(""); 
 };
 
 // --- ROTA DE IMPORTAÇÃO INTELIGENTE MÁXIMA ---
@@ -2249,9 +2262,11 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 4. Remova ml, L, g, kg do nome principal e jogue para o campo "volume".
                 
                 REGRAS DE INTELIGÊNCIA DE MARCA E CATEGORIA (CRÍTICO):
-                5. MARCA FORÇADA: Se o nome tiver Zaad, Malbec, Match, Lily, Egeo, Cuide-se Bem ou Floratta, a marca DEVE ser "O Boticário". Se tiver Essencial, Kaiak ou Luna, DEVE ser "Natura". Se for peça de roupa e não houver marca evidente, use "Moda Exclusiva" (NUNCA "Desconhecida").
+                5. MARCA FORÇADA: Se o nome tiver Zaad, Malbec, Match, Lily, Egeo, Cuide-se Bem ou Floratta, a marca DEVE ser "O Boticário". Se tiver Essencial, Kaiak ou Luna, DEVE ser "Natura". Para roupas, extraia a marca real. Apenas se não houver marca na roupa, use "Moda Exclusiva" (NUNCA "Desconhecida").
                 6. CLASSIFICAÇÃO ("product_type"): Use APENAS "perfume" (se for cosmético/perfume) ou "clothing" (se for roupa).
-                7. CATEGORIA REAL: Você DEVE classificar o produto em UMA destas categorias exatas da loja: "Roupas", "Calçados", "Moda Íntima", "Acessórios", "Conjuntos", "Perfumes Feminino", "Perfumes Masculino", "Cabelos", "Corpo e Banho", "Maquiagem", "Skincare". (Ex: Saia, Shorts, Moletom = "Roupas". Condicionador = "Cabelos").
+                7. CATEGORIA REAL: 
+                   - Para Cosméticos/Perfumes, use UMA destas: "Perfumes Feminino", "Perfumes Masculino", "Cabelos", "Corpo e Banho", "Maquiagem", "Skincare", "Acessórios". (Ex: Shampoo = "Cabelos").
+                   - Para Roupas, a categoria DEVE ser o tipo específico da peça (Ex: "Shorts", "Saias", "Vestidos", "Blusas", "Blazers", "Moda Íntima", "Conjuntos", "Calças"). Não generalize tudo como "Roupas".
 
                 GERAÇÃO DE TEXTOS ESPECÍFICOS (OBRIGATÓRIO PREENCHER TUDO):
                 - SE FOR PERFUME/COSMÉTICO ("perfume"):
@@ -2314,9 +2329,11 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 4. Remova ml, L, g, kg do nome principal e jogue no campo "volume".
                 
                 REGRAS DE INTELIGÊNCIA DE MARCA E CATEGORIA (CRÍTICO):
-                5. MARCA FORÇADA: Se houver Zaad, Malbec, Match, Lily, Egeo, Cuide-se Bem, coloque "O Boticário". Se houver Essencial ou Kaiak, coloque "Natura". Se for uma Roupa (Shorts, Saia, etc) e a nota não informar a marca, coloque "Moda Exclusiva" (NUNCA use "Desconhecida" ou "Desconhecido").
+                5. MARCA FORÇADA: Se houver Zaad, Malbec, Match, Lily, Egeo, Cuide-se Bem, coloque "O Boticário". Se houver Essencial ou Kaiak, coloque "Natura". Se for uma Roupa (Shorts, Saia, etc), tente descobrir a marca. Apenas se a nota não informar a marca, coloque "Moda Exclusiva" (NUNCA use "Desconhecida" ou "Desconhecido").
                 6. CLASSIFICAÇÃO ("product_type"): Use APENAS "perfume" ou "clothing".
-                7. CATEGORIA REAL: Você DEVE classificar o produto obrigatoriamente em UMA destas opções exatas do seu catálogo: "Roupas", "Calçados", "Moda Íntima", "Acessórios", "Conjuntos", "Perfumes Feminino", "Perfumes Masculino", "Cabelos", "Corpo e Banho", "Maquiagem", "Skincare". (Ex: Shorts, Saia, Moletom -> "Roupas". Shampoo -> "Cabelos").
+                7. CATEGORIA REAL: 
+                   - Para Cosméticos/Perfumes, use UMA destas: "Perfumes Feminino", "Perfumes Masculino", "Cabelos", "Corpo e Banho", "Maquiagem", "Skincare", "Acessórios". (Ex: Desodorante = "Corpo e Banho").
+                   - Para Roupas, a categoria DEVE ser o tipo exato da peça no plural ou singular (Ex: "Shorts", "Saias", "Vestidos", "Blusas", "Blazers", "Moda Íntima", "Conjuntos", "Calças"). Não generalize colocando apenas "Roupas".
 
                 GERAÇÃO DE TEXTOS RICOS (OBRIGATÓRIO PREENCHER TUDO EXATAMENTE):
                 - SE FOR PERFUME/COSMÉTICO ("perfume"):
