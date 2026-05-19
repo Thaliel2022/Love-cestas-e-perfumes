@@ -2227,7 +2227,6 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-        // LÓGICA 1: SE FOR ARQUIVO XML
         if (fileExt === 'text/xml' || fileExt === 'application/xml') {
             const parser = new xml2js.Parser({ explicitArray: false });
             const result = await parser.parseStringPromise(req.file.buffer.toString('utf-8'));
@@ -2240,32 +2239,38 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
 
             const xmlPrompt = `
                 Você é um ERP inteligente especialista em e-commerce de cosméticos, perfumes e moda.
-                Analise estes nomes brutos do XML: ${JSON.stringify(rawNames)} e gere o conteúdo comercial completo e traduzido.
+                Analise estes nomes brutos vindos do XML de uma nota fiscal: ${JSON.stringify(rawNames)}
+                
+                Sua missão é limpar esses nomes e gerar todo o cadastro rico do produto.
 
                 REGRAS OBRIGATÓRIAS DE PADRONIZAÇÃO E COPYWRITING:
                 1. NUNCA escreva nomes em maiúsculas. Use sempre Primeira Letra Maiúscula (Title Case).
-                2. DESABREVIE TUDO: "REF" -> "Refil", "COND" -> "Condicionador", "SHAMP" -> "Shampoo", "HID" -> "Hidratação", "BRLH" -> "Brilho", "EDP" -> "Eau de Parfum".
-                3. Remova ml, L, g, kg do nome principal.
-                4. MARCA FORÇADA: Se o nome tiver Zaad, Malbec, Match, Lily, Egeo, Cuide-se Bem ou Floratta, a marca DEVE ser "O Boticário". Se tiver Essencial, Kaiak ou Luna, DEVE ser "Natura".
-                5. CLASSIFICAÇÃO ("product_type"): Use APENAS "perfume" ou "clothing".
+                2. DESABREVIE TUDO: "REF" -> "Refil", "COND" -> "Condicionador", "SHAMP" ou "SH" -> "Shampoo", "HID" -> "Hidratação", "BRLH" -> "Brilho", "EDP" -> "Eau de Parfum".
+                3. Remova ml, L, g, kg do nome principal e jogue para o campo "volume".
+                
+                REGRAS DE INTELIGÊNCIA DE MARCA E CATEGORIA (CRÍTICO):
+                4. MARCA FORÇADA: Se o nome tiver Zaad, Malbec, Match, Lily, Egeo, Cuide-se Bem ou Floratta, a marca DEVE ser "O Boticário". Se tiver Essencial, Kaiak ou Luna, DEVE ser "Natura". Se tiver Club 6 ou Eudora, DEVE ser "Eudora".
+                5. CLASSIFICAÇÃO ("product_type"): Use APENAS "perfume" (se for cosmético/perfume) ou "clothing" (se for roupa).
+                6. CATEGORIA REAL: Você DEVE classificar o produto em UMA destas categorias exatas: "Perfumes Feminino", "Perfumes Masculino", "Cabelos", "Corpo e Banho", "Maquiagem", "Skincare", "Acessórios" ou "Roupas". (Exemplo: se for Shampoo, a categoria é "Cabelos". Se for Desodorante, é "Corpo e Banho").
 
-                GERAÇÃO DE TEXTOS ESPECÍFICOS (OBRIGATÓRIO PREENCHER):
+                GERAÇÃO DE TEXTOS ESPECÍFICOS (OBRIGATÓRIO PREENCHER TUDO):
                 - SE FOR PERFUME/COSMÉTICO ("perfume"):
-                  * "description": Texto comercial atraente e longo (mínimo 2 parágrafos).
-                  * "notes": Descreva as Notas Olfativas detalhadas (Topo, Corpo, Fundo) ou ativos principais.
+                  * "description": Texto comercial longo e persuasivo (mín. 2 parágrafos).
+                  * "notes": Descreva as Notas Olfativas (Topo, Corpo, Fundo) se for perfume, ou os ativos principais se for creme/shampoo.
                   * "how_to_use": Instruções passo a passo de como aplicar.
                   * "ideal_for": Ocasião, tipo de pele ou cabelo ideal.
                   * "care_instructions": Mantenha vazio "".
                   * "variations": [].
                 - SE FOR ROUPA ("clothing"):
-                  * "description": Texto de moda focado no design, caimento e elegância da peça.
+                  * "description": Texto de moda focado no design, caimento e elegância.
                   * "care_instructions": Instruções reais de lavagem e conservação.
                   * "ideal_for": Sugestão de looks e ocasiões.
                   * "notes": Composição do tecido (ex: 100% Algodão).
                   * "how_to_use": Mantenha vazio "".
                   * "variations": Grade no formato [{"color": "Cor", "size": "Tamanho", "stock": Qtd}].
 
-                Retorne ESTRITAMENTE o array JSON puro com todos esses campos populados.
+                Retorne ESTRITAMENTE um ARRAY JSON puro, sem crases markdown, com as exatas chaves:
+                "name", "product_type", "volume", "brand", "category", "description", "notes", "how_to_use", "ideal_for", "care_instructions", "variations"
             `;
 
             const aiResult = await model.generateContent(xmlPrompt);
@@ -2295,25 +2300,27 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 };
             });
         } 
-        // LÓGICA 2: SE FOR IMAGEM OU PDF
         else {
             const prompt = `
-                Você é um ERP inteligente especialista em e-commerce de Perfumaria, Cosméticos e Moda (O Boticário, Natura, Eudora, etc.).
-                Sua missão é analisar esta nota fiscal visual e gerar descrições e cadastros perfeitos.
+                Você é um ERP inteligente especialista em e-commerce de Perfumaria, Cosméticos e Moda.
+                Sua missão é analisar esta nota fiscal visual e gerar cadastros perfeitos.
 
                 REGRAS DE PADRONIZAÇÃO DE NOME:
                 1. NUNCA escreva em maiúsculas. Use sempre Title Case (Ex: "Zaad Eau De Parfum Intense").
-                2. EXPANDA AS SIGLAS: "REF" -> "Refil", "COND" -> "Condicionador", "SHAMP" -> "Shampoo", "HID" -> "Hidratação", "BRLH" -> "Brilho".
+                2. EXPANDA AS SIGLAS: "REF" -> "Refil", "COND" -> "Condicionador", "SHAMP" ou "SH" -> "Shampoo", "HID" -> "Hidratação", "BRLH" -> "Brilho".
                 3. Remova ml, L, g, kg do nome principal e jogue no campo "volume".
-                4. MARCA FORÇADA: Se houver Zaad, Malbec, Match, Lily, Egeo, Cuide-se Bem, coloque "O Boticário". Se houver Essencial ou Kaiak, coloque "Natura".
+                
+                REGRAS DE INTELIGÊNCIA DE MARCA E CATEGORIA (CRÍTICO):
+                4. MARCA FORÇADA: Se houver Zaad, Malbec, Match, Lily, Egeo, Cuide-se Bem, coloque "O Boticário". Se houver Essencial ou Kaiak, coloque "Natura". Se houver Club 6, Eudora, Niina, coloque "Eudora".
                 5. CLASSIFICAÇÃO ("product_type"): Use APENAS "perfume" ou "clothing".
+                6. CATEGORIA REAL: Você DEVE classificar em UMA destas opções exatas: "Perfumes Feminino", "Perfumes Masculino", "Cabelos", "Corpo e Banho", "Maquiagem", "Skincare", "Acessórios" ou "Roupas". (Ex: Desodorante é "Corpo e Banho", Condicionador é "Cabelos").
 
-                GERAÇÃO DE TEXTOS RICOS (OBRIGATÓRIO PREENCHER):
+                GERAÇÃO DE TEXTOS RICOS (OBRIGATÓRIO PREENCHER TUDO EXATAMENTE):
                 - SE FOR PERFUME/COSMÉTICO ("perfume"):
                   * "description": Descrição completa e persuasiva para a loja (mínimo 2 parágrafos).
-                  * "notes": Notas Olfativas detalhadas (Topo, Corpo, Fundo) ou ativos.
+                  * "notes": Notas Olfativas detalhadas (Topo, Corpo, Fundo) ou ativos da fórmula.
                   * "how_to_use": Modo de aplicação detalhado.
-                  * "ideal_for": Ocasião/Clima ideal.
+                  * "ideal_for": Ocasião/Clima ideal ou tipo de fio/pele.
                   * "care_instructions": "".
                   * "variations": [].
                 - SE FOR ROUPA ("clothing"):
@@ -2324,7 +2331,7 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                   * "ideal_for": Sugestões de looks/ambientes.
                   * "variations": Grade estruturada [{"color": "Cor", "size": "Tamanho", "stock": Quantidade}].
 
-                Retorne ESTRITAMENTE o array JSON com as chaves:
+                Retorne ESTRITAMENTE o array JSON com as exatas chaves abaixo para TODOS os itens:
                 "name", "product_type", "volume", "invoice_cost", "stock", "brand", "category", "description", "notes", "how_to_use", "care_instructions", "ideal_for", "variations"
             `;
 
@@ -2413,8 +2420,10 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             }
             await connection.commit();
             
+            try { logAdminAction(req.user, 'IMPORTAÇÃO PERFEITA', `Importou ${insertedCount} novos (com conteúdo e categoria) e atualizou ${updatedCount} estoques.`, clientIp); } catch(e) {}
+            
             res.status(201).json({ 
-                message: `Sucesso, Meu Rei! Conteúdo completo restaurado. ${insertedCount} novos produtos gerados com descrições ricas e ${updatedCount} estoques atualizados.`,
+                message: `Sucesso absoluto! Textos longos, marcas e categorias gerados com perfeição. ${insertedCount} produtos criados e ${updatedCount} estoques atualizados.`,
                 importedCount: insertedCount + updatedCount,
                 extractedPreview: extractedProducts
             });
