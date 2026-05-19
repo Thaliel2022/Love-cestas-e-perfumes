@@ -2140,6 +2140,7 @@ const fetchOnlineProductData = async (productName, brandName, invoiceCost, volum
 
         if (shoppingResults.length > 0) {
             const brandLower = brandName.toLowerCase();
+            // Busca APENAS o resultado da loja oficial
             const officialResult = shoppingResults.find(item => 
                 item.source?.toLowerCase().includes(brandLower) || 
                 item.source?.toLowerCase().includes("boticário") || 
@@ -2155,24 +2156,20 @@ const fetchOnlineProductData = async (productName, brandName, invoiceCost, volum
             const marketPrice = parsePrice(officialResult.price);
 
             if (marketPrice) {
-                const validPrices = shoppingResults
-                    .map(item => parsePrice(item.price))
-                    .filter(p => p !== null && p > invoiceCost); 
+                // TRAVA ABSOLUTA: Desliga as promoções inventadas.
+                // O preço do catálogo será o preço oficial de mercado (marketPrice).
+                catalogPrice = marketPrice;
+                salePrice = null;
+                isOnSale = 0;
 
-                const maxCatalogPrice = validPrices.length > 0 ? Math.max(...validPrices) : marketPrice;
-
-                if (maxCatalogPrice > marketPrice && (maxCatalogPrice - marketPrice) > 1.00 && marketPrice > invoiceCost) {
-                    catalogPrice = maxCatalogPrice;
-                    salePrice = marketPrice;
-                    isOnSale = 1;
-                } else {
-                    catalogPrice = Math.max(maxCatalogPrice, marketPrice);
-                    if (catalogPrice < invoiceCost) catalogPrice = invoiceCost * 1.40; 
-                    salePrice = null;
-                    isOnSale = 0;
+                // Proteção para evitar preços de "amostras" ou "decants" (se a internet estiver mais barata que a nota, ignora)
+                if (catalogPrice <= invoiceCost) {
+                    catalogPrice = invoiceCost * 1.40; 
                 }
             }
 
+            // TRAVA DE IMAGEM: Captura APENAS a foto oficial exata (1 imagem).
+            // Evita pegar perfumes diferentes da mesma linha.
             if (officialResult.thumbnail) {
                 try {
                     const uploadResult = await cloudinary.uploader.upload(officialResult.thumbnail, { folder: "products_auto_import", sanitize: true });
