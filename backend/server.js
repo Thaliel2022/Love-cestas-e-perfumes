@@ -2210,7 +2210,7 @@ const normalizeProductName = (name) => {
     return n.replace(/[^a-z0-9]/g, ""); 
 };
 
-// --- ROTA DE IMPORTAÇÃO INTELIGENTE (TRAVA DE ENUM DO BANCO DE DADOS) ---
+// --- ROTA DE IMPORTAÇÃO INTELIGENTE (COM DICIONÁRIO DE DESABREVIAÇÃO E MARCAS) ---
 app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload, async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'Nenhum ficheiro enviado. Anexe um XML, PDF ou Imagem.' });
@@ -2241,10 +2241,20 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             const xmlPrompt = `
                 Você é um ERP inteligente. Analise estes nomes do XML: ${JSON.stringify(rawNames)}
 
-                REGRAS OBRIGATÓRIAS DE PADRONIZAÇÃO (CRÍTICO):
+                REGRAS OBRIGATÓRIAS DE PADRONIZAÇÃO E DESABREVIAÇÃO (CRÍTICO):
                 1. NUNCA escreva tudo em maiúsculas. Use sempre Primeira Letra Maiúscula (Title Case).
-                2. Expanda siglas (EDP -> Eau de Parfum).
+                2. OBRIGATÓRIO EXPANDIR SIGLAS:
+                   - "REF" -> "Refil"
+                   - "COND" -> "Condicionador"
+                   - "SH" ou "SHAMP" -> "Shampoo"
+                   - "HID" -> "Hidratação"
+                   - "BRLH" -> "Brilho"
+                   - "EDP" -> "Eau de Parfum"
+                   - "EDT" -> "Eau de Toilette"
+                   - "DES" ou "DESOD" -> "Desodorante"
+                   - "COL" -> "Colônia"
                 3. Remova ml, L, g, kg do nome.
+                4. MARCA FORÇADA: Se o nome tiver Zaad, Malbec, Match, Lily, Egeo, Cuide-se Bem ou Floratta, a marca DEVE ser "O Boticário". Se tiver Essencial, Kaiak ou Luna, DEVE ser "Natura".
 
                 Retorne ARRAY JSON: [{"name", "product_type", "volume", "brand", "category", "description", "notes", "how_to_use", "ideal_for", "variations"}]
             `;
@@ -2261,26 +2271,36 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             const prompt = `
                 Você é um ERP inteligente. Analise esta nota fiscal/fatura.
 
-                REGRAS OBRIGATÓRIAS DE PADRONIZAÇÃO DE NOME (CRÍTICO):
-                1. NUNCA escreva tudo em maiúsculas. Use sempre Primeira Letra Maiúscula (Title Case). Ex: "Zaad Eau De Parfum".
-                2. Expanda siglas (EDP -> Eau de Parfum).
+                REGRAS OBRIGATÓRIAS DE PADRONIZAÇÃO E DESABREVIAÇÃO (CRÍTICO):
+                1. NUNCA escreva tudo em maiúsculas. Use sempre Primeira Letra Maiúscula (Title Case). Ex: "Zaad Eau De Parfum Intense".
+                2. OBRIGATÓRIO EXPANDIR SIGLAS:
+                   - "REF" -> "Refil"
+                   - "COND" -> "Condicionador"
+                   - "SH" ou "SHAMP" -> "Shampoo"
+                   - "HID" -> "Hidratação"
+                   - "BRLH" -> "Brilho"
+                   - "EDP" -> "Eau de Parfum"
+                   - "EDT" -> "Eau de Toilette"
+                   - "DES" ou "DESOD" -> "Desodorante"
+                   - "COL" -> "Colônia"
+                   Exemplo: "REF MATCH COND HID/BRLH" VIRA "Refil Condicionador Match Hidratação e Brilho".
                 3. Remova ml, L, g, kg do nome principal.
+                4. MARCA FORÇADA: Se o nome tiver Zaad, Malbec, Match, Lily, Egeo, Cuide-se Bem ou Floratta, a marca DEVE ser "O Boticário". Se tiver Essencial ou Kaiak, DEVE ser "Natura".
 
                 REGRAS DE CLASSIFICAÇÃO ("product_type"):
-                - ATENÇÃO: USE APENAS AS PALAVRAS "perfume" OU "clothing". NUNCA USE OUTRA PALAVRA.
-                - Perfume, shampoo, maquiagem ou cosmético -> "perfume".
-                - Roupa, blazer, calça, camisa, moda -> "clothing".
+                - ATENÇÃO: USE APENAS "perfume" OU "clothing".
+                - Perfume, shampoo, maquiagem -> "perfume". Roupa -> "clothing".
 
                 Retorne ESTRITAMENTE um ARRAY JSON:
                 [
                   {
-                    "name": "Nome formatado",
+                    "name": "Nome formatado e expandido",
                     "product_type": "perfume",
-                    "volume": "100ml",
+                    "volume": "250ml",
                     "invoice_cost": 50.00,
                     "stock": 1,
-                    "brand": "Marca",
-                    "category": "Categoria",
+                    "brand": "O Boticário",
+                    "category": "Cabelos",
                     "description": "Texto",
                     "notes": "Notas",
                     "how_to_use": "Como usar",
@@ -2330,7 +2350,6 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 const cleanNameDNA = normalizeProductName(cleanName);
                 const addedStock = parseInt(prod.stock, 10) || 1;
                 
-                // TRAVA ABSOLUTA: Se a IA inventar uma categoria (ex: 'shampoo'), o servidor força para 'perfume'
                 const rawProductType = String(prod.product_type || '').toLowerCase().trim();
                 const finalProductType = rawProductType === 'clothing' ? 'clothing' : 'perfume';
                 
@@ -2357,6 +2376,7 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                         isOnSale = 0;
                         productImagesJson = '[]'; 
                     } else {
+                        // Como a marca e o nome agora estão perfeitos, a SerpAPI trará o preço real sem falsas promoções!
                         const marketData = await fetchOnlineProductData(cleanName, prod.brand, invoiceCost, prod.volume);
                         catalogPrice = marketData.catalogPrice;
                         salePrice = marketData.salePrice;
