@@ -12393,9 +12393,8 @@ const AdminProducts = ({ onNavigate }) => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [importMessage, setImportMessage] = useState('');
   
-  // Estados de carregamento da IA e Contagem Regressiva
+  // NOVO ESTADO: Tela de carregamento futurista da IA
   const [aiLoading, setAiLoading] = useState({ isOpen: false, step: 0 });
-  const [retryCountdown, setRetryCountdown] = useState(0);
 
   // Estados para Promoção em Massa
   const [selectedProducts, setSelectedProducts] = useState([]);
@@ -12542,89 +12541,42 @@ const AdminProducts = ({ onNavigate }) => {
       );
   };
 
-  // --- Importação Inteligente (IA, XML e SerpAPI) COM AUTO-RETRY ---
+  // --- Importação Inteligente (IA, XML e SerpAPI) ---
   const handleFileSelect = (e) => {
       setSelectedFile(e.target.files[0]);
       setImportMessage('');
   };
 
- const handleImportSubmit = async (e, fileToRetry = null) => {
-      if (e) e.preventDefault();
-      
-      const file = fileToRetry || selectedFile;
-
-      if (!file) {
+  const handleImportSubmit = async (e) => {
+      e.preventDefault();
+      if (!selectedFile) {
           setImportMessage('Por favor, selecione um arquivo válido (PDF, XML ou Imagem).');
           return;
       }
 
-      // Se for a primeira tentativa (não é retry), configura a tela inicial
-      if (!fileToRetry) {
-          setIsImportModalOpen(false);
-          setAiLoading({ isOpen: true, step: 0 });
-          setAiProgressPercent(0); // Reseta a porcentagem visual para 0% reais
-      }
-      
-      setRetryCountdown(0);
+      // Fecha o modal normal e abre a tela cheia da IA
+      setIsImportModalOpen(false);
+      setAiLoading({ isOpen: true, step: 0 });
 
-      // Intervalo para progresso progressivo (nunca passa de 95% sozinho, espera a API)
-      const progressInterval = setInterval(() => {
-          setAiProgressPercent(prev => {
-              if (prev >= 95) return 95;
-              const increment = prev < 50 ? 6 : prev < 80 ? 3 : 1;
-              return prev + increment;
-          });
-      }, 500);
-
-      // Intervalo para mudar as frases da IA
+      // Cria um intervalo para mudar o texto da IA a cada 3,5 segundos
       const stepInterval = setInterval(() => {
           setAiLoading(prev => {
+              // Para no último passo para não voltar ao início enquanto salva
               if (prev.step >= aiSteps.length - 1) return prev;
               return { ...prev, step: prev.step + 1 };
           });
       }, 3500);
 
       try {
-          const response = await apiUploadService('/products/import-invoice', file);
-          
-          // Quando finaliza com sucesso, para os intervalos e pula para 100%
-          clearInterval(progressInterval);
-          clearInterval(stepInterval);
-          setAiProgressPercent(100);
-          
-          // Aguarda um pouquinho no 100% para o usuário ver a barra cheia antes de fechar
-          setTimeout(() => {
-              notification.show(response.message, 'success');
-              setSelectedFile(null);
-              fetchProducts(); 
-              setAiLoading({ isOpen: false, step: 0 });
-              setAiProgressPercent(0); 
-          }, 1500);
-
+          const response = await apiUploadService('/products/import-invoice', selectedFile);
+          notification.show(response.message, 'success');
+          setSelectedFile(null);
+          fetchProducts(); 
       } catch (error) {
-          clearInterval(stepInterval);
-          clearInterval(progressInterval);
-          
-          // Trata especificamente a Pausa imposta pelo Google (429)
-          if (error.status === 429 && error.code === "QUOTA_EXCEEDED") {
-              let secondsLeft = error.retryAfter || 60;
-              setRetryCountdown(secondsLeft);
-              
-              const timer = setInterval(() => {
-                  secondsLeft -= 1;
-                  setRetryCountdown(secondsLeft);
-                  
-                  if (secondsLeft <= 0) {
-                      clearInterval(timer);
-                      handleImportSubmit(null, file); // Refaz sem interação do usuário
-                  }
-              }, 1000);
-              return; 
-          }
-          
           notification.show(error.message || 'Erro ao importar o arquivo. Tente novamente.', 'error');
+      } finally {
+          clearInterval(stepInterval);
           setAiLoading({ isOpen: false, step: 0 });
-          setAiProgressPercent(0);
       }
   };
 
@@ -12803,7 +12755,7 @@ const AdminProducts = ({ onNavigate }) => {
 
   return (
     <div>
-       {/* TELA CHEIA: CARREGAMENTO FUTURISTA DA IA COM COUNTDOWN E PROGRESSO */}
+        {/* TELA CHEIA: CARREGAMENTO FUTURISTA DA IA */}
         <AnimatePresence>
             {aiLoading.isOpen && (
                 <motion.div
@@ -12812,65 +12764,47 @@ const AdminProducts = ({ onNavigate }) => {
                     exit={{ opacity: 0 }}
                     className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gray-900/95 backdrop-blur-md"
                 >
-                    {retryCountdown > 0 ? (
-                        <div className="flex flex-col items-center justify-center text-center px-4">
-                            <ClockIcon className="h-20 w-20 text-amber-400 mb-6 animate-pulse" />
-                            <h2 className="text-3xl font-extrabold text-white mb-2 tracking-wider">
-                                IA Resfriando Motores
-                            </h2>
-                            <p className="text-amber-400 text-xl font-bold mb-6">
-                                Tentando novamente em <span className="text-4xl text-white mx-2">{retryCountdown}</span> segundos
-                            </p>
-                            <p className="text-gray-400 text-sm max-w-md leading-relaxed">
-                                O Google solicitou uma pausa devido ao limite de envios por minuto. O upload será refeito <strong>automaticamente</strong> quando o tempo acabar. Por favor, não feche a janela.
-                            </p>
+                    <div className="relative flex items-center justify-center mb-10">
+                        {/* Efeitos de brilho e pulso por trás do ícone */}
+                        <div className="absolute w-32 h-32 bg-indigo-500 rounded-full animate-ping opacity-20"></div>
+                        <div className="absolute w-24 h-24 bg-amber-400 rounded-full animate-pulse opacity-30"></div>
+                        <div className="bg-gray-800 p-4 rounded-full relative z-10 border border-gray-700 shadow-[0_0_30px_rgba(212,175,55,0.4)]">
+                            <SparklesIcon className="h-14 w-14 text-[#D4AF37] animate-bounce" />
                         </div>
-                    ) : (
-                        <>
-                            <div className="relative flex items-center justify-center mb-10">
-                                {/* Efeitos de brilho e pulso por trás do ícone */}
-                                <div className="absolute w-32 h-32 bg-indigo-500 rounded-full animate-ping opacity-20"></div>
-                                <div className="absolute w-24 h-24 bg-amber-400 rounded-full animate-pulse opacity-30"></div>
-                                <div className="bg-gray-800 p-4 rounded-full relative z-10 border border-gray-700 shadow-[0_0_30px_rgba(212,175,55,0.4)]">
-                                    <SparklesIcon className="h-14 w-14 text-[#D4AF37] animate-bounce" />
-                                </div>
-                            </div>
-                            
-                            <h2 className="text-3xl font-extrabold text-white mb-4 tracking-wider">
-                                Gemini AI <span className="text-[#D4AF37]">Operando</span>
-                            </h2>
-                            
-                            <div className="h-10 flex items-center justify-center">
-                                <motion.p 
-                                    key={aiLoading.step}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -10 }}
-                                    className="text-[#D4AF37] font-medium text-xl text-center px-6"
-                                >
-                                    {aiSteps[aiLoading.step]}
-                                </motion.p>
-                            </div>
+                    </div>
+                    
+                    <h2 className="text-3xl font-extrabold text-white mb-4 tracking-wider">
+                        Gemini AI <span className="text-[#D4AF37]">Operando</span>
+                    </h2>
+                    
+                    <div className="h-10 flex items-center justify-center">
+                        <motion.p 
+                            key={aiLoading.step}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="text-[#D4AF37] font-medium text-xl text-center px-6"
+                        >
+                            {aiSteps[aiLoading.step]}
+                        </motion.p>
+                    </div>
 
-                            {/* BARRA DE PROGRESSO PROGRESSIVA SEM LOOP */}
-                            <div className="w-80 mt-10">
-                                <div className="flex justify-between items-center mb-2">
-                                    <span className="text-xs font-bold text-gray-400">Progresso da Importação</span>
-                                    <span className="text-xs font-bold text-amber-400">{Math.round(aiProgressPercent)}%</span>
-                                </div>
-                                <div className="h-4 w-full bg-gray-800 rounded-full overflow-hidden relative shadow-inner">
-                                    <div 
-                                        className="h-full bg-gradient-to-r from-indigo-600 via-purple-500 to-[#D4AF37] transition-all duration-300 ease-out"
-                                        style={{ width: `${Math.min(aiProgressPercent, 100)}%` }}
-                                    />
-                                </div>
-                            </div>
-
-                            <p className="text-gray-400 text-sm mt-6 font-medium">
-                                {aiProgressPercent === 100 ? "Importação finalizada com sucesso!" : "Este processo pode levar alguns segundos. Por favor, aguarde."}
-                            </p>
-                        </>
-                    )}
+                    {/* Barra de progresso animada */}
+                    <div className="w-80 h-2 bg-gray-800 rounded-full mt-10 overflow-hidden relative">
+                        <motion.div 
+                            className="absolute top-0 left-0 h-full bg-gradient-to-r from-indigo-500 via-[#D4AF37] to-indigo-500"
+                            animate={{ 
+                                width: ['0%', '100%'],
+                                x: ['-100%', '0%']
+                            }}
+                            transition={{ 
+                                repeat: Infinity, 
+                                duration: 1.5, 
+                                ease: "linear" 
+                            }}
+                        />
+                    </div>
+                    <p className="text-gray-500 text-sm mt-6">Este processo pode levar até 20 segundos. Por favor, aguarde.</p>
                 </motion.div>
             )}
         </AnimatePresence>
@@ -13272,7 +13206,7 @@ const AdminProducts = ({ onNavigate }) => {
             </div>
         </div>
     </div>
-  );
+  )
 };
 const AdminUsers = () => {
     const [users, setUsers] = useState([]);
