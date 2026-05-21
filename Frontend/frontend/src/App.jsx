@@ -1445,13 +1445,15 @@ const SizeGuideAdminInput = ({ value, onChange }) => {
     const [data, setData] = useState(safeValue);
 
     useEffect(() => {
-        onChange(JSON.stringify(data));
-    }, [data, onChange]);
+        setData(safeValue);
+    }, [safeValue]);
 
     const handleValueChange = (rowIndex, colIndex, val) => {
         const newRows = [...data.rows];
         newRows[rowIndex].values[colIndex] = val;
-        setData({ ...data, rows: newRows });
+        const nextData = { ...data, rows: newRows };
+        setData(nextData);
+        onChange(JSON.stringify(nextData));
     };
 
     return (
@@ -11674,7 +11676,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         }
 
         setFormData(initialData);
-    }, [item, setProductType]);
+    }, [item?.id]);
 
     const availableProductCategories = useMemo(() => {
         return allCollectionCategories.filter(c => c.product_type_association === productType);
@@ -11696,6 +11698,13 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             return updated;
         });
     };
+
+    const handleSizeGuideChange = useCallback((newVal) => {
+        setFormData((prev) => {
+            if (prev.size_guide === newVal) return prev;
+            return { ...prev, size_guide: newVal };
+        });
+    }, []);
 
     // Handler atualizado para limpar dados e corrigir o bug visual
     const handlePromoToggle = (e) => {
@@ -12137,7 +12146,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                              <label className="block text-sm font-bold text-gray-700 mb-1">Guia de Medidas (Tabela)</label>
                              <SizeGuideAdminInput 
                                 value={formData.size_guide} 
-                                onChange={(newVal) => setFormData(prev => ({...prev, size_guide: newVal}))} 
+                                onChange={handleSizeGuideChange} 
                              />
                         </div>
                     </div>
@@ -12385,6 +12394,7 @@ const AdminProducts = ({ onNavigate }) => {
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [productFormKey, setProductFormKey] = useState(0);
   const confirmation = useConfirmation();
   const notification = useNotification();
   
@@ -12516,6 +12526,7 @@ const AdminProducts = ({ onNavigate }) => {
   }, [searchTerm, products]);
 
   const handleOpenModal = (product = null) => {
+    setProductFormKey((k) => k + 1);
     setEditingProduct(product);
     setProductType(product ? product.product_type : 'perfume');
     setIsModalOpen(true);
@@ -13271,6 +13282,7 @@ const AdminProducts = ({ onNavigate }) => {
                     size="3xl"
                 >
                     <ProductForm
+                        key={productFormKey}
                         item={editingProduct} 
                         onSave={handleSave} 
                         onCancel={() => setIsModalOpen(false)} 
