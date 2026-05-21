@@ -12390,11 +12390,23 @@ const AdminProducts = ({ onNavigate }) => {
   
   // Estados para Importação Inteligente
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const [importMessage, setImportMessage] = useState('');
   
-  // Tela de carregamento da importação por IA (percentual 0–100 = concluído)
-  const [aiLoading, setAiLoading] = useState({ isOpen: false, step: 0, percent: 0 });
+  // Tela de carregamento da importação por IA (percentual 0–100 = fila inteira concluída)
+  const [aiLoading, setAiLoading] = useState({
+      isOpen: false,
+      step: 0,
+      percent: 0,
+      fileIndex: 0,
+      fileTotal: 0,
+      currentFileName: '',
+      status: 'processing',
+  });
+
+  const IMPORT_MAX_FILES = 15;
+  const IMPORT_QUEUE_DELAY_MS = 12000;
+  const IMPORT_MAX_FILE_BYTES = 15 * 1024 * 1024;
 
   // Estados para Promoção em Massa
   const [selectedProducts, setSelectedProducts] = useState([]);
@@ -12544,22 +12556,80 @@ const AdminProducts = ({ onNavigate }) => {
 
   // --- Importação Inteligente (IA, XML e SerpAPI) ---
   const handleFileSelect = (e) => {
-      setSelectedFile(e.target.files[0]);
-      setImportMessage('');
+      const picked = Array.from(e.target.files || []);
+      if (!picked.length) return;
+
+      const valid = [];
+      const errors = [];
+
+      picked.forEach((file) => {
+          if (file.size > IMPORT_MAX_FILE_BYTES) {
+              errors.push(`"${file.name}" excede 15MB`);
+              return;
+          }
+          valid.push(file);
+      });
+
+      setSelectedFiles((prev) => {
+          const merged = [...prev];
+          valid.forEach((file) => {
+              if (merged.length >= IMPORT_MAX_FILES) return;
+              const isDuplicate = merged.some(
+                  (f) => f.name === file.name && f.size === file.size && f.lastModified === file.lastModified
+              );
+              if (!isDuplicate) merged.push(file);
+          });
+          return merged.slice(0, IMPORT_MAX_FILES);
+      });
+
+      if (errors.length) {
+          setImportMessage(errors.join(' · '));
+      } else {
+          setImportMessage('');
+      }
+      e.target.value = '';
+  };
+
+  const removeSelectedFile = (index) => {
+      setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const getAiStepForPercent = (percent) =>
       Math.min(aiSteps.length - 1, Math.floor((percent / 100) * aiSteps.length));
 
+  const isImportRetryableError = (err) => {
+      const msg = String(err?.message || '').toLowerCase();
+      return (
+          msg.includes('sobrecarregada') ||
+          msg.includes('sobrecarregado') ||
+          msg.includes('tentou automaticamente') ||
+          msg.includes('aguarde') ||
+          msg.includes('503') ||
+          msg.includes('429') ||
+          msg.includes('pausa')
+      );
+  };
+
   const handleImportSubmit = async (e) => {
       e.preventDefault();
-      if (!selectedFile) {
-          setImportMessage('Por favor, selecione um arquivo válido (PDF, XML ou Imagem).');
+      if (!selectedFiles.length) {
+          setImportMessage('Selecione ao menos um arquivo (PDF, XML ou imagem).');
           return;
       }
 
+      const files = [...selectedFiles];
+      const totalFiles = files.length;
+
       setIsImportModalOpen(false);
-      setAiLoading({ isOpen: true, step: 0, percent: 0 });
+      setAiLoading({
+          isOpen: true,
+          step: 0,
+          percent: 0,
+          fileIndex: 1,
+          fileTotal: totalFiles,
+          currentFileName: files[0].name,
+          status: 'processing',
+      });
 
       let progressInterval = null;
       const clearImportProgressTimer = () => {
@@ -12569,15 +12639,22 @@ const AdminProducts = ({ onNavigate }) => {
           }
       };
 
-      const startImportProgressTimer = (maxPercent = 92) => {
+      const getSegmentBounds = (fileIndexOneBased) => {
+          const start = ((fileIndexOneBased - 1) / totalFiles) * 100;
+          const end = (fileIndexOneBased / totalFiles) * 100;
+          const max = fileIndexOneBased === totalFiles ? end - 1 : end - 0.5;
+          return { start, end, max: Math.max(start, max) };
+      };
+
+      const startImportProgressTimer = (segmentMaxPercent) => {
           clearImportProgressTimer();
           progressInterval = setInterval(() => {
               setAiLoading((prev) => {
-                  if (!prev.isOpen || prev.percent >= maxPercent) return prev;
+                  if (!prev.isOpen || prev.percent >= segmentMaxPercent) return prev;
                   let increment = 1.2;
                   if (prev.percent >= 60) increment = 0.7;
                   if (prev.percent >= 75) increment = 0.35;
-                  const nextPercent = Math.min(maxPercent, prev.percent + increment);
+                  const nextPercent = Math.min(segmentMaxPercent, prev.percent + increment);
                   return {
                       ...prev,
                       percent: nextPercent,
@@ -12607,61 +12684,148 @@ const AdminProducts = ({ onNavigate }) => {
               }, 120);
           });
 
-      const finishImportProgress = () =>
+      const finishFileProgress = (fileIndexOneBased) =>
+          new Promise((resolve) => {
+              clearImportProgressTimer();
+              const { end } = getSegmentBounds(fileIndexOneBased);
+              setAiLoading((prev) => ({
+                  ...prev,
+                  percent: end,
+                  step: aiSteps.length - 1,
+                  status: 'processing',
+              }));
+              setTimeout(resolve, 500);
+          });
+
+      const finishAllImportProgress = () =>
           new Promise((resolve) => {
               clearImportProgressTimer();
               setAiLoading((prev) => ({
                   ...prev,
                   percent: 100,
                   step: aiSteps.length - 1,
+                  status: 'done',
               }));
               setTimeout(resolve, 900);
           });
 
-      const isImportRetryableError = (err) => {
-          const msg = String(err?.message || '').toLowerCase();
-          return (
-              msg.includes('sobrecarregada') ||
-              msg.includes('sobrecarregado') ||
-              msg.includes('tentou automaticamente') ||
-              msg.includes('aguarde') ||
-              msg.includes('503') ||
-              msg.includes('429') ||
-              msg.includes('pausa')
-          );
-      };
+      const importSingleInvoice = async (file, fileIndexOneBased) => {
+          const { start, max } = getSegmentBounds(fileIndexOneBased);
 
-      startImportProgressTimer(92);
+          clearImportProgressTimer();
+          setAiLoading((prev) => ({
+              ...prev,
+              fileIndex: fileIndexOneBased,
+              currentFileName: file.name,
+              percent: start,
+              status: 'processing',
+              step: 0,
+          }));
+          startImportProgressTimer(max);
 
-      try {
-          let response;
           try {
-              response = await apiUploadService('/products/import-invoice', selectedFile);
+              return await apiUploadService('/products/import-invoice', file);
           } catch (firstError) {
               if (!isImportRetryableError(firstError)) {
                   throw firstError;
               }
               clearImportProgressTimer();
-              notification.show('IA ocupada. Nova tentativa automática em 20 segundos…', 'success');
-              let waitStartPercent = 55;
+              notification.show(
+                  `IA ocupada em "${file.name}". Nova tentativa automática em 20 segundos…`,
+                  'success'
+              );
+              let waitStartPercent = start;
               setAiLoading((prev) => {
-                  waitStartPercent = Math.max(prev.percent, 55);
-                  return { ...prev, step: 3, percent: waitStartPercent };
+                  waitStartPercent = Math.max(prev.percent, start + (max - start) * 0.45);
+                  return { ...prev, step: 3, percent: waitStartPercent, status: 'processing' };
               });
-              await animateImportProgressTo(78, 20000, waitStartPercent);
-              startImportProgressTimer(92);
-              response = await apiUploadService('/products/import-invoice', selectedFile);
+              const waitTarget = start + (max - start) * 0.75;
+              await animateImportProgressTo(waitTarget, 20000, waitStartPercent);
+              startImportProgressTimer(max);
+              return await apiUploadService('/products/import-invoice', file);
+          }
+      };
+
+      const successes = [];
+      const failures = [];
+
+      try {
+          for (let i = 0; i < files.length; i++) {
+              const file = files[i];
+              const fileNum = i + 1;
+
+              try {
+                  const response = await importSingleInvoice(file, fileNum);
+                  successes.push({ name: file.name, message: response.message });
+                  await finishFileProgress(fileNum);
+              } catch (fileError) {
+                  failures.push({
+                      name: file.name,
+                      message: fileError.message || 'Erro desconhecido',
+                  });
+                  clearImportProgressTimer();
+                  const { end } = getSegmentBounds(fileNum);
+                  setAiLoading((prev) => ({
+                      ...prev,
+                      percent: end,
+                      status: 'processing',
+                  }));
+              }
+
+              if (i < files.length - 1) {
+                  const nextNum = fileNum + 1;
+                  const waitFrom = getSegmentBounds(fileNum).end;
+                  const waitTo = getSegmentBounds(nextNum).start + 0.5;
+
+                  setAiLoading((prev) => ({
+                      ...prev,
+                      status: 'waiting',
+                      step: 3,
+                      fileIndex: nextNum,
+                      currentFileName: files[i + 1].name,
+                  }));
+
+                  await animateImportProgressTo(waitTo, IMPORT_QUEUE_DELAY_MS, waitFrom);
+              }
           }
 
-          await finishImportProgress();
-          notification.show(response.message, 'success');
-          setSelectedFile(null);
+          await finishAllImportProgress();
           fetchProducts();
+
+          if (successes.length && !failures.length) {
+              const summary =
+                  totalFiles === 1
+                      ? successes[0].message
+                      : `${successes.length} nota(s) importada(s) com sucesso.`;
+              notification.show(summary, 'success');
+          } else if (successes.length && failures.length) {
+              notification.show(
+                  `${successes.length} de ${totalFiles} nota(s) importada(s). Falharam: ${failures.map((f) => f.name).join(', ')}`,
+                  'error'
+              );
+          } else {
+              notification.show(
+                  failures[0]?.message || 'Nenhuma nota foi importada. Tente novamente.',
+                  'error'
+              );
+          }
+
+          if (successes.length) {
+              setSelectedFiles([]);
+          }
       } catch (error) {
-          notification.show(error.message || 'Erro ao importar o arquivo. Tente novamente.', 'error');
+          notification.show(error.message || 'Erro ao importar as notas. Tente novamente.', 'error');
       } finally {
           clearImportProgressTimer();
-          setAiLoading({ isOpen: false, step: 0, percent: 0 });
+          setAiLoading({
+              isOpen: false,
+              step: 0,
+              percent: 0,
+              fileIndex: 0,
+              fileTotal: 0,
+              currentFileName: '',
+              status: 'processing',
+          });
       }
   };
 
@@ -12858,9 +13022,21 @@ const AdminProducts = ({ onNavigate }) => {
                         </div>
                     </div>
                     
-                    <h2 className="text-3xl font-extrabold text-white mb-4 tracking-wider">
+                    <h2 className="text-3xl font-extrabold text-white mb-2 tracking-wider">
                         Gemini AI <span className="text-[#D4AF37]">Operando</span>
                     </h2>
+
+                    {aiLoading.fileTotal > 1 && (
+                        <p className="text-indigo-300 font-bold text-lg mb-3">
+                            Nota {aiLoading.fileIndex} de {aiLoading.fileTotal}
+                        </p>
+                    )}
+
+                    {aiLoading.currentFileName && (
+                        <p className="text-gray-400 text-sm mb-4 max-w-md truncate px-4" title={aiLoading.currentFileName}>
+                            {aiLoading.currentFileName}
+                        </p>
+                    )}
                     
                     <p className="text-5xl font-black text-white tabular-nums mb-1">
                         {Math.round(aiLoading.percent)}<span className="text-2xl text-gray-400 font-bold">%</span>
@@ -12868,15 +13044,25 @@ const AdminProducts = ({ onNavigate }) => {
 
                     <div className="h-10 flex items-center justify-center">
                         <motion.p
-                            key={aiLoading.percent >= 100 ? 'done' : aiLoading.step}
+                            key={
+                                aiLoading.percent >= 100
+                                    ? 'done'
+                                    : aiLoading.status === 'waiting'
+                                      ? 'waiting'
+                                      : aiLoading.step
+                            }
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
                             className="text-[#D4AF37] font-medium text-xl text-center px-6"
                         >
                             {aiLoading.percent >= 100
-                                ? 'Importação concluída com sucesso!'
-                                : aiSteps[aiLoading.step]}
+                                ? aiLoading.fileTotal > 1
+                                    ? `Todas as ${aiLoading.fileTotal} notas foram processadas!`
+                                    : 'Importação concluída com sucesso!'
+                                : aiLoading.status === 'waiting'
+                                  ? `Aguardando ${IMPORT_QUEUE_DELAY_MS / 1000}s antes da próxima nota (API gratuita)…`
+                                  : aiSteps[aiLoading.step]}
                         </motion.p>
                     </div>
 
@@ -12891,7 +13077,9 @@ const AdminProducts = ({ onNavigate }) => {
                     <p className="text-gray-500 text-sm mt-6 text-center max-w-md px-4">
                         {aiLoading.percent >= 100
                             ? 'Processo finalizado. A tela será fechada em instantes.'
-                            : 'Aguarde nesta tela. O percentual sobe conforme a IA processa a nota (pode levar até 2 minutos).'}
+                            : aiLoading.fileTotal > 1
+                              ? `Fila automática: cada nota é processada em sequência (até ~2 min por nota + ${IMPORT_QUEUE_DELAY_MS / 1000}s de pausa).`
+                              : 'Aguarde nesta tela. O percentual sobe conforme a IA processa a nota (pode levar até 2 minutos).'}
                     </p>
                 </motion.div>
             )}
@@ -12926,7 +13114,7 @@ const AdminProducts = ({ onNavigate }) => {
                                 <SparklesIcon className="h-5 w-5"/> Como funciona?
                             </h4>
                             <p className="text-sm text-indigo-700 leading-relaxed">
-                                Faça o upload do <strong>XML da NF-e</strong> ou de uma <strong>foto/PDF</strong> do recibo. Nossa IA (Gemini) fará a leitura, corrigirá as abreviações dos nomes, separará os MLs e buscará <strong>imagens reais na internet</strong> automaticamente!
+                                Envie um ou <strong>vários arquivos</strong> (XML, PDF ou imagem). As notas entram em <strong>fila</strong>: a IA processa uma, finaliza, pausa {IMPORT_QUEUE_DELAY_MS / 1000}s e segue para a próxima — ideal para o plano gratuito do Google.
                             </p>
                         </div>
                         
@@ -12934,47 +13122,80 @@ const AdminProducts = ({ onNavigate }) => {
                             <input 
                                 type="file" 
                                 id="invoice-upload"
-                                accept=".xml, .pdf, image/png, image/jpeg, image/webp"
+                                accept=".xml,.pdf,image/png,image/jpeg,image/webp"
+                                multiple
                                 onChange={handleFileSelect}
                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                             />
                             <div className="flex flex-col items-center justify-center pointer-events-none">
-                                <UploadIcon className={`h-12 w-12 mb-3 transition-colors ${selectedFile ? 'text-green-500' : 'text-gray-400 group-hover:text-indigo-500'}`} />
+                                <UploadIcon className={`h-12 w-12 mb-3 transition-colors ${selectedFiles.length ? 'text-green-500' : 'text-gray-400 group-hover:text-indigo-500'}`} />
                                 <span className="text-sm font-bold text-indigo-600 underline decoration-indigo-300">
-                                    {selectedFile ? 'Trocar arquivo selecionado' : 'Clique ou arraste o arquivo aqui'}
+                                    {selectedFiles.length
+                                        ? 'Adicionar mais arquivos à fila'
+                                        : 'Clique ou arraste um ou vários arquivos'}
                                 </span>
-                                <span className="text-xs text-gray-500 mt-2 font-medium">Suporta PDF, XML, JPG ou PNG (Máx. 15MB)</span>
+                                <span className="text-xs text-gray-500 mt-2 font-medium">
+                                    PDF, XML, JPG ou PNG · Máx. 15MB cada · Até {IMPORT_MAX_FILES} notas
+                                </span>
                             </div>
                         </div>
 
+                        {importMessage && (
+                            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">{importMessage}</p>
+                        )}
+
                         <AnimatePresence>
-                            {selectedFile && (
-                                <motion.div 
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.95 }}
-                                    className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 font-bold flex items-center justify-between shadow-sm"
+                            {selectedFiles.length > 0 && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    className="space-y-2 max-h-48 overflow-y-auto"
                                 >
-                                    <div className="flex items-center gap-2 overflow-hidden">
-                                        <CheckCircleIcon className="h-5 w-5 flex-shrink-0" /> 
-                                        <span className="truncate">{selectedFile.name}</span>
+                                    <div className="flex items-center justify-between text-xs font-bold text-gray-500 uppercase tracking-wide px-1">
+                                        <span>Fila ({selectedFiles.length} nota{selectedFiles.length > 1 ? 's' : ''})</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedFiles([])}
+                                            className="text-red-600 hover:text-red-800 normal-case"
+                                        >
+                                            Limpar tudo
+                                        </button>
                                     </div>
-                                    <button 
-                                        type="button" 
-                                        onClick={(e) => { e.preventDefault(); setSelectedFile(null); }}
-                                        className="text-green-600 hover:text-red-600 ml-2"
-                                    >
-                                        <XMarkIcon className="h-5 w-5" />
-                                    </button>
+                                    {selectedFiles.map((file, index) => (
+                                        <motion.div
+                                            key={`${file.name}-${file.size}-${file.lastModified}`}
+                                            initial={{ opacity: 0, x: -8 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: 8 }}
+                                            className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800 font-semibold flex items-center justify-between shadow-sm gap-2"
+                                        >
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <span className="text-xs text-green-600 font-black w-5 flex-shrink-0">{index + 1}.</span>
+                                                <CheckCircleIcon className="h-5 w-5 flex-shrink-0 text-green-600" />
+                                                <span className="truncate" title={file.name}>{file.name}</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => { e.preventDefault(); removeSelectedFile(index); }}
+                                                className="text-green-600 hover:text-red-600 flex-shrink-0"
+                                                aria-label={`Remover ${file.name}`}
+                                            >
+                                                <XMarkIcon className="h-5 w-5" />
+                                            </button>
+                                        </motion.div>
+                                    ))}
                                 </motion.div>
                             )}
                         </AnimatePresence>
 
                         <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-6">
                             <button type="button" onClick={() => setIsImportModalOpen(false)} className="px-5 py-2.5 bg-gray-200 rounded-lg font-bold text-gray-700 hover:bg-gray-300 transition-colors">Cancelar</button>
-                            <button type="submit" disabled={!selectedFile} className="px-6 py-2.5 bg-[#D4AF37] text-black rounded-lg font-bold hover:bg-yellow-500 disabled:bg-gray-300 disabled:text-gray-500 flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 min-w-[200px]">
+                            <button type="submit" disabled={!selectedFiles.length} className="px-6 py-2.5 bg-[#D4AF37] text-black rounded-lg font-bold hover:bg-yellow-500 disabled:bg-gray-300 disabled:text-gray-500 flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 min-w-[200px]">
                                 <SparklesIcon className="h-5 w-5" />
-                                Iniciar Importação
+                                {selectedFiles.length > 1
+                                    ? `Importar ${selectedFiles.length} notas`
+                                    : 'Iniciar importação'}
                             </button>
                         </div>
                     </form>
