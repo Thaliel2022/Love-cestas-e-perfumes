@@ -12393,8 +12393,8 @@ const AdminProducts = ({ onNavigate }) => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [importMessage, setImportMessage] = useState('');
   
-  // NOVO ESTADO: Tela de carregamento futurista da IA
-  const [aiLoading, setAiLoading] = useState({ isOpen: false, step: 0 });
+  // Tela de carregamento da importação por IA (percentual 0–100 = concluído)
+  const [aiLoading, setAiLoading] = useState({ isOpen: false, step: 0, percent: 0 });
 
   // Estados para Promoção em Massa
   const [selectedProducts, setSelectedProducts] = useState([]);
@@ -12421,6 +12421,7 @@ const AdminProducts = ({ onNavigate }) => {
       "Iniciando os motores da Inteligência Artificial...",
       "Lendo o documento com Visão Computacional...",
       "Desabreviando nomes e organizando categorias...",
+      "IA ocupada? Reconectando automaticamente, sem precisar clicar de novo...",
       "Pesquisando imagens reais dos produtos na internet...",
       "Fazendo upload das fotos e salvando no banco..."
   ];
@@ -12547,6 +12548,9 @@ const AdminProducts = ({ onNavigate }) => {
       setImportMessage('');
   };
 
+  const getAiStepForPercent = (percent) =>
+      Math.min(aiSteps.length - 1, Math.floor((percent / 100) * aiSteps.length));
+
   const handleImportSubmit = async (e) => {
       e.preventDefault();
       if (!selectedFile) {
@@ -12554,29 +12558,110 @@ const AdminProducts = ({ onNavigate }) => {
           return;
       }
 
-      // Fecha o modal normal e abre a tela cheia da IA
       setIsImportModalOpen(false);
-      setAiLoading({ isOpen: true, step: 0 });
+      setAiLoading({ isOpen: true, step: 0, percent: 0 });
 
-      // Cria um intervalo para mudar o texto da IA a cada 3,5 segundos
-      const stepInterval = setInterval(() => {
-          setAiLoading(prev => {
-              // Para no último passo para não voltar ao início enquanto salva
-              if (prev.step >= aiSteps.length - 1) return prev;
-              return { ...prev, step: prev.step + 1 };
+      let progressInterval = null;
+      const clearImportProgressTimer = () => {
+          if (progressInterval) {
+              clearInterval(progressInterval);
+              progressInterval = null;
+          }
+      };
+
+      const startImportProgressTimer = (maxPercent = 92) => {
+          clearImportProgressTimer();
+          progressInterval = setInterval(() => {
+              setAiLoading((prev) => {
+                  if (!prev.isOpen || prev.percent >= maxPercent) return prev;
+                  let increment = 1.2;
+                  if (prev.percent >= 60) increment = 0.7;
+                  if (prev.percent >= 75) increment = 0.35;
+                  const nextPercent = Math.min(maxPercent, prev.percent + increment);
+                  return {
+                      ...prev,
+                      percent: nextPercent,
+                      step: getAiStepForPercent(nextPercent),
+                  };
+              });
+          }, 350);
+      };
+
+      const animateImportProgressTo = (targetPercent, durationMs, fromPercent) =>
+          new Promise((resolve) => {
+              const start = Date.now();
+              const startPercent = fromPercent;
+              const timer = setInterval(() => {
+                  const elapsed = Date.now() - start;
+                  const t = Math.min(1, elapsed / durationMs);
+                  const nextPercent = startPercent + (targetPercent - startPercent) * t;
+                  setAiLoading((prev) => ({
+                      ...prev,
+                      percent: nextPercent,
+                      step: getAiStepForPercent(nextPercent),
+                  }));
+                  if (t >= 1) {
+                      clearInterval(timer);
+                      resolve();
+                  }
+              }, 120);
           });
-      }, 3500);
+
+      const finishImportProgress = () =>
+          new Promise((resolve) => {
+              clearImportProgressTimer();
+              setAiLoading((prev) => ({
+                  ...prev,
+                  percent: 100,
+                  step: aiSteps.length - 1,
+              }));
+              setTimeout(resolve, 900);
+          });
+
+      const isImportRetryableError = (err) => {
+          const msg = String(err?.message || '').toLowerCase();
+          return (
+              msg.includes('sobrecarregada') ||
+              msg.includes('sobrecarregado') ||
+              msg.includes('tentou automaticamente') ||
+              msg.includes('aguarde') ||
+              msg.includes('503') ||
+              msg.includes('429') ||
+              msg.includes('pausa')
+          );
+      };
+
+      startImportProgressTimer(92);
 
       try {
-          const response = await apiUploadService('/products/import-invoice', selectedFile);
+          let response;
+          try {
+              response = await apiUploadService('/products/import-invoice', selectedFile);
+          } catch (firstError) {
+              if (!isImportRetryableError(firstError)) {
+                  throw firstError;
+              }
+              clearImportProgressTimer();
+              notification.show('IA ocupada. Nova tentativa automática em 20 segundos…', 'success');
+              let waitStartPercent = 55;
+              setAiLoading((prev) => {
+                  waitStartPercent = Math.max(prev.percent, 55);
+                  return { ...prev, step: 3, percent: waitStartPercent };
+              });
+              await animateImportProgressTo(78, 20000, waitStartPercent);
+              startImportProgressTimer(92);
+              response = await apiUploadService('/products/import-invoice', selectedFile);
+          }
+
+          await finishImportProgress();
           notification.show(response.message, 'success');
           setSelectedFile(null);
-          fetchProducts(); 
+          fetchProducts();
       } catch (error) {
           notification.show(error.message || 'Erro ao importar o arquivo. Tente novamente.', 'error');
       } finally {
-          clearInterval(stepInterval);
-          setAiLoading({ isOpen: false, step: 0 });
+          clearImportProgressTimer();
+          setAiLoading({ isOpen: false, step: 0, percent: 0 });
       }
   };
 
@@ -12777,34 +12862,37 @@ const AdminProducts = ({ onNavigate }) => {
                         Gemini AI <span className="text-[#D4AF37]">Operando</span>
                     </h2>
                     
+                    <p className="text-5xl font-black text-white tabular-nums mb-1">
+                        {Math.round(aiLoading.percent)}<span className="text-2xl text-gray-400 font-bold">%</span>
+                    </p>
+
                     <div className="h-10 flex items-center justify-center">
-                        <motion.p 
-                            key={aiLoading.step}
+                        <motion.p
+                            key={aiLoading.percent >= 100 ? 'done' : aiLoading.step}
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
                             className="text-[#D4AF37] font-medium text-xl text-center px-6"
                         >
-                            {aiSteps[aiLoading.step]}
+                            {aiLoading.percent >= 100
+                                ? 'Importação concluída com sucesso!'
+                                : aiSteps[aiLoading.step]}
                         </motion.p>
                     </div>
 
-                    {/* Barra de progresso animada */}
-                    <div className="w-80 h-2 bg-gray-800 rounded-full mt-10 overflow-hidden relative">
-                        <motion.div 
-                            className="absolute top-0 left-0 h-full bg-gradient-to-r from-indigo-500 via-[#D4AF37] to-indigo-500"
-                            animate={{ 
-                                width: ['0%', '100%'],
-                                x: ['-100%', '0%']
-                            }}
-                            transition={{ 
-                                repeat: Infinity, 
-                                duration: 1.5, 
-                                ease: "linear" 
-                            }}
+                    <div className="w-80 h-3 bg-gray-800 rounded-full mt-8 overflow-hidden">
+                        <motion.div
+                            className="h-full bg-gradient-to-r from-indigo-500 via-[#D4AF37] to-indigo-400 rounded-full"
+                            initial={false}
+                            animate={{ width: `${Math.min(100, Math.max(0, aiLoading.percent))}%` }}
+                            transition={{ duration: 0.35, ease: 'easeOut' }}
                         />
                     </div>
-                    <p className="text-gray-500 text-sm mt-6">Este processo pode levar até 20 segundos. Por favor, aguarde.</p>
+                    <p className="text-gray-500 text-sm mt-6 text-center max-w-md px-4">
+                        {aiLoading.percent >= 100
+                            ? 'Processo finalizado. A tela será fechada em instantes.'
+                            : 'Aguarde nesta tela. O percentual sobe conforme a IA processa a nota (pode levar até 2 minutos).'}
+                    </p>
                 </motion.div>
             )}
         </AnimatePresence>

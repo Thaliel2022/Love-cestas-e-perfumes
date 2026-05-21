@@ -2217,6 +2217,83 @@ const normalizeProductName = (name) => {
     return words.sort().join(""); 
 };
 
+const GEMINI_INVOICE_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+const GEMINI_MAX_ATTEMPTS_PER_MODEL = 4;
+const GEMINI_RETRY_BASE_MS = 2500;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isGeminiRetryableError = (error) => {
+    const msg = String(error?.message || error || '').toLowerCase();
+    return (
+        msg.includes('503') ||
+        msg.includes('429') ||
+        msg.includes('500') ||
+        msg.includes('502') ||
+        msg.includes('504') ||
+        msg.includes('service unavailable') ||
+        msg.includes('high demand') ||
+        msg.includes('overloaded') ||
+        msg.includes('resource exhausted') ||
+        msg.includes('quota exceeded') ||
+        msg.includes('rate limit') ||
+        msg.includes('try again later') ||
+        msg.includes('temporarily unavailable')
+    );
+};
+
+const isGeminiQuotaExceeded = (error) => {
+    const msg = String(error?.message || '').toLowerCase();
+    return msg.includes('429') || msg.includes('quota exceeded') || msg.includes('rate limit');
+};
+
+const parseGeminiJsonArray = (rawText) => {
+    let responseText = rawText.trim().replace(/^```(json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    const startIndex = responseText.indexOf('[');
+    const endIndex = responseText.lastIndexOf(']');
+    if (startIndex !== -1 && endIndex !== -1) {
+        responseText = responseText.substring(startIndex, endIndex + 1);
+    }
+    return JSON.parse(responseText);
+};
+
+async function generateGeminiWithRetry(apiKey, contents) {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    let lastError;
+
+    for (let modelIndex = 0; modelIndex < GEMINI_INVOICE_MODELS.length; modelIndex++) {
+        const modelName = GEMINI_INVOICE_MODELS[modelIndex];
+        const model = genAI.getGenerativeModel({ model: modelName });
+
+        for (let attempt = 1; attempt <= GEMINI_MAX_ATTEMPTS_PER_MODEL; attempt++) {
+            try {
+                console.log(`[GEMINI] Modelo ${modelName} — tentativa ${attempt}/${GEMINI_MAX_ATTEMPTS_PER_MODEL}`);
+                return await model.generateContent(contents);
+            } catch (error) {
+                lastError = error;
+                console.error(`[GEMINI AI ERRO] ${modelName} tentativa ${attempt}:`, error.message);
+
+                if (!isGeminiRetryableError(error)) {
+                    throw error;
+                }
+
+                const isLastAttemptOnModel = attempt === GEMINI_MAX_ATTEMPTS_PER_MODEL;
+                const isLastModel = modelIndex === GEMINI_INVOICE_MODELS.length - 1;
+
+                if (isLastAttemptOnModel && isLastModel) {
+                    break;
+                }
+
+                const delayMs = GEMINI_RETRY_BASE_MS * Math.pow(2, attempt - 1);
+                console.log(`[GEMINI] Nova tentativa em ${delayMs}ms...`);
+                await sleep(delayMs);
+            }
+        }
+    }
+
+    throw lastError || new Error('Falha ao contactar a IA após várias tentativas automáticas.');
+};
+
 // --- ROTA DE IMPORTAÇÃO INTELIGENTE MÁXIMA ---
 app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload, async (req, res) => {
     if (!req.file) {
@@ -2232,8 +2309,7 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             return res.status(500).json({ message: "A chave da IA não está configurada no servidor." });
         }
 
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const geminiApiKey = process.env.GEMINI_API_KEY;
 
         if (fileExt === 'text/xml' || fileExt === 'application/xml') {
             const parser = new xml2js.Parser({ explicitArray: false });
@@ -2284,42 +2360,29 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
                 "name", "product_type", "volume", "brand", "category", "description", "notes", "how_to_use", "ideal_for", "care_instructions", "variations"
             `;
 
-            try {
-                const aiResult = await model.generateContent(xmlPrompt);
-                let responseText = aiResult.response.text().trim().replace(/^```(json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-                const startIndex = responseText.indexOf('[');
-                const endIndex = responseText.lastIndexOf(']');
-                if (startIndex !== -1 && endIndex !== -1) responseText = responseText.substring(startIndex, endIndex + 1);
+            const aiResult = await generateGeminiWithRetry(geminiApiKey, xmlPrompt);
+            const aiProducts = parseGeminiJsonArray(aiResult.response.text());
 
-                const aiProducts = JSON.parse(responseText);
+            extractedProducts = items.map((item, index) => {
+                const aiProd = aiProducts[index] || {};
+                const finalBrand = aiProd.brand && !aiProd.brand.toLowerCase().includes('desconhecid') ? aiProd.brand : (aiProd.product_type === 'clothing' ? 'Moda Exclusiva' : 'Genérica');
 
-                extractedProducts = items.map((item, index) => {
-                    const aiProd = aiProducts[index] || {};
-                    const finalBrand = aiProd.brand && !aiProd.brand.toLowerCase().includes('desconhecid') ? aiProd.brand : (aiProd.product_type === 'clothing' ? 'Moda Exclusiva' : 'Genérica');
-
-                    return {
-                        name: aiProd.name || item.prod.xProd,
-                        product_type: aiProd.product_type || 'perfume',
-                        volume: aiProd.volume || '',
-                        invoice_cost: parseFloat(item.prod.vUnCom),
-                        stock: parseInt(Math.floor(parseFloat(item.prod.qCom)), 10),
-                        brand: finalBrand,
-                        category: aiProd.category || (aiProd.product_type === 'clothing' ? 'Roupas' : 'Diversos'),
-                        description: aiProd.description || '',
-                        notes: aiProd.notes || '',
-                        how_to_use: aiProd.how_to_use || '',
-                        care_instructions: aiProd.care_instructions || '',
-                        ideal_for: aiProd.ideal_for || '',
-                        variations: aiProd.variations || []
-                    };
-                });
-            } catch (aiError) {
-                console.error("[GEMINI AI ERRO]:", aiError);
-                if (aiError.message && (aiError.message.includes('429') || aiError.message.includes('Quota exceeded'))) {
-                    return res.status(429).json({ message: "O Google está pedindo uma pausa. Aguarde cerca de 1 minuto antes de enviar a próxima nota fiscal." });
-                }
-                throw aiError;
-            }
+                return {
+                    name: aiProd.name || item.prod.xProd,
+                    product_type: aiProd.product_type || 'perfume',
+                    volume: aiProd.volume || '',
+                    invoice_cost: parseFloat(item.prod.vUnCom),
+                    stock: parseInt(Math.floor(parseFloat(item.prod.qCom)), 10),
+                    brand: finalBrand,
+                    category: aiProd.category || (aiProd.product_type === 'clothing' ? 'Roupas' : 'Diversos'),
+                    description: aiProd.description || '',
+                    notes: aiProd.notes || '',
+                    how_to_use: aiProd.how_to_use || '',
+                    care_instructions: aiProd.care_instructions || '',
+                    ideal_for: aiProd.ideal_for || '',
+                    variations: aiProd.variations || []
+                };
+            });
         } 
         else {
             const prompt = `
@@ -2360,22 +2423,8 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
             `;
 
             const imageParts = [{ inlineData: { data: req.file.buffer.toString("base64"), mimeType: req.file.mimetype } }];
-
-            try {
-                const aiResult = await model.generateContent([prompt, ...imageParts]);
-                let responseText = aiResult.response.text().trim().replace(/^```(json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-                const startIndex = responseText.indexOf('[');
-                const endIndex = responseText.lastIndexOf(']');
-                if (startIndex !== -1 && endIndex !== -1) responseText = responseText.substring(startIndex, endIndex + 1);
-
-                extractedProducts = JSON.parse(responseText);
-            } catch (aiError) {
-                console.error("[GEMINI AI ERRO]:", aiError);
-                if (aiError.message && (aiError.message.includes('429') || aiError.message.includes('Quota exceeded'))) {
-                    return res.status(429).json({ message: "O Google está pedindo uma pausa. Atingiu o limite de consultas por minuto. Aguarde cerca de 1 minuto antes de enviar a próxima nota." });
-                }
-                throw aiError;
-            }
+            const aiResult = await generateGeminiWithRetry(geminiApiKey, [prompt, ...imageParts]);
+            extractedProducts = parseGeminiJsonArray(aiResult.response.text());
         }
 
         if (!Array.isArray(extractedProducts)) {
@@ -2473,6 +2522,19 @@ app.post('/api/products/import-invoice', verifyToken, verifyAdmin, invoiceUpload
 
     } catch (error) {
         console.error("Erro na importação:", error);
+
+        if (isGeminiQuotaExceeded(error)) {
+            return res.status(429).json({
+                message: "Limite temporário da API do Google atingido. O sistema já tentou automaticamente. Aguarde cerca de 1 minuto e envie a nota novamente (uma vez só)."
+            });
+        }
+
+        if (isGeminiRetryableError(error)) {
+            return res.status(503).json({
+                message: "A IA do Google está sobrecarregada no momento. O servidor já fez várias tentativas automáticas. Aguarde 2–3 minutos e envie a nota uma única vez."
+            });
+        }
+
         res.status(500).json({ message: `Erro no servidor: ${error.message}` });
     }
 });
