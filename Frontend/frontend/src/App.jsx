@@ -13286,7 +13286,7 @@ const AdminProducts = ({ onNavigate }) => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
             <h1 className="text-3xl font-bold">Gerenciar Produtos</h1>
             <div className="flex flex-wrap gap-2">
-                <button onClick={() => { setSelectedFile(null); setImportMessage(''); setIsImportModalOpen(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center space-x-2 shadow-sm transition-colors">
+                <button onClick={() => { setSelectedFiles([]); setImportMessage(''); setIsImportModalOpen(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center space-x-2 shadow-sm transition-colors">
                     <SparklesIcon className="h-5 w-5"/> <span>Importar com IA</span>
                 </button>
                 <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2 shadow-sm transition-colors">
