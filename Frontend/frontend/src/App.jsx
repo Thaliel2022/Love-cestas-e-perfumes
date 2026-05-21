@@ -12548,7 +12548,7 @@ const AdminProducts = ({ onNavigate }) => {
       setImportMessage('');
   };
 
-  const handleImportSubmit = async (e, fileToRetry = null) => {
+ const handleImportSubmit = async (e, fileToRetry = null) => {
       if (e) e.preventDefault();
       
       const file = fileToRetry || selectedFile;
@@ -12562,11 +12562,21 @@ const AdminProducts = ({ onNavigate }) => {
       if (!fileToRetry) {
           setIsImportModalOpen(false);
           setAiLoading({ isOpen: true, step: 0 });
+          setAiProgressPercent(0); // Reseta a porcentagem visual para 0% reais
       }
       
       setRetryCountdown(0);
 
-      // Cria um intervalo para mudar o texto da IA a cada 3,5 segundos
+      // Intervalo para progresso progressivo (nunca passa de 95% sozinho, espera a API)
+      const progressInterval = setInterval(() => {
+          setAiProgressPercent(prev => {
+              if (prev >= 95) return 95;
+              const increment = prev < 50 ? 6 : prev < 80 ? 3 : 1;
+              return prev + increment;
+          });
+      }, 500);
+
+      // Intervalo para mudar as frases da IA
       const stepInterval = setInterval(() => {
           setAiLoading(prev => {
               if (prev.step >= aiSteps.length - 1) return prev;
@@ -12576,13 +12586,24 @@ const AdminProducts = ({ onNavigate }) => {
 
       try {
           const response = await apiUploadService('/products/import-invoice', file);
-          notification.show(response.message, 'success');
-          setSelectedFile(null);
-          fetchProducts(); 
+          
+          // Quando finaliza com sucesso, para os intervalos e pula para 100%
+          clearInterval(progressInterval);
           clearInterval(stepInterval);
-          setAiLoading({ isOpen: false, step: 0 });
+          setAiProgressPercent(100);
+          
+          // Aguarda um pouquinho no 100% para o usuário ver a barra cheia antes de fechar
+          setTimeout(() => {
+              notification.show(response.message, 'success');
+              setSelectedFile(null);
+              fetchProducts(); 
+              setAiLoading({ isOpen: false, step: 0 });
+              setAiProgressPercent(0); 
+          }, 1500);
+
       } catch (error) {
           clearInterval(stepInterval);
+          clearInterval(progressInterval);
           
           // Trata especificamente a Pausa imposta pelo Google (429)
           if (error.status === 429 && error.code === "QUOTA_EXCEEDED") {
@@ -12595,15 +12616,15 @@ const AdminProducts = ({ onNavigate }) => {
                   
                   if (secondsLeft <= 0) {
                       clearInterval(timer);
-                      handleImportSubmit(null, file); // Chama recursivamente e refaz o upload sem interação do usuário
+                      handleImportSubmit(null, file); // Refaz sem interação do usuário
                   }
               }, 1000);
-              return; // Encerra o catch aqui para não fechar a tela de carregamento
+              return; 
           }
           
-          // Tratamento para qualquer outro tipo de erro
           notification.show(error.message || 'Erro ao importar o arquivo. Tente novamente.', 'error');
           setAiLoading({ isOpen: false, step: 0 });
+          setAiProgressPercent(0);
       }
   };
 
@@ -12782,7 +12803,7 @@ const AdminProducts = ({ onNavigate }) => {
 
   return (
     <div>
-        {/* TELA CHEIA: CARREGAMENTO FUTURISTA DA IA COM COUNTDOWN */}
+       {/* TELA CHEIA: CARREGAMENTO FUTURISTA DA IA COM COUNTDOWN E PROGRESSO */}
         <AnimatePresence>
             {aiLoading.isOpen && (
                 <motion.div
@@ -12831,22 +12852,23 @@ const AdminProducts = ({ onNavigate }) => {
                                 </motion.p>
                             </div>
 
-                            {/* Barra de progresso animada */}
-                            <div className="w-80 h-2 bg-gray-800 rounded-full mt-10 overflow-hidden relative">
-                                <motion.div 
-                                    className="absolute top-0 left-0 h-full bg-gradient-to-r from-indigo-500 via-[#D4AF37] to-indigo-500"
-                                    animate={{ 
-                                        width: ['0%', '100%'],
-                                        x: ['-100%', '0%']
-                                    }}
-                                    transition={{ 
-                                        repeat: Infinity, 
-                                        duration: 1.5, 
-                                        ease: "linear" 
-                                    }}
-                                />
+                            {/* BARRA DE PROGRESSO PROGRESSIVA SEM LOOP */}
+                            <div className="w-80 mt-10">
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="text-xs font-bold text-gray-400">Progresso da Importação</span>
+                                    <span className="text-xs font-bold text-amber-400">{Math.round(aiProgressPercent)}%</span>
+                                </div>
+                                <div className="h-4 w-full bg-gray-800 rounded-full overflow-hidden relative shadow-inner">
+                                    <div 
+                                        className="h-full bg-gradient-to-r from-indigo-600 via-purple-500 to-[#D4AF37] transition-all duration-300 ease-out"
+                                        style={{ width: `${Math.min(aiProgressPercent, 100)}%` }}
+                                    />
+                                </div>
                             </div>
-                            <p className="text-gray-500 text-sm mt-6">Este processo pode levar até 20 segundos. Por favor, aguarde.</p>
+
+                            <p className="text-gray-400 text-sm mt-6 font-medium">
+                                {aiProgressPercent === 100 ? "Importação finalizada com sucesso!" : "Este processo pode levar alguns segundos. Por favor, aguarde."}
+                            </p>
                         </>
                     )}
                 </motion.div>
