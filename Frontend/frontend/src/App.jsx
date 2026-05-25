@@ -18302,7 +18302,12 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                     
                     {/* Lado Direito no Desktop / Cima no Mobile: Resumo Fixo Premium */}
                     <div className="lg:col-span-5 lg:sticky lg:top-24 order-1 lg:order-2">
-                        <div className="bg-gray-900/80 backdrop-blur-xl rounded-3xl border border-gray-800 p-6 sm:p-8 shadow-2xl">
+                        <div className="relative rounded-3xl border border-gray-800 shadow-2xl overflow-hidden">
+                            <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+                                <div className="absolute inset-0 bg-gray-900/90" />
+                                <div className="absolute inset-0 backdrop-blur-xl" />
+                            </div>
+                            <div className="relative p-6 sm:p-8 isolate">
                             <h2 className="text-xl font-bold mb-6 text-white flex items-center gap-3">
                                 <PackageIcon className="h-6 w-6 text-amber-500" />
                                 Resumo da Compra
@@ -18312,7 +18317,7 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                                 {(order.items || []).map(item => (
                                     <div key={item.id} className="flex items-center gap-4 bg-black/40 p-3 rounded-xl border border-gray-800/50">
                                         <div className="w-14 h-14 bg-white rounded-lg p-1 flex-shrink-0">
-                                            <img src={getFirstImage(item.images)} alt={item.name} className="w-full h-full object-contain" />
+                                            <img src={getFirstImage(item.images)} alt={item.name} className="w-full h-full object-contain [image-rendering:-webkit-optimize-contrast]" decoding="sync" />
                                         </div>
                                         <div className="flex-grow min-w-0">
                                             <p className="font-bold text-sm text-white truncate">{item.quantity}x {item.name}</p>
@@ -18355,6 +18360,7 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                                 <p className="text-xs text-blue-200 leading-relaxed">
                                     Transação criptografada ponta a ponta. Seus dados financeiros não são armazenados em nossos servidores.
                                 </p>
+                            </div>
                             </div>
                         </div>
                     </div>
