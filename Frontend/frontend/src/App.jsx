@@ -18233,8 +18233,19 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
         if (order?.shipping_address && order.shipping_method !== 'Retirar na loja') {
             try {
                 const addr = JSON.parse(order.shipping_address);
-                const payerAddress = buildMercadoPagoPayerAddress(addr);
-                if (payerAddress) payer.address = payerAddress;
+                if (addr && addr.cep && addr.logradouro) {
+                    const rawNumero = String(addr.numero || '');
+                    const safeNumero = rawNumero.replace(/\D/g, '') || '1';
+                    
+                    payer.address = {
+                        zipCode: addr.cep.replace(/\D/g, ''),
+                        streetName: addr.logradouro || 'Rua',
+                        streetNumber: safeNumero,
+                        neighborhood: addr.bairro || 'Bairro',
+                        city: addr.localidade || 'Cidade',
+                        federalUnit: addr.uf || 'PB'
+                    };
+                }
             } catch (e) {}
         }
 
