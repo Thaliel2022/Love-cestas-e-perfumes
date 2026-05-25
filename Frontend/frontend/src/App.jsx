@@ -7421,7 +7421,7 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
                         <div className="bg-black/40 rounded-2xl p-4 sm:p-6 mb-6 border border-gray-800/50">
                             {paymentDetails?.qr_code_base64 && (
                                 <div className="bg-white p-3 rounded-xl w-fit mx-auto mb-5 shadow-lg">
-                                    <img src={`data:image/jpeg;base64,${paymentDetails.qr_code_base64}`} alt="QR Code Pix" className="w-40 h-40 sm:w-48 sm:h-48 object-contain" />
+                                    <img src={`data:image/jpeg;base64,${paymentDetails.qr_code_base64}`} alt="QR Code Pix" className="w-40 h-40 sm:w-48 sm:h-48 object-contain [image-rendering:-webkit-optimize-contrast] [image-rendering:crisp-edges]" decoding="sync" />
                                 </div>
                             )}
                             
@@ -7448,7 +7448,7 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
                     ),
                     actions: (
                         <div className="flex flex-col gap-3 w-full">
-                            <button onClick={handleManualCheck} disabled={isCheckingManual} className="bg-gray-800/80 backdrop-blur text-white border border-gray-600 px-6 py-3.5 rounded-xl font-bold hover:bg-gray-700 w-full transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95">
+                            <button onClick={handleManualCheck} disabled={isCheckingManual} className="bg-gray-800 text-white border border-gray-600 px-6 py-3.5 rounded-xl font-bold hover:bg-gray-700 w-full transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95">
                                 {isCheckingManual ? <SpinnerIcon className="h-5 w-5"/> : <ArrowUturnLeftIcon className="h-5 w-5" />} 
                                 {isCheckingManual ? 'Verificando...' : 'Já Paguei (Atualizar Tela)'}
                             </button>
@@ -7581,8 +7581,13 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
                 <div className="absolute bottom-0 md:bottom-1/4 right-0 md:right-1/4 w-72 h-72 md:w-96 md:h-96 bg-indigo-600/20 rounded-full blur-3xl"></div>
             </div>
 
-            {/* Cartão de Confirmação Premium */}
-            <div className={`relative z-10 text-center p-6 sm:p-10 bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-2xl border ${borderColor} max-w-lg w-full transition-all duration-500 my-auto`}>
+            {/* Cartão de Confirmação Premium — blur só no fundo (evita QR/texto embaçados no Safari/WebKit) */}
+            <div className={`relative z-10 max-w-lg w-full transition-all duration-500 my-auto`}>
+                <div className={`absolute inset-0 rounded-3xl border ${borderColor} shadow-2xl overflow-hidden pointer-events-none`} aria-hidden="true">
+                    <div className="absolute inset-0 bg-gray-900/90" />
+                    <div className="absolute inset-0 backdrop-blur-xl" />
+                </div>
+                <div className="relative text-center p-6 sm:p-10 isolate">
                 
                 {icon}
                 
@@ -7607,6 +7612,7 @@ const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
                             <HomeIcon className="h-4 w-4" /> Voltar à Página Inicial
                         </button>
                     )}
+                </div>
                 </div>
             </div>
 
