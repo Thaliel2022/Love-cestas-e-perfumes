@@ -376,19 +376,11 @@ const AuthProvider = ({ children }) => {
     }, []);
 
     const fetchUserProfile = useCallback(async () => {
-        const token = localStorage.getItem('accessToken');
-        if (!token) {
-            setUser(null);
-            setIsLoading(false);
-            return;
-        }
         try {
             const userData = await apiService('/users/me', 'GET', null, { suppressAuthError: true });
             setUser(userData);
         } catch (error) {
             setUser(null);
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
         } finally {
             setIsLoading(false);
         }
