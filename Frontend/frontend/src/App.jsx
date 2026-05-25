@@ -18416,7 +18416,6 @@ const OrderPaymentPage = ({ orderId, onNavigate }) => {
                                     initialization={mpInitialization}
                                     customization={mpCustomization}
                                     onSubmit={handlePaymentSubmit}
-                                    onError={(err) => handleMercadoPagoBrickError(err, notification)}
                                 />
                             ) : (
                                 <div className="flex flex-col items-center justify-center py-6 px-4 gap-3 bg-gray-800 rounded-xl border border-gray-700">
