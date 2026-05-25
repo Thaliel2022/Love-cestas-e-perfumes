@@ -227,9 +227,7 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
         return data;
 
     } catch (error) {
-        if (error.name === 'AbortError') {
-            console.log(`API fetch aborted: ${endpoint}`);
-        } else {
+        if (error.name !== 'AbortError') {
             console.error(`Erro na API (${endpoint}):`, error);
         }
         if (error instanceof TypeError) {
@@ -376,11 +374,19 @@ const AuthProvider = ({ children }) => {
     }, []);
 
     const fetchUserProfile = useCallback(async () => {
+        const token = localStorage.getItem('accessToken');
+        if (!token) {
+            setUser(null);
+            setIsLoading(false);
+            return;
+        }
         try {
             const userData = await apiService('/users/me', 'GET', null, { suppressAuthError: true });
             setUser(userData);
         } catch (error) {
             setUser(null);
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
         } finally {
             setIsLoading(false);
         }
