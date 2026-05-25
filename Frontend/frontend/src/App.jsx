@@ -47,34 +47,6 @@ const SpinnerIcon = ({ className }) => {
     );
 };
 initMercadoPago(process.env.REACT_APP_MP_PUBLIC_KEY || 'APP_USR-fe8bcd59-da54-4fb5-a3d0-8b8f749097be', { locale: 'pt-BR' });
-
-const buildMercadoPagoPayerAddress = (addr) => {
-    if (!addr?.cep) return null;
-    const rawNumero = String(addr.numero || '');
-    const safeNumero = rawNumero.replace(/\D/g, '') || '1';
-    return {
-        zipCode: String(addr.cep).replace(/\D/g, ''),
-        streetName: addr.logradouro || 'Rua',
-        streetNumber: safeNumero,
-        neighborhood: addr.bairro || 'Centro',
-        city: addr.localidade || 'Cidade',
-        federalUnit: String(addr.uf || 'PB').toUpperCase(),
-    };
-};
-
-const isMercadoPagoNonCriticalAddressError = (error) =>
-    error?.type === 'non_critical' &&
-    (error?.cause === 'get_address_data_failed' ||
-        String(error?.message || '').toLowerCase().includes('address data'));
-
-const handleMercadoPagoBrickError = (error, notification) => {
-    if (isMercadoPagoNonCriticalAddressError(error)) return;
-    console.warn('[Mercado Pago]', error);
-    notification?.show?.(
-        'Problema ao carregar o formulário de pagamento. Tente outro método ou recarregue a página.',
-        'error'
-    );
-};
 const ClockIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const PackageIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>;
 const CheckBadgeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>;
@@ -255,7 +227,9 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
         return data;
 
     } catch (error) {
-        if (error.name !== 'AbortError') {
+        if (error.name === 'AbortError') {
+            console.log(`API fetch aborted: ${endpoint}`);
+        } else {
             console.error(`Erro na API (${endpoint}):`, error);
         }
         if (error instanceof TypeError) {
@@ -6814,29 +6788,27 @@ const CheckoutPage = ({ onNavigate }) => {
             };
         }
         
-        const billingAddress =
-            displayAddress ||
-            addresses?.find((a) => a.is_default) ||
-            addresses?.[0] ||
-            (shippingLocation?.cep
-                ? {
-                      cep: shippingLocation.cep,
-                      localidade: shippingLocation.city,
-                      uf: shippingLocation.state,
-                      logradouro: displayAddress?.logradouro || 'Rua',
-                      numero: displayAddress?.numero || '1',
-                      bairro: displayAddress?.bairro || 'Centro',
-                  }
-                : null);
-
-        const payerAddress = buildMercadoPagoPayerAddress(billingAddress);
-        if (payerAddress) payer.address = payerAddress;
+        const billingAddress = displayAddress || addresses?.find(a => a.is_default) || addresses?.[0];
+        
+        if (billingAddress && billingAddress.cep && billingAddress.logradouro) {
+            const rawNumero = String(billingAddress.numero || '');
+            const safeNumero = rawNumero.replace(/\D/g, '') || '1';
+            
+            payer.address = {
+                zipCode: billingAddress.cep.replace(/\D/g, ''),
+                streetName: billingAddress.logradouro || 'Rua',
+                streetNumber: safeNumero,
+                neighborhood: billingAddress.bairro || 'Bairro',
+                city: billingAddress.localidade || 'Cidade',
+                federalUnit: billingAddress.uf || 'PB'
+            };
+        }
 
         return {
             amount: Number(total.toFixed(2)),
             payer: payer
         };
-    }, [total, user, displayAddress, addresses, shippingLocation]);
+    }, [total, user, displayAddress, addresses]);
 
     const mpCustomization = useMemo(() => {
         return {
@@ -6902,7 +6874,7 @@ const CheckoutPage = ({ onNavigate }) => {
             }
         }, 500); 
         return () => clearTimeout(timer);
-    }, [total, canPlaceOrder, autoCalculatedShipping, cart.length, displayAddress?.cep]);
+    }, [total, canPlaceOrder, autoCalculatedShipping, cart.length]);
 
     const handlePaymentSubmit = async (mpResponse) => {
         // Envolve tudo em uma Promise para o SDK do Mercado Pago entender quando terminou ou falhou
@@ -7272,7 +7244,6 @@ const CheckoutPage = ({ onNavigate }) => {
                                                 initialization={mpInitialization}
                                                 customization={mpCustomization}
                                                 onSubmit={handlePaymentSubmit}
-                                                onError={(err) => handleMercadoPagoBrickError(err, notification)}
                                             />
                                         ) : (
                                             <div className="flex flex-col items-center justify-center py-6 px-4 gap-3 bg-gray-800 rounded-xl border border-gray-700">
