@@ -10,25 +10,27 @@ export const AuthProvider = ({ children }) => {
     const [isLoading, setIsLoading] = useState(true);
 
     const logout = useCallback(async () => {
+        const logoutRequest = apiService('/logout', 'POST', null, { suppressAuthError: true });
+
+        setUser(null);
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('lovecestas_cached_location');
+        
+        // CORREÇÃO: Limpa o carrinho local ao sair da conta
+        localStorage.removeItem('lovecestas_cart');
+        
+        // CORREÇÃO: Dispara um evento global para o ShopProvider resetar todos os estados
+        window.dispatchEvent(new Event('user-logged-out'));
+        
+        if (window.location.hash !== '#home' && window.location.hash !== '') {
+             window.location.hash = '#login';
+        }
+
         try {
-            await apiService('/logout', 'POST');
+            await logoutRequest;
         } catch (error) {
             console.error("Erro na API de logout.", error);
-        } finally {
-            setUser(null);
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-            localStorage.removeItem('lovecestas_cached_location');
-            
-            // CORREÇÃO: Limpa o carrinho local ao sair da conta
-            localStorage.removeItem('lovecestas_cart');
-            
-            // CORREÇÃO: Dispara um evento global para o ShopProvider resetar todos os estados
-            window.dispatchEvent(new Event('user-logged-out'));
-            
-            if (window.location.hash !== '#home' && window.location.hash !== '') {
-                 window.location.hash = '#login';
-            }
         }
     }, []);
 
