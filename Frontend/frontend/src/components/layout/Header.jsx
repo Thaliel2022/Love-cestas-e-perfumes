@@ -8,7 +8,7 @@ import { getFirstImage } from '../../utils/cloudinary';
 import { maskCEP } from '../../utils/validation';
 import {
     BarsGripIcon, CartIcon, ChevronDownIcon, ClockIcon, CloseIcon, HeartIcon,
-    HomeIcon, MapPinIcon, MenuIcon, PackageIcon, SaleIcon, SearchIcon, SpinnerIcon,
+    HomeIcon, MapPinIcon, PackageIcon, SaleIcon, SearchIcon, SpinnerIcon,
     UserIcon, XMarkIcon
 } from '../icons';
 
@@ -548,14 +548,6 @@ export const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", ap
 
              <div className="block md:hidden px-4 pt-3 relative">
                 <div className="flex justify-center items-center mb-3">
-                    <button
-                        type="button"
-                        onClick={() => setIsMobileMenuOpen(true)}
-                        className="absolute left-4 top-3 p-2 text-gray-300 hover:text-amber-400 transition-colors"
-                        aria-label="Abrir menu"
-                    >
-                        <MenuIcon className="h-6 w-6" />
-                    </button>
                     <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="flex items-center gap-2 text-xl font-bold tracking-wide text-amber-400">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 text-amber-500">
                             <path d="M9.375 3a1.875 1.875 0 000 3.75h1.875v4.5H3.375A1.875 1.875 0 011.5 9.375v-.75c0-1.036.84-1.875 1.875-1.875h3.193A3.375 3.375 0 0112 2.753a3.375 3.375 0 015.432 3.997h3.943c1.035 0 1.875.84 1.875 1.875v.75c0 1.036-.84 1.875-1.875 1.875H12.75v-4.5h1.875a1.875 1.875 0 10-1.875-1.875V6.75h-1.5V4.875C11.25 3.839 10.41 3 9.375 3zM11.25 12.75H3v6.75a2.25 2.25 0 002.25 2.25h6v-9zM12.75 12.75v9h6a2.25 2.25 0 002.25-2.25v-6.75h-8.25z" />
