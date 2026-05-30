@@ -25,7 +25,7 @@ export const ShopProvider = ({ children }) => {
 
     const [isMinicartOpen, setIsMinicartOpen] = useState(false);
 
-    const [localShippingConfig, setLocalShippingConfig] = useState({ base_price: 20, rules: [] });
+    const [localShippingConfig, setLocalShippingConfig] = useState({ base_price: 20, rules: [], free_shipping_minimum: 299 });
     const [pickupConfig, setPickupConfig] = useState(null);
 
     const [orderNotificationCount, setOrderNotificationCount] = useState(0);
@@ -115,10 +115,46 @@ export const ShopProvider = ({ children }) => {
             fetchShippingConfig();
             fetchPickupConfig();
         }, 30000); 
-        return () => clearInterval(intervalId);
+        const handleShippingConfigUpdate = (event) => {
+            if (event.detail) {
+                setLocalShippingConfig(event.detail);
+            }
+        };
+        window.addEventListener('shipping-config-updated', handleShippingConfigUpdate);
+        return () => {
+            clearInterval(intervalId);
+            window.removeEventListener('shipping-config-updated', handleShippingConfigUpdate);
+        };
     }, [fetchShippingConfig, fetchPickupConfig]);
 
+    const calculateItemsSubtotal = useCallback((items) => {
+        return (items || []).reduce((sum, item) => {
+            const price = Number(item.is_on_sale && item.sale_price ? item.sale_price : item.price) || 0;
+            const quantity = Number(item.qty || item.quantity || 1) || 1;
+            return sum + (price * quantity);
+        }, 0);
+    }, []);
+
+    const getFreeShippingMinimum = useCallback(() => {
+        const minimum = Number(localShippingConfig.free_shipping_minimum);
+        return Number.isFinite(minimum) && minimum > 0 ? minimum : 299;
+    }, [localShippingConfig.free_shipping_minimum]);
+
+    const shouldApplyFreeShipping = useCallback((items) => {
+        return calculateItemsSubtotal(items) >= getFreeShippingMinimum();
+    }, [calculateItemsSubtotal, getFreeShippingMinimum]);
+
+    const applyFreeShippingThreshold = useCallback((options, items) => {
+        if (!shouldApplyFreeShipping(items)) return options;
+        return options.map(option => (
+            option.isPickup
+                ? option
+                : { ...option, original_price: option.original_price ?? option.price, price: 0, freeShippingApplied: true }
+        ));
+    }, [shouldApplyFreeShipping]);
+
     const calculateLocalDeliveryPrice = useCallback((items) => {
+        if (shouldApplyFreeShipping(items)) return 0;
         const defaultBasePrice = parseFloat(localShippingConfig.base_price) || 20;
         if (!items || items.length === 0) return defaultBasePrice;
         let highestBasePriceFound = 0;
@@ -150,7 +186,7 @@ export const ShopProvider = ({ children }) => {
         }
         let finalPrice = highestBasePriceFound + totalSurcharges - totalDiscounts;
         return Math.max(0, finalPrice); 
-    }, [localShippingConfig]);
+    }, [localShippingConfig, shouldApplyFreeShipping]);
 
     const fetchPersistentCart = useCallback(async () => {
         if (!isAuthenticated) return;
@@ -361,6 +397,7 @@ export const ShopProvider = ({ children }) => {
                             finalOptions.push(pickupOption);
                         }
 
+                        finalOptions = applyFreeShippingThreshold(finalOptions, itemsToCalculate);
                         setShippingOptions(finalOptions);
                         const desiredOption = finalOptions.find(opt => opt.name === selectedShippingName);
                         setAutoCalculatedShipping(desiredOption || finalOptions[0] || null);
@@ -378,7 +415,7 @@ export const ShopProvider = ({ children }) => {
             }
         }, 500);
         return () => clearTimeout(debounceTimer);
-    }, [cart, shippingLocation, previewShippingItem, selectedShippingName, calculateLocalDeliveryPrice, calculateDeliveryDate]);
+    }, [cart, shippingLocation, previewShippingItem, selectedShippingName, calculateLocalDeliveryPrice, calculateDeliveryDate, applyFreeShippingThreshold]);
 
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
         setPreviewShippingItem(null);
@@ -496,7 +533,7 @@ export const ShopProvider = ({ children }) => {
             autoCalculatedShipping, setAutoCalculatedShipping, shippingOptions, isLoadingShipping, shippingError, 
             updateDefaultShippingLocation, determineShippingLocation, setPreviewShippingItem, setSelectedShippingName, isGeolocating, 
             couponCode, setCouponCode, couponMessage, applyCoupon, appliedCoupon, removeCoupon, discount,
-            calculateLocalDeliveryPrice, calculateDeliveryDate,
+            calculateLocalDeliveryPrice, calculateDeliveryDate, localShippingConfig,
             orderNotificationCount, markOrderAsSeen, checkNotifications,
             pickupConfig,
             isMinicartOpen, setIsMinicartOpen

@@ -12,7 +12,7 @@ import {
 export const AdminShippingSettings = () => {
     const [activeTab, setActiveTab] = useState('pickup'); 
     
-    const [config, setConfig] = useState({ base_price: 20, rules: [] });
+    const [config, setConfig] = useState({ base_price: 20, rules: [], free_shipping_minimum: 299 });
     const [productsData, setProductsData] = useState({ brands: [], categories: [] });
     const [newRule, setNewRule] = useState({ type: 'category', value: '', action: 'free_shipping', amount: 0 });
 
@@ -44,6 +44,7 @@ export const AdminShippingSettings = () => {
 
                 setConfig({
                     base_price: parseFloat(configData.base_price) || 20,
+                    free_shipping_minimum: parseFloat(configData.free_shipping_minimum) || 299,
                     rules: Array.isArray(configData.rules) ? configData.rules : []
                 });
 
@@ -107,11 +108,19 @@ export const AdminShippingSettings = () => {
             if (activeTab === 'motoboy') {
                 const payload = {
                     base_price: parseFloat(config.base_price),
+                    free_shipping_minimum: parseFloat(config.free_shipping_minimum) || 0,
                     rules: config.rules.map(r => ({ ...r, amount: parseFloat(r.amount) || 0 })),
                     password: authInput, 
                     token: authInput.length === 6 && !isNaN(authInput) ? authInput : null 
                 };
                 await apiService('/settings/shipping-local', 'PUT', payload);
+                window.dispatchEvent(new CustomEvent('shipping-config-updated', {
+                    detail: {
+                        base_price: payload.base_price,
+                        free_shipping_minimum: payload.free_shipping_minimum,
+                        rules: payload.rules
+                    }
+                }));
                 notification.show("Configurações de frete salvas com sucesso!");
             } else {
                 const payload = {
@@ -285,7 +294,7 @@ export const AdminShippingSettings = () => {
                             <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                                 <TruckIcon className="h-5 w-5 text-indigo-600"/> Preço Base
                             </h3>
-                            <div className="flex items-center gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="flex-1 max-w-xs">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Valor Padrão (R$)</label>
                                     <input 
@@ -295,9 +304,19 @@ export const AdminShippingSettings = () => {
                                         onChange={(e) => setConfig({...config, base_price: e.target.value})}
                                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                                     />
+                                    <p className="text-xs text-gray-500 mt-2">Este valor será cobrado se nenhuma regra específica for aplicada.</p>
                                 </div>
-                                <div className="flex-1 text-sm text-gray-500 pt-6">
-                                    Este valor será cobrado se nenhuma regra específica for aplicada.
+                                <div className="flex-1 max-w-xs">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Frete Grátis a partir de (R$)</label>
+                                    <input 
+                                        type="number" 
+                                        min="0"
+                                        step="0.01" 
+                                        value={config.free_shipping_minimum} 
+                                        onChange={(e) => setConfig({...config, free_shipping_minimum: e.target.value})}
+                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-2">Pedidos com subtotal igual ou acima deste valor terão frete grátis automático.</p>
                                 </div>
                             </div>
                         </div>

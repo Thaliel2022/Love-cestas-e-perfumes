@@ -3511,6 +3511,20 @@ app.post('/api/orders', verifyToken, validate(orderSchema), async (req, res) => 
             });
         }
 
+        let shipping = parseFloat(shipping_cost || 0);
+        if (shipping_method !== 'Retirar na loja') {
+            try {
+                const [shippingConfigRows] = await connection.query("SELECT setting_value FROM site_settings WHERE setting_key = 'local_shipping_config'");
+                const shippingConfig = shippingConfigRows.length > 0 ? JSON.parse(shippingConfigRows[0].setting_value) : {};
+                const freeShippingMinimum = parseFloat(shippingConfig.free_shipping_minimum) || 299;
+                if (freeShippingMinimum > 0 && calculatedSubtotal >= freeShippingMinimum) {
+                    shipping = 0;
+                }
+            } catch (shippingConfigError) {
+                console.error("Aviso: Falha ao validar frete grátis automático.", shippingConfigError.message);
+            }
+        }
+
         // 2. Calcular Desconto do Cupom (Servidor - Validação Rigorosa)
         let serverDiscountAmount = 0;
         let couponIdToLog = null;
@@ -3543,7 +3557,7 @@ app.post('/api/orders', verifyToken, validate(orderSchema), async (req, res) => 
                     couponIdToLog = coupon.id;
                     
                     if (coupon.type === 'free_shipping') {
-                        serverDiscountAmount = parseFloat(shipping_cost || 0);
+                        serverDiscountAmount = shipping;
                     } else {
                         let eligibleTotal = 0;
                         const isGlobal = coupon.is_global === 1;
@@ -3578,7 +3592,6 @@ app.post('/api/orders', verifyToken, validate(orderSchema), async (req, res) => 
         }
 
         // 3. Finalizar Valores
-        const shipping = parseFloat(shipping_cost || 0);
         const finalTotal = Math.max(0, calculatedSubtotal + shipping - serverDiscountAmount);
 
         // 4. Inserir Pedido
@@ -5719,17 +5732,21 @@ app.get('/manifest.json', async (req, res) => {
 app.get('/api/settings/shipping-local', async (req, res) => {
     try {
         const [rows] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'local_shipping_config'");
-        const config = rows.length > 0 ? JSON.parse(rows[0].setting_value) : { base_price: 20, rules: [] };
-        res.json(config);
+        const config = rows.length > 0 ? JSON.parse(rows[0].setting_value) : { base_price: 20, rules: [], free_shipping_minimum: 299 };
+        res.json({
+            base_price: parseFloat(config.base_price) || 20,
+            rules: Array.isArray(config.rules) ? config.rules : [],
+            free_shipping_minimum: parseFloat(config.free_shipping_minimum) || 299
+        });
     } catch (err) {
         console.error("Erro ao buscar config de frete:", err);
-        res.status(500).json({ base_price: 20, rules: [] }); // Fallback seguro
+        res.status(500).json({ base_price: 20, rules: [], free_shipping_minimum: 299 }); // Fallback seguro
     }
 });
 
 // 2. Edição de Frete Local (Bloqueado)
 app.put('/api/settings/shipping-local', verifyToken, verifyAdmin, async (req, res) => {
-    const { base_price, rules, password, token } = req.body;
+    const { base_price, rules, free_shipping_minimum, password, token } = req.body;
     const clientIp = req.ip || req.connection.remoteAddress; // Captura o IP
     
     if (base_price === undefined || !Array.isArray(rules)) {
@@ -5769,7 +5786,11 @@ app.put('/api/settings/shipping-local', verifyToken, verifyAdmin, async (req, re
     }
     // ---------------------------------------------
 
-    const configString = JSON.stringify({ base_price: parseFloat(base_price), rules });
+    const configString = JSON.stringify({
+        base_price: parseFloat(base_price),
+        rules,
+        free_shipping_minimum: parseFloat(free_shipping_minimum) || 0
+    });
 
     try {
         await db.query(
@@ -5778,7 +5799,7 @@ app.put('/api/settings/shipping-local', verifyToken, verifyAdmin, async (req, re
         );
         
         // --- AUDITORIA: Registra Edição de Frete com IP ---
-        logAdminAction(req.user, 'ATUALIZOU FRETE LOCAL', `Base: R$ ${base_price}, Regras: ${rules.length}`, clientIp);
+        logAdminAction(req.user, 'ATUALIZOU FRETE LOCAL', `Base: R$ ${base_price}, Frete grátis acima de R$ ${free_shipping_minimum || 0}, Regras: ${rules.length}`, clientIp);
         
         res.json({ message: "Configuração de frete atualizada com sucesso!" });
     } catch (err) {
