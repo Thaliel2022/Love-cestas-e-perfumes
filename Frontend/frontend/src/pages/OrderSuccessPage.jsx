@@ -121,10 +121,11 @@ export const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
                  }
             }, 5000);
             
-            // Timeout de segurança após 1 minuto de processamento cego
+            // Timeout de segurança após 1 minuto de processamento cego.
+            // Pix/boleto seguem em polling, pois o pagamento pode acontecer depois desse prazo.
             timeout = setTimeout(() => {
-                clearInterval(pollInterval);
                 if (statusRef.current === 'processing') {
+                    clearInterval(pollInterval);
                     setPageStatus('timeout');
                 }
             }, 60000);
@@ -132,9 +133,21 @@ export const OrderSuccessPage = ({ orderId, onNavigate, appName }) => {
 
         startPolling();
 
+        const checkWhenUserReturns = () => {
+            if (document.visibilityState === 'hidden') return;
+            if (!['success', 'pending_action'].includes(statusRef.current)) {
+                pollStatus();
+            }
+        };
+
+        window.addEventListener('focus', checkWhenUserReturns);
+        document.addEventListener('visibilitychange', checkWhenUserReturns);
+
         return () => {
             clearInterval(pollInterval);
             clearTimeout(timeout);
+            window.removeEventListener('focus', checkWhenUserReturns);
+            document.removeEventListener('visibilitychange', checkWhenUserReturns);
         };
     }, [orderId, clearOrderState, pollStatus]); 
 
