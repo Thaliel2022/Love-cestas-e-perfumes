@@ -137,6 +137,7 @@ export const OrderPaymentPage = ({ orderId, onNavigate }) => {
                 bankTransfer: "all",
                 creditCard: "all",
                 debitCard: "all",
+                minInstallments: 1,
             },
             visual: {
                 texts: {

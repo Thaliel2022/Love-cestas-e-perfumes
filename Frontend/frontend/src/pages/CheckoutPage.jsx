@@ -192,13 +192,14 @@ export const CheckoutPage = ({ onNavigate }) => {
     const mpCustomization = useMemo(() => {
         const minInstallmentAmount = Number(paymentInstallmentsConfig?.min_installment_amount) || 0;
         const configuredMax = Number(paymentInstallmentsConfig?.max_installments) || 10;
-        const allowedMaxInstallments = Math.max(2, total >= minInstallmentAmount ? configuredMax : 2);
+        const allowedMaxInstallments = total >= minInstallmentAmount ? configuredMax : 1;
         return {
             paymentMethods: {
                 excludedPaymentTypes: ["ticket"],
                 bankTransfer: "all",
                 creditCard: "all",
                 debitCard: "all",
+                minInstallments: 1,
                 maxInstallments: allowedMaxInstallments,
             },
             visual: {
