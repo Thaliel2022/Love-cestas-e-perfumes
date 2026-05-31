@@ -1,12 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { apiService } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
+import { Modal } from '../../components/ui/Modal';
 import { CheckIcon, CreditCardIcon, SpinnerIcon } from '../../components/icons';
 
 export const AdminPaymentSettings = () => {
     const [config, setConfig] = useState({ interest_free_installments: 4, max_installments: 10, min_installment_amount: 100 });
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+    const [authInput, setAuthInput] = useState('');
+    const [isSyncingMp, setIsSyncingMp] = useState(false);
+    const [mpCurrent, setMpCurrent] = useState(null);
     const notification = useNotification();
 
     useEffect(() => {
@@ -41,23 +46,49 @@ export const AdminPaymentSettings = () => {
         });
     };
 
-    const handleSave = async () => {
+    const handleSave = () => {
+        setIsAuthModalOpen(true);
+    };
+
+    const confirmSaveWithAuth = async (e) => {
+        e.preventDefault();
         setIsSaving(true);
         try {
             const payload = {
                 interest_free_installments: Number(config.interest_free_installments) || 1,
                 max_installments: Number(config.max_installments) || 1,
-                min_installment_amount: Math.max(0, Number(config.min_installment_amount) || 0)
+                min_installment_amount: Math.max(0, Number(config.min_installment_amount) || 0),
+                password: authInput,
+                token: authInput.length === 6 && !isNaN(authInput) ? authInput : null
             };
             const response = await apiService('/settings/payment-installments', 'PUT', payload);
             const savedConfig = response.config || payload;
             setConfig(savedConfig);
             window.dispatchEvent(new CustomEvent('payment-installments-updated', { detail: savedConfig }));
+            setIsAuthModalOpen(false);
+            setAuthInput('');
             notification.show('Configurações de parcelamento salvas com sucesso!');
         } catch (error) {
-            notification.show(error.message || 'Erro ao salvar parcelamento.', 'error');
+            notification.show(error.message || 'Erro ao salvar parcelamento. Verifique sua senha ou código 2FA.', 'error');
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const syncInterestFreeFromMercadoPago = async () => {
+        setIsSyncingMp(true);
+        try {
+            const data = await apiService('/settings/payment-installments/mercadopago-current');
+            setMpCurrent(data);
+            setConfig(prev => ({
+                ...prev,
+                interest_free_installments: Number(data.interest_free_installments) || prev.interest_free_installments
+            }));
+            notification.show(`Mercado Pago retornou ${data.interest_free_installments}x sem juros para o valor de referência.`);
+        } catch (error) {
+            notification.show(error.message || 'Erro ao consultar o Mercado Pago.', 'error');
+        } finally {
+            setIsSyncingMp(false);
         }
     };
 
@@ -65,6 +96,36 @@ export const AdminPaymentSettings = () => {
 
     return (
         <div className="max-w-3xl mx-auto space-y-8">
+            {isAuthModalOpen && (
+                <Modal isOpen={true} onClose={() => setIsAuthModalOpen(false)} title="Confirmação de Segurança">
+                    <form onSubmit={confirmSaveWithAuth} className="space-y-4">
+                        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                            <p className="text-sm text-yellow-700">
+                                Alterar parcelamento afeta preço, checkout e comunicação com o cliente. Confirme sua <strong>senha</strong> ou código <strong>2FA</strong> para salvar.
+                            </p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Senha ou Código 2FA</label>
+                            <input
+                                type="password"
+                                value={authInput}
+                                onChange={(e) => setAuthInput(e.target.value)}
+                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                                placeholder="Digite sua senha ou token..."
+                                required
+                            />
+                        </div>
+                        <div className="flex justify-end gap-3">
+                            <button type="button" onClick={() => setIsAuthModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 text-gray-700">Cancelar</button>
+                            <button type="submit" disabled={isSaving} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-70">
+                                {isSaving && <SpinnerIcon className="h-4 w-4"/>}
+                                Confirmar e Salvar
+                            </button>
+                        </div>
+                    </form>
+                </Modal>
+            )}
+
             <div>
                 <h1 className="text-3xl font-bold text-slate-800">Configurações de Parcelamento</h1>
                 <p className="text-slate-500">Defina o número máximo de parcelas do checkout. As parcelas <strong>sem juros</strong> são controladas no Mercado Pago.</p>
@@ -109,6 +170,22 @@ export const AdminPaymentSettings = () => {
                             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         />
                         <p className="text-xs text-gray-500 mt-2">Usado só no texto da página do produto (ex.: “em até 4x sem juros”). <strong>Mantenha igual</strong> ao configurado no Mercado Pago para não confundir o cliente no checkout.</p>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={syncInterestFreeFromMercadoPago}
+                                disabled={isSyncingMp}
+                                className="inline-flex items-center gap-2 px-3 py-2 text-xs font-bold rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-70"
+                            >
+                                {isSyncingMp && <SpinnerIcon className="h-4 w-4"/>}
+                                Buscar no Mercado Pago
+                            </button>
+                            {mpCurrent && (
+                                <span className="text-xs text-blue-700">
+                                    MP retornou <strong>{mpCurrent.interest_free_installments}x sem juros</strong> para R$ {Number(mpCurrent.amount).toFixed(2).replace('.', ',')}.
+                                </span>
+                            )}
+                        </div>
                     </div>
 
                     <div>

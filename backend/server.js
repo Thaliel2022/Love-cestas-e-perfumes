@@ -5779,6 +5779,33 @@ const getPaymentInstallmentsConfig = async () => {
     }
 };
 
+const fetchMercadoPagoInterestFreeInstallments = async (amount) => {
+    const numericAmount = Math.max(1, parseFloat(amount) || 1000);
+    const installmentsResponse = await fetch(`https://api.mercadopago.com/v1/payment_methods/installments?amount=${numericAmount}&issuer.id=24&payment_method_id=master`, {
+        headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
+    });
+
+    if (!installmentsResponse.ok) {
+        const errorData = await installmentsResponse.json();
+        throw new Error(errorData.message || 'Não foi possível consultar o parcelamento no Mercado Pago.');
+    }
+
+    const installmentsData = await installmentsResponse.json();
+    const payerCosts = installmentsData?.[0]?.payer_costs || [];
+    const interestFreeInstallments = payerCosts.reduce((max, payerCost) => {
+        const installments = Number(payerCost.installments) || 0;
+        const installmentRate = Number(payerCost.installment_rate) || 0;
+        return installmentRate === 0 ? Math.max(max, installments) : max;
+    }, 1);
+
+    return {
+        amount: numericAmount,
+        payment_method_id: 'master',
+        issuer_id: 24,
+        interest_free_installments: interestFreeInstallments
+    };
+};
+
 app.get('/api/settings/payment-installments', async (req, res) => {
     try {
         res.json(await getPaymentInstallmentsConfig());
@@ -5788,18 +5815,53 @@ app.get('/api/settings/payment-installments', async (req, res) => {
     }
 });
 
+app.get('/api/settings/payment-installments/mercadopago-current', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const currentConfig = await getPaymentInstallmentsConfig();
+        const amount = req.query.amount || Math.max(currentConfig.min_installment_amount, 1000);
+        res.json(await fetchMercadoPagoInterestFreeInstallments(amount));
+    } catch (err) {
+        console.error("Erro ao consultar parcelamento atual no Mercado Pago:", err);
+        res.status(500).json({ message: err.message || "Erro ao consultar parcelamento atual no Mercado Pago." });
+    }
+});
+
 app.put('/api/settings/payment-installments', verifyToken, verifyAdmin, async (req, res) => {
     const clientIp = req.ip || req.connection.remoteAddress;
+    const { password, token } = req.body;
     const config = normalizeInstallmentsConfig(req.body);
     const configString = JSON.stringify(config);
 
     try {
+        const [admins] = await db.query("SELECT password, two_factor_secret, is_two_factor_enabled FROM users WHERE id = ?", [req.user.id]);
+        if (admins.length === 0) return res.status(404).json({ message: 'Administrador não encontrado.' });
+
+        const admin = admins[0];
+        let isVerified = false;
+
+        if (admin.is_two_factor_enabled) {
+            if (!token) return res.status(400).json({ message: 'Código 2FA é obrigatório para alterar o parcelamento.' });
+            isVerified = speakeasy.totp.verify({
+                secret: admin.two_factor_secret,
+                encoding: 'base32',
+                token: String(token).replace(/\D/g, ''),
+                window: 4
+            });
+        } else {
+            if (!password) return res.status(400).json({ message: 'Senha é obrigatória para alterar o parcelamento.' });
+            isVerified = await bcrypt.compare(password, admin.password);
+        }
+
+        if (!isVerified) {
+            return res.status(401).json({ message: 'Credencial inválida. Alteração de parcelamento negada.' });
+        }
+
         await db.query(
             "INSERT INTO site_settings (setting_key, setting_value) VALUES ('payment_installments_config', ?) ON DUPLICATE KEY UPDATE setting_value = ?",
             [configString, configString]
         );
 
-        logAdminAction(req.user, 'ATUALIZOU PARCELAMENTO', `Sem juros: ${config.interest_free_installments}x, máximo: ${config.max_installments}x`, clientIp);
+        logAdminAction(req.user, 'ATUALIZOU PARCELAMENTO', `Sem juros exibido: ${config.interest_free_installments}x, máximo: ${config.max_installments}x, mínimo: R$ ${config.min_installment_amount}`, clientIp);
         res.json({ message: "Configuração de parcelamento atualizada com sucesso!", config });
     } catch (err) {
         console.error("Erro ao salvar config de parcelamento:", err);
