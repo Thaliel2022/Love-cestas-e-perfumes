@@ -143,7 +143,8 @@ export const CheckoutPage = ({ onNavigate }) => {
 
     const installmentSummary = useMemo(() => {
         const interestFreeInstallments = Number(paymentInstallmentsConfig?.interest_free_installments) || 4;
-        if (total <= 0 || interestFreeInstallments <= 1) return null;
+        const minInstallmentAmount = Number(paymentInstallmentsConfig?.min_installment_amount) || 0;
+        if (total <= 0 || total < minInstallmentAmount || interestFreeInstallments <= 1) return null;
         return `${interestFreeInstallments}x de R$ ${(total / interestFreeInstallments).toFixed(2).replace('.', ',')} sem juros`;
     }, [paymentInstallmentsConfig, total]);
 

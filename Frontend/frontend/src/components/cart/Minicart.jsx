@@ -64,7 +64,8 @@ export const Minicart = memo(({ onNavigate }) => {
 
     const installmentSummary = useMemo(() => {
         const interestFreeInstallments = Number(paymentInstallmentsConfig?.interest_free_installments) || 4;
-        if (subtotal <= 0 || interestFreeInstallments <= 1) return null;
+        const minInstallmentAmount = Number(paymentInstallmentsConfig?.min_installment_amount) || 0;
+        if (subtotal <= 0 || subtotal < minInstallmentAmount || interestFreeInstallments <= 1) return null;
         return `${interestFreeInstallments}x de R$ ${(subtotal / interestFreeInstallments).toFixed(2).replace('.', ',')} sem juros`;
     }, [paymentInstallmentsConfig, subtotal]);
 

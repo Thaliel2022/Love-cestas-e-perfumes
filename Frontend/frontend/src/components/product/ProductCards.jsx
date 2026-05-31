@@ -163,7 +163,8 @@ export const ProductCard = memo(({ product, onNavigate }) => {
 
     const installmentInfo = useMemo(() => {
         const interestFreeInstallments = Number(paymentInstallmentsConfig?.interest_free_installments) || 4;
-        if (currentPrice > 0 && interestFreeInstallments > 1) {
+        const minInstallmentAmount = Number(paymentInstallmentsConfig?.min_installment_amount) || 0;
+        if (currentPrice > 0 && currentPrice >= minInstallmentAmount && interestFreeInstallments > 1) {
             const installmentValue = currentPrice / interestFreeInstallments;
             return `${interestFreeInstallments}x de R$ ${installmentValue.toFixed(2).replace('.', ',')} s/ juros`;
         }
