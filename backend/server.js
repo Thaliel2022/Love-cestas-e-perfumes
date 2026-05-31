@@ -4052,8 +4052,11 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
         
         description += ` Total: R$ ${total.toFixed(2)}.`;
         
-        const paymentInstallmentsConfig = await getPaymentInstallmentsConfig();
-        const maxInstallments = paymentInstallmentsConfig.max_installments;
+        const paymentInstallmentsConfig = await getPaymentInstallmentsConfig();
+        // Abaixo do valor mínimo configurado, força pagamento à vista (1x).
+        const maxInstallments = total >= paymentInstallmentsConfig.min_installment_amount
+            ? paymentInstallmentsConfig.max_installments
+            : 1;
 
         const preferenceBody = {
             items: [
@@ -4237,10 +4240,27 @@ app.get('/api/mercadopago/installments', checkMaintenanceMode, async (req, res) 
     
     const numericAmount = parseFloat(amount);
 
-    try {
-        const paymentInstallmentsConfig = await getPaymentInstallmentsConfig();
+    try {
+        const paymentInstallmentsConfig = await getPaymentInstallmentsConfig();
 
-        const installmentsResponse = await fetch(`https://api.mercadopago.com/v1/payment_methods/installments?amount=${numericAmount}&issuer.id=24&payment_method_id=master`, {
+        // Abaixo do valor mínimo configurado, oferece apenas 1x (à vista).
+        if (numericAmount < paymentInstallmentsConfig.min_installment_amount) {
+            return res.json([{
+                installments: 1,
+                installment_rate: 0,
+                discount_rate: 0,
+                reimbursement_rate: null,
+                labels: [],
+                installment_payment_type: "credit_card",
+                min_allowed_amount: 0,
+                max_allowed_amount: 0,
+                recommended_message: `1x de R$ ${numericAmount.toFixed(2).replace('.', ',')} sem juros`,
+                installment_amount: numericAmount,
+                total_amount: numericAmount
+            }]);
+        }
+
+        const installmentsResponse = await fetch(`https://api.mercadopago.com/v1/payment_methods/installments?amount=${numericAmount}&issuer.id=24&payment_method_id=master`, {
             headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
         });
 
@@ -5731,15 +5751,21 @@ app.get('/api/settings/shipping-local', async (req, res) => {
 
 const DEFAULT_PAYMENT_INSTALLMENTS_CONFIG = {
     interest_free_installments: 4,
-    max_installments: 10
+    max_installments: 10,
+    min_installment_amount: 100
 };
 
 const normalizeInstallmentsConfig = (config = {}) => {
     const interestFree = Math.max(1, Math.min(24, parseInt(config.interest_free_installments, 10) || DEFAULT_PAYMENT_INSTALLMENTS_CONFIG.interest_free_installments));
     const maxInstallments = Math.max(interestFree, Math.min(24, parseInt(config.max_installments, 10) || DEFAULT_PAYMENT_INSTALLMENTS_CONFIG.max_installments));
+    const parsedMinAmount = parseFloat(config.min_installment_amount);
+    const minInstallmentAmount = Number.isFinite(parsedMinAmount) && parsedMinAmount >= 0
+        ? parsedMinAmount
+        : DEFAULT_PAYMENT_INSTALLMENTS_CONFIG.min_installment_amount;
     return {
         interest_free_installments: interestFree,
-        max_installments: maxInstallments
+        max_installments: maxInstallments,
+        min_installment_amount: minInstallmentAmount
     };
 };
 

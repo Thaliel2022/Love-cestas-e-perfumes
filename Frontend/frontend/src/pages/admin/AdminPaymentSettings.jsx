@@ -4,7 +4,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { CheckIcon, CreditCardIcon, SpinnerIcon } from '../../components/icons';
 
 export const AdminPaymentSettings = () => {
-    const [config, setConfig] = useState({ interest_free_installments: 4, max_installments: 10 });
+    const [config, setConfig] = useState({ interest_free_installments: 4, max_installments: 10, min_installment_amount: 100 });
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const notification = useNotification();
@@ -14,7 +14,8 @@ export const AdminPaymentSettings = () => {
             .then(data => {
                 setConfig({
                     interest_free_installments: Number(data.interest_free_installments) || 4,
-                    max_installments: Number(data.max_installments) || 10
+                    max_installments: Number(data.max_installments) || 10,
+                    min_installment_amount: Number.isFinite(Number(data.min_installment_amount)) ? Number(data.min_installment_amount) : 100
                 });
             })
             .catch(() => notification.show('Erro ao carregar configurações de parcelamento.', 'error'))
@@ -22,6 +23,11 @@ export const AdminPaymentSettings = () => {
     }, []);
 
     const handleChange = (field, value) => {
+        if (field === 'min_installment_amount') {
+            const minValue = Math.max(0, Number(value) || 0);
+            setConfig(prev => ({ ...prev, min_installment_amount: minValue }));
+            return;
+        }
         const numericValue = Math.max(1, Number(value) || 1);
         setConfig(prev => {
             const next = { ...prev, [field]: numericValue };
@@ -40,7 +46,8 @@ export const AdminPaymentSettings = () => {
         try {
             const payload = {
                 interest_free_installments: Number(config.interest_free_installments) || 1,
-                max_installments: Number(config.max_installments) || 1
+                max_installments: Number(config.max_installments) || 1,
+                min_installment_amount: Math.max(0, Number(config.min_installment_amount) || 0)
             };
             const response = await apiService('/settings/payment-installments', 'PUT', payload);
             const savedConfig = response.config || payload;
@@ -103,10 +110,23 @@ export const AdminPaymentSettings = () => {
                         />
                         <p className="text-xs text-gray-500 mt-2">Usado só no texto da página do produto (ex.: “em até 4x sem juros”). <strong>Mantenha igual</strong> ao configurado no Mercado Pago para não confundir o cliente no checkout.</p>
                     </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Valor mínimo para parcelar (R$)</label>
+                        <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={config.min_installment_amount}
+                            onChange={(e) => handleChange('min_installment_amount', e.target.value)}
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-2">Abaixo deste valor, o produto só pode ser pago à vista (1x). Ex.: 100 = produtos abaixo de R$100 não parcelam. Use 0 para permitir parcelar qualquer valor.</p>
+                    </div>
                 </div>
 
                 <div className="mt-6 bg-indigo-50 border border-indigo-100 rounded-lg p-4 text-sm text-indigo-800">
-                    O checkout permitirá até <strong>{config.max_installments}x</strong>. As parcelas sem juros que aparecem ao cliente serão as que o <strong>Mercado Pago</strong> retornar para o valor da compra (hoje configuradas como <strong>{config.interest_free_installments}x</strong> na sua conta MP, se estiver igual aqui).
+                    Compras a partir de <strong>R$ {Number(config.min_installment_amount).toFixed(2).replace('.', ',')}</strong> poderão ser parceladas em até <strong>{config.max_installments}x</strong>; abaixo disso, apenas à vista. As parcelas sem juros exibidas serão as que o <strong>Mercado Pago</strong> retornar para o valor da compra.
                 </div>
             </div>
 

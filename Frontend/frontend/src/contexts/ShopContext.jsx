@@ -26,7 +26,7 @@ export const ShopProvider = ({ children }) => {
     const [isMinicartOpen, setIsMinicartOpen] = useState(false);
 
     const [localShippingConfig, setLocalShippingConfig] = useState({ base_price: 20, rules: [], free_shipping_minimum: 299 });
-    const [paymentInstallmentsConfig, setPaymentInstallmentsConfig] = useState({ interest_free_installments: 4, max_installments: 10 });
+    const [paymentInstallmentsConfig, setPaymentInstallmentsConfig] = useState({ interest_free_installments: 4, max_installments: 10, min_installment_amount: 100 });
     const [pickupConfig, setPickupConfig] = useState(null);
 
     const [orderNotificationCount, setOrderNotificationCount] = useState(0);

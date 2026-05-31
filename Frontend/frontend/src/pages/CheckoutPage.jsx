@@ -189,13 +189,16 @@ export const CheckoutPage = ({ onNavigate }) => {
     }, [total, user, displayAddress, addresses]);
 
     const mpCustomization = useMemo(() => {
+        const minInstallmentAmount = Number(paymentInstallmentsConfig?.min_installment_amount) || 0;
+        const configuredMax = Number(paymentInstallmentsConfig?.max_installments) || 10;
+        const allowedMaxInstallments = total >= minInstallmentAmount ? configuredMax : 1;
         return {
             paymentMethods: {
                 ticket: "all",
                 bankTransfer: "all",
                 creditCard: "all",
                 debitCard: "all",
-                maxInstallments: Number(paymentInstallmentsConfig?.max_installments) || 10,
+                maxInstallments: allowedMaxInstallments,
             },
             visual: {
                 texts: {
@@ -212,7 +215,7 @@ export const CheckoutPage = ({ onNavigate }) => {
                 }
             }
         };
-    }, [paymentInstallmentsConfig]);
+    }, [paymentInstallmentsConfig, total]);
 
     const getDeliveryDateText = (deliveryTime) => {
         if (typeof deliveryTime === 'string' && deliveryTime.includes('Receba até')) return `${deliveryTime} (1 dia útil)`;
