@@ -619,6 +619,9 @@ export const CheckoutPage = ({ onNavigate }) => {
                                             <div className="text-xs text-blue-200 leading-relaxed">
                                                 <strong className="text-blue-300 block mb-1">Dica sobre o pagamento via Pix:</strong> 
                                                 O código Copia e Cola e o QR Code serão gerados <strong>aqui mesmo na tela</strong> no próximo passo, logo após você confirmar. O e-mail solicitado abaixo serve apenas para enviarmos o seu comprovante de pagamento.
+                                                <span className="block mt-2 text-blue-100">
+                                                    Parcelamento da loja: até {Number(paymentInstallmentsConfig?.interest_free_installments) || 4}x sem juros e até {Number(paymentInstallmentsConfig?.max_installments) || 10}x no total. As taxas exibidas no formulário são calculadas pelo Mercado Pago conforme a bandeira do cartão.
+                                                </span>
                                             </div>
                                         </div>
                                         

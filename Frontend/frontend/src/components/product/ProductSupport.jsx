@@ -272,7 +272,7 @@ export const SizeGuideDisplay = ({ dataString }) => {
     );
 };
 
-export const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
+export const InstallmentModal = memo(({ isOpen, onClose, installments, interestFreeInstallments = 4 }) => {
     if (!isOpen || !installments || installments.length === 0) return null;
 
     return (
@@ -281,10 +281,14 @@ export const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
                 {installments.map(p => (
                     <div key={p.installments} className="flex justify-between items-center p-3 border border-gray-200 rounded-md transition-colors hover:bg-gray-50">
                         <div>
-                            <p className="font-bold text-lg text-gray-800">{p.recommended_message.replace('.', ',')}</p>
+                            <p className="font-bold text-lg text-gray-800">
+                                {p.installments <= interestFreeInstallments
+                                    ? `${p.installments}x de R$ ${p.installment_amount.toFixed(2).replace('.', ',')} sem juros`
+                                    : p.recommended_message.replace('.', ',').replace('sem acréscimo', 'com juros').replace('sem juros', 'com juros')}
+                            </p>
                             <p className="text-sm text-gray-500">Total: R$ {p.total_amount.toFixed(2).replace('.', ',')}</p>
                         </div>
-                        {p.installment_rate === 0 ? (
+                        {p.installments <= interestFreeInstallments ? (
                             <span className="text-sm font-semibold text-green-600 bg-green-100 px-3 py-1 rounded-full whitespace-nowrap">Sem juros</span>
                         ) : (
                              <span className="text-sm font-semibold text-orange-600 bg-orange-100 px-3 py-1 rounded-full whitespace-nowrap">Com juros</span>

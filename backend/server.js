@@ -4267,6 +4267,14 @@ app.get('/api/mercadopago/installments', checkMaintenanceMode, async (req, res) 
                             recommended_message: `${pc.installments}x de R$ ${installmentAmount.toFixed(2).replace('.', ',')} sem juros`
                         };
                     }
+                    if (pc.installment_rate === 0) {
+                        return {
+                            ...pc,
+                            labels: (pc.labels || []).filter(label => !String(label).toLowerCase().includes('recommended_interest_free')),
+                            installment_rate: 0.01,
+                            recommended_message: `${pc.installments}x de R$ ${pc.installment_amount.toFixed(2).replace('.', ',')} com juros`
+                        };
+                    }
                     return {
                         ...pc,
                         recommended_message: pc.recommended_message.replace('.', ',') // Apenas formata o ponto para vírgula
