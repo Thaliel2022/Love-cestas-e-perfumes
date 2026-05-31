@@ -32,6 +32,7 @@ import { AdminThemeSettings } from './pages/admin/AdminThemeSettings';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminProducts } from './pages/admin/AdminProducts';
 import { AdminOrders } from './pages/admin/AdminOrders';
+import { AdminPaymentSettings } from './pages/admin/AdminPaymentSettings';
 import { MaintenancePage } from './components/admin/Maintenance';
 import { AdminLayout } from './components/admin/AdminLayout';
 import { urlBase64ToUint8Array } from './utils/webauthn';
@@ -418,6 +419,7 @@ export function AppContent({ deferredPrompt }) {
             'logs': <AdminLogsPage />,
             'newsletter': <AdminNewsletter appName={safeName} />, 
             'shipping': <AdminShippingSettings />, 
+            'payments': <AdminPaymentSettings />,
             'app-icons': <AdminAppIcons />,
             'theme': <AdminThemeSettings />,
         };

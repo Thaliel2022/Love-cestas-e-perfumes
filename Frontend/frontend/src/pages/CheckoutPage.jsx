@@ -21,7 +21,8 @@ export const CheckoutPage = ({ onNavigate }) => {
         cart, autoCalculatedShipping, appliedCoupon, clearOrderState, addresses,
         fetchAddresses, shippingLocation, setShippingLocation, shippingOptions,
         setAutoCalculatedShipping, setSelectedShippingName, pickupConfig,
-        couponCode, setCouponCode, applyCoupon, removeCoupon, couponMessage
+        couponCode, setCouponCode, applyCoupon, removeCoupon, couponMessage,
+        paymentInstallmentsConfig
     } = useShop();
     const notification = useNotification();
 
@@ -140,6 +141,12 @@ export const CheckoutPage = ({ onNavigate }) => {
     
     const total = useMemo(() => Math.max(0, (Number(subtotal) || 0) - (Number(discount) || 0) + (Number(shippingCost) || 0)), [subtotal, discount, shippingCost]);
 
+    const installmentSummary = useMemo(() => {
+        const interestFreeInstallments = Number(paymentInstallmentsConfig?.interest_free_installments) || 4;
+        if (total <= 0 || interestFreeInstallments <= 1) return null;
+        return `${interestFreeInstallments}x de R$ ${(total / interestFreeInstallments).toFixed(2).replace('.', ',')} sem juros`;
+    }, [paymentInstallmentsConfig, total]);
+
     const mpInitialization = useMemo(() => {
         const payer = {
             email: user?.email || '',
@@ -188,6 +195,7 @@ export const CheckoutPage = ({ onNavigate }) => {
                 bankTransfer: "all",
                 creditCard: "all",
                 debitCard: "all",
+                maxInstallments: Number(paymentInstallmentsConfig?.max_installments) || 10,
             },
             visual: {
                 texts: {
@@ -204,7 +212,7 @@ export const CheckoutPage = ({ onNavigate }) => {
                 }
             }
         };
-    }, []);
+    }, [paymentInstallmentsConfig]);
 
     const getDeliveryDateText = (deliveryTime) => {
         if (typeof deliveryTime === 'string' && deliveryTime.includes('Receba até')) return `${deliveryTime} (1 dia útil)`;
@@ -556,6 +564,11 @@ export const CheckoutPage = ({ onNavigate }) => {
                                         <span>Total</span>
                                         <span className="text-amber-400">R$ {total.toFixed(2)}</span>
                                     </div>
+                                    {installmentSummary && (
+                                        <p className="text-right text-xs text-gray-400 -mt-4 mb-4">
+                                            ou em até <span className="font-bold text-gray-200">{installmentSummary}</span>
+                                        </p>
+                                    )}
                                 </div>
 
                                 <div className="mb-6 mt-6">

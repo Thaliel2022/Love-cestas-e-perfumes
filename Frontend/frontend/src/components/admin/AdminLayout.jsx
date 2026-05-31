@@ -3,7 +3,7 @@ import { apiService } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { BackToTopButton } from '../ui/BackToTopButton';
 import {
-    AdminIcon, ArrowUturnLeftIcon, BoxIcon, CameraIcon, ChartIcon, ClipboardDocListIcon,
+    AdminIcon, ArrowUturnLeftIcon, BoxIcon, CameraIcon, ChartIcon, ClipboardDocListIcon, CreditCardIcon,
     CloseIcon, CurrencyDollarArrowIcon, EyeIcon, FileIcon, MenuIcon, PhotoIcon, SparklesIcon,
     TagIcon, TruckIcon, UsersIcon
 } from '../icons';
@@ -124,6 +124,7 @@ export const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                 { key: 'theme', label: 'Tema e Cores', icon: <SparklesIcon className="h-5 w-5"/> },
                 { key: 'app-icons', label: 'Ícones e Nomes', icon: <CameraIcon className="h-5 w-5"/> }, 
                 { key: 'shipping', label: 'Frete Local', icon: <TruckIcon className="h-5 w-5"/> }, 
+                { key: 'payments', label: 'Parcelamento', icon: <CreditCardIcon className="h-5 w-5"/> },
                 { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
                 { key: 'logs', label: 'Logs do Sistema', icon: <ClipboardDocListIcon className="h-5 w-5"/> },
             ]

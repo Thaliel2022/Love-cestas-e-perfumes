@@ -30,7 +30,8 @@ export const CartPage = ({ onNavigate }) => {
         couponCode, setCouponCode,
         applyCoupon, removeCoupon,
         couponMessage, appliedCoupon,
-        discount
+        discount,
+        paymentInstallmentsConfig
     } = useShop();
     const notification = useNotification();
     const { isAuthenticated } = useAuth(); 
@@ -91,6 +92,12 @@ export const CartPage = ({ onNavigate }) => {
         const calculatedTotal = subtotal - discount + shippingCost;
         return calculatedTotal < 0 ? 0 : calculatedTotal; 
     }, [subtotal, discount, shippingCost]);
+
+    const installmentSummary = useMemo(() => {
+        const interestFreeInstallments = Number(paymentInstallmentsConfig?.interest_free_installments) || 4;
+        if (total <= 0 || interestFreeInstallments <= 1) return null;
+        return `${interestFreeInstallments}x de R$ ${(total / interestFreeInstallments).toFixed(2).replace('.', ',')} sem juros`;
+    }, [paymentInstallmentsConfig, total]);
 
 
     const handleUpdateQuantity = async (cartItemId, newQuantity) => {
@@ -348,6 +355,11 @@ export const CartPage = ({ onNavigate }) => {
                                     <span className="text-white">Total</span>
                                     <span className="text-3xl text-amber-400 tracking-tight">R$ {total.toFixed(2)}</span>
                                 </div>
+                                {installmentSummary && (
+                                    <p className="text-center text-xs text-gray-400 -mt-6 mb-6">
+                                        ou em até <span className="font-bold text-gray-200">{installmentSummary}</span>
+                                    </p>
+                                )}
 
                                 <div className="mb-6">
                                     {!appliedCoupon ? (

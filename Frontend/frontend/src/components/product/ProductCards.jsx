@@ -11,7 +11,7 @@ import {
 } from '../icons';
 
 export const ProductCard = memo(({ product, onNavigate }) => {
-    const { addToCart, shippingLocation, calculateLocalDeliveryPrice, setIsMinicartOpen } = useShop();
+    const { addToCart, shippingLocation, calculateLocalDeliveryPrice, setIsMinicartOpen, paymentInstallmentsConfig } = useShop();
     const notification = useNotification();
     const { user } = useAuth();
     const { wishlist, addToWishlist, removeFromWishlist } = useShop(); 
@@ -162,12 +162,13 @@ export const ProductCard = memo(({ product, onNavigate }) => {
     }, [product, shippingLocation.cep, currentPrice, calculateLocalDeliveryPrice]); 
 
     const installmentInfo = useMemo(() => {
-        if (currentPrice >= 100) {
-            const installmentValue = currentPrice / 4;
-            return `4x de R$ ${installmentValue.toFixed(2).replace('.', ',')} s/ juros`;
+        const interestFreeInstallments = Number(paymentInstallmentsConfig?.interest_free_installments) || 4;
+        if (currentPrice > 0 && interestFreeInstallments > 1) {
+            const installmentValue = currentPrice / interestFreeInstallments;
+            return `${interestFreeInstallments}x de R$ ${installmentValue.toFixed(2).replace('.', ',')} s/ juros`;
         }
         return null;
-    }, [currentPrice]);
+    }, [currentPrice, paymentInstallmentsConfig]);
 
     const handleViewDetails = (e) => {
         e.stopPropagation();

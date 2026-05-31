@@ -4052,12 +4052,8 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
         
         description += ` Total: R$ ${total.toFixed(2)}.`;
         
-        let maxInstallments;
-        if (total >= 100) {
-            maxInstallments = 10;
-        } else {
-            maxInstallments = 1;
-        }
+        const paymentInstallmentsConfig = await getPaymentInstallmentsConfig();
+        const maxInstallments = paymentInstallmentsConfig.max_installments;
 
         const preferenceBody = {
             items: [
@@ -4242,25 +4238,8 @@ app.get('/api/mercadopago/installments', checkMaintenanceMode, async (req, res) 
     const numericAmount = parseFloat(amount);
 
     try {
-        // Regra 1: Abaixo de R$100, apenas 1x sem juros
-        if (numericAmount < 100) {
-            const singleInstallment = [{
-                installments: 1,
-                installment_rate: 0,
-                discount_rate: 0,
-                reimbursement_rate: null,
-                labels: [],
-                installment_payment_type: "credit_card",
-                min_allowed_amount: 0,
-                max_allowed_amount: 0,
-                recommended_message: `1x de R$ ${numericAmount.toFixed(2).replace('.', ',')} sem juros`,
-                installment_amount: numericAmount,
-                total_amount: numericAmount
-            }];
-            return res.json(singleInstallment);
-        }
+        const paymentInstallmentsConfig = await getPaymentInstallmentsConfig();
 
-        // Regra 2: Igual ou acima de R$100
         const installmentsResponse = await fetch(`https://api.mercadopago.com/v1/payment_methods/installments?amount=${numericAmount}&issuer.id=24&payment_method_id=master`, {
             headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
         });
@@ -4276,10 +4255,9 @@ app.get('/api/mercadopago/installments', checkMaintenanceMode, async (req, res) 
             const allPayerCosts = installmentsData[0].payer_costs;
 
             const processedInstallments = allPayerCosts
-                .filter(pc => pc.installments <= 10) // Limita a 10x
+                .filter(pc => pc.installments <= paymentInstallmentsConfig.max_installments)
                 .map(pc => {
-                    // De 1x a 4x: força a ser SEM juros
-                    if (pc.installments <= 4) {
+                    if (pc.installments <= paymentInstallmentsConfig.interest_free_installments) {
                         const installmentAmount = numericAmount / pc.installments;
                         return {
                             ...pc,
@@ -4289,7 +4267,6 @@ app.get('/api/mercadopago/installments', checkMaintenanceMode, async (req, res) 
                             recommended_message: `${pc.installments}x de R$ ${installmentAmount.toFixed(2).replace('.', ',')} sem juros`
                         };
                     }
-                    // De 5x a 10x: usa os juros calculados pelo Mercado Pago
                     return {
                         ...pc,
                         recommended_message: pc.recommended_message.replace('.', ',') // Apenas formata o ponto para vírgula
@@ -5741,6 +5718,58 @@ app.get('/api/settings/shipping-local', async (req, res) => {
     } catch (err) {
         console.error("Erro ao buscar config de frete:", err);
         res.status(500).json({ base_price: 20, rules: [], free_shipping_minimum: 299 }); // Fallback seguro
+    }
+});
+
+const DEFAULT_PAYMENT_INSTALLMENTS_CONFIG = {
+    interest_free_installments: 4,
+    max_installments: 10
+};
+
+const normalizeInstallmentsConfig = (config = {}) => {
+    const interestFree = Math.max(1, Math.min(24, parseInt(config.interest_free_installments, 10) || DEFAULT_PAYMENT_INSTALLMENTS_CONFIG.interest_free_installments));
+    const maxInstallments = Math.max(interestFree, Math.min(24, parseInt(config.max_installments, 10) || DEFAULT_PAYMENT_INSTALLMENTS_CONFIG.max_installments));
+    return {
+        interest_free_installments: interestFree,
+        max_installments: maxInstallments
+    };
+};
+
+const getPaymentInstallmentsConfig = async () => {
+    const [rows] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'payment_installments_config'");
+    if (!rows.length) return DEFAULT_PAYMENT_INSTALLMENTS_CONFIG;
+    try {
+        return normalizeInstallmentsConfig(JSON.parse(rows[0].setting_value));
+    } catch (error) {
+        return DEFAULT_PAYMENT_INSTALLMENTS_CONFIG;
+    }
+};
+
+app.get('/api/settings/payment-installments', async (req, res) => {
+    try {
+        res.json(await getPaymentInstallmentsConfig());
+    } catch (err) {
+        console.error("Erro ao buscar config de parcelamento:", err);
+        res.status(500).json(DEFAULT_PAYMENT_INSTALLMENTS_CONFIG);
+    }
+});
+
+app.put('/api/settings/payment-installments', verifyToken, verifyAdmin, async (req, res) => {
+    const clientIp = req.ip || req.connection.remoteAddress;
+    const config = normalizeInstallmentsConfig(req.body);
+    const configString = JSON.stringify(config);
+
+    try {
+        await db.query(
+            "INSERT INTO site_settings (setting_key, setting_value) VALUES ('payment_installments_config', ?) ON DUPLICATE KEY UPDATE setting_value = ?",
+            [configString, configString]
+        );
+
+        logAdminAction(req.user, 'ATUALIZOU PARCELAMENTO', `Sem juros: ${config.interest_free_installments}x, máximo: ${config.max_installments}x`, clientIp);
+        res.json({ message: "Configuração de parcelamento atualizada com sucesso!", config });
+    } catch (err) {
+        console.error("Erro ao salvar config de parcelamento:", err);
+        res.status(500).json({ message: "Erro ao salvar configuração de parcelamento." });
     }
 });
 

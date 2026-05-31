@@ -2,9 +2,10 @@ import { ArrowUturnLeftIcon, CreditCardIcon, ShieldCheckIcon, TruckIcon } from '
 import { useShop } from '../../contexts/ShopContext';
 
 export const BenefitsBar = () => {
-    const { localShippingConfig } = useShop();
+    const { localShippingConfig, paymentInstallmentsConfig } = useShop();
     const freeShippingMinimum = Number(localShippingConfig?.free_shipping_minimum) || 299;
     const freeShippingText = freeShippingMinimum.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const interestFreeInstallments = Number(paymentInstallmentsConfig?.interest_free_installments) || 4;
 
     return (
         <div className="bg-gray-900 border-b border-gray-800 py-4 md:py-8">
@@ -13,7 +14,7 @@ export const BenefitsBar = () => {
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-6">
                     {[
                         { icon: TruckIcon, title: "Frete Grátis", desc: `Acima de ${freeShippingText}`, visibleOnMobile: true },
-                        { icon: CreditCardIcon, title: "4x Sem Juros", desc: "No cartão de crédito", visibleOnMobile: true },
+                        { icon: CreditCardIcon, title: `${interestFreeInstallments}x Sem Juros`, desc: "No cartão de crédito", visibleOnMobile: true },
                         { icon: ShieldCheckIcon, title: "Compra Segura", desc: "Proteção de dados", visibleOnMobile: false },
                         { icon: ArrowUturnLeftIcon, title: "Troca Fácil", desc: "1ª troca grátis", visibleOnMobile: false },
                     ].map((item, index) => (

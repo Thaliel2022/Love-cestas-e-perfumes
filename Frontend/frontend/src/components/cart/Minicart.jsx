@@ -14,7 +14,8 @@ export const Minicart = memo(({ onNavigate }) => {
         isMinicartOpen,
         setIsMinicartOpen,
         updateQuantity,
-        removeFromCart
+        removeFromCart,
+        paymentInstallmentsConfig
     } = useShop();
     
     const { isAuthenticated } = useAuth();
@@ -60,6 +61,12 @@ export const Minicart = memo(({ onNavigate }) => {
         const price = isOnSale ? item.sale_price : item.price;
         return sum + price * item.qty;
     }, 0), [cartWithStockInfo]);
+
+    const installmentSummary = useMemo(() => {
+        const interestFreeInstallments = Number(paymentInstallmentsConfig?.interest_free_installments) || 4;
+        if (subtotal <= 0 || interestFreeInstallments <= 1) return null;
+        return `${interestFreeInstallments}x de R$ ${(subtotal / interestFreeInstallments).toFixed(2).replace('.', ',')} sem juros`;
+    }, [paymentInstallmentsConfig, subtotal]);
 
     // --- LÓGICA DE TROCA DE TAMANHO DIRETO NO MINICART ---
     const handleSizeChange = async (item, newSize) => {
@@ -306,6 +313,11 @@ export const Minicart = memo(({ onNavigate }) => {
                                     <span className="text-gray-400 text-sm font-medium">Subtotal</span>
                                     <span className="text-2xl font-black text-white tracking-tight">R$ {subtotal.toFixed(2).replace('.', ',')}</span>
                                 </div>
+                                {installmentSummary && (
+                                    <p className="text-right text-xs text-gray-500 -mt-4 mb-5">
+                                        até <span className="font-bold text-gray-300">{installmentSummary}</span>
+                                    </p>
+                                )}
                                 <div className="flex flex-col gap-3">
                                     <button 
                                         onClick={() => { setIsMinicartOpen(false); onNavigate('checkout'); }} 

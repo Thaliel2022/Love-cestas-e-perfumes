@@ -26,6 +26,7 @@ export const ShopProvider = ({ children }) => {
     const [isMinicartOpen, setIsMinicartOpen] = useState(false);
 
     const [localShippingConfig, setLocalShippingConfig] = useState({ base_price: 20, rules: [], free_shipping_minimum: 299 });
+    const [paymentInstallmentsConfig, setPaymentInstallmentsConfig] = useState({ interest_free_installments: 4, max_installments: 10 });
     const [pickupConfig, setPickupConfig] = useState(null);
 
     const [orderNotificationCount, setOrderNotificationCount] = useState(0);
@@ -108,12 +109,22 @@ export const ShopProvider = ({ children }) => {
             .catch(err => console.error("Falha ao buscar config de frete local:", err));
     }, []);
 
+    const fetchPaymentInstallmentsConfig = useCallback(() => {
+        apiService('/settings/payment-installments')
+            .then(data => {
+                setPaymentInstallmentsConfig(prev => JSON.stringify(prev) !== JSON.stringify(data) ? data : prev);
+            })
+            .catch(err => console.error("Falha ao buscar config de parcelamento:", err));
+    }, []);
+
     useEffect(() => {
         fetchShippingConfig(); 
         fetchPickupConfig();
+        fetchPaymentInstallmentsConfig();
         const intervalId = setInterval(() => {
             fetchShippingConfig();
             fetchPickupConfig();
+            fetchPaymentInstallmentsConfig();
         }, 30000); 
         const handleShippingConfigUpdate = (event) => {
             if (event.detail) {
@@ -121,11 +132,18 @@ export const ShopProvider = ({ children }) => {
             }
         };
         window.addEventListener('shipping-config-updated', handleShippingConfigUpdate);
+        const handlePaymentInstallmentsUpdate = (event) => {
+            if (event.detail) {
+                setPaymentInstallmentsConfig(event.detail);
+            }
+        };
+        window.addEventListener('payment-installments-updated', handlePaymentInstallmentsUpdate);
         return () => {
             clearInterval(intervalId);
             window.removeEventListener('shipping-config-updated', handleShippingConfigUpdate);
+            window.removeEventListener('payment-installments-updated', handlePaymentInstallmentsUpdate);
         };
-    }, [fetchShippingConfig, fetchPickupConfig]);
+    }, [fetchShippingConfig, fetchPickupConfig, fetchPaymentInstallmentsConfig]);
 
     const calculateItemsSubtotal = useCallback((items) => {
         return (items || []).reduce((sum, item) => {
@@ -534,6 +552,7 @@ export const ShopProvider = ({ children }) => {
             updateDefaultShippingLocation, determineShippingLocation, setPreviewShippingItem, setSelectedShippingName, isGeolocating, 
             couponCode, setCouponCode, couponMessage, applyCoupon, appliedCoupon, removeCoupon, discount,
             calculateLocalDeliveryPrice, calculateDeliveryDate, localShippingConfig,
+            paymentInstallmentsConfig,
             orderNotificationCount, markOrderAsSeen, checkNotifications,
             pickupConfig,
             isMinicartOpen, setIsMinicartOpen

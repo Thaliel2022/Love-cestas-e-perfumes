@@ -17,7 +17,7 @@ import {
 } from '../components/icons';
 export const ProductDetailPage = ({ productId, onNavigate }) => {
     const { user } = useAuth();
-    const { addToCart, calculateLocalDeliveryPrice, shippingLocation, setIsMinicartOpen } = useShop(); 
+    const { addToCart, calculateLocalDeliveryPrice, shippingLocation, setIsMinicartOpen, paymentInstallmentsConfig } = useShop(); 
     const notification = useNotification();
     const confirmation = useConfirmation();
     const [isLoading, setIsLoading] = useState(true);
@@ -350,7 +350,7 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
     };
 
     useEffect(() => { fetchProductData(productId); window.scrollTo(0, 0); }, [productId, fetchProductData]);
-    useEffect(() => { const fetchInstallments = async (price) => { if (!price || price <= 0) { setInstallments([]); setIsLoadingInstallments(false); return; } setIsLoadingInstallments(true); setInstallments([]); try { const installmentData = await apiService(`/mercadopago/installments?amount=${price}`); setInstallments(installmentData || []); } catch (error) { console.warn("Erro parcelas", error); setInstallments([]); } finally { setIsLoadingInstallments(false); } }; if (product && !product.error && currentPrice > 0) { fetchInstallments(currentPrice); } else if (!product || product.error || !(currentPrice > 0)) { setInstallments([]); setIsLoadingInstallments(false); } }, [product, currentPrice]);
+    useEffect(() => { const fetchInstallments = async (price) => { if (!price || price <= 0) { setInstallments([]); setIsLoadingInstallments(false); return; } setIsLoadingInstallments(true); setInstallments([]); try { const installmentData = await apiService(`/mercadopago/installments?amount=${price}`); setInstallments(installmentData || []); } catch (error) { console.warn("Erro parcelas", error); setInstallments([]); } finally { setIsLoadingInstallments(false); } }; if (product && !product.error && currentPrice > 0) { fetchInstallments(currentPrice); } else if (!product || product.error || !(currentPrice > 0)) { setInstallments([]); setIsLoadingInstallments(false); } }, [product, currentPrice, paymentInstallmentsConfig]);
     
     const checkScrollButtons = useCallback(() => { 
         const gallery = galleryRef.current; 
