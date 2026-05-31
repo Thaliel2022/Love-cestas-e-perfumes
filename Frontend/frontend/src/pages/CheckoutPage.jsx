@@ -195,7 +195,7 @@ export const CheckoutPage = ({ onNavigate }) => {
         const allowedMaxInstallments = total >= minInstallmentAmount ? configuredMax : 1;
         return {
             paymentMethods: {
-                ticket: "all",
+                ticket: "none",
                 bankTransfer: "all",
                 creditCard: "all",
                 debitCard: "all",

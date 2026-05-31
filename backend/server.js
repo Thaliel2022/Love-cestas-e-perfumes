@@ -4113,6 +4113,10 @@ app.post('/api/process-payment', verifyToken, async (req, res) => {
         if (!orderId || !paymentData) {
             return res.status(400).json({ message: "ID do pedido e dados de pagamento são obrigatórios." });
         }
+
+        if (paymentData.payment_type_id === 'ticket') {
+            return res.status(400).json({ message: "Pagamento via boleto não está disponível." });
+        }
         
         const backendUrl = process.env.BACKEND_URL;
         const connection = await db.getConnection();
