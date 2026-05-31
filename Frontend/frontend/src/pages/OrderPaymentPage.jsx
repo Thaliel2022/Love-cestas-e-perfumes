@@ -133,7 +133,7 @@ export const OrderPaymentPage = ({ orderId, onNavigate }) => {
     const mpCustomization = useMemo(() => {
         return {
             paymentMethods: {
-                ticket: "none",
+                excludedPaymentTypes: ["ticket"],
                 bankTransfer: "all",
                 creditCard: "all",
                 debitCard: "all",

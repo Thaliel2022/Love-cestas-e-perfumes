@@ -4128,6 +4128,11 @@ app.post('/api/process-payment', verifyToken, async (req, res) => {
                 return res.status(404).json({ message: "Pedido não encontrado ou acesso negado."});
             }
             const order = orderResult[0];
+            const paymentInstallmentsConfig = await getPaymentInstallmentsConfig();
+
+            if (Number(order.total) < paymentInstallmentsConfig.min_installment_amount && Number(paymentData.installments || 1) > 1) {
+                return res.status(400).json({ message: `Pedidos abaixo de R$ ${Number(paymentInstallmentsConfig.min_installment_amount).toFixed(2).replace('.', ',')} só podem ser pagos em 1x.` });
+            }
 
             // 2. Busca os dados reais do usuário no banco para forçar a geração do PIX
             const [users] = await connection.query("SELECT email, name, cpf FROM users WHERE id = ?", [req.user.id]);
