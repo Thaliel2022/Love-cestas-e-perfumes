@@ -366,7 +366,7 @@ export const CartPage = ({ onNavigate }) => {
                                     {!appliedCoupon ? (
                                         <>
                                         <form onSubmit={handleApplyCoupon} className="flex gap-2">
-                                            <input value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())} type="text" placeholder="Cupom de Desconto" className="w-full p-3 bg-black border border-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm transition-all" />
+                                            <input value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())} type="text" placeholder="Cupom de Desconto" className="w-full p-3 bg-gray-800 border border-gray-700 text-white placeholder:text-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm transition-all" />
                                             <button type="submit" className="px-5 bg-gray-800 text-white font-bold rounded-lg hover:bg-gray-700 text-sm transition-colors border border-gray-700">Aplicar</button>
                                         </form>
                                         {couponMessage && <p className={`text-xs mt-2 font-medium pl-1 ${couponMessage.includes('aplicado') ? 'text-green-400' : 'text-red-400'}`}>{couponMessage}</p>}
