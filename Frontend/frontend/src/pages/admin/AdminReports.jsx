@@ -290,6 +290,23 @@ export const AdminReports = () => {
             const kpis = reportData.kpis;
             const formattedStartDate = new Date(startDate + 'T00:00:00').toLocaleDateString('pt-BR');
             const formattedEndDate = new Date(endDate + 'T00:00:00').toLocaleDateString('pt-BR');
+            const statusRows = Object.entries(reportInsights.statusBreakdown).map(([status, count]) => [
+                status,
+                count,
+                `${((count / Math.max(detailedSales.length, 1)) * 100).toFixed(1)}%`
+            ]);
+            const filtersDescription = [
+                statusFilter === 'all' ? 'Status: todos' : `Status: ${statusFilter}`,
+                searchTerm.trim() ? `Busca: "${searchTerm.trim()}"` : 'Busca: sem termo'
+            ].join(' | ');
+
+            const ensureSpace = (neededHeight = 40) => {
+                const pageHeight = doc.internal.pageSize.getHeight();
+                if (lastY + neededHeight > pageHeight - 15) {
+                    doc.addPage();
+                    lastY = 20;
+                }
+            };
 
             // Título
             doc.setFontSize(18);
@@ -298,6 +315,7 @@ export const AdminReports = () => {
             doc.text(`Período: ${formattedStartDate} a ${formattedEndDate}`, pageWidth / 2, 22, { align: 'center' });
             doc.setFontSize(8);
             doc.text(`Gerado em: ${timestamp}`, pageWidth - 14, 10, { align: 'right' });
+            doc.text(filtersDescription, pageWidth / 2, 28, { align: 'center' });
 
             // KPIs
             doc.setFontSize(12);
@@ -306,37 +324,101 @@ export const AdminReports = () => {
                 startY: 40,
                 head: [['Indicador', 'Valor']],
                 body: [
-                    ['Faturamento Total', `R$ ${Number(kpis.totalRevenue).toFixed(2)}`],
+                    ['Faturamento Total', formatCurrency(kpis.totalRevenue)],
                     ['Total de Vendas', kpis.totalSales],
-                    ['Ticket Médio', `R$ ${Number(kpis.avgOrderValue).toFixed(2)}`],
+                    ['Ticket Médio', formatCurrency(kpis.avgOrderValue)],
                     ['Novos Clientes', kpis.newCustomers],
+                    ['Itens Vendidos', reportInsights.totalItemsSold],
+                    ['Média de Itens por Pedido', reportInsights.avgItemsPerOrder.toFixed(2)],
+                    ['Receita Média por Item', formatCurrency(reportInsights.revenuePerItem)],
                 ],
                 theme: 'striped'
             });
             let lastY = doc.lastAutoTable.finalY + 10;
 
+            ensureSpace(35);
+            doc.setFontSize(12);
+            doc.text("Insights Gerenciais", 14, lastY);
+            doc.autoTable({
+                startY: lastY + 5,
+                head: [['Indicador', 'Resultado']],
+                body: [
+                    ['Melhor dia do período', reportInsights.peakDay ? `${formatDate(reportInsights.peakDay.sale_date)} (${formatCurrency(reportInsights.peakDay.daily_total)})` : 'Sem vendas'],
+                    ['Produto com maior receita', reportInsights.topRevenueProduct ? `${reportInsights.topRevenueProduct.name} (${formatCurrency(reportInsights.topRevenueProduct.total_revenue)})` : 'Sem produtos vendidos'],
+                    ['Cliente destaque', reportInsights.topCustomer ? `${reportInsights.topCustomer.name} (${formatCurrency(reportInsights.topCustomer.total_spent)} em ${reportInsights.topCustomer.total_orders} pedido(s))` : 'Sem clientes'],
+                    ['Pedidos exibidos após filtros', `${filteredSales.length} de ${detailedSales.length}`],
+                ],
+                theme: 'grid',
+                styles: { fontSize: 9 },
+                columnStyles: {
+                    0: { fontStyle: 'bold', cellWidth: 55 },
+                    1: { cellWidth: 'auto' }
+                }
+            });
+            lastY = doc.lastAutoTable.finalY + 10;
+
+            if (statusRows.length > 0) {
+                ensureSpace(35);
+                doc.setFontSize(12);
+                doc.text("Distribuição por Status", 14, lastY);
+                doc.autoTable({
+                    startY: lastY + 5,
+                    head: [['Status', 'Pedidos', 'Participação']],
+                    body: statusRows,
+                    theme: 'striped',
+                    styles: { fontSize: 9 }
+                });
+                lastY = doc.lastAutoTable.finalY + 10;
+            }
+
+            if (reportData.topCustomers && reportData.topCustomers.length > 0) {
+                ensureSpace(45);
+                doc.setFontSize(12);
+                doc.text("Clientes Mais Valiosos", 14, lastY);
+                doc.autoTable({
+                    startY: lastY + 5,
+                    head: [['Cliente', 'E-mail', 'Pedidos', 'Total Gasto']],
+                    body: reportData.topCustomers.map(customer => [
+                        customer.name,
+                        customer.email,
+                        customer.total_orders,
+                        formatCurrency(customer.total_spent)
+                    ]),
+                    theme: 'striped',
+                    styles: { fontSize: 8 },
+                    columnStyles: {
+                        0: { cellWidth: 45 },
+                        1: { cellWidth: 65 },
+                        2: { halign: 'center', cellWidth: 25 },
+                        3: { halign: 'right', cellWidth: 35 }
+                    }
+                });
+                lastY = doc.lastAutoTable.finalY + 10;
+            }
+
             // Detalhamento de Vendas
-            if (reportData.detailedSales && reportData.detailedSales.length > 0) {
+            if (filteredSales.length > 0) {
+                ensureSpace(50);
                 doc.setFontSize(12);
                 doc.text("Detalhamento de Vendas e Itens", 14, lastY);
                 
                 const tableBody = [];
-                reportData.detailedSales.forEach(order => {
+                filteredSales.forEach(order => {
                     tableBody.push([
                         `#${order.id}`, 
                         order.customer_name, 
-                        new Date(order.date).toLocaleDateString(), 
-                        `R$ ${Number(order.total).toFixed(2)}`,
+                        formatDate(order.date), 
+                        formatCurrency(order.total),
                         order.status
                     ]);
                     
-                    const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
+                    const items = parseOrderItems(order.items);
                     items.forEach(item => {
                         tableBody.push([
                             '', 
                             `-> ${item.quantity}x ${item.name}`, 
                             '', 
-                            `R$ ${Number(item.price).toFixed(2)} un.`, 
+                            `${formatCurrency(item.price)} un.`, 
                             ''
                         ]);
                     });
@@ -380,10 +462,30 @@ export const AdminReports = () => {
                 body: reportData.topProducts.map(p => [
                     p.name,
                     p.total_quantity,
-                    `R$ ${Number(p.total_revenue).toFixed(2)}`
+                    formatCurrency(p.total_revenue)
                 ]),
                 theme: 'striped'
             });
+            lastY = doc.lastAutoTable.finalY + 10;
+
+            if (reportData.salesOverTime && reportData.salesOverTime.length > 0) {
+                ensureSpace(45);
+                doc.setFontSize(12);
+                doc.text("Faturamento Diário", 14, lastY);
+                doc.autoTable({
+                    startY: lastY + 5,
+                    head: [['Data', 'Faturamento']],
+                    body: reportData.salesOverTime.map(day => [
+                        formatDate(day.sale_date),
+                        formatCurrency(day.daily_total)
+                    ]),
+                    theme: 'striped',
+                    styles: { fontSize: 8 },
+                    columnStyles: {
+                        1: { halign: 'right' }
+                    }
+                });
+            }
 
             doc.save(`relatorio_detalhado_${startDate}_a_${endDate}.pdf`);
         }, ['pdf']);
