@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiService } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -8,6 +8,8 @@ export const AdminReports = () => {
     const [reportData, setReportData] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [expandedRows, setExpandedRows] = useState([]); // Para controlar quais linhas da tabela estão expandidas
+    const [statusFilter, setStatusFilter] = useState('all');
+    const [searchTerm, setSearchTerm] = useState('');
     const notification = useNotification();
     
     // Define as datas padrão
@@ -24,6 +26,94 @@ export const AdminReports = () => {
     const [startDate, setStartDate] = useState(getFirstDayOfMonth());
     const [endDate, setEndDate] = useState(getToday());
 
+    const formatCurrency = (value) => `R$ ${Number(value || 0).toFixed(2).replace('.', ',')}`;
+    const formatDate = (value) => {
+        if (!value) return '-';
+        return new Date(value).toLocaleDateString('pt-BR');
+    };
+
+    const parseOrderItems = (items) => {
+        if (!items) return [];
+        if (Array.isArray(items)) return items;
+        try {
+            return JSON.parse(items) || [];
+        } catch (error) {
+            return [];
+        }
+    };
+
+    const setDatePreset = (preset) => {
+        const today = new Date();
+        const start = new Date();
+
+        if (preset === 'today') {
+            setStartDate(today.toISOString().split('T')[0]);
+            setEndDate(today.toISOString().split('T')[0]);
+            return;
+        }
+
+        if (preset === '7days') start.setDate(today.getDate() - 6);
+        if (preset === '30days') start.setDate(today.getDate() - 29);
+        if (preset === 'month') start.setDate(1);
+
+        setStartDate(start.toISOString().split('T')[0]);
+        setEndDate(today.toISOString().split('T')[0]);
+    };
+
+    const detailedSales = useMemo(() => reportData?.detailedSales || [], [reportData]);
+
+    const statusOptions = useMemo(() => {
+        return [...new Set(detailedSales.map(order => order.status).filter(Boolean))];
+    }, [detailedSales]);
+
+    const filteredSales = useMemo(() => {
+        const normalizedSearch = searchTerm.trim().toLowerCase();
+        return detailedSales.filter(order => {
+            const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+            if (!normalizedSearch) return matchesStatus;
+
+            const items = parseOrderItems(order.items);
+            const searchableText = [
+                order.id,
+                order.customer_name,
+                order.status,
+                ...items.map(item => item.name)
+            ].join(' ').toLowerCase();
+
+            return matchesStatus && searchableText.includes(normalizedSearch);
+        });
+    }, [detailedSales, searchTerm, statusFilter]);
+
+    const reportInsights = useMemo(() => {
+        const totalRevenue = Number(reportData?.kpis?.totalRevenue) || 0;
+        const totalSales = Number(reportData?.kpis?.totalSales) || 0;
+        const totalItemsSold = detailedSales.reduce((sum, order) => {
+            return sum + parseOrderItems(order.items).reduce((itemsSum, item) => itemsSum + (Number(item.quantity) || 0), 0);
+        }, 0);
+        const statusBreakdown = detailedSales.reduce((acc, order) => {
+            const status = order.status || 'Sem status';
+            acc[status] = (acc[status] || 0) + 1;
+            return acc;
+        }, {});
+        const peakDay = (reportData?.salesOverTime || []).reduce((best, day) => {
+            return Number(day.daily_total) > Number(best?.daily_total || 0) ? day : best;
+        }, null);
+        const topRevenueProduct = (reportData?.topProducts || []).reduce((best, product) => {
+            return Number(product.total_revenue) > Number(best?.total_revenue || 0) ? product : best;
+        }, null);
+        const topCustomer = reportData?.topCustomers?.[0] || null;
+
+        return {
+            totalItemsSold,
+            avgItemsPerOrder: totalSales > 0 ? totalItemsSold / totalSales : 0,
+            revenuePerItem: totalItemsSold > 0 ? totalRevenue / totalItemsSold : 0,
+            statusBreakdown,
+            peakDay,
+            topRevenueProduct,
+            topCustomer
+        };
+    }, [detailedSales, reportData]);
+
     const toggleRow = (orderId) => {
         setExpandedRows(prev => 
             prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId]
@@ -35,9 +125,12 @@ export const AdminReports = () => {
         setIsLoading(true);
         setReportData(null); 
         setExpandedRows([]); // Reseta expansão
+        setSearchTerm('');
+        setStatusFilter('all');
         
         if (window.mySalesOverTimeChart) window.mySalesOverTimeChart.destroy();
         if (window.myTopProductsChart) window.myTopProductsChart.destroy();
+        if (window.myStatusDistributionChart) window.myStatusDistributionChart.destroy();
 
         apiService(`/reports/detailed?startDate=${startDate}&endDate=${endDate}`)
             .then(data => {
@@ -82,7 +175,25 @@ export const AdminReports = () => {
                                     fill: true, tension: 0.3
                                 }]
                             },
-                            options: { responsive: true, maintainAspectRatio: false }
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: { display: false },
+                                    tooltip: {
+                                        callbacks: {
+                                            label: (context) => ` ${formatCurrency(context.parsed.y)}`
+                                        }
+                                    }
+                                },
+                                scales: {
+                                    y: {
+                                        ticks: {
+                                            callback: (value) => `R$ ${value}`
+                                        }
+                                    }
+                                }
+                            }
                         });
                     }
                     
@@ -100,7 +211,44 @@ export const AdminReports = () => {
                                     borderWidth: 1
                                 }]
                             },
-                            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+                            options: {
+                                indexAxis: 'y',
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { display: false } }
+                            }
+                        });
+                    }
+
+                    const statusCtx = document.getElementById('statusDistributionChart')?.getContext('2d');
+                    const statusLabels = Object.keys(reportInsights.statusBreakdown);
+                    if (statusCtx && statusLabels.length > 0) {
+                        if (window.myStatusDistributionChart) window.myStatusDistributionChart.destroy();
+                        window.myStatusDistributionChart = new window.Chart(statusCtx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: statusLabels,
+                                datasets: [{
+                                    data: statusLabels.map(status => reportInsights.statusBreakdown[status]),
+                                    backgroundColor: [
+                                        'rgba(37, 99, 235, 0.85)',
+                                        'rgba(22, 163, 74, 0.85)',
+                                        'rgba(245, 158, 11, 0.85)',
+                                        'rgba(168, 85, 247, 0.85)',
+                                        'rgba(14, 165, 233, 0.85)',
+                                        'rgba(239, 68, 68, 0.85)'
+                                    ],
+                                    borderWidth: 0
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: { position: 'bottom' }
+                                },
+                                cutout: '68%'
+                            }
                         });
                     }
                 } else {
@@ -109,12 +257,13 @@ export const AdminReports = () => {
             };
             renderCharts();
         }
-    }, [reportData, isLoading]);
+    }, [reportData, isLoading, reportInsights.statusBreakdown]);
 
-    const StatCard = ({ title, value }) => (
-        <div className="bg-white p-6 rounded-lg shadow-md text-center">
-            <h4 className="text-sm font-semibold text-gray-500 uppercase">{title}</h4>
-            <p className="text-3xl font-bold text-gray-900 mt-1">{value}</p>
+    const StatCard = ({ title, value, subtitle, accent = 'text-gray-900' }) => (
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide">{title}</h4>
+            <p className={`text-3xl font-black mt-2 ${accent}`}>{value}</p>
+            {subtitle && <p className="text-xs text-gray-500 mt-2">{subtitle}</p>}
         </div>
     );
 
@@ -241,44 +390,86 @@ export const AdminReports = () => {
     };
 
     return (
-        <div>
-            <h1 className="text-3xl font-bold mb-6">Relatórios Detalhados</h1>
+        <div className="space-y-6">
+            <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 rounded-3xl p-6 md:p-8 text-white shadow-xl overflow-hidden relative">
+                <div className="absolute right-0 top-0 h-40 w-40 bg-amber-400/10 blur-3xl rounded-full"></div>
+                <div className="relative flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+                    <div>
+                        <span className="inline-flex items-center px-3 py-1 rounded-full bg-amber-400/15 text-amber-200 text-xs font-bold uppercase tracking-wide border border-amber-300/20">
+                            Inteligência de vendas
+                        </span>
+                        <h1 className="text-3xl md:text-4xl font-black mt-4">Relatórios Detalhados</h1>
+                        <p className="text-slate-300 mt-2 max-w-2xl">
+                            Acompanhe faturamento, pedidos, clientes, produtos e status em uma visão gerencial do período selecionado.
+                        </p>
+                    </div>
+                    {reportData && (
+                        <div className="grid grid-cols-2 gap-3 min-w-full sm:min-w-[360px]">
+                            <div className="bg-white/10 border border-white/10 rounded-2xl p-4">
+                                <p className="text-xs text-slate-300">Itens vendidos</p>
+                                <p className="text-2xl font-black">{reportInsights.totalItemsSold}</p>
+                            </div>
+                            <div className="bg-white/10 border border-white/10 rounded-2xl p-4">
+                                <p className="text-xs text-slate-300">Receita por item</p>
+                                <p className="text-2xl font-black">{formatCurrency(reportInsights.revenuePerItem)}</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
             
             {/* Seletor de Data */}
-            <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-                <div className="flex flex-col md:flex-row items-center gap-4">
-                    <div>
-                        <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">Data de Início</label>
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                <div className="flex flex-wrap gap-2 mb-5">
+                    {[
+                        { key: 'today', label: 'Hoje' },
+                        { key: '7days', label: 'Últimos 7 dias' },
+                        { key: '30days', label: 'Últimos 30 dias' },
+                        { key: 'month', label: 'Mês atual' }
+                    ].map(preset => (
+                        <button
+                            key={preset.key}
+                            type="button"
+                            onClick={() => setDatePreset(preset.key)}
+                            className="px-4 py-2 rounded-full text-sm font-bold bg-gray-100 text-gray-700 hover:bg-amber-100 hover:text-amber-800 transition-colors"
+                        >
+                            {preset.label}
+                        </button>
+                    ))}
+                </div>
+                <div className="flex flex-col md:flex-row md:items-end gap-4">
+                    <div className="flex-1">
+                        <label htmlFor="startDate" className="block text-sm font-bold text-gray-700">Data de Início</label>
                         <input
                             type="date"
                             id="startDate"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
-                            className="mt-1 p-2 border border-gray-300 rounded-md w-full md:w-auto"
+                            className="mt-1 p-3 border border-gray-300 rounded-xl w-full focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none"
                         />
                     </div>
-                    <div>
-                        <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">Data Final</label>
+                    <div className="flex-1">
+                        <label htmlFor="endDate" className="block text-sm font-bold text-gray-700">Data Final</label>
                         <input
                             type="date"
                             id="endDate"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
-                            className="mt-1 p-2 border border-gray-300 rounded-md w-full md:w-auto"
+                            className="mt-1 p-3 border border-gray-300 rounded-xl w-full focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none"
                         />
                     </div>
-                    <div className="flex gap-2 w-full md:w-auto mt-3 md:mt-6">
+                    <div className="flex gap-2 w-full md:w-auto">
                         <button
                             onClick={handleGenerateReport}
                             disabled={isLoading}
-                            className="flex-1 md:flex-none bg-gray-800 text-white px-6 py-2 rounded-md hover:bg-gray-900 disabled:bg-gray-400"
+                            className="flex-1 md:flex-none bg-gray-900 text-white px-6 py-3 rounded-xl hover:bg-black disabled:bg-gray-400 font-bold flex items-center justify-center gap-2"
                         >
-                            {isLoading ? <SpinnerIcon /> : 'Gerar Relatório'}
+                            {isLoading ? <SpinnerIcon className="h-5 w-5" /> : 'Gerar Relatório'}
                         </button>
                         <button
                             onClick={handleExportPDF}
                             disabled={isLoading || !reportData}
-                            className="flex-1 md:flex-none bg-red-600 text-white px-6 py-2 rounded-md hover:bg-red-700 disabled:bg-gray-400 flex items-center justify-center gap-2"
+                            className="flex-1 md:flex-none bg-red-600 text-white px-6 py-3 rounded-xl hover:bg-red-700 disabled:bg-gray-400 flex items-center justify-center gap-2 font-bold"
                         >
                             <DownloadIcon className="h-5 w-5"/>
                             <span className="hidden md:inline">Exportar PDF</span>
@@ -300,19 +491,61 @@ export const AdminReports = () => {
                     className="space-y-6"
                 >
                     {/* KPIs */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <StatCard title="Faturamento Total" value={`R$ ${Number(reportData.kpis.totalRevenue).toFixed(2)}`} />
-                        <StatCard title="Total de Vendas" value={reportData.kpis.totalSales} />
-                        <StatCard title="Ticket Médio" value={`R$ ${Number(reportData.kpis.avgOrderValue).toFixed(2)}`} />
-                        <StatCard title="Novos Clientes" value={reportData.kpis.newCustomers} />
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                        <StatCard title="Faturamento Total" value={formatCurrency(reportData.kpis.totalRevenue)} subtitle="Pedidos pagos e em andamento" accent="text-emerald-600" />
+                        <StatCard title="Total de Vendas" value={reportData.kpis.totalSales} subtitle={`${filteredSales.length} pedido(s) visíveis nos filtros`} accent="text-blue-600" />
+                        <StatCard title="Ticket Médio" value={formatCurrency(reportData.kpis.avgOrderValue)} subtitle="Média por pedido no período" accent="text-purple-600" />
+                        <StatCard title="Novos Clientes" value={reportData.kpis.newCustomers} subtitle="Cadastros criados no intervalo" accent="text-amber-600" />
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Melhor dia do período</p>
+                            <p className="text-2xl font-black text-gray-900 mt-2">{reportInsights.peakDay ? formatDate(reportInsights.peakDay.sale_date) : '-'}</p>
+                            <p className="text-sm text-gray-500 mt-1">{reportInsights.peakDay ? formatCurrency(reportInsights.peakDay.daily_total) : 'Sem vendas no período'}</p>
+                        </div>
+                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Produto com maior receita</p>
+                            <p className="text-lg font-black text-gray-900 mt-2 line-clamp-1">{reportInsights.topRevenueProduct?.name || '-'}</p>
+                            <p className="text-sm text-gray-500 mt-1">{reportInsights.topRevenueProduct ? formatCurrency(reportInsights.topRevenueProduct.total_revenue) : 'Sem produtos vendidos'}</p>
+                        </div>
+                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Cliente destaque</p>
+                            <p className="text-lg font-black text-gray-900 mt-2 line-clamp-1">{reportInsights.topCustomer?.name || '-'}</p>
+                            <p className="text-sm text-gray-500 mt-1">{reportInsights.topCustomer ? `${formatCurrency(reportInsights.topCustomer.total_spent)} em ${reportInsights.topCustomer.total_orders} pedido(s)` : 'Sem clientes no período'}</p>
+                        </div>
                     </div>
 
                     {/* NOVA SEÇÃO: DETALHAMENTO DE VENDAS */}
-                    <div className="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
-                        <div className="p-4 border-b border-gray-200 bg-gray-50">
-                            <h3 className="font-bold text-lg text-gray-800">Detalhamento de Vendas ({reportData.detailedSales ? reportData.detailedSales.length : 0})</h3>
+                    <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
+                        <div className="p-5 border-b border-gray-100 bg-gray-50/80">
+                            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                                <div>
+                                    <h3 className="font-black text-xl text-gray-900">Detalhamento de Vendas</h3>
+                                    <p className="text-sm text-gray-500 mt-1">{filteredSales.length} de {detailedSales.length} pedido(s) exibidos</p>
+                                </div>
+                                <div className="flex flex-col sm:flex-row gap-3">
+                                    <input
+                                        type="search"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        placeholder="Buscar pedido, cliente ou produto..."
+                                        className="w-full sm:w-72 p-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none"
+                                    />
+                                    <select
+                                        value={statusFilter}
+                                        onChange={(e) => setStatusFilter(e.target.value)}
+                                        className="p-3 border border-gray-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none"
+                                    >
+                                        <option value="all">Todos os status</option>
+                                        {statusOptions.map(status => (
+                                            <option key={status} value={status}>{status}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
                         </div>
-                        {reportData.detailedSales && reportData.detailedSales.length > 0 ? (
+                        {filteredSales.length > 0 ? (
                             <>
                                 {/* VISÃO DESKTOP (TABELA) */}
                                 <div className="hidden md:block overflow-x-auto">
@@ -328,9 +561,9 @@ export const AdminReports = () => {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-200">
-                                            {reportData.detailedSales.map(order => {
+                                            {filteredSales.map(order => {
                                                 const isExpanded = expandedRows.includes(order.id);
-                                                const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
+                                                const items = parseOrderItems(order.items);
 
                                                 return (
                                                     <React.Fragment key={order.id}>
@@ -340,8 +573,8 @@ export const AdminReports = () => {
                                                             </td>
                                                             <td className="p-4 font-bold text-indigo-600">#{order.id}</td>
                                                             <td className="p-4">{order.customer_name}</td>
-                                                            <td className="p-4 text-gray-500">{new Date(order.date).toLocaleDateString()}</td>
-                                                            <td className="p-4 font-bold text-green-600">R$ {Number(order.total).toFixed(2)}</td>
+                                                            <td className="p-4 text-gray-500">{formatDate(order.date)}</td>
+                                                            <td className="p-4 font-bold text-green-600">{formatCurrency(order.total)}</td>
                                                             <td className="p-4">
                                                                 <span className="px-2 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-700">
                                                                     {order.status}
@@ -356,7 +589,7 @@ export const AdminReports = () => {
                                                                         {items.map((item, idx) => (
                                                                             <div key={idx} className="flex justify-between text-sm text-gray-700 border-b border-gray-200 pb-1 last:border-0 last:pb-0">
                                                                                 <span>{item.quantity}x {item.name}</span>
-                                                                                <span className="font-mono">R$ {Number(item.price).toFixed(2)}</span>
+                                                                                <span className="font-mono">{formatCurrency(item.price)}</span>
                                                                             </div>
                                                                         ))}
                                                                     </div>
@@ -372,9 +605,9 @@ export const AdminReports = () => {
 
                                 {/* VISÃO MOBILE (CARDS) */}
                                 <div className="md:hidden space-y-4 p-4">
-                                    {reportData.detailedSales.map(order => {
+                                    {filteredSales.map(order => {
                                         const isExpanded = expandedRows.includes(order.id);
-                                        const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
+                                        const items = parseOrderItems(order.items);
 
                                         return (
                                             <div key={order.id} className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
@@ -385,7 +618,7 @@ export const AdminReports = () => {
                                                     <div className="space-y-1">
                                                         <div className="flex items-center gap-2">
                                                             <span className="font-bold text-indigo-600">#{order.id}</span>
-                                                            <span className="text-xs text-gray-500">{new Date(order.date).toLocaleDateString()}</span>
+                                                            <span className="text-xs text-gray-500">{formatDate(order.date)}</span>
                                                         </div>
                                                         <p className="font-medium text-gray-800">{order.customer_name}</p>
                                                         <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200">
@@ -393,7 +626,7 @@ export const AdminReports = () => {
                                                         </span>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className="font-bold text-green-600 mb-2">R$ {Number(order.total).toFixed(2)}</p>
+                                                        <p className="font-bold text-green-600 mb-2">{formatCurrency(order.total)}</p>
                                                         <ChevronDownIcon className={`h-5 w-5 text-gray-400 ml-auto transition-transform ${isExpanded ? 'rotate-180' : ''}`}/>
                                                     </div>
                                                 </div>
@@ -417,7 +650,7 @@ export const AdminReports = () => {
                                                                             <div className="flex-1 pr-2">
                                                                                 <span className="font-bold text-gray-900">{item.quantity}x</span> {item.name}
                                                                             </div>
-                                                                            <span className="font-mono text-gray-600 whitespace-nowrap">R$ {Number(item.price).toFixed(2)}</span>
+                                                                            <span className="font-mono text-gray-600 whitespace-nowrap">{formatCurrency(item.price)}</span>
                                                                         </div>
                                                                     ))}
                                                                 </div>
@@ -431,22 +664,51 @@ export const AdminReports = () => {
                                 </div>
                             </>
                         ) : (
-                            <div className="p-8 text-center text-gray-500">Nenhuma venda encontrada neste período.</div>
+                            <div className="p-8 text-center text-gray-500">Nenhuma venda encontrada para os filtros selecionados.</div>
                         )}
                     </div>
 
                     {/* Gráficos */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div className="bg-white p-6 rounded-lg shadow min-h-[300px]">
-                            <h3 className="font-bold mb-4 text-lg">Vendas ao Longo do Tempo</h3>
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 min-h-[320px] xl:col-span-2">
+                            <h3 className="font-black mb-1 text-lg text-gray-900">Vendas ao Longo do Tempo</h3>
+                            <p className="text-sm text-gray-500 mb-4">Faturamento diário dos pedidos válidos</p>
                             <div className="relative h-64">
                                 <canvas id="salesOverTimeChart"></canvas>
                             </div>
                         </div>
-                        <div className="bg-white p-6 rounded-lg shadow min-h-[300px]">
-                            <h3 className="font-bold mb-4 text-lg">Produtos Mais Vendidos (por Unidade)</h3>
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 min-h-[320px]">
+                            <h3 className="font-black mb-1 text-lg text-gray-900">Status dos Pedidos</h3>
+                            <p className="text-sm text-gray-500 mb-4">Distribuição operacional do período</p>
+                            <div className="relative h-64">
+                                <canvas id="statusDistributionChart"></canvas>
+                            </div>
+                        </div>
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 min-h-[320px] xl:col-span-2">
+                            <h3 className="font-black mb-1 text-lg text-gray-900">Produtos Mais Vendidos</h3>
+                            <p className="text-sm text-gray-500 mb-4">Ranking por unidades vendidas</p>
                             <div className="relative h-64">
                                 <canvas id="topProductsChart"></canvas>
+                            </div>
+                        </div>
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                            <h3 className="font-black text-lg text-gray-900">Clientes Mais Valiosos</h3>
+                            <p className="text-sm text-gray-500 mb-4">Top compradores por faturamento</p>
+                            <div className="space-y-3">
+                                {(reportData.topCustomers || []).length > 0 ? reportData.topCustomers.slice(0, 6).map((customer, index) => (
+                                    <div key={`${customer.email}-${index}`} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
+                                        <div className="min-w-0">
+                                            <p className="font-bold text-gray-900 truncate">{index + 1}. {customer.name}</p>
+                                            <p className="text-xs text-gray-500 truncate">{customer.email}</p>
+                                        </div>
+                                        <div className="text-right flex-shrink-0">
+                                            <p className="font-black text-emerald-600">{formatCurrency(customer.total_spent)}</p>
+                                            <p className="text-xs text-gray-500">{customer.total_orders} pedido(s)</p>
+                                        </div>
+                                    </div>
+                                )) : (
+                                    <p className="text-sm text-gray-500 text-center py-8">Nenhum cliente encontrado no período.</p>
+                                )}
                             </div>
                         </div>
                     </div>
