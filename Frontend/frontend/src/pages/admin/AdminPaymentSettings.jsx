@@ -14,6 +14,26 @@ export const AdminPaymentSettings = () => {
     const [mpCurrent, setMpCurrent] = useState(null);
     const notification = useNotification();
 
+    const clampInstallmentValue = (value, fallback = 1) => {
+        const parsed = parseInt(value, 10);
+        return Number.isFinite(parsed) ? Math.max(1, Math.min(24, parsed)) : fallback;
+    };
+
+    const normalizePaymentConfig = (currentConfig) => {
+        const interestFreeInstallments = clampInstallmentValue(currentConfig.interest_free_installments, 1);
+        const maxInstallments = Math.max(
+            interestFreeInstallments,
+            clampInstallmentValue(currentConfig.max_installments, interestFreeInstallments)
+        );
+        const minInstallmentAmount = Math.max(0, Number(currentConfig.min_installment_amount) || 0);
+
+        return {
+            interest_free_installments: interestFreeInstallments,
+            max_installments: maxInstallments,
+            min_installment_amount: minInstallmentAmount
+        };
+    };
+
     useEffect(() => {
         apiService('/settings/payment-installments')
             .then(data => {
@@ -28,22 +48,11 @@ export const AdminPaymentSettings = () => {
     }, []);
 
     const handleChange = (field, value) => {
-        if (field === 'min_installment_amount') {
-            const minValue = Math.max(0, Number(value) || 0);
-            setConfig(prev => ({ ...prev, min_installment_amount: minValue }));
-            return;
-        }
-        const numericValue = Math.max(1, Number(value) || 1);
-        setConfig(prev => {
-            const next = { ...prev, [field]: numericValue };
-            if (field === 'interest_free_installments' && numericValue > next.max_installments) {
-                next.max_installments = numericValue;
-            }
-            if (field === 'max_installments' && numericValue < next.interest_free_installments) {
-                next.interest_free_installments = numericValue;
-            }
-            return next;
-        });
+        setConfig(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleBlur = () => {
+        setConfig(prev => normalizePaymentConfig(prev));
     };
 
     const handleSave = () => {
@@ -54,10 +63,9 @@ export const AdminPaymentSettings = () => {
         e.preventDefault();
         setIsSaving(true);
         try {
+            const normalizedConfig = normalizePaymentConfig(config);
             const payload = {
-                interest_free_installments: Number(config.interest_free_installments) || 1,
-                max_installments: Number(config.max_installments) || 1,
-                min_installment_amount: Math.max(0, Number(config.min_installment_amount) || 0),
+                ...normalizedConfig,
                 password: authInput,
                 token: authInput.length === 6 && !isNaN(authInput) ? authInput : null
             };
@@ -93,6 +101,8 @@ export const AdminPaymentSettings = () => {
     };
 
     if (isLoading) return <div className="flex justify-center p-10"><SpinnerIcon className="h-8 w-8 text-indigo-600"/></div>;
+
+    const previewConfig = normalizePaymentConfig(config);
 
     return (
         <div className="max-w-3xl mx-auto space-y-8">
@@ -154,6 +164,7 @@ export const AdminPaymentSettings = () => {
                             max="24"
                             value={config.max_installments}
                             onChange={(e) => handleChange('max_installments', e.target.value)}
+                            onBlur={handleBlur}
                             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         />
                         <p className="text-xs text-gray-500 mt-2">Limite total de parcelas exibidas no checkout. Esta é a única opção que o site realmente controla.</p>
@@ -167,6 +178,7 @@ export const AdminPaymentSettings = () => {
                             max="24"
                             value={config.interest_free_installments}
                             onChange={(e) => handleChange('interest_free_installments', e.target.value)}
+                            onBlur={handleBlur}
                             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         />
                         <p className="text-xs text-gray-500 mt-2">Usado só no texto da página do produto (ex.: “em até 4x sem juros”). <strong>Mantenha igual</strong> ao configurado no Mercado Pago para não confundir o cliente no checkout.</p>
@@ -196,6 +208,7 @@ export const AdminPaymentSettings = () => {
                             step="1"
                             value={config.min_installment_amount}
                             onChange={(e) => handleChange('min_installment_amount', e.target.value)}
+                            onBlur={handleBlur}
                             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         />
                         <p className="text-xs text-gray-500 mt-2">Abaixo deste valor, o produto só pode ser pago à vista (1x). Ex.: 100 = produtos abaixo de R$100 não parcelam. Use 0 para permitir parcelar qualquer valor.</p>
@@ -203,7 +216,7 @@ export const AdminPaymentSettings = () => {
                 </div>
 
                 <div className="mt-6 bg-indigo-50 border border-indigo-100 rounded-lg p-4 text-sm text-indigo-800">
-                    Compras a partir de <strong>R$ {Number(config.min_installment_amount).toFixed(2).replace('.', ',')}</strong> poderão ser parceladas em até <strong>{config.max_installments}x</strong>; abaixo disso, apenas à vista. As parcelas sem juros exibidas serão as que o <strong>Mercado Pago</strong> retornar para o valor da compra.
+                    Compras a partir de <strong>R$ {Number(previewConfig.min_installment_amount).toFixed(2).replace('.', ',')}</strong> poderão ser parceladas em até <strong>{previewConfig.max_installments}x</strong>; abaixo disso, apenas à vista. As parcelas sem juros exibidas serão as que o <strong>Mercado Pago</strong> retornar para o valor da compra.
                 </div>
             </div>
 
