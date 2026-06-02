@@ -45,6 +45,13 @@ export const BannerForm = ({ item, section, onSave, onCancel }) => {
         onSave(formData);
     };
 
+    const formatDateTimeLocal = (value) => {
+        if (!value) return '';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '';
+        return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+    };
+
     const getHints = () => {
         switch(section) {
             case 'promo': return { title: "Destaque Agendável (Meio)", sizeDesktop: "1920 x 600 px", showMobile: false, showSchedule: true, aspectDesktop: "aspect-[21/9]", aspectMobile: "aspect-[4/5]" };
@@ -64,16 +71,51 @@ export const BannerForm = ({ item, section, onSave, onCancel }) => {
 
             {/* Agendamento (Apenas para Promoção) */}
             {hints.showSchedule && (
-                <div className="grid grid-cols-2 gap-4 bg-blue-50 p-4 rounded-lg border border-blue-100">
-                    <div>
-                        <label className="block text-xs font-bold text-blue-800 mb-1">Início (Opcional)</label>
-                        <input type="datetime-local" name="start_date" value={formData.start_date || ''} onChange={handleChange} className="w-full p-2 border border-blue-200 rounded text-sm"/>
+                <div className="space-y-4 bg-blue-50 p-4 rounded-lg border border-blue-100">
+                    <div className="flex items-start gap-3 bg-white/70 border border-blue-100 rounded-md p-3">
+                        <input
+                            type="checkbox"
+                            name="is_recurring"
+                            id="is_recurring_form"
+                            checked={!!formData.is_recurring}
+                            onChange={handleChange}
+                            className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded"
+                        />
+                        <div>
+                            <label htmlFor="is_recurring_form" className="block text-sm font-bold text-blue-900">Repetir todos os anos</label>
+                            <p className="text-xs text-blue-700">Use para datas comemorativas como Natal, Dia das Mães, Dia dos Pais, Namorados e Black Friday. O sistema ativa automaticamente no período de cada ano.</p>
+                        </div>
                     </div>
-                    <div>
-                        <label className="block text-xs font-bold text-blue-800 mb-1">Fim (Opcional)</label>
-                        <input type="datetime-local" name="end_date" value={formData.end_date || ''} onChange={handleChange} className="w-full p-2 border border-blue-200 rounded text-sm"/>
-                    </div>
-                    <p className="col-span-2 text-[10px] text-blue-600">*Deixe em branco para exibir imediatamente e sem prazo de validade.</p>
+
+                    {!!formData.is_recurring ? (
+                        <div className="grid grid-cols-3 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-blue-800 mb-1">Mês</label>
+                                <input type="number" min="1" max="12" name="recurring_month" value={formData.recurring_month || ''} onChange={handleChange} className="w-full p-2 border border-blue-200 rounded text-sm"/>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-blue-800 mb-1">Dia inicial</label>
+                                <input type="number" min="1" max="31" name="recurring_day" value={formData.recurring_day || ''} onChange={handleChange} className="w-full p-2 border border-blue-200 rounded text-sm"/>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-blue-800 mb-1">Duração (dias)</label>
+                                <input type="number" min="1" name="recurring_duration_days" value={formData.recurring_duration_days || ''} onChange={handleChange} className="w-full p-2 border border-blue-200 rounded text-sm"/>
+                            </div>
+                            <p className="col-span-3 text-[10px] text-blue-600">Ex.: Natal = mês 12, dia 1, duração 25. Essa janela será recalculada automaticamente a cada ano.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-blue-800 mb-1">Início (Opcional)</label>
+                                <input type="datetime-local" name="start_date" value={formatDateTimeLocal(formData.start_date)} onChange={handleChange} className="w-full p-2 border border-blue-200 rounded text-sm"/>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-blue-800 mb-1">Fim (Opcional)</label>
+                                <input type="datetime-local" name="end_date" value={formatDateTimeLocal(formData.end_date)} onChange={handleChange} className="w-full p-2 border border-blue-200 rounded text-sm"/>
+                            </div>
+                            <p className="col-span-2 text-[10px] text-blue-600">*Deixe em branco para exibir imediatamente e sem prazo de validade.</p>
+                        </div>
+                    )}
                 </div>
             )}
 

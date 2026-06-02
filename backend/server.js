@@ -392,6 +392,16 @@ const initializeData = async () => {
     try {
         console.log('Verificando dados iniciais e tabelas...');
 
+        const ensureColumn = async (tableName, columnName, definition) => {
+            const [columns] = await connection.query(
+                `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+                [tableName, columnName]
+            );
+            if (columns.length === 0) {
+                await connection.query(`ALTER TABLE \`${tableName}\` ADD COLUMN \`${columnName}\` ${definition}`);
+            }
+        };
+
         // --- NOVO: GARANTE QUE A TABELA DE BIOMETRIA EXISTA ---
         await connection.query(`
             CREATE TABLE IF NOT EXISTS \`user_authenticators\` (
@@ -407,6 +417,13 @@ const initializeData = async () => {
               CONSTRAINT \`fk_user_auth\` FOREIGN KEY (\`user_id\`) REFERENCES \`users\` (\`id\`) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         `);
+
+        // --- CAMPANHAS SAZONAIS RECORRENTES ---
+        // Permite que banners comemorativos se repitam todos os anos sem recadastrar datas.
+        await ensureColumn('banners', 'is_recurring', 'TINYINT(1) NOT NULL DEFAULT 0');
+        await ensureColumn('banners', 'recurring_month', 'TINYINT NULL');
+        await ensureColumn('banners', 'recurring_day', 'TINYINT NULL');
+        await ensureColumn('banners', 'recurring_duration_days', 'SMALLINT NULL');
 
         // --- SEED DE CATEGORIAS DA COLEÇÃO ---
         const [categories] = await connection.query("SELECT COUNT(*) as count FROM collection_categories");
@@ -458,6 +475,25 @@ const initializeData = async () => {
             console.log('Banner principal inserido com sucesso.');
         } else {
             console.log('Tabela banners já populada.');
+        }
+
+        for (const campaign of SEASONAL_BANNER_BLUEPRINTS) {
+            await connection.query(
+                `UPDATE banners
+                 SET is_recurring = 1,
+                     recurring_month = ?,
+                     recurring_day = ?,
+                     recurring_duration_days = ?,
+                     start_date = NULL,
+                     end_date = NULL
+                 WHERE display_order = 50 AND title = ?`,
+                [
+                    campaign.recurring_month,
+                    campaign.recurring_day,
+                    campaign.recurring_duration_days,
+                    campaign.title
+                ]
+            );
         }
 
         // --- SEED CONFIGURAÇÕES DE ÍCONES DO APP ---
@@ -5238,6 +5274,93 @@ app.get('/api/collections', checkMaintenanceMode, async (req, res) => {
     }
 });
 
+const SEASONAL_BANNER_BLUEPRINTS = [
+    {
+        title: "Semana do Consumidor", subtitle: "Até 50% OFF em itens selecionados.",
+        image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop",
+        link_url: "products?promo=true", cta_text: "Ver Ofertas", display_order: 50,
+        recurring_month: 3, recurring_day: 10, recurring_duration_days: 7
+    },
+    {
+        title: "Amor de Mãe", subtitle: "O presente perfeito para quem sempre cuidou de você.",
+        image_url: "https://images.unsplash.com/photo-1599309927876-241f87b320e8?q=80&w=2070&auto=format&fit=crop",
+        link_url: "products?category=Perfumes Feminino", cta_text: "Presentes para Mãe",
+        recurring_month: 5, recurring_day: 1, recurring_duration_days: 14, display_order: 50
+    },
+    {
+        title: "Dia dos Namorados", subtitle: "Surpreenda seu amor com presentes inesquecíveis.",
+        image_url: "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?q=80&w=2070&auto=format&fit=crop",
+        link_url: "products", cta_text: "Coleção Romântica",
+        recurring_month: 6, recurring_day: 1, recurring_duration_days: 12, display_order: 50
+    },
+    {
+        title: "Dia dos Pais", subtitle: "Estilo e sofisticação para o seu herói.",
+        image_url: "https://images.unsplash.com/photo-1617325247661-675ab4b64ae8?q=80&w=2071&auto=format&fit=crop",
+        link_url: "products?category=Perfumes Masculino", cta_text: "Presentes para Pai",
+        recurring_month: 8, recurring_day: 1, recurring_duration_days: 14, display_order: 50
+    },
+    {
+        title: "Black November", subtitle: "O mês inteiro com descontos imperdíveis!",
+        image_url: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=2070&auto=format&fit=crop",
+        link_url: "products?promo=true", cta_text: "Aproveitar Ofertas",
+        recurring_month: 11, recurring_day: 1, recurring_duration_days: 30, display_order: 50
+    },
+    {
+        title: "Feliz Natal", subtitle: "Celebre a magia com presentes que encantam.",
+        image_url: "https://images.unsplash.com/photo-1512389142860-9c449e58a543?q=80&w=2069&auto=format&fit=crop",
+        link_url: "products", cta_text: "Presentes de Natal",
+        recurring_month: 12, recurring_day: 1, recurring_duration_days: 25, display_order: 50
+    }
+];
+
+const STATIC_BANNER_BLUEPRINTS = [
+    {
+        title: "Moda & Estilo", subtitle: "Peças exclusivas.",
+        image_url: "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop",
+        link_url: "products?category=Roupas", cta_text: "Explorar", display_order: 60
+    },
+    {
+        title: "Perfumaria", subtitle: "Fragrâncias marcantes.",
+        image_url: "https://images.unsplash.com/photo-1615634260167-c8cdede054de?q=80&w=1974&auto=format&fit=crop",
+        link_url: "products?category=Perfumes", cta_text: "Ver Perfumes", display_order: 61
+    }
+];
+
+const getRecurringBannerOccurrence = (banner, now = new Date(), year = now.getFullYear()) => {
+    const month = Number(banner.recurring_month);
+    const day = Number(banner.recurring_day);
+    const durationDays = Math.max(1, Number(banner.recurring_duration_days) || 1);
+    if (!month || !day) return { start: null, end: null, isActive: false };
+
+    const start = new Date(year, month - 1, day, 0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + durationDays - 1);
+    end.setHours(23, 59, 59, 999);
+
+    return { start, end, isActive: now >= start && now <= end };
+};
+
+const getRecurringBannerStatus = (banner, now = new Date()) => {
+    const current = getRecurringBannerOccurrence(banner, now);
+    const previous = getRecurringBannerOccurrence(banner, now, now.getFullYear() - 1);
+    const next = getRecurringBannerOccurrence(banner, now, now.getFullYear() + 1);
+
+    if (current.isActive) return current;
+    if (previous.isActive) return previous;
+    return now > current.end ? next : current;
+};
+
+const hydrateRecurringBanner = (banner, now = new Date()) => {
+    if (!banner?.is_recurring) return banner;
+    const occurrence = getRecurringBannerStatus(banner, now);
+    return {
+        ...banner,
+        effective_start_date: occurrence.start,
+        effective_end_date: occurrence.end,
+        is_recurring_active: occurrence.isActive
+    };
+};
+
 // --- ROTAS DE GERENCIAMENTO DE BANNERS (Admin & Público) ---
 
 // (Admin) Pega TODOS os banners (incluindo futuros e expirados) para gestão
@@ -5245,7 +5368,7 @@ app.get('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
     try {
         // Traz tudo ordenado para o admin ver o calendário
         const [banners] = await db.query("SELECT * FROM banners ORDER BY display_order ASC, start_date DESC");
-        res.json(banners);
+        res.json(banners.map(banner => hydrateRecurringBanner(banner)));
     } catch (err) {
         console.error("Erro ao buscar banners (admin):", err);
         res.status(500).json({ message: "Erro ao buscar banners." });
@@ -5258,7 +5381,7 @@ app.get('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
 app.get('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
     try {
         const [banners] = await db.query("SELECT * FROM banners ORDER BY display_order ASC, start_date DESC");
-        res.json(banners);
+        res.json(banners.map(banner => hydrateRecurringBanner(banner)));
     } catch (err) {
         console.error("Erro ao buscar banners (admin):", err);
         res.status(500).json({ message: "Erro ao buscar banners." });
@@ -5267,7 +5390,7 @@ app.get('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
 
 // (Admin) Cria um novo banner
 app.post('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
-    const { image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order, start_date, end_date } = req.body;
+    const { image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order, start_date, end_date, is_recurring, recurring_month, recurring_day, recurring_duration_days } = req.body;
     const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
     
     if (!image_url || !link_url) return res.status(400).json({ message: "Dados obrigatórios faltando." });
@@ -5284,11 +5407,15 @@ app.post('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
             }
         }
 
-        const validStart = start_date ? new Date(start_date) : null;
-        const validEnd = end_date ? new Date(end_date) : null;
+        const isRecurring = !!is_recurring;
+        const validStart = !isRecurring && start_date ? new Date(start_date) : null;
+        const validEnd = !isRecurring && end_date ? new Date(end_date) : null;
+        const recurringMonth = isRecurring ? Math.max(1, Math.min(12, parseInt(recurring_month, 10) || 1)) : null;
+        const recurringDay = isRecurring ? Math.max(1, Math.min(31, parseInt(recurring_day, 10) || 1)) : null;
+        const recurringDuration = isRecurring ? Math.max(1, parseInt(recurring_duration_days, 10) || 1) : null;
 
-        const sql = "INSERT INTO banners (image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        const params = [image_url, image_url_mobile || null, title || null, subtitle || null, link_url, cta_text || null, cta_enabled ? 1 : 0, is_active ? 1 : 0, orderToUse, validStart, validEnd];
+        const sql = "INSERT INTO banners (image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order, start_date, end_date, is_recurring, recurring_month, recurring_day, recurring_duration_days) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        const params = [image_url, image_url_mobile || null, title || null, subtitle || null, link_url, cta_text || null, cta_enabled ? 1 : 0, is_active ? 1 : 0, orderToUse, validStart, validEnd, isRecurring ? 1 : 0, recurringMonth, recurringDay, recurringDuration];
         
         const [result] = await connection.query(sql, params);
         logAdminAction(req.user, 'CRIOU BANNER', `ID: ${result.insertId}, Ordem: ${orderToUse}`, clientIp);
@@ -5335,15 +5462,19 @@ app.put('/api/banners/order', verifyToken, verifyAdmin, async (req, res) => {
 // (Admin) Atualiza os detalhes de um banner
 app.put('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
-    const { image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order, start_date, end_date } = req.body;
+    const { image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order, start_date, end_date, is_recurring, recurring_month, recurring_day, recurring_duration_days } = req.body;
     const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
     
     try {
-        const validStart = start_date ? new Date(start_date) : null;
-        const validEnd = end_date ? new Date(end_date) : null;
+        const isRecurring = !!is_recurring;
+        const validStart = !isRecurring && start_date ? new Date(start_date) : null;
+        const validEnd = !isRecurring && end_date ? new Date(end_date) : null;
+        const recurringMonth = isRecurring ? Math.max(1, Math.min(12, parseInt(recurring_month, 10) || 1)) : null;
+        const recurringDay = isRecurring ? Math.max(1, Math.min(31, parseInt(recurring_day, 10) || 1)) : null;
+        const recurringDuration = isRecurring ? Math.max(1, parseInt(recurring_duration_days, 10) || 1) : null;
 
-        const sql = "UPDATE banners SET image_url = ?, image_url_mobile = ?, title = ?, subtitle = ?, link_url = ?, cta_text = ?, cta_enabled = ?, is_active = ?, display_order = ?, start_date = ?, end_date = ? WHERE id = ?";
-        const params = [image_url, image_url_mobile || null, title || null, subtitle || null, link_url, cta_text || null, cta_enabled ? 1 : 0, is_active ? 1 : 0, display_order, validStart, validEnd, id];
+        const sql = "UPDATE banners SET image_url = ?, image_url_mobile = ?, title = ?, subtitle = ?, link_url = ?, cta_text = ?, cta_enabled = ?, is_active = ?, display_order = ?, start_date = ?, end_date = ?, is_recurring = ?, recurring_month = ?, recurring_day = ?, recurring_duration_days = ? WHERE id = ?";
+        const params = [image_url, image_url_mobile || null, title || null, subtitle || null, link_url, cta_text || null, cta_enabled ? 1 : 0, is_active ? 1 : 0, display_order, validStart, validEnd, isRecurring ? 1 : 0, recurringMonth, recurringDay, recurringDuration, id];
         
         const [result] = await db.query(sql, params);
         if (result.affectedRows === 0) return res.status(404).json({ message: "Banner não encontrado." });
@@ -5381,15 +5512,22 @@ app.get('/api/banners', checkMaintenanceMode, async (req, res) => {
         const sql = `
             SELECT * FROM banners 
             WHERE is_active = 1 
-            AND (start_date IS NULL OR start_date <= NOW()) 
-            AND (end_date IS NULL OR end_date >= NOW())
             ORDER BY 
                 display_order ASC, 
-                CASE WHEN start_date IS NOT NULL THEN 1 ELSE 0 END DESC,
+                CASE WHEN start_date IS NOT NULL OR is_recurring = 1 THEN 1 ELSE 0 END DESC,
                 start_date DESC
         `;
         const [banners] = await db.query(sql);
-        res.json(banners);
+        const now = new Date();
+        const activeBanners = banners
+            .map(banner => hydrateRecurringBanner(banner, now))
+            .filter(banner => {
+                if (banner.is_recurring) return !!banner.is_recurring_active;
+                const start = banner.start_date ? new Date(banner.start_date) : null;
+                const end = banner.end_date ? new Date(banner.end_date) : null;
+                return (!start || now >= start) && (!end || now <= end);
+            });
+        res.json(activeBanners);
     } catch (err) {
         console.error("Erro ao buscar banners:", err);
         res.status(500).json({ message: "Erro ao buscar banners." });
@@ -5404,72 +5542,7 @@ app.post('/api/banners/seed-defaults', verifyToken, verifyAdmin, async (req, res
     try {
         await connection.beginTransaction();
 
-        const CAMPAIGN_BLUEPRINTS = [
-            {
-                title: "Semana do Consumidor", subtitle: "Até 50% OFF em itens selecionados.",
-                image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop",
-                link_url: "products?promo=true", cta_text: "Ver Ofertas", display_order: 50
-            },
-            {
-                title: "Amor de Mãe", subtitle: "O presente perfeito para quem sempre cuidou de você.",
-                image_url: "https://images.unsplash.com/photo-1599309927876-241f87b320e8?q=80&w=2070&auto=format&fit=crop",
-                link_url: "products?category=Perfumes Feminino", cta_text: "Presentes para Mãe",
-                month: 5, day: 1, duration: 14, display_order: 50
-            },
-            {
-                title: "Dia dos Namorados", subtitle: "Surpreenda seu amor com presentes inesquecíveis.",
-                image_url: "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?q=80&w=2070&auto=format&fit=crop",
-                link_url: "products", cta_text: "Coleção Romântica",
-                month: 6, day: 1, duration: 12, display_order: 50
-            },
-            {
-                title: "Dia dos Pais", subtitle: "Estilo e sofisticação para o seu herói.",
-                image_url: "https://images.unsplash.com/photo-1617325247661-675ab4b64ae8?q=80&w=2071&auto=format&fit=crop",
-                link_url: "products?category=Perfumes Masculino", cta_text: "Presentes para Pai",
-                month: 8, day: 1, duration: 14, display_order: 50
-            },
-            {
-                title: "Black November", subtitle: "O mês inteiro com descontos imperdíveis!",
-                image_url: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=2070&auto=format&fit=crop",
-                link_url: "products?promo=true", cta_text: "Aproveitar Ofertas",
-                month: 11, day: 1, duration: 30, display_order: 50
-            },
-            {
-                title: "Feliz Natal", subtitle: "Celebre a magia com presentes que encantam.",
-                image_url: "https://images.unsplash.com/photo-1512389142860-9c449e58a543?q=80&w=2069&auto=format&fit=crop",
-                link_url: "products", cta_text: "Presentes de Natal",
-                month: 12, day: 1, duration: 25, display_order: 50
-            },
-            {
-                title: "Moda & Estilo", subtitle: "Peças exclusivas.",
-                image_url: "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop",
-                link_url: "products?category=Roupas", cta_text: "Explorar", display_order: 60
-            },
-            {
-                title: "Perfumaria", subtitle: "Fragrâncias marcantes.",
-                image_url: "https://images.unsplash.com/photo-1615634260167-c8cdede054de?q=80&w=1974&auto=format&fit=crop",
-                link_url: "products?category=Perfumes", cta_text: "Ver Perfumes", display_order: 61
-            }
-        ];
-
-        const getNextOccurrence = (month, day, duration) => {
-            if (!month || !day) return { start: null, end: null };
-            const now = new Date();
-            let year = now.getFullYear();
-            let start = new Date(year, month - 1, day, 0, 0, 0);
-            let end = new Date(start);
-            end.setDate(end.getDate() + duration);
-            end.setHours(23, 59, 59);
-
-            if (now > end) {
-                year++;
-                start = new Date(year, month - 1, day, 0, 0, 0);
-                end = new Date(start);
-                end.setDate(end.getDate() + duration);
-                end.setHours(23, 59, 59);
-            }
-            return { start, end };
-        };
+        const CAMPAIGN_BLUEPRINTS = [...SEASONAL_BANNER_BLUEPRINTS, ...STATIC_BANNER_BLUEPRINTS];
 
         let insertedCount = 0;
 
@@ -5480,13 +5553,38 @@ app.post('/api/banners/seed-defaults', verifyToken, verifyAdmin, async (req, res
             );
 
             if (existing.length === 0) {
-                const dates = getNextOccurrence(bp.month, bp.day, bp.duration);
-                
                 await connection.query(
-                    "INSERT INTO banners (image_url, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    [bp.image_url, bp.title, bp.subtitle, bp.link_url, bp.cta_text, 1, 1, bp.display_order, dates.start, dates.end]
+                    "INSERT INTO banners (image_url, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order, start_date, end_date, is_recurring, recurring_month, recurring_day, recurring_duration_days) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [
+                        bp.image_url,
+                        bp.title,
+                        bp.subtitle,
+                        bp.link_url,
+                        bp.cta_text,
+                        1,
+                        1,
+                        bp.display_order,
+                        null,
+                        null,
+                        bp.recurring_month ? 1 : 0,
+                        bp.recurring_month || null,
+                        bp.recurring_day || null,
+                        bp.recurring_duration_days || null
+                    ]
                 );
                 insertedCount++;
+            } else if (bp.recurring_month) {
+                await connection.query(
+                    `UPDATE banners
+                     SET is_recurring = 1,
+                         recurring_month = ?,
+                         recurring_day = ?,
+                         recurring_duration_days = ?,
+                         start_date = NULL,
+                         end_date = NULL
+                     WHERE title = ? AND display_order = ?`,
+                    [bp.recurring_month, bp.recurring_day, bp.recurring_duration_days, bp.title, bp.display_order]
+                );
             }
         }
 

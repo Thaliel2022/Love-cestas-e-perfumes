@@ -66,9 +66,11 @@ export const AdminBanners = () => {
     
     // Lista de Destaques (Ordem 50)
     const promoBanners = banners.filter(b => b.display_order === 50).sort((a, b) => {
-        if (!a.start_date) return -1;
-        if (!b.start_date) return 1;
-        return new Date(a.start_date) - new Date(b.start_date);
+        const aDate = a.effective_start_date || a.start_date;
+        const bDate = b.effective_start_date || b.start_date;
+        if (!aDate) return -1;
+        if (!bDate) return 1;
+        return new Date(aDate) - new Date(bDate);
     });
 
     const card1 = banners.find(b => b.display_order === 60);
@@ -85,7 +87,18 @@ export const AdminBanners = () => {
                     cta_enabled: 1, cta_text: 'Ver Mais', display_order: maxOrder + 1 
                 };
             } else if (section === 'promo') {
-                initialData = { name: '', link_url: '', image_url: '', is_active: 1, cta_enabled: 1, display_order: 50 };
+                initialData = {
+                    name: '',
+                    link_url: '',
+                    image_url: '',
+                    is_active: 1,
+                    cta_enabled: 1,
+                    display_order: 50,
+                    is_recurring: 0,
+                    recurring_month: '',
+                    recurring_day: '',
+                    recurring_duration_days: ''
+                };
             } else if (section === 'cards') {
                 // Tenta preencher o slot vazio (60 ou 61)
                 const nextSlot = !card1 ? 60 : 61;
@@ -101,6 +114,10 @@ export const AdminBanners = () => {
             const payload = { ...formData, display_order: parseInt(formData.display_order) };
             if (!payload.start_date) payload.start_date = null;
             if (!payload.end_date) payload.end_date = null;
+            payload.is_recurring = payload.is_recurring ? 1 : 0;
+            payload.recurring_month = payload.is_recurring ? parseInt(payload.recurring_month, 10) : null;
+            payload.recurring_day = payload.is_recurring ? parseInt(payload.recurring_day, 10) : null;
+            payload.recurring_duration_days = payload.is_recurring ? parseInt(payload.recurring_duration_days, 10) : null;
 
             if (formData.id) {
                 await apiService(`/banners/${formData.id}`, 'PUT', payload);
@@ -219,7 +236,7 @@ export const AdminBanners = () => {
                             <div className="flex justify-between items-center bg-blue-50 p-4 rounded-lg border border-blue-100">
                                 <div>
                                     <h3 className="font-bold text-blue-900">Campanhas de Destaque</h3>
-                                    <p className="text-xs text-blue-700">Listagem direta do banco. Apenas 1 banner (o com data válida mais próxima) aparecerá na Home.</p>
+                                    <p className="text-xs text-blue-700">Use recorrência anual para datas comemorativas. As campanhas recorrentes entram e saem do ar automaticamente todos os anos.</p>
                                 </div>
                                 <button onClick={() => handleOpenModal(null, 'promo')} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2 text-sm font-bold shadow-sm">
                                     <PlusIcon className="h-4 w-4"/> Criar Campanha
@@ -230,24 +247,32 @@ export const AdminBanners = () => {
                                 <div className="grid grid-cols-1 gap-4">
                                     {promoBanners.map(banner => {
                                         const now = new Date();
-                                        const start = banner.start_date ? new Date(banner.start_date) : null;
-                                        const end = banner.end_date ? new Date(banner.end_date) : null;
+                                        const start = banner.effective_start_date || banner.start_date ? new Date(banner.effective_start_date || banner.start_date) : null;
+                                        const end = banner.effective_end_date || banner.end_date ? new Date(banner.effective_end_date || banner.end_date) : null;
                                         
-                                        const isActiveNow = !!banner.is_active && (!start || now >= start) && (!end || now <= end);
-                                        const isDefault = !start && !end;
+                                        const isRecurring = !!banner.is_recurring;
+                                        const isActiveNow = !!banner.is_active && (isRecurring ? !!banner.is_recurring_active : (!start || now >= start) && (!end || now <= end));
+                                        const isDefault = !isRecurring && !start && !end;
                                         
                                         return (
                                             <div key={banner.id} className={`flex flex-col md:flex-row bg-white border rounded-lg overflow-hidden shadow-sm ${isActiveNow ? 'border-green-500 ring-1 ring-green-500' : 'border-gray-200 opacity-80'}`}>
                                                 <div className="w-full md:w-48 h-32 bg-gray-100 relative">
                                                     <img src={banner.image_url} alt={banner.title} className="w-full h-full object-cover"/>
                                                     {isActiveNow && <span className="absolute top-2 left-2 bg-green-500 text-white text-[10px] px-2 py-1 rounded font-bold shadow">NO AR</span>}
+                                                    {isRecurring && <span className="absolute top-2 right-2 bg-blue-600 text-white text-[10px] px-2 py-1 rounded font-bold shadow">RECORRENTE</span>}
                                                     {isDefault && <span className="absolute bottom-2 left-2 bg-gray-600 text-white text-[10px] px-2 py-1 rounded font-bold shadow">PADRÃO</span>}
                                                 </div>
                                                 <div className="p-4 flex-grow flex flex-col justify-center">
                                                     <h4 className="font-bold text-gray-800 text-lg">{banner.title}</h4>
                                                     <p className="text-sm text-gray-500">{banner.subtitle}</p>
                                                     <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
-                                                        {start ? (
+                                                        {isRecurring ? (
+                                                            <>
+                                                                <span className="bg-blue-50 px-2 py-1 rounded border border-blue-100"><ClockIcon className="h-3 w-3 inline mr-1"/> Todo ano: {String(banner.recurring_day).padStart(2, '0')}/{String(banner.recurring_month).padStart(2, '0')}</span>
+                                                                <span className="bg-blue-50 px-2 py-1 rounded border border-blue-100">Duração: {banner.recurring_duration_days} dia(s)</span>
+                                                                {start && end && <span className="bg-green-50 px-2 py-1 rounded border border-green-100 text-green-700">Próximo período: {start.toLocaleDateString()} até {end.toLocaleDateString()}</span>}
+                                                            </>
+                                                        ) : start ? (
                                                             <>
                                                                 <span className="bg-blue-50 px-2 py-1 rounded border border-blue-100"><ClockIcon className="h-3 w-3 inline mr-1"/> De: {start.toLocaleDateString()}</span>
                                                                 <span className="bg-blue-50 px-2 py-1 rounded border border-blue-100">Até: {end ? end.toLocaleDateString() : 'Indefinido'}</span>
