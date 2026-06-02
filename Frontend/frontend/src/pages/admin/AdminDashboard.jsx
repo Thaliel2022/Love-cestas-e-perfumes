@@ -33,6 +33,7 @@ export const AdminDashboard = ({ onNavigate }) => {
     const [selectedStockItem, setSelectedStockItem] = useState(null);
     const [activeFilter, setActiveFilter] = useState('month');
     const [isLoadingData, setIsLoadingData] = useState(true);
+    const [exportingType, setExportingType] = useState(null);
     
     // Estados para gráficos
     const [dailySalesData, setDailySalesData] = useState([]);
@@ -44,6 +45,7 @@ export const AdminDashboard = ({ onNavigate }) => {
     const averageTicket = useMemo(() => totalSales > 0 ? totalRevenue / totalSales : 0, [totalRevenue, totalSales]);
     const hasDailySales = dailySalesData.some(item => Number(item.daily_total || 0) > 0);
     const hasBestSellers = bestSellersData.length > 0;
+    const formatDate = (value) => value ? new Date(value).toLocaleDateString('pt-BR') : '-';
 
     // Funções de exportação
     const runWhenLibsReady = (callback, requiredLibs) => {
@@ -55,44 +57,263 @@ export const AdminDashboard = ({ onNavigate }) => {
         }; check();
     };
 
-    const generatePdf = (data, headers, title) => {
+    const getStockStatus = (stock) => {
+        const numericStock = Number(stock) || 0;
+        if (numericStock <= 0) return 'Esgotado';
+        if (numericStock <= 5) return 'Crítico';
+        if (numericStock <= 10) return 'Baixo';
+        return 'Saudável';
+    };
+
+    const buildSalesRows = (orders) => orders.map(order => ({
+        id: order.id,
+        customer: order.user_name || order.customer_name || 'Cliente não informado',
+        date: formatDate(order.date),
+        total: Number(order.total) || 0,
+        status: order.status || '-',
+        paymentMethod: order.payment_method || '-',
+        shippingMethod: order.shipping_method || '-',
+        discount: Number(order.discount_amount) || 0
+    }));
+
+    const buildStockRows = (products) => products.map(product => ({
+        id: product.id,
+        product: product.name || '-',
+        brand: product.brand || '-',
+        category: product.category || '-',
+        stock: Number(product.stock) || 0,
+        price: Number(product.price) || 0,
+        salePrice: Number(product.sale_price) || 0,
+        status: getStockStatus(product.stock)
+    }));
+
+    const buildSalesSummary = (rows) => {
+        const total = rows.reduce((sum, row) => sum + row.total, 0);
+        const discounts = rows.reduce((sum, row) => sum + row.discount, 0);
+        const statusCount = rows.reduce((acc, row) => {
+            acc[row.status] = (acc[row.status] || 0) + 1;
+            return acc;
+        }, {});
+
+        return {
+            total,
+            discounts,
+            orders: rows.length,
+            averageTicket: rows.length ? total / rows.length : 0,
+            statusCount
+        };
+    };
+
+    const buildStockSummary = (rows) => {
+        const totalUnits = rows.reduce((sum, row) => sum + row.stock, 0);
+        const inventoryValue = rows.reduce((sum, row) => sum + (row.stock * row.price), 0);
+        const statusCount = rows.reduce((acc, row) => {
+            acc[row.status] = (acc[row.status] || 0) + 1;
+            return acc;
+        }, {});
+
+        return {
+            products: rows.length,
+            totalUnits,
+            inventoryValue,
+            lowStock: rows.filter(row => ['Esgotado', 'Crítico', 'Baixo'].includes(row.status)).length,
+            statusCount
+        };
+    };
+
+    const generatePdf = ({ title, subtitle, summaryRows, tableHeaders, tableRows, filename, orientation = 'portrait' }) => {
         runWhenLibsReady(() => {
             const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
+            const doc = new jsPDF({ orientation });
             const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
             const timestamp = new Date().toLocaleString('pt-BR');
-            doc.setFontSize(18); doc.text(title, pageWidth / 2, 16, { align: 'center' });
-            doc.setFontSize(8); doc.text(timestamp, pageWidth - 14, 10, { align: 'right' });
-            doc.autoTable({ head: [headers], body: data, startY: 25 });
-            doc.save(`${title.toLowerCase().replace(/ /g, '_')}.pdf`);
+            const margin = 14;
+
+            doc.setFillColor(15, 23, 42);
+            doc.rect(0, 0, pageWidth, 34, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(17);
+            doc.setFont(undefined, 'bold');
+            doc.text(title, margin, 15);
+            doc.setFontSize(9);
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(203, 213, 225);
+            doc.text(subtitle, margin, 22);
+            doc.text(`Gerado em ${timestamp}`, pageWidth - margin, 15, { align: 'right' });
+            doc.text(`Período do dashboard: ${activeFilterLabel}`, pageWidth - margin, 22, { align: 'right' });
+
+            doc.setTextColor(15, 23, 42);
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'bold');
+            doc.text('Resumo Executivo', margin, 46);
+            doc.autoTable({
+                startY: 51,
+                head: [['Indicador', 'Valor']],
+                body: summaryRows,
+                theme: 'grid',
+                headStyles: { fillColor: [245, 158, 11], textColor: [17, 24, 39], fontStyle: 'bold' },
+                styles: { fontSize: 9, cellPadding: 3 },
+                columnStyles: {
+                    0: { fontStyle: 'bold', cellWidth: 70 },
+                    1: { halign: 'right' }
+                }
+            });
+
+            const tableStartY = doc.lastAutoTable.finalY + 12;
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'bold');
+            doc.text('Dados Detalhados', margin, tableStartY);
+            doc.autoTable({
+                startY: tableStartY + 5,
+                head: [tableHeaders],
+                body: tableRows,
+                theme: 'striped',
+                headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
+                alternateRowStyles: { fillColor: [248, 250, 252] },
+                styles: { fontSize: orientation === 'landscape' ? 8 : 7, cellPadding: 2.5, overflow: 'linebreak' },
+                margin: { left: margin, right: margin },
+                didDrawPage: () => {
+                    const pageNumber = doc.internal.getNumberOfPages();
+                    doc.setFontSize(8);
+                    doc.setTextColor(100, 116, 139);
+                    doc.text(`Página ${pageNumber}`, pageWidth - margin, pageHeight - 8, { align: 'right' });
+                }
+            });
+
+            doc.save(`${filename}.pdf`);
         }, ['pdf']);
     };
 
-    const generateExcel = (data, filename) => {
+    const createWorksheet = (rows, columns) => {
+        const sheetData = [
+            columns.map(column => column.label),
+            ...rows.map(row => columns.map(column => row[column.key]))
+        ];
+        const ws = window.XLSX.utils.aoa_to_sheet(sheetData);
+        ws['!cols'] = columns.map(column => ({ wch: column.width || 16 }));
+        ws['!autofilter'] = { ref: window.XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows.length, c: columns.length - 1 } }) };
+        return ws;
+    };
+
+    const generateExcel = ({ filename, summaryRows, dataRows, columns, sheetName }) => {
         runWhenLibsReady(() => {
             const wb = window.XLSX.utils.book_new();
-            const ws = window.XLSX.utils.json_to_sheet(data);
-            window.XLSX.utils.book_append_sheet(wb, ws, "Relatório");
+            const summarySheet = window.XLSX.utils.aoa_to_sheet([
+                ['Relatório', filename.replace(/_/g, ' ')],
+                ['Gerado em', new Date().toLocaleString('pt-BR')],
+                ['Período do dashboard', activeFilterLabel],
+                [],
+                ['Indicador', 'Valor'],
+                ...summaryRows
+            ]);
+            summarySheet['!cols'] = [{ wch: 34 }, { wch: 28 }];
+            window.XLSX.utils.book_append_sheet(wb, summarySheet, "Resumo");
+            window.XLSX.utils.book_append_sheet(wb, createWorksheet(dataRows, columns), sheetName);
             window.XLSX.writeFile(wb, `${filename}.xlsx`);
         }, ['excel']);
     };
 
     const handleSalesExport = async (format) => {
+        const exportKey = `sales-${format}`;
+        setExportingType(exportKey);
         try {
             const orders = await apiService('/orders');
-            const data = orders.map(o => ({ Pedido_ID: o.id, Cliente: o.user_name, Data: new Date(o.date).toLocaleDateString(), Total: o.total, Status: o.status }));
-            if (format === 'pdf') generatePdf(data.map(Object.values), ['Pedido ID', 'Cliente', 'Data', 'Total', 'Status'], 'Relatorio_Vendas');
-            else generateExcel(data, 'relatorio_vendas');
+            const rows = buildSalesRows(orders);
+            const summary = buildSalesSummary(rows);
+            const summaryRows = [
+                ['Total de pedidos', summary.orders],
+                ['Faturamento total', formatCurrency(summary.total)],
+                ['Ticket médio', formatCurrency(summary.averageTicket)],
+                ['Descontos concedidos', formatCurrency(summary.discounts)],
+                ...Object.entries(summary.statusCount).map(([status, count]) => [`Pedidos - ${status}`, count])
+            ];
+
+            if (format === 'pdf') {
+                generatePdf({
+                    title: 'Relatório de Vendas',
+                    subtitle: 'Pedidos, faturamento, descontos, formas de pagamento e entrega',
+                    summaryRows,
+                    tableHeaders: ['Pedido', 'Cliente', 'Data', 'Total', 'Status', 'Pagamento', 'Entrega', 'Desconto'],
+                    tableRows: rows.map(row => [`#${row.id}`, row.customer, row.date, formatCurrency(row.total), row.status, row.paymentMethod, row.shippingMethod, formatCurrency(row.discount)]),
+                    filename: 'relatorio_vendas',
+                    orientation: 'landscape'
+                });
+            } else {
+                generateExcel({
+                    filename: 'relatorio_vendas',
+                    summaryRows,
+                    sheetName: 'Vendas',
+                    dataRows: rows.map(row => ({
+                        ...row,
+                        total: Number(row.total.toFixed(2)),
+                        discount: Number(row.discount.toFixed(2))
+                    })),
+                    columns: [
+                        { key: 'id', label: 'Pedido ID', width: 12 },
+                        { key: 'customer', label: 'Cliente', width: 30 },
+                        { key: 'date', label: 'Data', width: 14 },
+                        { key: 'total', label: 'Total (R$)', width: 14 },
+                        { key: 'status', label: 'Status', width: 24 },
+                        { key: 'paymentMethod', label: 'Pagamento', width: 20 },
+                        { key: 'shippingMethod', label: 'Entrega', width: 24 },
+                        { key: 'discount', label: 'Desconto (R$)', width: 16 }
+                    ]
+                });
+            }
         } catch (error) { notification.show(`Erro exportação: ${error.message}`, 'error'); }
+        finally { setExportingType(null); }
     };
 
     const handleStockExport = async (format) => {
+        const exportKey = `stock-${format}`;
+        setExportingType(exportKey);
         try {
             const products = await apiService('/products/all');
-            const data = products.map(p => ({ Produto: p.name, Marca: p.brand, Estoque: p.stock, Preço: p.price }));
-            if (format === 'pdf') generatePdf(data.map(Object.values), ['Produto', 'Marca', 'Estoque', 'Preço'], 'Relatorio_Estoque');
-            else generateExcel(data, 'relatorio_estoque');
+            const rows = buildStockRows(products);
+            const summary = buildStockSummary(rows);
+            const summaryRows = [
+                ['Produtos cadastrados', summary.products],
+                ['Unidades em estoque', summary.totalUnits],
+                ['Valor estimado do estoque', formatCurrency(summary.inventoryValue)],
+                ['Produtos com atenção', summary.lowStock],
+                ...Object.entries(summary.statusCount).map(([status, count]) => [`Produtos - ${status}`, count])
+            ];
+
+            if (format === 'pdf') {
+                generatePdf({
+                    title: 'Relatório de Estoque',
+                    subtitle: 'Produtos, marcas, categorias, preços, saldo atual e status de reposição',
+                    summaryRows,
+                    tableHeaders: ['ID', 'Produto', 'Marca', 'Categoria', 'Estoque', 'Preço', 'Preço Promocional', 'Status'],
+                    tableRows: rows.map(row => [row.id, row.product, row.brand, row.category, row.stock, formatCurrency(row.price), row.salePrice > 0 ? formatCurrency(row.salePrice) : '-', row.status]),
+                    filename: 'relatorio_estoque',
+                    orientation: 'landscape'
+                });
+            } else {
+                generateExcel({
+                    filename: 'relatorio_estoque',
+                    summaryRows,
+                    sheetName: 'Estoque',
+                    dataRows: rows.map(row => ({
+                        ...row,
+                        price: Number(row.price.toFixed(2)),
+                        salePrice: row.salePrice > 0 ? Number(row.salePrice.toFixed(2)) : ''
+                    })),
+                    columns: [
+                        { key: 'id', label: 'ID', width: 10 },
+                        { key: 'product', label: 'Produto', width: 36 },
+                        { key: 'brand', label: 'Marca', width: 20 },
+                        { key: 'category', label: 'Categoria', width: 20 },
+                        { key: 'stock', label: 'Estoque', width: 12 },
+                        { key: 'price', label: 'Preço (R$)', width: 14 },
+                        { key: 'salePrice', label: 'Preço Promocional (R$)', width: 22 },
+                        { key: 'status', label: 'Status', width: 14 }
+                    ]
+                });
+            }
         } catch (error) { notification.show(`Erro exportação: ${error.message}`, 'error'); }
+        finally { setExportingType(null); }
     };
 
     const fetchDashboardData = useCallback((filter = 'month') => {
@@ -540,27 +761,50 @@ export const AdminDashboard = ({ onNavigate }) => {
                                 Arquivos gerados no navegador
                             </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                             <button 
                                 onClick={() => handleSalesExport('excel')} 
-                                className="group bg-green-50 hover:bg-green-600 text-green-700 hover:text-white py-4 px-4 rounded-2xl font-black flex items-center justify-between gap-2 transition-all border border-green-100 hover:border-green-600 shadow-sm"
+                                disabled={!!exportingType}
+                                className="group bg-green-50 hover:bg-green-600 text-green-700 hover:text-white py-4 px-4 rounded-2xl font-black flex items-center justify-between gap-2 transition-all border border-green-100 hover:border-green-600 shadow-sm disabled:opacity-60 disabled:cursor-wait"
                             >
-                                <span>Vendas Excel</span>
-                                <DownloadIcon className="h-5 w-5 group-hover:translate-y-0.5 transition-transform"/>
+                                <span className="flex flex-col items-start">
+                                    <span>Excel de Vendas</span>
+                                    <span className="text-xs font-medium opacity-75">Pedidos e faturamento</span>
+                                </span>
+                                {exportingType === 'sales-excel' ? <SpinnerIcon className="h-5 w-5" /> : <DownloadIcon className="h-5 w-5 group-hover:translate-y-0.5 transition-transform"/>}
                             </button>
                             <button 
                                 onClick={() => handleStockExport('excel')} 
-                                className="group bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white py-4 px-4 rounded-2xl font-black flex items-center justify-between gap-2 transition-all border border-blue-100 hover:border-blue-600 shadow-sm"
+                                disabled={!!exportingType}
+                                className="group bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white py-4 px-4 rounded-2xl font-black flex items-center justify-between gap-2 transition-all border border-blue-100 hover:border-blue-600 shadow-sm disabled:opacity-60 disabled:cursor-wait"
                             >
-                                <span>Estoque Excel</span>
-                                <DownloadIcon className="h-5 w-5 group-hover:translate-y-0.5 transition-transform"/>
+                                <span className="flex flex-col items-start">
+                                    <span>Excel de Estoque</span>
+                                    <span className="text-xs font-medium opacity-75">Produtos e reposição</span>
+                                </span>
+                                {exportingType === 'stock-excel' ? <SpinnerIcon className="h-5 w-5" /> : <DownloadIcon className="h-5 w-5 group-hover:translate-y-0.5 transition-transform"/>}
                             </button>
                             <button 
                                 onClick={() => handleSalesExport('pdf')} 
-                                className="group bg-red-50 hover:bg-red-600 text-red-700 hover:text-white py-4 px-4 rounded-2xl font-black flex items-center justify-between gap-2 transition-all border border-red-100 hover:border-red-600 shadow-sm"
+                                disabled={!!exportingType}
+                                className="group bg-red-50 hover:bg-red-600 text-red-700 hover:text-white py-4 px-4 rounded-2xl font-black flex items-center justify-between gap-2 transition-all border border-red-100 hover:border-red-600 shadow-sm disabled:opacity-60 disabled:cursor-wait"
                             >
-                                <span>Vendas PDF</span>
-                                <DownloadIcon className="h-5 w-5 group-hover:translate-y-0.5 transition-transform"/>
+                                <span className="flex flex-col items-start">
+                                    <span>PDF de Vendas</span>
+                                    <span className="text-xs font-medium opacity-75">Resumo executivo</span>
+                                </span>
+                                {exportingType === 'sales-pdf' ? <SpinnerIcon className="h-5 w-5" /> : <DownloadIcon className="h-5 w-5 group-hover:translate-y-0.5 transition-transform"/>}
+                            </button>
+                            <button 
+                                onClick={() => handleStockExport('pdf')} 
+                                disabled={!!exportingType}
+                                className="group bg-amber-50 hover:bg-amber-600 text-amber-700 hover:text-white py-4 px-4 rounded-2xl font-black flex items-center justify-between gap-2 transition-all border border-amber-100 hover:border-amber-600 shadow-sm disabled:opacity-60 disabled:cursor-wait"
+                            >
+                                <span className="flex flex-col items-start">
+                                    <span>PDF de Estoque</span>
+                                    <span className="text-xs font-medium opacity-75">Saldo e status</span>
+                                </span>
+                                {exportingType === 'stock-pdf' ? <SpinnerIcon className="h-5 w-5" /> : <DownloadIcon className="h-5 w-5 group-hover:translate-y-0.5 transition-transform"/>}
                             </button>
                         </div>
                     </div>
