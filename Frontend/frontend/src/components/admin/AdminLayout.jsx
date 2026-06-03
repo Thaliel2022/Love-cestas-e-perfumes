@@ -16,8 +16,17 @@ export const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     const [isMaintenance, setIsMaintenance] = useState(false); 
     const mainContentRef = useRef(null);
 
-    // Estado para o nome dinâmico (começa com o nome padrão)
-    const [adminLogoText, setAdminLogoText] = useState('LOVE CESTAS E PERFUMES');
+    // Usa o nome curto já salvo para evitar piscar o nome padrão antes da API responder.
+    const [adminLogoText, setAdminLogoText] = useState(() => {
+        try {
+            const cached = localStorage.getItem('lovecestas_app_name');
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                return parsed.short_name || parsed.name || 'Love Cestas';
+            }
+        } catch (error) {}
+        return 'Love Cestas';
+    });
 
     // Efeito para carregar e ouvir o nome dinâmico
     useEffect(() => {
