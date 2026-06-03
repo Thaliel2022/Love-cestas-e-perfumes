@@ -212,6 +212,7 @@ export const AdminShippingSettings = () => {
                     token: authInput.length === 6 && !isNaN(authInput) ? authInput : null 
                 };
                 await apiService('/settings/pickup', 'PUT', payload);
+                window.dispatchEvent(new CustomEvent('pickup-config-updated', { detail: pickupConfig }));
                 notification.show("Configurações de retirada salvas com sucesso!");
             }
             

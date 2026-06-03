@@ -132,6 +132,12 @@ export const ShopProvider = ({ children }) => {
             }
         };
         window.addEventListener('shipping-config-updated', handleShippingConfigUpdate);
+        const handlePickupConfigUpdate = (event) => {
+            if (event.detail) {
+                setPickupConfig(event.detail);
+            }
+        };
+        window.addEventListener('pickup-config-updated', handlePickupConfigUpdate);
         const handlePaymentInstallmentsUpdate = (event) => {
             if (event.detail) {
                 setPaymentInstallmentsConfig(event.detail);
@@ -141,6 +147,7 @@ export const ShopProvider = ({ children }) => {
         return () => {
             clearInterval(intervalId);
             window.removeEventListener('shipping-config-updated', handleShippingConfigUpdate);
+            window.removeEventListener('pickup-config-updated', handlePickupConfigUpdate);
             window.removeEventListener('payment-installments-updated', handlePaymentInstallmentsUpdate);
         };
     }, [fetchShippingConfig, fetchPickupConfig, fetchPaymentInstallmentsConfig]);

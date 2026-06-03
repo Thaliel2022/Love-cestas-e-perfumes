@@ -101,7 +101,7 @@ export const MyAccountPage = ({ onNavigate, path }) => {
 };
 
 const MyOrdersSection = ({ onNavigate }) => {
-    const { addToCart } = useShop();
+    const { addToCart, pickupConfig } = useShop();
     const notification = useNotification();
     const [orders, setOrders] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -171,6 +171,19 @@ const MyOrdersSection = ({ onNavigate }) => {
         setSelectedStatusDetails(statusDetails);
         setIsStatusModalOpen(true);
     };
+
+    const pickupAddress = pickupConfig?.address;
+    const isPickupAddressObj = typeof pickupAddress === 'object' && pickupAddress !== null;
+    const pickupAddressText = isPickupAddressObj
+        ? [
+            pickupAddress.rua,
+            pickupAddress.numero,
+            pickupAddress.bairro,
+            pickupAddress.cidade,
+            pickupAddress.estado || pickupAddress.uf,
+            pickupAddress.cep
+        ].filter(Boolean).join(', ')
+        : (pickupAddress || 'Endereço não configurado');
 
     const handleReviewSuccess = async () => {
         try {
@@ -292,10 +305,15 @@ const MyOrdersSection = ({ onNavigate }) => {
                                 {isPickupOrder ? (
                                     <div className="my-4 p-3 bg-gray-800 rounded-md text-sm space-y-2">
                                         <p><strong>Informações para Retirada:</strong></p>
-                                        <p><strong>Endereço:</strong> R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB</p>
-                                        <p><strong>Horário:</strong> Seg a Sáb, 09h-11h30 e 15h-17h30</p>
+                                        <p><strong>Endereço:</strong> {pickupAddressText}</p>
+                                        {pickupConfig?.mapsLink && (
+                                            <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="inline-flex text-amber-400 hover:text-amber-300 hover:underline text-xs font-bold">
+                                                Ver localização no mapa
+                                            </a>
+                                        )}
+                                        <p><strong>Horário:</strong> {pickupConfig?.hours || 'Seg a Sáb, 09h-11h30 e 15h-17h30'}</p>
                                         {pickupDetails?.personName && <p><strong>Pessoa autorizada:</strong> {pickupDetails.personName}</p>}
-                                        <p className="text-amber-300 text-xs mt-2">Apresente um documento com foto e o número do pedido no momento da retirada.</p>
+                                        <p className="text-amber-300 text-xs mt-2">{pickupConfig?.instructions || 'Apresente um documento com foto e o número do pedido no momento da retirada.'}</p>
                                     </div>
                                 ) : (
                                      order.tracking_code && <p className="my-4 p-3 bg-gray-800 rounded-md text-sm"><strong>Cód. Rastreio:</strong> {order.tracking_code}</p>
