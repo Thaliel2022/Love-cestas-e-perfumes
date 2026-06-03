@@ -339,6 +339,7 @@ export const CheckoutPage = ({ onNavigate }) => {
 
     const pAddress = pickupConfig?.address;
     const isPAddressObj = typeof pAddress === 'object' && pAddress !== null;
+    const pickupMapsLink = pickupConfig?.mapsLink ? String(pickupConfig.mapsLink).replace(/&amp;/g, '&') : '';
 
     return (
         <>
@@ -424,9 +425,9 @@ export const CheckoutPage = ({ onNavigate }) => {
                                                 <p className="text-gray-300 ml-7 text-sm">{pAddress || 'Endereço não configurado'}</p>
                                             )}
 
-                                            {pickupConfig?.mapsLink && (
+                                            {pickupMapsLink && (
                                                 <a 
-                                                    href={pickupConfig.mapsLink} 
+                                                    href={pickupMapsLink} 
                                                     target="_blank" 
                                                     rel="noopener noreferrer" 
                                                     className="ml-7 mt-4 inline-flex items-center gap-2 px-4 py-2 border border-amber-500/50 text-amber-400 text-sm font-semibold rounded-md hover:bg-amber-500/10 transition-colors"
