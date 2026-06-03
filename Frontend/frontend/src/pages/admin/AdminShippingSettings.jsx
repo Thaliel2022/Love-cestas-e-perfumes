@@ -25,6 +25,8 @@ export const AdminShippingSettings = () => {
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [isFetchingCep, setIsFetchingCep] = useState(false);
+    const [lastFetchedCep, setLastFetchedCep] = useState('');
     const notification = useNotification();
     const confirmation = useConfirmation();
 
@@ -72,6 +74,82 @@ export const AdminShippingSettings = () => {
         fetchData();
     }, []);
 
+    const formatCep = (value) => {
+        const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
+        return digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits;
+    };
+
+    const buildGoogleMapsLink = (address) => {
+        const parts = [
+            address?.rua,
+            address?.numero,
+            address?.bairro,
+            address?.cidade,
+            address?.estado,
+            address?.cep,
+            'Brasil'
+        ].filter(Boolean);
+
+        if (!address?.rua || !address?.numero || !address?.bairro || !address?.cidade || !address?.estado) {
+            return '';
+        }
+
+        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parts.join(', '))}`;
+    };
+
+    const fetchAddressByCep = async (cepValue) => {
+        const cepDigits = String(cepValue || '').replace(/\D/g, '');
+        if (cepDigits.length !== 8 || cepDigits === lastFetchedCep) return;
+
+        setIsFetchingCep(true);
+        try {
+            const response = await fetch(`https://viacep.com.br/ws/${cepDigits}/json/`);
+            const data = await response.json();
+
+            if (!response.ok || data.erro) {
+                notification.show('CEP não encontrado. Confira o número informado.', 'error');
+                return;
+            }
+
+            setLastFetchedCep(cepDigits);
+            setPickupConfig(prev => {
+                const nextAddress = {
+                    ...prev.address,
+                    cep: formatCep(cepDigits),
+                    rua: data.logradouro || prev.address?.rua || '',
+                    bairro: data.bairro || prev.address?.bairro || '',
+                    cidade: data.localidade || prev.address?.cidade || '',
+                    estado: data.uf || prev.address?.estado || ''
+                };
+
+                return {
+                    ...prev,
+                    address: nextAddress,
+                    mapsLink: buildGoogleMapsLink(nextAddress) || prev.mapsLink
+                };
+            });
+            notification.show('Endereço preenchido automaticamente pelo CEP.');
+        } catch (error) {
+            notification.show('Erro ao consultar o CEP. Tente novamente.', 'error');
+        } finally {
+            setIsFetchingCep(false);
+        }
+    };
+
+    useEffect(() => {
+        const nextMapsLink = buildGoogleMapsLink(pickupConfig.address || {});
+        if (nextMapsLink && nextMapsLink !== pickupConfig.mapsLink) {
+            setPickupConfig(prev => ({ ...prev, mapsLink: nextMapsLink }));
+        }
+    }, [
+        pickupConfig.address?.rua,
+        pickupConfig.address?.numero,
+        pickupConfig.address?.bairro,
+        pickupConfig.address?.cidade,
+        pickupConfig.address?.estado,
+        pickupConfig.address?.cep
+    ]);
+
     const handleAddRule = () => {
         if (!newRule.value) { notification.show("Selecione um valor para a regra.", "error"); return; }
         setConfig(prev => ({ ...prev, rules: [...prev.rules, { ...newRule, id: Date.now(), amount: parseFloat(newRule.amount) || 0 }] }));
@@ -89,10 +167,15 @@ export const AdminShippingSettings = () => {
 
     const handleAddressChange = (e) => {
         const { name, value } = e.target;
+        const nextValue = name === 'cep' ? formatCep(value) : value;
         setPickupConfig(prev => ({ 
             ...prev, 
-            address: { ...prev.address, [name]: value } 
+            address: { ...prev.address, [name]: nextValue } 
         }));
+
+        if (name === 'cep' && String(nextValue).replace(/\D/g, '').length === 8) {
+            fetchAddressByCep(nextValue);
+        }
     };
 
     const handleSave = () => {
@@ -236,20 +319,67 @@ export const AdminShippingSettings = () => {
                                     </div>
                                     <div className="md:col-span-2">
                                         <label className="block text-xs font-bold text-gray-700 mb-1">CEP</label>
-                                        <input type="text" name="cep" value={pickupConfig.address?.cep || ''} onChange={handleAddressChange} className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="00000-000" />
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                name="cep"
+                                                value={pickupConfig.address?.cep || ''}
+                                                onChange={handleAddressChange}
+                                                onBlur={(e) => fetchAddressByCep(e.target.value)}
+                                                className="w-full p-2.5 pr-9 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 text-sm"
+                                                placeholder="00000-000"
+                                                maxLength="9"
+                                            />
+                                            {isFetchingCep && <SpinnerIcon className="h-4 w-4 text-indigo-600 absolute right-3 top-3" />}
+                                        </div>
                                     </div>
                                 </div>
+                                <p className="text-xs text-gray-500 -mt-2">
+                                    Ao informar o CEP, rua, bairro, cidade e estado são preenchidos automaticamente. Revise os dados e informe o número para gerar o Google Maps.
+                                </p>
                                 
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Link do Google Maps (Opcional, mas recomendado)</label>
-                                    <input 
-                                        type="url" 
-                                        name="mapsLink"
-                                        value={pickupConfig.mapsLink}
-                                        onChange={handlePickupChange}
-                                        placeholder="https://maps.app.goo.gl/..."
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                                    />
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-1">
+                                        <label className="block text-sm font-bold text-gray-700">Link do Google Maps</label>
+                                        {pickupConfig.mapsLink && (
+                                            <a
+                                                href={pickupConfig.mapsLink}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-xs font-bold text-indigo-600 hover:text-indigo-800"
+                                            >
+                                                Abrir localização
+                                            </a>
+                                        )}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <input 
+                                            type="url" 
+                                            name="mapsLink"
+                                            value={pickupConfig.mapsLink}
+                                            onChange={handlePickupChange}
+                                            placeholder="Gerado automaticamente após preencher endereço e número"
+                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const nextMapsLink = buildGoogleMapsLink(pickupConfig.address || {});
+                                                if (!nextMapsLink) {
+                                                    notification.show('Preencha rua, número, bairro, cidade e estado para gerar o mapa.', 'error');
+                                                    return;
+                                                }
+                                                setPickupConfig(prev => ({ ...prev, mapsLink: nextMapsLink }));
+                                                notification.show('Link do Google Maps gerado.');
+                                            }}
+                                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold text-sm hover:bg-indigo-700 whitespace-nowrap"
+                                        >
+                                            Gerar
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-2">
+                                        O link é atualizado automaticamente sempre que o endereço completo for alterado.
+                                    </p>
                                 </div>
                             </div>
                         </div>
