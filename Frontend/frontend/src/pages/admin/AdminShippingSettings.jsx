@@ -94,7 +94,7 @@ export const AdminShippingSettings = () => {
             return '';
         }
 
-        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parts.join(', '))}`;
+        return `https://maps.google.com/?q=${encodeURIComponent(parts.join(', '))}`;
     };
 
     const fetchAddressByCep = async (cepValue) => {

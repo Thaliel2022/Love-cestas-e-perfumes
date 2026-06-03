@@ -57,6 +57,7 @@ export const TrackingModal = memo(({ isOpen, onClose, order }) => {
 
         const address = pickupConfig?.address;
         const isAddressObj = typeof address === 'object' && address !== null;
+        const pickupMapsLink = pickupConfig?.mapsLink ? String(pickupConfig.mapsLink).replace(/&amp;/g, '&') : '';
         
         const hours = pickupConfig?.hours || 'Segunda a Sábado, das 9h às 11h30 e das 15h às 17h30';
         const instructions = pickupConfig?.instructions || 'Apresentar documento com foto (RG/CNH) e número do pedido.';
@@ -90,8 +91,8 @@ export const TrackingModal = memo(({ isOpen, onClose, order }) => {
                                     <p className="text-gray-600">{address || 'R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB'}</p>
                                 )}
                                 
-                                {pickupConfig?.mapsLink && (
-                                    <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 hover:underline text-xs font-bold mt-2 inline-flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-md border border-blue-200">
+                                {pickupMapsLink && (
+                                    <a href={pickupMapsLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 hover:underline text-xs font-bold mt-2 inline-flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-md border border-blue-200">
                                         Abrir Localização no Google Maps &rarr;
                                     </a>
                                 )}

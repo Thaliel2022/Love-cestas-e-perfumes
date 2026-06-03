@@ -365,6 +365,7 @@ export const OrderDetailPage = ({ onNavigate, orderId }) => {
 
     const pAddress = pickupConfig?.address;
     const isPAddressObj = typeof pAddress === 'object' && pAddress !== null;
+    const pickupMapsLink = pickupConfig?.mapsLink ? String(pickupConfig.mapsLink).replace(/&amp;/g, '&') : '';
 
     const LocalDeliveryTimeline = ({ history, currentStatus, onStatusClick }) => {
         const displayLabels = {
@@ -707,8 +708,8 @@ export const OrderDetailPage = ({ onNavigate, orderId }) => {
                                 <p className="text-gray-300 mt-2">{pAddress || 'Endereço não configurado'}</p>
                             )}
 
-                            {pickupConfig?.mapsLink && (
-                                <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 hover:underline text-xs font-bold mt-1 inline-flex items-center gap-1 bg-amber-400/10 px-3 py-1.5 rounded-md border border-amber-400/30 transition-all">
+                            {pickupMapsLink && (
+                                <a href={pickupMapsLink} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 hover:underline text-xs font-bold mt-1 inline-flex items-center gap-1 bg-amber-400/10 px-3 py-1.5 rounded-md border border-amber-400/30 transition-all">
                                     Ver localização no mapa <ArrowUturnLeftIcon className="h-3 w-3 rotate-180" />
                                 </a>
                             )}

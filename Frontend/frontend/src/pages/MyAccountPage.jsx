@@ -184,6 +184,7 @@ const MyOrdersSection = ({ onNavigate }) => {
             pickupAddress.cep
         ].filter(Boolean).join(', ')
         : (pickupAddress || 'Endereço não configurado');
+    const pickupMapsLink = pickupConfig?.mapsLink ? String(pickupConfig.mapsLink).replace(/&amp;/g, '&') : '';
 
     const handleReviewSuccess = async () => {
         try {
@@ -306,8 +307,8 @@ const MyOrdersSection = ({ onNavigate }) => {
                                     <div className="my-4 p-3 bg-gray-800 rounded-md text-sm space-y-2">
                                         <p><strong>Informações para Retirada:</strong></p>
                                         <p><strong>Endereço:</strong> {pickupAddressText}</p>
-                                        {pickupConfig?.mapsLink && (
-                                            <a href={pickupConfig.mapsLink} target="_blank" rel="noopener noreferrer" className="inline-flex text-amber-400 hover:text-amber-300 hover:underline text-xs font-bold">
+                                        {pickupMapsLink && (
+                                            <a href={pickupMapsLink} target="_blank" rel="noopener noreferrer" className="inline-flex text-amber-400 hover:text-amber-300 hover:underline text-xs font-bold">
                                                 Ver localização no mapa
                                             </a>
                                         )}
