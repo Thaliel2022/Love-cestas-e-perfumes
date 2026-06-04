@@ -532,6 +532,7 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
     if (!product) return <div className="bg-black min-h-screen"></div>;
 
     const showGalleryArrows = galleryImages.length > 1;
+    const shouldShowThumbnailRail = Boolean(product.video_url) || galleryImages.length > 1;
 
     return (
         <div className="bg-black text-white pb-28 md:pb-12 relative overflow-hidden">
@@ -677,6 +678,7 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
                         <div className="flex flex-col lg:flex-row gap-4 align-stretch h-full">
                             
                             {/* Lista de Miniaturas */}
+                            {shouldShowThumbnailRail && (
                             <div className="relative flex-shrink-0 order-2 lg:order-1 flex flex-col justify-center">
                                 {/* Botão Scroll Cima (Desktop) */}
                                 {canScrollUp && (
@@ -732,6 +734,7 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
                                     </button>
                                 )}
                             </div>
+                            )}
 
                             {/* Imagem Principal */}
                             <div className="w-full relative bg-white rounded-3xl overflow-hidden shadow-xl border border-gray-800 order-1 lg:order-2 group flex justify-center items-center aspect-square lg:aspect-[3/4]">
