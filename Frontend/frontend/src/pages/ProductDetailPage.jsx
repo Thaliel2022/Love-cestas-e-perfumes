@@ -183,24 +183,6 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
     const isClothing = product?.product_type === 'clothing';
     const isPerfume = product?.product_type === 'perfume';
 
-    const productHighlights = useMemo(() => {
-        const highlights = [
-            { label: 'Compra segura', text: 'Ambiente protegido', icon: <ShieldCheckIcon className="h-5 w-5" /> },
-            { label: 'Retirada ou entrega', text: 'Escolha no checkout', icon: <TruckIcon className="h-5 w-5" /> },
-            { label: 'Pagamento flexível', text: 'Pix e cartão', icon: <CreditCardIcon className="h-5 w-5" /> },
-        ];
-
-        if (isPerfume && product?.volume) {
-            highlights.unshift({ label: 'Volume', text: String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`, icon: <SparklesIcon className="h-5 w-5" /> });
-        }
-
-        if (isClothing) {
-            highlights.unshift({ label: 'Variações', text: 'Escolha cor e tamanho', icon: <ShirtIcon className="h-5 w-5" /> });
-        }
-
-        return highlights.slice(0, 4);
-    }, [isClothing, isPerfume, product?.volume]);
-
     const globalStock = Number(product?.stock) || 0;
     let productOrVariationOutOfStock = false;
     let stockLimit = 0;
@@ -967,20 +949,6 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
                                     </button> 
                                 </> 
                             )}
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {productHighlights.map((item, index) => (
-                                <div key={index} className="flex items-center gap-3 bg-white/[0.03] border border-white/10 rounded-2xl p-3">
-                                    <div className="h-10 w-10 rounded-xl bg-amber-400/10 text-amber-400 flex items-center justify-center flex-shrink-0">
-                                        {item.icon}
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-black text-white">{item.label}</p>
-                                        <p className="text-xs text-gray-500">{item.text}</p>
-                                    </div>
-                                </div>
-                            ))}
                         </div>
 
                         <ShippingCalculator items={itemsForShipping} />
