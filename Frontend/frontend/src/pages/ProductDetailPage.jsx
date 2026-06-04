@@ -203,7 +203,49 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
 
     const isQtyAtMax = stockLimit > 0 ? quantity >= stockLimit : false;
 
-    const parseTextToList = (text) => { if (!text || text.trim() === '') return null; return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">✓</span><span>{line}</span></li>)}</ul>; };
+    const getTextLines = (text) => String(text || '').split('\n').map(line => line.trim()).filter(Boolean);
+    const renderParagraphs = (text, emptyText) => {
+        const lines = getTextLines(text);
+        if (lines.length === 0) return <p className="text-gray-500 italic">{emptyText}</p>;
+        return (
+            <div className="space-y-4">
+                {lines.map((line, index) => (
+                    <p key={index} className="text-gray-300 leading-8">{line}</p>
+                ))}
+            </div>
+        );
+    };
+    const renderInfoCards = (text, emptyText) => {
+        const lines = getTextLines(text);
+        if (lines.length === 0) return <p className="text-gray-500 italic">{emptyText}</p>;
+        return (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {lines.map((line, index) => {
+                    const [label, ...rest] = line.includes(':') ? line.split(':') : [];
+                    const hasLabel = label && rest.length > 0;
+                    return (
+                        <div key={index} className="group bg-white/[0.03] border border-white/10 rounded-2xl p-4 hover:border-amber-400/40 hover:bg-amber-400/[0.04] transition-all">
+                            <div className="flex items-start gap-3">
+                                <span className="mt-0.5 h-6 w-6 rounded-full bg-amber-400/10 text-amber-400 flex items-center justify-center flex-shrink-0">
+                                    <CheckIcon className="h-3.5 w-3.5" />
+                                </span>
+                                <div>
+                                    {hasLabel ? (
+                                        <>
+                                            <p className="text-white font-bold text-sm">{label.trim()}</p>
+                                            <p className="text-gray-400 text-sm leading-6 mt-1">{rest.join(':').trim()}</p>
+                                        </>
+                                    ) : (
+                                        <p className="text-gray-300 text-sm leading-6">{line}</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    };
     const getInstallmentSummary = () => { if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; } const interestFreeLimit = Number(paymentInstallmentsConfig?.interest_free_installments) || 4; const noInterest = [...installments].reverse().find(p => p.installments <= interestFreeLimit); if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$ {noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } const lastInstallment = installments[installments.length - 1]; if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$ {lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } return null; };
 
     const fetchProductData = useCallback(async (id) => {
@@ -398,7 +440,77 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
             : url;
     };
 
-    const TabButton = ({ label, tabName, isVisible = true }) => { if (!isVisible) return null; return ( <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-amber-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'}`} > {label} </button> ); };
+    const infoTabs = [
+        { label: 'Descrição', tabName: 'description', icon: <ShieldCheckIcon className="h-5 w-5" />, visible: true, hint: 'Detalhes e diferenciais' },
+        { label: 'Tabela de Medidas', tabName: 'size_guide', icon: <RulerIcon className="h-5 w-5" />, visible: isClothing, hint: 'Medidas da peça' },
+        { label: 'Notas Olfativas', tabName: 'notes', icon: <SparklesIcon className="h-5 w-5" />, visible: isPerfume, hint: 'Família e composição' },
+        { label: 'Como Usar', tabName: 'how_to_use', icon: <ClockIcon className="h-5 w-5" />, visible: isPerfume, hint: 'Aplicação recomendada' },
+        { label: 'Ideal Para', tabName: 'ideal_for', icon: <UserIcon className="h-5 w-5" />, visible: isPerfume, hint: 'Ocasiões e estilo' },
+        { label: 'Cuidados com a Peça', tabName: 'care', icon: <ShirtIcon className="h-5 w-5" />, visible: isClothing, hint: 'Conservação' },
+    ].filter(tab => tab.visible);
+
+    const currentInfoTab = infoTabs.find(tab => tab.tabName === activeTab) || infoTabs[0];
+
+    const TabButton = ({ tab }) => (
+        <button
+            onClick={() => setActiveTab(tab.tabName)}
+            className={`text-left rounded-2xl border p-4 transition-all duration-200 group ${
+                activeTab === tab.tabName
+                    ? 'bg-amber-400 text-black border-amber-300 shadow-lg shadow-amber-900/20'
+                    : 'bg-gray-900/70 text-gray-300 border-gray-800 hover:border-amber-400/50 hover:bg-gray-800'
+            }`}
+        >
+            <div className="flex items-center gap-3">
+                <span className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                    activeTab === tab.tabName ? 'bg-black/10 text-black' : 'bg-amber-400/10 text-amber-400 group-hover:bg-amber-400/20'
+                }`}>
+                    {tab.icon}
+                </span>
+                <span>
+                    <span className="block text-sm font-black">{tab.label}</span>
+                    <span className={`block text-[11px] mt-0.5 ${activeTab === tab.tabName ? 'text-black/70' : 'text-gray-500'}`}>{tab.hint}</span>
+                </span>
+            </div>
+        </button>
+    );
+
+    const renderInfoContent = () => {
+        if (activeTab === 'description') {
+            return (
+                <div className="space-y-6">
+                    {renderParagraphs(product.description, 'Descrição não disponível.')}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                        <div className="bg-gray-950/70 border border-gray-800 rounded-2xl p-4">
+                            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-black">Marca</p>
+                            <p className="text-white font-bold mt-1">{product.brand || '-'}</p>
+                        </div>
+                        <div className="bg-gray-950/70 border border-gray-800 rounded-2xl p-4">
+                            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-black">Categoria</p>
+                            <p className="text-white font-bold mt-1">{product.category || '-'}</p>
+                        </div>
+                        <div className="bg-gray-950/70 border border-gray-800 rounded-2xl p-4">
+                            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-black">{isPerfume ? 'Volume' : 'Tipo'}</p>
+                            <p className="text-white font-bold mt-1">{isPerfume ? (product.volume || '-') : 'Moda'}</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        if (isClothing && activeTab === 'size_guide') {
+            return product.size_guide
+                ? <SizeGuideDisplay dataString={product.size_guide} />
+                : <p className="text-gray-500 italic">Guia de medidas não disponível para este produto.</p>;
+        }
+
+        if (isPerfume && activeTab === 'notes') return renderInfoCards(product.notes, 'Notas olfativas não disponíveis.');
+        if (isPerfume && activeTab === 'how_to_use') return renderInfoCards(product.how_to_use, 'Instruções de uso não disponíveis.');
+        if (isPerfume && activeTab === 'ideal_for') return renderInfoCards(product.ideal_for, 'Informação não disponível.');
+        if (isClothing && activeTab === 'care') return renderInfoCards(product.care_instructions, 'Instruções de cuidado não disponíveis.');
+
+        return null;
+    };
+
     const Lightbox = ({ mainImage, onClose }) => ( <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}> <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">×</button> <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div> </div> );
 
     if (isLoading) {
@@ -837,27 +949,42 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
                 </div>
                 
                 <div className="mt-16 lg:mt-24 pt-10 border-t border-gray-800">
-                    <div className="flex justify-center border-b border-gray-800 mb-8 flex-wrap -mt-3">
-                        <TabButton label="Descrição" tabName="description" />
-                        <TabButton label="Tabela de Medidas" tabName="size_guide" isVisible={isClothing} />
-                        <TabButton label="Notas Olfativas" tabName="notes" isVisible={isPerfume} />
-                        <TabButton label="Como Usar" tabName="how_to_use" isVisible={isPerfume} />
-                        <TabButton label="Ideal Para" tabName="ideal_for" isVisible={isPerfume} />
-                        <TabButton label="Cuidados com a Peça" tabName="care" isVisible={isClothing} />
+                    <div className="text-center mb-8">
+                        <p className="text-xs uppercase tracking-[0.25em] text-amber-400 font-black">Informações do produto</p>
+                        <h2 className="text-2xl md:text-3xl font-black text-white mt-2">Conheça todos os detalhes</h2>
+                        <p className="text-sm text-gray-500 mt-2 max-w-2xl mx-auto">Conteúdo organizado para ajudar você a escolher com mais segurança.</p>
                     </div>
-                    <div className="text-gray-300 leading-relaxed max-w-3xl mx-auto min-h-[100px] prose prose-invert prose-sm sm:prose-base">
-                        {activeTab === 'description' && <p>{product.description || 'Descrição não disponível.'}</p>}
-                        
-                        {isClothing && activeTab === 'size_guide' && (
-                            product.size_guide 
-                            ? <SizeGuideDisplay dataString={product.size_guide} /> 
-                            : <p className="text-center text-gray-500 italic">Guia de medidas não disponível para este produto.</p>
-                        )}
-                        
-                        {isPerfume && activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas olfativas não disponíveis.</p>)}
-                        {isPerfume && activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções de uso não disponíveis.'}</p>}
-                        {isPerfume && activeTab === 'ideal_for' && (product.ideal_for ? parseTextToList(product.ideal_for) : <p>Informação não disponível.</p>)}
-                        {isClothing && activeTab === 'care' && (product.care_instructions ? parseTextToList(product.care_instructions) : <p>Instruções de cuidado não disponíveis.</p>)}
+
+                    <div className="max-w-6xl mx-auto bg-gradient-to-br from-gray-900 via-gray-950 to-black border border-gray-800 rounded-3xl overflow-hidden shadow-2xl shadow-black/30">
+                        <div className="grid grid-cols-1 lg:grid-cols-12">
+                            <div className="lg:col-span-4 bg-black/30 border-b lg:border-b-0 lg:border-r border-gray-800 p-4 md:p-5">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
+                                    {infoTabs.map(tab => <TabButton key={tab.tabName} tab={tab} />)}
+                                </div>
+                            </div>
+
+                            <div className="lg:col-span-8 p-6 md:p-8 lg:p-10 min-h-[360px]">
+                                <motion.div
+                                    key={activeTab}
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.25 }}
+                                >
+                                    <div className="flex items-start gap-4 mb-6">
+                                        <div className="h-12 w-12 rounded-2xl bg-amber-400/10 text-amber-400 flex items-center justify-center border border-amber-400/20 flex-shrink-0">
+                                            {currentInfoTab?.icon}
+                                        </div>
+                                        <div>
+                                            <p className="text-xs uppercase tracking-[0.2em] text-amber-400 font-black">{currentInfoTab?.hint}</p>
+                                            <h3 className="text-2xl font-black text-white mt-1">{currentInfoTab?.label}</h3>
+                                        </div>
+                                    </div>
+                                    <div className="text-gray-300">
+                                        {renderInfoContent()}
+                                    </div>
+                                </motion.div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
