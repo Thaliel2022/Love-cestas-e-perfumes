@@ -22,6 +22,24 @@ const MP_BRICK_VISUAL_STYLE = {
         baseColorFirstVariant: '#f59e0b',
         baseColorSecondVariant: '#d97706',
         errorColor: '#ef4444',
+        successColor: '#34d399',
+        successSecondaryColor: '#065f46',
+        textPrimaryColor: '#f3f4f6',
+        textSecondaryColor: '#9ca3af',
+        inputBackgroundColor: '#1f2937',
+        formBackgroundColor: 'transparent',
+        outlinePrimaryColor: '#374151',
+        outlineSecondaryColor: '#4b5563',
+        buttonTextColor: '#111827',
+        borderRadiusSmall: '8px',
+        borderRadiusMedium: '12px',
+        borderRadiusLarge: '14px',
+        formPadding: '0px',
+        inputVerticalPadding: '12px',
+        inputHorizontalPadding: '14px',
+        fontSizeSmall: '13px',
+        fontSizeMedium: '14px',
+        fontWeightSemiBold: '600',
     },
 };
 
@@ -30,6 +48,7 @@ export function buildMpPaymentCustomization({ paymentInstallmentsConfig, amount 
     const showInstallmentPromo = allowedMaxInstallments > 1;
 
     return {
+        hideFormTitle: true,
         paymentMethods: {
             excludedPaymentTypes: ['ticket'],
             bankTransfer: 'all',
@@ -41,6 +60,16 @@ export function buildMpPaymentCustomization({ paymentInstallmentsConfig, amount 
         visual: {
             texts: {
                 formSubmit: MP_BRICK_FORM_SUBMIT,
+                emailSectionTitle: 'Dados para o comprovante',
+                installmentsSectionTitle: 'Escolha o parcelamento',
+                selectInstallments: 'Selecione as parcelas',
+                selectIssuerBank: 'Selecione o banco emissor',
+                paymentMethods: {
+                    creditCardTitle: 'Cartão de crédito',
+                    debitCardTitle: 'Cartão de débito',
+                    newCreditCardTitle: 'Novo cartão de crédito',
+                    newDebitCardTitle: 'Novo cartão de débito',
+                },
             },
             style: MP_BRICK_VISUAL_STYLE,
         },
@@ -125,6 +154,52 @@ export function attachMpInstallmentPromoHide(showInstallmentPromo, rootSelector 
 }
 
 export const MP_BRICK_LAYOUT_STYLES = `
+    .mp-custom-styles {
+        --mp-brand-glow: rgba(251, 191, 36, 0.12);
+    }
+
+    .mp-custom-styles #paymentBrick_container,
+    .mp-custom-styles [id*="paymentBrick"] {
+        width: 100%;
+    }
+
+    .mp-custom-styles input,
+    .mp-custom-styles select,
+    .mp-custom-styles textarea {
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .mp-custom-styles .mp-formAction,
+    .mp-custom-styles [class*="formAction"] {
+        display: flex !important;
+        justify-content: center !important;
+        width: 100% !important;
+        margin-top: 8px !important;
+        padding-top: 4px !important;
+    }
+
+    .mp-custom-styles button[type="submit"],
+    .mp-custom-styles [data-testid="submit-button"],
+    .mp-custom-styles .mp-button {
+        width: 100% !important;
+        max-width: 420px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        border-radius: 12px !important;
+        min-height: 48px !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.01em !important;
+        box-shadow: 0 8px 24px var(--mp-brand-glow) !important;
+        transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+    }
+
+    .mp-custom-styles button[type="submit"]:hover,
+    .mp-custom-styles [data-testid="submit-button"]:hover,
+    .mp-custom-styles .mp-button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 28px rgba(251, 191, 36, 0.2) !important;
+    }
+
     .mp-custom-styles.mp-hide-installment-promo [class*="valueProp"],
     .mp-custom-styles.mp-hide-installment-promo [class*="ValueProp"],
     .mp-custom-styles.mp-hide-installment-promo [class*="promotion"],
@@ -133,22 +208,10 @@ export const MP_BRICK_LAYOUT_STYLES = `
         visibility: hidden !important;
     }
 
-    @media (min-width: 1024px) {
-        .mp-custom-styles .mp-formAction,
-        .mp-custom-styles [class*="formAction"] {
-            display: flex !important;
-            justify-content: center !important;
-            width: 100% !important;
-        }
-
-        .mp-custom-styles button[type="submit"],
-        .mp-custom-styles [data-testid="submit-button"],
-        .mp-custom-styles .mp-button {
-            width: 100% !important;
-            max-width: 350px !important;
-            margin-left: auto !important;
-            margin-right: auto !important;
-            border-radius: 8px !important;
-        }
+    .mp-custom-styles.mp-hide-installment-promo [class*="valueProp"],
+    .mp-custom-styles.mp-hide-installment-promo [class*="ValueProp"] {
+        background: transparent !important;
+        padding: 0 !important;
+        min-height: 0 !important;
     }
 `;

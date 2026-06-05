@@ -1,20 +1,18 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Payment as MercadoPagoPayment } from '@mercadopago/sdk-react';
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { useShop } from '../contexts/ShopContext';
 import { getFirstImage } from '../utils/cloudinary';
+import { PaymentBrickPanel } from '../components/checkout/PaymentBrickPanel';
 import {
     attachMpInstallmentPromoHide,
     buildMpPaymentCustomization,
-    MP_BRICK_LAYOUT_STYLES,
-    toMpSdkCustomization,
+    allowsStoreInstallments,
 } from '../utils/mercadoPagoBrick';
 import {
-    ArrowUturnLeftIcon, CheckBadgeIcon, ExclamationCircleIcon, InstagramIcon,
-    PackageIcon, ShieldCheckIcon, SpinnerIcon, TruckIcon, WhatsappIcon
+    ArrowUturnLeftIcon, PackageIcon, ShieldCheckIcon, SpinnerIcon
 } from '../components/icons';
 
 export const OrderPaymentPage = ({ orderId, onNavigate }) => {
@@ -174,6 +172,9 @@ export const OrderPaymentPage = ({ orderId, onNavigate }) => {
     if (!order) return null;
 
     const subtotal = (Number(order.total) || 0) - (Number(order.shipping_cost) || 0) + (Number(order.discount_amount) || 0);
+    const installmentSummary = allowsStoreInstallments(paymentInstallmentsConfig, orderTotal)
+        ? `${Number(paymentInstallmentsConfig?.interest_free_installments) || 4}x sem juros no cartão`
+        : null;
 
     return (
         <div className="bg-black text-white min-h-screen pt-8 pb-24 md:py-12 relative overflow-hidden">
@@ -271,31 +272,18 @@ export const OrderPaymentPage = ({ orderId, onNavigate }) => {
 
                     {/* Lado Esquerdo no Desktop / Baixo no Mobile: Formulário do Mercado Pago */}
                     <div className="lg:col-span-7 order-2 lg:order-1">
-                        <div className={`bg-gray-900 rounded-3xl border border-gray-800 p-2 sm:p-4 shadow-2xl mp-custom-styles${showInstallmentPromo ? '' : ' mp-hide-installment-promo'}`}>
-                            <style>{MP_BRICK_LAYOUT_STYLES}</style>
-                            <div className="mb-4 p-3.5 bg-blue-900/30 border border-blue-800/50 rounded-xl flex items-start gap-3">
-                                <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                                <div className="text-xs text-blue-200 leading-relaxed">
-                                    <strong className="text-blue-300 block mb-1">Dica sobre o pagamento via Pix:</strong> 
-                                    O código Copia e Cola e o QR Code serão gerados <strong>aqui mesmo na tela</strong> no próximo passo, logo após você confirmar. O e-mail solicitado abaixo serve apenas para enviarmos o seu comprovante de pagamento.
-                                </div>
-                            </div>
-                            
-                            {showBrick ? (
-                                <MercadoPagoPayment
-                                    key={`mp-brick-order-${order.id}-${orderTotal}-${showInstallmentPromo ? 'installments' : 'single'}`}
-                                    initialization={mpInitialization}
-                                    customization={toMpSdkCustomization(mpCustomization)}
-                                    onReady={handleMpBrickReady}
-                                    onSubmit={handlePaymentSubmit}
-                                />
-                            ) : (
-                                <div className="flex flex-col items-center justify-center py-6 px-4 gap-3 bg-gray-800 rounded-xl border border-gray-700">
-                                    <SpinnerIcon className="h-8 w-8 text-amber-500 animate-spin" />
-                                    <p className="text-xs font-bold text-gray-400 text-center">Preparando ambiente seguro de pagamento...</p>
-                                </div>
-                            )}
-
+                        <div className="bg-gray-900 rounded-3xl border border-gray-800 p-4 sm:p-6 shadow-2xl">
+                            <PaymentBrickPanel
+                                showBrick={showBrick}
+                                brickKey={`mp-brick-order-${order.id}-${orderTotal}-${showInstallmentPromo ? 'installments' : 'single'}`}
+                                initialization={mpInitialization}
+                                mpCustomization={mpCustomization}
+                                onReady={handleMpBrickReady}
+                                onSubmit={handlePaymentSubmit}
+                                total={orderTotal}
+                                installmentSummary={installmentSummary}
+                                paymentInstallmentsConfig={paymentInstallmentsConfig}
+                            />
                         </div>
                     </div>
 
