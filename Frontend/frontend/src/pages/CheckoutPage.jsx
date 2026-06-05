@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Payment as MercadoPagoPayment } from '@mercadopago/sdk-react';
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
@@ -7,15 +8,16 @@ import { useShop } from '../contexts/ShopContext';
 import { Modal } from '../components/ui/Modal';
 import { CheckoutSection } from '../components/ui/CheckoutSection';
 import { AddressForm, AddressSelectionModal } from '../components/checkout/CheckoutAddress';
-import { PaymentBrickPanel } from '../components/checkout/PaymentBrickPanel';
 import { getFirstImage } from '../utils/cloudinary';
 import { maskCPF, maskPhone, validateCPF, validatePhone } from '../utils/validation';
 import {
     attachMpInstallmentPromoHide,
     buildMpPaymentCustomization,
+    MP_BRICK_LAYOUT_STYLES,
+    toMpSdkCustomization,
 } from '../utils/mercadoPagoBrick';
 import {
-    ArrowUturnLeftIcon, BoxIcon, CheckCircleIcon, ClockIcon, CreditCardIcon, EditIcon,
+    ArrowUturnLeftIcon, BoxIcon, CheckCircleIcon, ClockIcon, EditIcon,
     ExclamationCircleIcon, MapPinIcon, PlusIcon, SpinnerIcon, TruckIcon,
     WhatsappIcon
 } from '../components/icons';
@@ -515,33 +517,6 @@ export const CheckoutPage = ({ onNavigate }) => {
                                     )}
                                 </CheckoutSection>
                             )}
-
-                            {canPlaceOrder && autoCalculatedShipping && cart.length > 0 ? (
-                                <CheckoutSection title="Pagamento" step={3} icon={CreditCardIcon}>
-                                    <PaymentBrickPanel
-                                        showBrick={showBrick}
-                                        brickKey={`mp-brick-checkout-${total}-${showInstallmentPromo ? 'installments' : 'single'}-${displayAddress?.cep || 'no-cep'}`}
-                                        initialization={mpInitialization}
-                                        mpCustomization={mpCustomization}
-                                        onReady={handleMpBrickReady}
-                                        onSubmit={handlePaymentSubmit}
-                                        total={total}
-                                        installmentSummary={installmentSummary}
-                                        paymentInstallmentsConfig={paymentInstallmentsConfig}
-                                        showTotal={false}
-                                    />
-                                </CheckoutSection>
-                            ) : (
-                                <CheckoutSection title="Pagamento" step={3} icon={CreditCardIcon}>
-                                    <div className="text-center p-6 bg-gray-800/60 border border-gray-700 rounded-xl">
-                                        <CreditCardIcon className="h-10 w-10 mx-auto text-gray-600 mb-3" />
-                                        <p className="text-sm font-semibold text-gray-300 mb-1">Pagamento bloqueado</p>
-                                        <p className="text-xs text-gray-500">
-                                            Preencha o contato e a forma de entrega para liberar os meios de pagamento.
-                                        </p>
-                                    </div>
-                                </CheckoutSection>
-                            )}
                         </div> 
 
                         <div className="lg:col-span-5">
@@ -609,6 +584,44 @@ export const CheckoutPage = ({ onNavigate }) => {
                                         </div>
                                     )}
                                 </div>
+
+                                {(!canPlaceOrder || !autoCalculatedShipping || cart.length === 0) ? (
+                                    <div className="text-center p-4 bg-gray-800 border border-gray-700 rounded-lg">
+                                        <p className="text-sm text-gray-400">Preencha o contato e a forma de entrega para liberar o pagamento.</p>
+                                    </div>
+                                ) : (
+                                    <div className={`mt-4 pt-4 border-t border-gray-700 mp-custom-styles${showInstallmentPromo ? '' : ' mp-hide-installment-promo'}`}>
+                                        <style>{MP_BRICK_LAYOUT_STYLES}</style>
+                                        <div className="mb-4 p-3.5 bg-blue-900/30 border border-blue-800/50 rounded-xl flex items-start gap-3">
+                                            <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                                            <div className="text-xs text-blue-200 leading-relaxed">
+                                                <strong className="text-blue-300 block mb-1">Dica sobre o pagamento via Pix:</strong> 
+                                                O código Copia e Cola e o QR Code serão gerados <strong>aqui mesmo na tela</strong> no próximo passo, logo após você confirmar. O e-mail solicitado abaixo serve apenas para enviarmos o seu comprovante de pagamento.
+                                                {installmentSummary && (
+                                                    <span className="block mt-2 text-blue-100">
+                                                        Parcelamento da loja: até {Number(paymentInstallmentsConfig?.interest_free_installments) || 4}x sem juros e até {Number(paymentInstallmentsConfig?.max_installments) || 10}x no total. As taxas exibidas no formulário são calculadas pelo Mercado Pago conforme a bandeira do cartão.
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        
+                                        {showBrick ? (
+                                            <MercadoPagoPayment
+                                                key={`mp-brick-checkout-${total}-${showInstallmentPromo ? 'installments' : 'single'}-${displayAddress?.cep || 'no-cep'}`}
+                                                initialization={mpInitialization}
+                                                customization={toMpSdkCustomization(mpCustomization)}
+                                                onReady={handleMpBrickReady}
+                                                onSubmit={handlePaymentSubmit}
+                                            />
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center py-6 px-4 gap-3 bg-gray-800 rounded-xl border border-gray-700">
+                                                <SpinnerIcon className="h-8 w-8 text-amber-500 animate-spin" />
+                                                <p className="text-xs font-bold text-gray-400 text-center">Preparando ambiente seguro de pagamento...</p>
+                                            </div>
+                                        )}
+
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
