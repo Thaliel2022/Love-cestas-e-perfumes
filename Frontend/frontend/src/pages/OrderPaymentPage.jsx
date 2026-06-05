@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Payment as MercadoPagoPayment } from '@mercadopago/sdk-react';
 import { apiService } from '../services/api';
@@ -7,13 +7,19 @@ import { useNotification } from '../contexts/NotificationContext';
 import { useShop } from '../contexts/ShopContext';
 import { getFirstImage } from '../utils/cloudinary';
 import {
+    attachMpInstallmentPromoHide,
+    buildMpPaymentCustomization,
+    MP_BRICK_LAYOUT_STYLES,
+    toMpSdkCustomization,
+} from '../utils/mercadoPagoBrick';
+import {
     ArrowUturnLeftIcon, CheckBadgeIcon, ExclamationCircleIcon, InstagramIcon,
     PackageIcon, ShieldCheckIcon, SpinnerIcon, TruckIcon, WhatsappIcon
 } from '../components/icons';
 
 export const OrderPaymentPage = ({ orderId, onNavigate }) => {
     const { user } = useAuth();
-    const { clearOrderState } = useShop();
+    const { clearOrderState, paymentInstallmentsConfig } = useShop();
     const notification = useNotification();
     
     const [order, setOrder] = useState(null);
@@ -130,31 +136,22 @@ export const OrderPaymentPage = ({ orderId, onNavigate }) => {
         };
     }, [order?.total, order?.shipping_address, order?.shipping_method, user]);
 
-    const mpCustomization = useMemo(() => {
-        return {
-            paymentMethods: {
-                excludedPaymentTypes: ["ticket"],
-                bankTransfer: "all",
-                creditCard: "all",
-                debitCard: "all",
-                minInstallments: 1,
-            },
-            visual: {
-                texts: {
-                    formSubmit: 'Confirmar Pagamento',
-                },
-                style: {
-                    theme: 'dark',
-                    customVariables: {
-                        baseColor: '#fbbf24', 
-                        baseColorFirstVariant: '#f59e0b', 
-                        baseColorSecondVariant: '#d97706',
-                        errorColor: '#ef4444', 
-                    }
-                }
-            }
-        };
-    }, []);
+    const orderTotal = Number(order?.total || 0);
+
+    const mpCustomization = useMemo(
+        () => buildMpPaymentCustomization({ paymentInstallmentsConfig, amount: orderTotal }),
+        [paymentInstallmentsConfig, orderTotal]
+    );
+    const showInstallmentPromo = mpCustomization._showInstallmentPromo;
+
+    const handleMpBrickReady = useCallback(() => {
+        attachMpInstallmentPromoHide(showInstallmentPromo);
+    }, [showInstallmentPromo]);
+
+    useEffect(() => {
+        if (!showBrick) return undefined;
+        return attachMpInstallmentPromoHide(showInstallmentPromo);
+    }, [showBrick, showInstallmentPromo, orderTotal]);
 
     useEffect(() => {
         if (!order) return;
@@ -274,27 +271,8 @@ export const OrderPaymentPage = ({ orderId, onNavigate }) => {
 
                     {/* Lado Esquerdo no Desktop / Baixo no Mobile: Formulário do Mercado Pago */}
                     <div className="lg:col-span-7 order-2 lg:order-1">
-                        <div className="bg-gray-900 rounded-3xl border border-gray-800 p-2 sm:p-4 shadow-2xl mp-custom-styles">
-                            <style>{`
-                                @media (min-width: 1024px) {
-                                    .mp-custom-styles .mp-formAction,
-                                    .mp-custom-styles [class*="formAction"] {
-                                        display: flex !important;
-                                        justify-content: center !important;
-                                        width: 100% !important;
-                                    }
-
-                                    .mp-custom-styles button[type="submit"],
-                                    .mp-custom-styles [data-testid="submit-button"],
-                                    .mp-custom-styles .mp-button {
-                                        width: 100% !important;
-                                        max-width: 350px !important;
-                                        margin-left: auto !important;
-                                        margin-right: auto !important;
-                                        border-radius: 8px !important;
-                                    }
-                                }
-                            `}</style>
+                        <div className={`bg-gray-900 rounded-3xl border border-gray-800 p-2 sm:p-4 shadow-2xl mp-custom-styles${showInstallmentPromo ? '' : ' mp-hide-installment-promo'}`}>
+                            <style>{MP_BRICK_LAYOUT_STYLES}</style>
                             <div className="mb-4 p-3.5 bg-blue-900/30 border border-blue-800/50 rounded-xl flex items-start gap-3">
                                 <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
                                 <div className="text-xs text-blue-200 leading-relaxed">
@@ -305,9 +283,10 @@ export const OrderPaymentPage = ({ orderId, onNavigate }) => {
                             
                             {showBrick ? (
                                 <MercadoPagoPayment
-                                    key={`mp-brick-order-${order.id}-${order.total}`}
+                                    key={`mp-brick-order-${order.id}-${orderTotal}-${showInstallmentPromo ? 'installments' : 'single'}`}
                                     initialization={mpInitialization}
-                                    customization={mpCustomization}
+                                    customization={toMpSdkCustomization(mpCustomization)}
+                                    onReady={handleMpBrickReady}
                                     onSubmit={handlePaymentSubmit}
                                 />
                             ) : (

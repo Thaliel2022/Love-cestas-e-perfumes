@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Payment as MercadoPagoPayment } from '@mercadopago/sdk-react';
 import { apiService } from '../services/api';
@@ -10,6 +10,12 @@ import { CheckoutSection } from '../components/ui/CheckoutSection';
 import { AddressForm, AddressSelectionModal } from '../components/checkout/CheckoutAddress';
 import { getFirstImage } from '../utils/cloudinary';
 import { maskCPF, maskPhone, validateCPF, validatePhone } from '../utils/validation';
+import {
+    attachMpInstallmentPromoHide,
+    buildMpPaymentCustomization,
+    MP_BRICK_LAYOUT_STYLES,
+    toMpSdkCustomization,
+} from '../utils/mercadoPagoBrick';
 import {
     ArrowUturnLeftIcon, BoxIcon, CheckCircleIcon, ClockIcon, EditIcon,
     ExclamationCircleIcon, MapPinIcon, PlusIcon, SpinnerIcon, TruckIcon,
@@ -189,35 +195,20 @@ export const CheckoutPage = ({ onNavigate }) => {
         };
     }, [total, user, displayAddress, addresses]);
 
-    const mpCustomization = useMemo(() => {
-        const minInstallmentAmount = Number(paymentInstallmentsConfig?.min_installment_amount) || 0;
-        const configuredMax = Number(paymentInstallmentsConfig?.max_installments) || 10;
-        const allowedMaxInstallments = total >= minInstallmentAmount ? configuredMax : 1;
-        return {
-            paymentMethods: {
-                excludedPaymentTypes: ["ticket"],
-                bankTransfer: "all",
-                creditCard: "all",
-                debitCard: "all",
-                minInstallments: 1,
-                maxInstallments: allowedMaxInstallments,
-            },
-            visual: {
-                texts: {
-                    formSubmit: 'Confirmar Pagamento',
-                },
-                style: {
-                    theme: 'dark',
-                    customVariables: {
-                        baseColor: '#fbbf24', 
-                        baseColorFirstVariant: '#f59e0b', 
-                        baseColorSecondVariant: '#d97706',
-                        errorColor: '#ef4444', 
-                    }
-                }
-            }
-        };
-    }, [paymentInstallmentsConfig, total]);
+    const mpCustomization = useMemo(
+        () => buildMpPaymentCustomization({ paymentInstallmentsConfig, amount: total }),
+        [paymentInstallmentsConfig, total]
+    );
+    const showInstallmentPromo = mpCustomization._showInstallmentPromo;
+
+    const handleMpBrickReady = useCallback(() => {
+        attachMpInstallmentPromoHide(showInstallmentPromo);
+    }, [showInstallmentPromo]);
+
+    useEffect(() => {
+        if (!showBrick) return undefined;
+        return attachMpInstallmentPromoHide(showInstallmentPromo);
+    }, [showBrick, showInstallmentPromo, total]);
 
     const getDeliveryDateText = (deliveryTime) => {
         if (typeof deliveryTime === 'string' && deliveryTime.includes('Receba até')) return `${deliveryTime} (1 dia útil)`;
@@ -599,43 +590,27 @@ export const CheckoutPage = ({ onNavigate }) => {
                                         <p className="text-sm text-gray-400">Preencha o contato e a forma de entrega para liberar o pagamento.</p>
                                     </div>
                                 ) : (
-                                    <div className="mt-4 pt-4 border-t border-gray-700 mp-custom-styles">
-                                        <style>{`
-                                            @media (min-width: 1024px) {
-                                                .mp-custom-styles .mp-formAction,
-                                                .mp-custom-styles [class*="formAction"] {
-                                                    display: flex !important;
-                                                    justify-content: center !important;
-                                                    width: 100% !important;
-                                                }
-
-                                                .mp-custom-styles button[type="submit"],
-                                                .mp-custom-styles [data-testid="submit-button"],
-                                                .mp-custom-styles .mp-button {
-                                                    width: 100% !important;
-                                                    max-width: 350px !important;
-                                                    margin-left: auto !important;
-                                                    margin-right: auto !important;
-                                                    border-radius: 8px !important;
-                                                }
-                                            }
-                                        `}</style>
+                                    <div className={`mt-4 pt-4 border-t border-gray-700 mp-custom-styles${showInstallmentPromo ? '' : ' mp-hide-installment-promo'}`}>
+                                        <style>{MP_BRICK_LAYOUT_STYLES}</style>
                                         <div className="mb-4 p-3.5 bg-blue-900/30 border border-blue-800/50 rounded-xl flex items-start gap-3">
                                             <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
                                             <div className="text-xs text-blue-200 leading-relaxed">
                                                 <strong className="text-blue-300 block mb-1">Dica sobre o pagamento via Pix:</strong> 
                                                 O código Copia e Cola e o QR Code serão gerados <strong>aqui mesmo na tela</strong> no próximo passo, logo após você confirmar. O e-mail solicitado abaixo serve apenas para enviarmos o seu comprovante de pagamento.
-                                                <span className="block mt-2 text-blue-100">
-                                                    Parcelamento da loja: até {Number(paymentInstallmentsConfig?.interest_free_installments) || 4}x sem juros e até {Number(paymentInstallmentsConfig?.max_installments) || 10}x no total. As taxas exibidas no formulário são calculadas pelo Mercado Pago conforme a bandeira do cartão.
-                                                </span>
+                                                {installmentSummary && (
+                                                    <span className="block mt-2 text-blue-100">
+                                                        Parcelamento da loja: até {Number(paymentInstallmentsConfig?.interest_free_installments) || 4}x sem juros e até {Number(paymentInstallmentsConfig?.max_installments) || 10}x no total. As taxas exibidas no formulário são calculadas pelo Mercado Pago conforme a bandeira do cartão.
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                         
                                         {showBrick ? (
                                             <MercadoPagoPayment
-                                                key={`mp-brick-checkout-${total}-${displayAddress?.cep || 'no-cep'}`}
+                                                key={`mp-brick-checkout-${total}-${showInstallmentPromo ? 'installments' : 'single'}-${displayAddress?.cep || 'no-cep'}`}
                                                 initialization={mpInitialization}
-                                                customization={mpCustomization}
+                                                customization={toMpSdkCustomization(mpCustomization)}
+                                                onReady={handleMpBrickReady}
                                                 onSubmit={handlePaymentSubmit}
                                             />
                                         ) : (
