@@ -877,11 +877,14 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
                                         </div>
                                         <div className="flex flex-col items-center w-full">
                                             <p className="text-gray-400 text-sm">De: <span className="line-through">R$ {formatPrice(product.price)}</span></p>
-                                            <p className="mt-1 leading-none">
-                                                <span className="text-base text-gray-300 font-medium">Por: </span>
-                                                <span className="text-4xl sm:text-5xl font-black text-red-400 tracking-tight">R$ {formatPrice(product.sale_price)}</span>
+                                            <p className="mt-1 leading-tight">
+                                                <span className="text-sm text-gray-300 font-medium">Por: </span>
+                                                <span className="text-3xl sm:text-4xl font-black text-red-400 tracking-tight">R$ {formatPrice(product.sale_price)}</span>
                                             </p>
                                             <p className="text-xs text-green-400 font-semibold mt-2 bg-green-900/20 px-3 py-0.5 rounded-full inline-block border border-green-900/30">Economize {discountPercent}%</p>
+                                            <p className="text-sm text-green-400 font-medium mt-2">
+                                                Você economiza: <span className="font-bold text-green-300">R$ {formatPrice(savingsAmount)}</span>
+                                            </p>
                                         </div>
                                     </div>
                                 </>
@@ -896,9 +899,9 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
                                     <div className="flex items-start justify-between gap-4 relative z-10 mb-1">
                                         <div>
                                             <p className="text-gray-400 text-sm">De: <span className="line-through">R$ {formatPrice(product.price)}</span></p>
-                                            <p className="mt-1 leading-none">
-                                                <span className="text-base text-gray-300 font-medium">Por: </span>
-                                                <span className="text-4xl sm:text-5xl font-black text-green-400 tracking-tight">R$ {formatPrice(product.sale_price)}</span>
+                                            <p className="mt-1 leading-tight">
+                                                <span className="text-sm text-gray-300 font-medium">Por: </span>
+                                                <span className="text-3xl sm:text-4xl font-black text-green-400 tracking-tight">R$ {formatPrice(product.sale_price)}</span>
                                             </p>
                                             <p className="text-sm text-green-400 font-medium mt-3">
                                                 Você economiza: <span className="font-bold text-green-300">R$ {formatPrice(savingsAmount)}</span>
