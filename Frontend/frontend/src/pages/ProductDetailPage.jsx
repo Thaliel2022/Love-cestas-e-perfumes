@@ -878,7 +878,7 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
                                         <div className="flex flex-col items-center sm:items-end text-center sm:text-right flex-shrink-0 border-t sm:border-t-0 border-red-900/30 pt-3 sm:pt-0 w-full sm:w-auto">
                                             <p className="text-gray-400 text-sm">De: <span className="line-through">R$ {formatPrice(product.price)}</span></p>
                                             <p className="text-white font-bold text-xl sm:text-2xl mt-0.5">
-                                                Por: <span className="text-amber-400">R$ {formatPrice(product.sale_price)}</span>
+                                                Por: <span className="text-red-400">R$ {formatPrice(product.sale_price)}</span>
                                             </p>
                                             <p className="text-xs text-green-400 font-semibold mt-1 bg-green-900/20 px-3 py-0.5 rounded-full inline-block border border-green-900/30">Economize {discountPercent}%</p>
                                             <p className="text-sm text-green-400 font-medium mt-1">
