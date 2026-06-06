@@ -256,7 +256,7 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
             </div>
         );
     };
-    const getInstallmentSummary = () => { if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; } const interestFreeLimit = Number(paymentInstallmentsConfig?.interest_free_installments) || 4; const noInterest = [...installments].reverse().find(p => p.installments <= interestFreeLimit); if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$ {noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } const lastInstallment = installments[installments.length - 1]; if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$ {lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } return null; };
+    const getInstallmentSummary = () => { if (isLoadingInstallments) { return <div className="h-5 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } if (!installments || installments.length === 0) { return <span className="text-gray-500">Parcelamento indisponível.</span>; } const interestFreeLimit = Number(paymentInstallmentsConfig?.interest_free_installments) || 4; const noInterest = [...installments].reverse().find(p => p.installments <= interestFreeLimit); if (noInterest) { return <span>em até <span className="font-bold text-white">{noInterest.installments}x de R$ {noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } const lastInstallment = installments[installments.length - 1]; if (lastInstallment) { return <span>ou em até <span className="font-bold text-white">{lastInstallment.installments}x de R$ {lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } return null; };
 
     const fetchProductData = useCallback(async (id) => {
         const controller = new AbortController();
@@ -878,11 +878,11 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
                                 <p className="text-4xl font-black text-white tracking-tight">R$ {formatPrice(product.price)}</p>
                             )}
 
-                            <div className="mt-3 flex items-center gap-2 text-sm text-gray-300">
+                            <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-base text-gray-300">
                                 <CreditCardIcon className="h-5 w-5 text-amber-400 flex-shrink-0" />
                                 <span>{getInstallmentSummary()}</span>
                                 {!isLoadingInstallments && installments && installments.length > 0 && (
-                                    <button onClick={() => setIsInstallmentModalOpen(true)} className="text-amber-400 font-semibold hover:underline text-xs ml-2">(ver mais)</button>
+                                    <button onClick={() => setIsInstallmentModalOpen(true)} className="text-amber-400 font-semibold hover:underline text-base">(ver mais)</button>
                                 )}
                             </div>
                         </div>
