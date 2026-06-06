@@ -1018,7 +1018,7 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
                             <div className="flex text-amber-400 mt-2">
                                 {[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-4 w-4 ${i < Math.round(avgRating) ? 'fill-current' : 'text-gray-700'}`} isFilled={i < Math.round(avgRating)} />)}
                             </div>
-                            <p className="text-xs text-gray-500 mt-2">{reviews.length} avaliação(ões)</p>
+                            <p className="text-xs text-gray-500 mt-2">{reviews.length} {reviews.length === 1 ? 'avaliação' : 'avaliações'}</p>
                         </div>
                     </div>
 
