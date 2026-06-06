@@ -15,6 +15,9 @@ import {
     CreditCardIcon, RulerIcon, SaleIcon, ShareIcon, ShieldCheckIcon, ShirtIcon,
     SparklesIcon, SpinnerIcon, StarIcon, TagIcon, TrashIcon, TruckIcon, UserIcon, XMarkIcon
 } from '../components/icons';
+
+const formatPrice = (value) => Number(value || 0).toFixed(2).replace('.', ',');
+
 export const ProductDetailPage = ({ productId, onNavigate }) => {
     const { user } = useAuth();
     const { addToCart, calculateLocalDeliveryPrice, shippingLocation, setIsMinicartOpen, paymentInstallmentsConfig } = useShop(); 
@@ -139,6 +142,13 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
         return 0;
     }, [isPromoActive, product]);
 
+    const savingsAmount = useMemo(() => {
+        if (isPromoActive && product) {
+            return Math.max(0, product.price - product.sale_price);
+        }
+        return 0;
+    }, [isPromoActive, product]);
+
     useEffect(() => {
         if (!product?.sale_end_date || !isPromoActive) {
             setTimeLeft(null);
@@ -246,7 +256,7 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
             </div>
         );
     };
-    const getInstallmentSummary = () => { if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; } const interestFreeLimit = Number(paymentInstallmentsConfig?.interest_free_installments) || 4; const noInterest = [...installments].reverse().find(p => p.installments <= interestFreeLimit); if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$ {noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } const lastInstallment = installments[installments.length - 1]; if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$ {lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } return null; };
+    const getInstallmentSummary = () => { if (isLoadingInstallments) { return <div className="h-5 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } if (!installments || installments.length === 0) { return <span className="text-gray-500">Parcelamento indisponível.</span>; } const interestFreeLimit = Number(paymentInstallmentsConfig?.interest_free_installments) || 4; const noInterest = [...installments].reverse().find(p => p.installments <= interestFreeLimit); if (noInterest) { return <span>em até <span className="font-bold text-white">{noInterest.installments}x de R$ {noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } const lastInstallment = installments[installments.length - 1]; if (lastInstallment) { return <span>ou em até <span className="font-bold text-white">{lastInstallment.installments}x de R$ {lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } return null; };
 
     const fetchProductData = useCallback(async (id) => {
         const controller = new AbortController();
@@ -816,84 +826,64 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
                         </div>
 
                         {/* --- ÁREA DE PREÇO E PROMOÇÃO --- */}
-                        {isPromoActive && timeLeft && timeLeft !== 'Expirada' && (
-                            <div className="bg-gradient-to-br from-red-900/40 to-black border border-red-800 rounded-lg p-4 mb-4 relative overflow-hidden shadow-lg shadow-red-900/20">
-                                <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
-                                    <ClockIcon className="h-24 w-24 text-red-500" />
-                                </div>
-                                <div className="flex items-center justify-center sm:justify-start gap-2 mb-3 text-red-400 font-bold uppercase tracking-wide text-xs sm:text-sm">
-                                    <SparklesIcon className="h-4 w-4 animate-pulse text-yellow-400" />
-                                    Oferta por Tempo Limitado
-                                </div>
-                                
-                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 w-full">
-                                    <div className="text-white font-mono text-lg sm:text-2xl font-bold flex justify-center gap-2 w-full sm:w-auto">
-                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
+                        <div className={`rounded-2xl p-5 relative overflow-hidden ${isPromoActive ? 'bg-gradient-to-br from-gray-900/90 to-black border border-amber-500/20 shadow-lg shadow-amber-900/10' : 'bg-black/40 border border-gray-800'}`}>
+                            {isPromoActive && timeLeft && timeLeft !== 'Expirada' && (
+                                <div className="mb-4 pb-4 border-b border-red-900/30">
+                                    <div className="flex items-center gap-2 mb-3 text-red-400 font-bold uppercase tracking-wide text-xs">
+                                        <SparklesIcon className="h-4 w-4 animate-pulse text-yellow-400" />
+                                        Oferta por Tempo Limitado
+                                    </div>
+                                    <div className="text-white font-mono text-base sm:text-lg font-bold flex justify-start gap-2">
+                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[42px]">
                                             <span>{String(timeLeft.days).padStart(2, '0')}</span>
-                                            <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">DIAS</span>
+                                            <span className="text-[9px] font-sans font-normal text-gray-400">DIAS</span>
                                         </div>
-                                        <span className="self-center text-red-500 animate-pulse">:</span>
-                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
+                                        <span className="self-center text-red-500">:</span>
+                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[42px]">
                                             <span>{String(timeLeft.hours).padStart(2, '0')}</span>
-                                            <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">HORAS</span>
+                                            <span className="text-[9px] font-sans font-normal text-gray-400">HORAS</span>
                                         </div>
-                                        <span className="self-center text-red-500 animate-pulse">:</span>
-                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
+                                        <span className="self-center text-red-500">:</span>
+                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[42px]">
                                             <span>{String(timeLeft.minutes).padStart(2, '0')}</span>
-                                            <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">MIN</span>
+                                            <span className="text-[9px] font-sans font-normal text-gray-400">MIN</span>
                                         </div>
-                                        <span className="self-center text-red-500 animate-pulse">:</span>
-                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
+                                        <span className="self-center text-red-500">:</span>
+                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[42px]">
                                             <span className="text-red-500">{String(timeLeft.seconds).padStart(2, '0')}</span>
-                                            <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">SEG</span>
+                                            <span className="text-[9px] font-sans font-normal text-gray-400">SEG</span>
                                         </div>
                                     </div>
+                                </div>
+                            )}
 
-                                    <div className="flex flex-col items-center sm:items-end w-full sm:w-auto border-t sm:border-t-0 border-red-900/30 pt-3 sm:pt-0 mt-1 sm:mt-0">
-                                        <p className="text-gray-400 text-sm">De: <span className="line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</span></p>
-                                        <div className="flex items-center justify-center sm:justify-end gap-2">
-                                            <p className="text-white font-bold text-xl">Por: <span className="text-amber-400">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</span></p>
-                                        </div>
-                                        <p className="text-xs text-green-400 font-semibold mt-1 bg-green-900/20 px-3 py-0.5 rounded-full inline-block border border-green-900/30">Economize {discountPercent}%</p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {isPromoActive && (!timeLeft || timeLeft === 'Expirada') && (
-                             <div className="bg-gradient-to-br from-green-900/40 to-black border border-green-800 rounded-lg p-4 mb-4 relative overflow-hidden shadow-lg shadow-green-900/20">
-                                <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
-                                    <TagIcon className="h-24 w-24 text-green-500" />
-                                </div>
-                                <div className="flex items-center gap-2 mb-2 text-green-400 font-bold uppercase tracking-wide text-sm">
-                                    <SaleIcon className="h-5 w-5" />
-                                    Preço Especial
-                                </div>
-                                <div className="flex items-center justify-between relative z-10">
-                                    <div>
-                                        <p className="text-gray-400 text-sm">De: <span className="line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</span></p>
-                                        <div className="flex items-center gap-2">
-                                            <p className="text-white font-bold text-2xl">Por: <span className="text-green-400">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</span></p>
-                                        </div>
-                                    </div>
-                                    <div className="bg-green-600 text-white font-bold px-3 py-1 rounded-full text-sm shadow-lg">
-                                        -{discountPercent}%
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="bg-black/40 border border-gray-800 rounded-2xl p-5">
                             {isPromoActive ? (
-                                <div className="flex flex-wrap items-end gap-3">
-                                    <p className="text-4xl font-black text-red-500 tracking-tight">R$ {Number(product.sale_price).toFixed(2).replace('.',',')}</p>
-                                    {!timeLeft && <span className="text-sm font-black text-green-400 bg-green-900/50 px-3 py-1 rounded-full border border-green-700/50">{discountPercent}% OFF</span>}
+                                <div className="space-y-1.5">
+                                    <p className="text-gray-400 text-base">
+                                        De: <span className="line-through decoration-gray-500">R$ {formatPrice(product.price)}</span>
+                                    </p>
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                                        <p className="text-2xl lg:text-3xl font-black text-white tracking-tight">
+                                            Por: <span className="text-amber-400">R$ {formatPrice(product.sale_price)}</span>
+                                        </p>
+                                        <span className="inline-flex items-center gap-1 text-sm font-black text-green-400 bg-green-900/40 px-3 py-1 rounded-full border border-green-700/50">
+                                            🔥 {discountPercent}% OFF
+                                        </span>
+                                    </div>
+                                    <p className="text-sm text-green-400 font-medium">
+                                        Você economiza: <span className="font-bold text-green-300">R$ {formatPrice(savingsAmount)}</span>
+                                    </p>
                                 </div>
-                             ) : ( <p className="text-4xl font-black text-white tracking-tight">R$ {Number(product.price).toFixed(2).replace('.',',')}</p> )}
-                            <div className="mt-2 flex items-center gap-2 text-sm text-gray-300">
+                            ) : (
+                                <p className="text-4xl font-black text-white tracking-tight">R$ {formatPrice(product.price)}</p>
+                            )}
+
+                            <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-base text-gray-300">
                                 <CreditCardIcon className="h-5 w-5 text-amber-400 flex-shrink-0" />
                                 <span>{getInstallmentSummary()}</span>
-                                {!isLoadingInstallments && installments && installments.length > 0 && ( <button onClick={() => setIsInstallmentModalOpen(true)} className="text-amber-400 font-semibold hover:underline text-xs ml-2"> (ver mais)</button> )}
+                                {!isLoadingInstallments && installments && installments.length > 0 && (
+                                    <button onClick={() => setIsInstallmentModalOpen(true)} className="text-amber-400 font-semibold hover:underline text-base">(ver mais)</button>
+                                )}
                             </div>
                         </div>
 
