@@ -916,11 +916,11 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
                                 <p className="text-4xl font-black text-white tracking-tight">R$ {formatPrice(product.price)}</p>
                             )}
 
-                            <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-base text-gray-300 relative z-10 ${isPromoActive ? 'mt-4 pt-4 border-t border-white/10' : 'mt-0'}`}>
-                                <CreditCardIcon className="h-5 w-5 text-amber-400 flex-shrink-0" />
+                            <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-sm sm:text-base text-gray-300 relative z-10 ${isPromoActive ? 'mt-4 pt-4 border-t border-white/10' : 'mt-0'}`}>
+                                <CreditCardIcon className="h-4 w-4 sm:h-5 sm:w-5 text-amber-400 flex-shrink-0" />
                                 <span>{getInstallmentSummary()}</span>
                                 {!isLoadingInstallments && installments && installments.length > 0 && (
-                                    <button onClick={() => setIsInstallmentModalOpen(true)} className="text-amber-400 font-semibold hover:underline text-base">(ver mais)</button>
+                                    <button onClick={() => setIsInstallmentModalOpen(true)} className="text-amber-400 font-semibold hover:underline text-sm sm:text-base">(ver mais)</button>
                                 )}
                             </div>
                         </div>
