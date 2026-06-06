@@ -149,6 +149,9 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
         return 0;
     }, [isPromoActive, product]);
 
+    const isLimitedTimeOffer = isPromoActive && timeLeft && timeLeft !== 'Expirada';
+    const isSpecialPriceOffer = isPromoActive && !isLimitedTimeOffer;
+
     useEffect(() => {
         if (!product?.sale_end_date || !isPromoActive) {
             setTimeLeft(null);
@@ -826,59 +829,87 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
                         </div>
 
                         {/* --- ÁREA DE PREÇO E PROMOÇÃO --- */}
-                        <div className={`rounded-2xl p-5 relative overflow-hidden ${isPromoActive ? 'bg-gradient-to-br from-gray-900/90 to-black border border-amber-500/20 shadow-lg shadow-amber-900/10' : 'bg-black/40 border border-gray-800'}`}>
-                            {isPromoActive && timeLeft && timeLeft !== 'Expirada' && (
-                                <div className="mb-4 pb-4 border-b border-red-900/30">
-                                    <div className="flex items-center gap-2 mb-3 text-red-400 font-bold uppercase tracking-wide text-xs">
+                        <div className={`rounded-2xl p-5 relative overflow-hidden ${
+                            isLimitedTimeOffer
+                                ? 'bg-gradient-to-br from-red-900/40 to-black border border-red-800 shadow-lg shadow-red-900/20'
+                                : isSpecialPriceOffer
+                                    ? 'bg-gradient-to-br from-green-900/40 to-black border border-green-800 shadow-lg shadow-green-900/20'
+                                    : 'bg-black/40 border border-gray-800'
+                        }`}>
+                            {isLimitedTimeOffer && (
+                                <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
+                                    <ClockIcon className="h-24 w-24 text-red-500" />
+                                </div>
+                            )}
+                            {isSpecialPriceOffer && (
+                                <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
+                                    <TagIcon className="h-24 w-24 text-green-500" />
+                                </div>
+                            )}
+
+                            {isLimitedTimeOffer && (
+                                <>
+                                    <div className="flex items-center gap-2 mb-3 text-red-400 font-bold uppercase tracking-wide text-xs sm:text-sm relative z-10">
                                         <SparklesIcon className="h-4 w-4 animate-pulse text-yellow-400" />
                                         Oferta por Tempo Limitado
                                     </div>
-                                    <div className="text-white font-mono text-base sm:text-lg font-bold flex justify-start gap-2">
-                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[42px]">
-                                            <span>{String(timeLeft.days).padStart(2, '0')}</span>
-                                            <span className="text-[9px] font-sans font-normal text-gray-400">DIAS</span>
+                                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 mb-4 pb-4 border-b border-red-900/30">
+                                        <div className="text-white font-mono text-lg sm:text-2xl font-bold flex justify-center gap-2 w-full sm:w-auto">
+                                            <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
+                                                <span>{String(timeLeft.days).padStart(2, '0')}</span>
+                                                <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">DIAS</span>
+                                            </div>
+                                            <span className="self-center text-red-500 animate-pulse">:</span>
+                                            <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
+                                                <span>{String(timeLeft.hours).padStart(2, '0')}</span>
+                                                <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">HORAS</span>
+                                            </div>
+                                            <span className="self-center text-red-500 animate-pulse">:</span>
+                                            <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
+                                                <span>{String(timeLeft.minutes).padStart(2, '0')}</span>
+                                                <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">MIN</span>
+                                            </div>
+                                            <span className="self-center text-red-500 animate-pulse">:</span>
+                                            <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
+                                                <span className="text-red-500">{String(timeLeft.seconds).padStart(2, '0')}</span>
+                                                <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">SEG</span>
+                                            </div>
                                         </div>
-                                        <span className="self-center text-red-500">:</span>
-                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[42px]">
-                                            <span>{String(timeLeft.hours).padStart(2, '0')}</span>
-                                            <span className="text-[9px] font-sans font-normal text-gray-400">HORAS</span>
-                                        </div>
-                                        <span className="self-center text-red-500">:</span>
-                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[42px]">
-                                            <span>{String(timeLeft.minutes).padStart(2, '0')}</span>
-                                            <span className="text-[9px] font-sans font-normal text-gray-400">MIN</span>
-                                        </div>
-                                        <span className="self-center text-red-500">:</span>
-                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[42px]">
-                                            <span className="text-red-500">{String(timeLeft.seconds).padStart(2, '0')}</span>
-                                            <span className="text-[9px] font-sans font-normal text-gray-400">SEG</span>
+                                        <div className="flex flex-col items-center sm:items-end w-full sm:w-auto">
+                                            <p className="text-gray-400 text-sm">De: <span className="line-through">R$ {formatPrice(product.price)}</span></p>
+                                            <p className="text-white font-bold text-xl sm:text-2xl">Por: <span className="text-red-400">R$ {formatPrice(product.sale_price)}</span></p>
+                                            <p className="text-xs text-green-400 font-semibold mt-1 bg-green-900/20 px-3 py-0.5 rounded-full inline-block border border-green-900/30">Economize {discountPercent}%</p>
                                         </div>
                                     </div>
-                                </div>
+                                </>
                             )}
 
-                            {isPromoActive ? (
-                                <div className="space-y-1.5">
-                                    <p className="text-gray-400 text-base">
-                                        De: <span className="line-through decoration-gray-500">R$ {formatPrice(product.price)}</span>
-                                    </p>
-                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                                        <p className="text-2xl lg:text-3xl font-black text-white tracking-tight">
-                                            Por: <span className="text-amber-400">R$ {formatPrice(product.sale_price)}</span>
-                                        </p>
-                                        <span className="inline-flex items-center gap-1 text-sm font-black text-green-400 bg-green-900/40 px-3 py-1 rounded-full border border-green-700/50">
-                                            🔥 {discountPercent}% OFF
-                                        </span>
+                            {isSpecialPriceOffer && (
+                                <>
+                                    <div className="flex items-center gap-2 mb-3 text-green-400 font-bold uppercase tracking-wide text-sm relative z-10">
+                                        <SaleIcon className="h-5 w-5" />
+                                        Preço Especial
                                     </div>
-                                    <p className="text-sm text-green-400 font-medium">
-                                        Você economiza: <span className="font-bold text-green-300">R$ {formatPrice(savingsAmount)}</span>
-                                    </p>
-                                </div>
-                            ) : (
+                                    <div className="flex items-center justify-between relative z-10 mb-1">
+                                        <div>
+                                            <p className="text-gray-400 text-sm">De: <span className="line-through">R$ {formatPrice(product.price)}</span></p>
+                                            <p className="text-white font-bold text-2xl">Por: <span className="text-green-400">R$ {formatPrice(product.sale_price)}</span></p>
+                                            <p className="text-sm text-green-400 font-medium mt-1">
+                                                Você economiza: <span className="font-bold text-green-300">R$ {formatPrice(savingsAmount)}</span>
+                                            </p>
+                                        </div>
+                                        <div className="bg-green-600 text-white font-bold px-3 py-1 rounded-full text-sm shadow-lg flex-shrink-0">
+                                            -{discountPercent}%
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
+                            {!isPromoActive && (
                                 <p className="text-4xl font-black text-white tracking-tight">R$ {formatPrice(product.price)}</p>
                             )}
 
-                            <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-base text-gray-300">
+                            <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-base text-gray-300 relative z-10 ${isPromoActive ? 'mt-4 pt-4 border-t border-white/10' : 'mt-0'}`}>
                                 <CreditCardIcon className="h-5 w-5 text-amber-400 flex-shrink-0" />
                                 <span>{getInstallmentSummary()}</span>
                                 {!isLoadingInstallments && installments && installments.length > 0 && (
