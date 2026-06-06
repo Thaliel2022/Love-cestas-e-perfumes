@@ -853,8 +853,8 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
                                         <SparklesIcon className="h-4 w-4 animate-pulse text-yellow-400" />
                                         Oferta por Tempo Limitado
                                     </div>
-                                    <div className="flex flex-col items-center gap-4 relative z-10 mb-4 pb-4 border-b border-red-900/30">
-                                        <div className="text-white font-mono text-lg sm:text-2xl font-bold flex justify-center gap-2 w-full">
+                                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 mb-4 pb-4 border-b border-red-900/30">
+                                        <div className="text-white font-mono text-lg sm:text-2xl font-bold flex justify-center gap-2 w-full sm:w-auto">
                                             <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
                                                 <span>{String(timeLeft.days).padStart(2, '0')}</span>
                                                 <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">DIAS</span>
@@ -875,14 +875,13 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
                                                 <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">SEG</span>
                                             </div>
                                         </div>
-                                        <div className="flex flex-col items-center w-full">
+                                        <div className="flex flex-col items-center sm:items-end w-full sm:w-auto border-t sm:border-t-0 border-red-900/30 pt-3 sm:pt-0">
                                             <p className="text-gray-400 text-sm">De: <span className="line-through">R$ {formatPrice(product.price)}</span></p>
-                                            <p className="mt-1 leading-tight">
-                                                <span className="text-sm text-gray-300 font-medium">Por: </span>
-                                                <span className="text-3xl sm:text-4xl font-black text-red-400 tracking-tight">R$ {formatPrice(product.sale_price)}</span>
+                                            <p className="mt-0.5 leading-tight text-white font-bold text-2xl sm:text-3xl">
+                                                Por: <span className="text-red-400">R$ {formatPrice(product.sale_price)}</span>
                                             </p>
-                                            <p className="text-xs text-green-400 font-semibold mt-2 bg-green-900/20 px-3 py-0.5 rounded-full inline-block border border-green-900/30">Economize {discountPercent}%</p>
-                                            <p className="text-sm text-green-400 font-medium mt-2">
+                                            <p className="text-xs text-green-400 font-semibold mt-1.5 bg-green-900/20 px-3 py-0.5 rounded-full inline-block border border-green-900/30">Economize {discountPercent}%</p>
+                                            <p className="text-sm text-green-400 font-medium mt-1.5">
                                                 Você economiza: <span className="font-bold text-green-300">R$ {formatPrice(savingsAmount)}</span>
                                             </p>
                                         </div>
@@ -899,9 +898,8 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
                                     <div className="flex items-start justify-between gap-4 relative z-10 mb-1">
                                         <div>
                                             <p className="text-gray-400 text-sm">De: <span className="line-through">R$ {formatPrice(product.price)}</span></p>
-                                            <p className="mt-1 leading-tight">
-                                                <span className="text-sm text-gray-300 font-medium">Por: </span>
-                                                <span className="text-3xl sm:text-4xl font-black text-green-400 tracking-tight">R$ {formatPrice(product.sale_price)}</span>
+                                            <p className="mt-0.5 leading-tight text-white font-bold text-2xl sm:text-3xl">
+                                                Por: <span className="text-green-400">R$ {formatPrice(product.sale_price)}</span>
                                             </p>
                                             <p className="text-sm text-green-400 font-medium mt-3">
                                                 Você economiza: <span className="font-bold text-green-300">R$ {formatPrice(savingsAmount)}</span>
