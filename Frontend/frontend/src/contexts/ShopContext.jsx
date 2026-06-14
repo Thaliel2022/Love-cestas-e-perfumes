@@ -279,32 +279,48 @@ export const ShopProvider = ({ children }) => {
         setShippingOptions([]);
     }, []);
 
+    const isGenericLocationAlias = useCallback((alias) => (
+        !alias || alias === 'Localização Atual' || alias.startsWith('CEP ')
+    ), []);
+
+    const tryLoadCachedLocation = useCallback(() => {
+        try {
+            const cachedLocStr = localStorage.getItem('lovecestas_cached_location');
+            if (!cachedLocStr) return false;
+
+            const cachedLoc = JSON.parse(cachedLocStr);
+            if (!cachedLoc?.cep || cachedLoc.cep.replace(/\D/g, '').length !== 8) return false;
+
+            if (isAuthenticated && !isGenericLocationAlias(cachedLoc.alias)) {
+                localStorage.removeItem('lovecestas_cached_location');
+                return false;
+            }
+
+            if (!isAuthenticated && !isGenericLocationAlias(cachedLoc.alias)) {
+                cachedLoc.alias = `CEP ${cachedLoc.cep}`;
+            }
+
+            setShippingLocation(cachedLoc);
+            return true;
+        } catch {
+            return false;
+        }
+    }, [isAuthenticated, isGenericLocationAlias]);
+
     const determineShippingLocation = useCallback(async () => {
         let locationDetermined = false;
+
         if (isAuthenticated) {
             const userAddresses = await fetchAddresses();
             if (userAddresses && userAddresses.length > 0) {
                 locationDetermined = updateDefaultShippingLocation(userAddresses);
-            } else {
-                clearCachedShippingLocation();
-                return;
             }
         }
-        if (!locationDetermined && !isAuthenticated) {
-            try {
-                const cachedLocStr = localStorage.getItem('lovecestas_cached_location');
-                if (cachedLocStr) {
-                    const cachedLoc = JSON.parse(cachedLocStr);
-                    if (cachedLoc && cachedLoc.cep && cachedLoc.cep.replace(/\D/g, '').length === 8) {
-                        if (cachedLoc.alias && cachedLoc.alias !== 'Localização Atual' && !cachedLoc.alias.startsWith('CEP')) {
-                            cachedLoc.alias = `CEP ${cachedLoc.cep}`;
-                        }
-                        setShippingLocation(cachedLoc);
-                        locationDetermined = true;
-                    }
-                }
-            } catch (e) {}
+
+        if (!locationDetermined) {
+            locationDetermined = tryLoadCachedLocation();
         }
+
         if (!locationDetermined) {
             setIsGeolocating(true);
             const saveAndSetLocation = (cep, city, state) => {
@@ -355,7 +371,7 @@ export const ShopProvider = ({ children }) => {
                 fetchGeoIP(); 
             }
         }
-    }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation, clearCachedShippingLocation]);
+    }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation, tryLoadCachedLocation]);
 
     useEffect(() => {
         if (!isAuthenticated) return;
@@ -365,6 +381,7 @@ export const ShopProvider = ({ children }) => {
         if (addresses.length === 0) {
             if (shippingLocation.cep && !isManualCep) {
                 clearCachedShippingLocation();
+                determineShippingLocation();
             }
             return;
         }
@@ -375,7 +392,7 @@ export const ShopProvider = ({ children }) => {
         if ((!currentCep || !addressStillExists) && !isManualCep) {
             updateDefaultShippingLocation(addresses);
         }
-    }, [addresses, isAuthenticated, shippingLocation.cep, shippingLocation.alias, updateDefaultShippingLocation, clearCachedShippingLocation]);
+    }, [addresses, isAuthenticated, shippingLocation.cep, shippingLocation.alias, updateDefaultShippingLocation, clearCachedShippingLocation, determineShippingLocation]);
 
     useEffect(() => {
         if (shippingLocation && shippingLocation.cep && shippingLocation.cep.replace(/\D/g, '').length === 8) {
