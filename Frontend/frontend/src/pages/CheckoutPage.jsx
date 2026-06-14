@@ -522,7 +522,7 @@ export const CheckoutPage = ({ onNavigate }) => {
                         <div className="lg:col-span-5">
                              <div className="bg-gray-900 rounded-lg border border-gray-800 p-5 lg:p-6 shadow-lg h-fit lg:sticky lg:top-24">
                                 <h2 className="text-xl font-bold mb-5 text-amber-400 border-b border-gray-700 pb-3">Resumo do Pedido</h2>
-                                <div className="space-y-2 mb-4 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                                <div className="space-y-2 mb-4 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
                                     {cart.map(item => (
                                         <div key={item.cartItemId} className="flex justify-between items-start text-gray-300 text-sm py-2 gap-2 border-b border-gray-800 last:border-0">
                                             <div className="flex items-start gap-3 overflow-hidden">

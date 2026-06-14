@@ -549,30 +549,6 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
 
     return (
         <div className="bg-black text-white pb-28 md:pb-12 relative overflow-hidden">
-            <style>{`
-                .scrollbar-hide::-webkit-scrollbar {
-                    display: none;
-                }
-                .scrollbar-hide {
-                    -ms-overflow-style: none;
-                    scrollbar-width: none;
-                }
-                .custom-scrollbar::-webkit-scrollbar {
-                    height: 6px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-track {
-                    background: rgba(31, 41, 55, 0.5); 
-                    border-radius: 4px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background: rgba(251, 191, 36, 0.5); 
-                    border-radius: 4px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                    background: rgba(251, 191, 36, 0.8); 
-                }
-            `}</style>
-            
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments} interestFreeInstallments={Number(paymentInstallmentsConfig?.interest_free_installments) || 4}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
             
