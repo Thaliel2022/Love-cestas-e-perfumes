@@ -241,6 +241,24 @@ export const CheckoutPage = ({ onNavigate }) => {
                !displayAddress.is_incomplete;
     }, [displayAddress, autoCalculatedShipping, isSomeoneElsePickingUp, pickupPersonName, pickupPersonCpf]);
 
+    const pendingCheckoutSteps = useMemo(() => {
+        const steps = [];
+        if (cart.length === 0) steps.push('Adicione produtos ao carrinho');
+        if (!whatsapp || !validatePhone(whatsapp)) steps.push('Informe seu WhatsApp para contato');
+        if (!autoCalculatedShipping) steps.push('Selecione a forma de entrega');
+        else if (autoCalculatedShipping.isPickup) {
+            if (isSomeoneElsePickingUp) {
+                if (!pickupPersonName.trim() || pickupPersonName.trim().length <= 3) steps.push('Informe o nome de quem vai retirar');
+                if (pickupPersonCpf.replace(/\D/g, '').length < 11) steps.push('Informe o CPF de quem vai retirar');
+            }
+        } else if (!displayAddress || displayAddress.is_incomplete || !canPlaceOrder) {
+            steps.push('Preencha ou selecione o endereço de entrega');
+        }
+        return steps;
+    }, [cart.length, whatsapp, autoCalculatedShipping, isSomeoneElsePickingUp, pickupPersonName, pickupPersonCpf, displayAddress, canPlaceOrder]);
+
+    const isPaymentBlocked = pendingCheckoutSteps.length > 0;
+
     useEffect(() => {
         setShowBrick(false);
         const timer = setTimeout(() => {
@@ -585,9 +603,25 @@ export const CheckoutPage = ({ onNavigate }) => {
                                     )}
                                 </div>
 
-                                {(!canPlaceOrder || !autoCalculatedShipping || cart.length === 0) ? (
-                                    <div className="text-center p-4 bg-gray-800 border border-gray-700 rounded-lg">
-                                        <p className="text-sm text-gray-400">Preencha o contato e a forma de entrega para liberar o pagamento.</p>
+                                {isPaymentBlocked ? (
+                                    <div className="p-4 bg-amber-500/10 border-2 border-amber-500/50 rounded-xl shadow-lg shadow-amber-900/20">
+                                        <div className="flex items-start gap-3">
+                                            <div className="bg-amber-500/20 p-2 rounded-full flex-shrink-0">
+                                                <ExclamationCircleIcon className="h-6 w-6 text-amber-400" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="font-black text-amber-300 text-base mb-1">Quase lá! Falta pouco para pagar</p>
+                                                <p className="text-sm text-amber-100/90 mb-3">Complete os itens abaixo para liberar o pagamento:</p>
+                                                <ul className="space-y-2">
+                                                    {pendingCheckoutSteps.map((step) => (
+                                                        <li key={step} className="flex items-start gap-2 text-sm text-white font-medium">
+                                                            <span className="mt-1.5 h-2 w-2 rounded-full bg-amber-400 flex-shrink-0" />
+                                                            <span>{step}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        </div>
                                     </div>
                                 ) : (
                                     <div className={`mt-4 pt-4 border-t border-gray-700 mp-custom-styles${showInstallmentPromo ? '' : ' mp-hide-installment-promo'}`}>
