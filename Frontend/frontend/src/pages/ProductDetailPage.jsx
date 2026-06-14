@@ -664,7 +664,7 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
                     {/* COLUNA GALERIA */}
                     <div className="lg:col-span-7 lg:sticky lg:top-24 self-start">
                         <div className="bg-gradient-to-br from-gray-900/80 to-gray-950/80 border border-gray-800 rounded-3xl p-3 md:p-4 shadow-2xl shadow-black/30">
-                        <div className="flex flex-col lg:flex-row gap-4 lg:items-start">
+                        <div className="flex flex-col lg:flex-row gap-4 align-stretch h-full">
                             
                             {/* Lista de Miniaturas */}
                             {shouldShowThumbnailRail && (
@@ -726,11 +726,7 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
                             )}
 
                             {/* Imagem Principal */}
-                            <div className={`w-full relative bg-white rounded-3xl overflow-hidden shadow-xl border border-gray-800 order-1 lg:order-2 group flex justify-center items-center ${
-                                isPerfume
-                                    ? 'aspect-[4/5] sm:aspect-[3/4] lg:aspect-auto lg:h-[480px] xl:h-[520px]'
-                                    : 'aspect-square lg:aspect-[3/4]'
-                            }`}>
+                            <div className="w-full relative bg-white rounded-3xl overflow-hidden shadow-xl border border-gray-800 order-1 lg:order-2 group flex justify-center items-center aspect-square lg:aspect-[3/4]">
                                 {/* Badges */}
                                 {!productOrVariationOutOfStock && (
                                     <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 pointer-events-none">
@@ -788,8 +784,8 @@ export const ProductDetailPage = ({ productId, onNavigate }) => {
                     </div>
 
                     {/* COLUNA DETALHES (Direita) */}
-                    <div className="lg:col-span-5 self-start w-full">
-                        <div className="bg-gradient-to-br from-gray-900/95 via-gray-950/95 to-black border border-gray-800 rounded-3xl p-5 md:p-6 shadow-2xl shadow-black/30 space-y-6">
+                    <div className="lg:col-span-5 lg:self-start">
+                        <div className="h-fit bg-gradient-to-br from-gray-900/95 via-gray-950/95 to-black border border-gray-800 rounded-3xl p-5 md:p-6 shadow-2xl shadow-black/30 space-y-6">
                         <div>
                             <div className="flex flex-wrap items-center gap-2 mb-3">
                                 <span className="text-xs text-amber-300 font-black tracking-wider bg-amber-400/10 border border-amber-400/20 px-3 py-1 rounded-full">{product.brand.toUpperCase()}</span>
