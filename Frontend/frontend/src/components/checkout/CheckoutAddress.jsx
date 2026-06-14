@@ -179,18 +179,20 @@ export const ShippingCalculator = memo(({ items: itemsFromProp }) => {
     );
 });
 
-export const AddressForm = ({ initialData = {}, onSave, onCancel }) => {
+export const AddressForm = ({ initialData = {}, onSave, onCancel, isFirstAddress = false }) => {
+    const isEditing = Boolean(initialData?.id);
+    const inputClass = "w-full p-3 bg-gray-800 border border-gray-700 text-white placeholder:text-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400/50 transition-all";
+
     const [formData, setFormData] = useState({
-        alias: '',
-        cep: '',
-        logradouro: '',
-        numero: '',
-        complemento: '',
-        bairro: '',
-        localidade: '',
-        uf: '',
-        is_default: false,
-        ...initialData
+        alias: initialData.alias || '',
+        cep: initialData.cep || '',
+        logradouro: initialData.logradouro || '',
+        numero: initialData.numero || '',
+        complemento: initialData.complemento || '',
+        bairro: initialData.bairro || '',
+        localidade: initialData.localidade || '',
+        uf: initialData.uf || '',
+        is_default: isEditing ? !!initialData.is_default : isFirstAddress,
     });
     const [isSaving, setIsSaving] = useState(false);
     const notification = useNotification();
@@ -263,46 +265,40 @@ export const AddressForm = ({ initialData = {}, onSave, onCancel }) => {
     }, [formData]);
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4 text-gray-800">
-            <input name="alias" value={formData.alias} onChange={handleChange} placeholder="Apelido do Endereço (ex: Casa, Trabalho)" className="w-full p-3 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-400 outline-none transition-all" required />
-            
-            <input name="cep" value={formData.cep} onChange={handleCepChange} placeholder="CEP" className="w-full p-3 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-400 outline-none transition-all" required />
-            
-            <input name="logradouro" value={formData.logradouro} onChange={handleChange} placeholder="Rua / Logradouro" className="w-full p-3 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-400 outline-none transition-all" required />
-            
+        <form onSubmit={handleSubmit} className="space-y-4 text-gray-200">
+            <input name="alias" value={formData.alias} onChange={handleChange} placeholder="Apelido do Endereço (ex: Casa, Trabalho)" className={inputClass} required />
+            <input name="cep" value={formData.cep} onChange={handleCepChange} placeholder="CEP" className={inputClass} required />
+            <input name="logradouro" value={formData.logradouro} onChange={handleChange} placeholder="Rua / Logradouro" className={inputClass} required />
             <div className="flex space-x-4">
-                <input name="numero" value={formData.numero} onChange={handleChange} placeholder="Número" className="w-1/2 p-3 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-400 outline-none transition-all" required />
-                <input name="complemento" value={formData.complemento} onChange={handleChange} placeholder="Complemento (Opcional)" className="w-1/2 p-3 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-400 outline-none transition-all" />
+                <input name="numero" value={formData.numero} onChange={handleChange} placeholder="Número" className={`w-1/2 ${inputClass}`} required />
+                <input name="complemento" value={formData.complemento} onChange={handleChange} placeholder="Complemento (Opcional)" className={`w-1/2 ${inputClass}`} />
             </div>
-            
-            <input name="bairro" value={formData.bairro} onChange={handleChange} placeholder="Bairro" className="w-full p-3 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-400 outline-none transition-all" required />
-            
+            <input name="bairro" value={formData.bairro} onChange={handleChange} placeholder="Bairro" className={inputClass} required />
             <div className="flex space-x-4">
-                <input name="localidade" value={formData.localidade} onChange={handleChange} placeholder="Cidade" className="flex-grow p-3 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-400 outline-none transition-all" required />
-                <input name="uf" value={formData.uf} onChange={handleChange} placeholder="UF" maxLength="2" className="w-1/4 p-3 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-400 outline-none transition-all uppercase" required />
+                <input name="localidade" value={formData.localidade} onChange={handleChange} placeholder="Cidade" className={`flex-grow ${inputClass}`} required />
+                <input name="uf" value={formData.uf} onChange={handleChange} placeholder="UF" maxLength="2" className={`w-1/4 ${inputClass} uppercase`} required />
             </div>
-            
-            <div className="flex items-center pt-2">
-                <input type="checkbox" id="is_default" name="is_default" checked={formData.is_default} onChange={handleChange} className="h-4 w-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500 cursor-pointer" />
-                <label htmlFor="is_default" className="ml-2 block text-sm font-semibold text-gray-700 cursor-pointer">Salvar como meu endereço padrão</label>
+            <div className="flex items-center pt-2 px-1 py-2 rounded-lg bg-gray-800/50 border border-gray-700/80">
+                <input type="checkbox" id="is_default" name="is_default" checked={formData.is_default} onChange={handleChange} className="h-4 w-4 text-amber-500 bg-gray-900 border-gray-600 rounded focus:ring-amber-400 cursor-pointer" />
+                <label htmlFor="is_default" className="ml-2 block text-sm font-semibold text-gray-300 cursor-pointer">Salvar como meu endereço padrão</label>
             </div>
-
-            {/* Aviso visual claro de quais campos faltam preencher */}
+            {isFirstAddress && !isEditing && (
+                <p className="text-xs text-amber-400/90 pl-1">Como este é seu primeiro endereço, ele será salvo como padrão automaticamente.</p>
+            )}
             {!isFormValid && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-md text-xs text-red-600 font-medium flex items-start gap-2">
-                    <ExclamationCircleIcon className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                    <span>Falta preencher: <strong>{missingFields.join(', ')}</strong></span>
+                <div className="p-3 bg-red-900/30 border border-red-700/50 rounded-lg text-xs text-red-300 font-medium flex items-start gap-2">
+                    <ExclamationCircleIcon className="h-4 w-4 flex-shrink-0 mt-0.5 text-red-400" />
+                    <span>Falta preencher: <strong className="text-red-200">{missingFields.join(', ')}</strong></span>
                 </div>
             )}
-
-            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 mt-2">
-                <button type="button" onClick={onCancel} className="px-5 py-2.5 bg-white border border-gray-300 rounded-md hover:bg-gray-50 font-bold text-gray-700 transition-colors">Cancelar</button>
-                <button 
-                    type="submit" 
-                    disabled={!isFormValid || isSaving} 
-                    className="px-6 py-2.5 bg-amber-500 text-black font-bold rounded-md hover:bg-amber-400 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center justify-center transition-all"
+            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-700 mt-2">
+                <button type="button" onClick={onCancel} className="px-5 py-2.5 bg-gray-800 border border-gray-600 rounded-lg hover:bg-gray-700 font-bold text-gray-300 transition-colors">Cancelar</button>
+                <button
+                    type="submit"
+                    disabled={!isFormValid || isSaving}
+                    className="px-6 py-2.5 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 active:scale-95 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed disabled:active:scale-100 flex items-center justify-center transition-all"
                 >
-                    {isSaving ? <SpinnerIcon className="h-5 w-5" /> : 'Salvar Endereço'}
+                    {isSaving ? <SpinnerIcon className="h-5 w-5 animate-spin" /> : 'Salvar Endereço'}
                 </button>
             </div>
         </form>

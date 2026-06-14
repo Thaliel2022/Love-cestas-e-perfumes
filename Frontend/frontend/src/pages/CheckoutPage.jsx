@@ -365,7 +365,9 @@ export const CheckoutPage = ({ onNavigate }) => {
             </AnimatePresence>
 
             <AddressSelectionModal isOpen={isAddressModalOpen} onClose={() => setIsAddressModalOpen(false)} addresses={addresses} onSelectAddress={handleAddressSelection} onAddNewAddress={handleAddNewAddress} />
-            <Modal isOpen={isNewAddressModalOpen} onClose={() => setIsNewAddressModalOpen(false)} title="Adicionar Novo Endereço"><AddressForm onSave={handleSaveNewAddress} onCancel={() => setIsNewAddressModalOpen(false)} /></Modal>
+            <Modal isOpen={isNewAddressModalOpen} onClose={() => setIsNewAddressModalOpen(false)} title="Adicionar Novo Endereço" dark>
+                <AddressForm onSave={handleSaveNewAddress} onCancel={() => setIsNewAddressModalOpen(false)} isFirstAddress={addresses.length === 0} />
+            </Modal>
 
             <div className="bg-black text-white pt-8 pb-28 sm:pt-12 sm:pb-12">
                 <div className="container mx-auto px-4">

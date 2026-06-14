@@ -431,8 +431,13 @@ const MyAddressesSection = () => {
         <>
             <AnimatePresence>
                 {isModalOpen && (
-                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingAddress ? 'Editar Endereço' : 'Adicionar Endereço'}>
-                        <AddressForm initialData={editingAddress} onSave={handleSaveAddress} onCancel={() => setIsModalOpen(false)} />
+                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingAddress ? 'Editar Endereço' : 'Adicionar Endereço'} dark>
+                        <AddressForm
+                            initialData={editingAddress}
+                            onSave={handleSaveAddress}
+                            onCancel={() => setIsModalOpen(false)}
+                            isFirstAddress={!editingAddress && addresses.length === 0}
+                        />
                     </Modal>
                 )}
             </AnimatePresence>
