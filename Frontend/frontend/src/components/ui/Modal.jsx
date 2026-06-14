@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { motion } from 'framer-motion';
 
-export const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
+export const Modal = memo(({ isOpen, onClose, title, children, size = 'lg', dark = false }) => {
   if (!isOpen) return null;
 
   const backdropVariants = {
@@ -26,7 +26,7 @@ export const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) =>
 
   return (
     <motion.div 
-      className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex justify-center items-center p-4" 
+      className={`fixed inset-0 z-50 flex justify-center items-center p-4 ${dark ? 'bg-black/80 backdrop-blur-sm' : 'bg-slate-900/60 backdrop-blur-sm'}`}
       variants={backdropVariants}
       initial="hidden"
       animate="visible"
@@ -34,14 +34,18 @@ export const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) =>
       onClick={onClose}
     >
       <motion.div 
-        className={`bg-white rounded-lg shadow-2xl w-full flex flex-col border border-gray-200 ${sizeClasses[size]}`} 
+        className={`rounded-2xl shadow-2xl w-full flex flex-col ${sizeClasses[size]} ${
+          dark
+            ? 'bg-gradient-to-br from-gray-900 to-gray-950 border border-gray-700'
+            : 'bg-white border border-gray-200'
+        }`}
         style={{ maxHeight: '90vh' }} 
         variants={modalVariants}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex-shrink-0 p-6 pb-4 flex justify-between items-center border-b border-gray-200">
-            <h2 className="text-xl md:text-2xl font-bold text-gray-800">{title}</h2>
-            <button onClick={onClose} className="text-3xl text-gray-400 hover:text-red-500 leading-none transition-colors">×</button>
+        <div className={`flex-shrink-0 p-6 pb-4 flex justify-between items-center border-b ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
+            <h2 className={`text-xl md:text-2xl font-bold ${dark ? 'text-white' : 'text-gray-800'}`}>{title}</h2>
+            <button onClick={onClose} className={`text-3xl leading-none transition-colors ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-red-500'}`}>×</button>
         </div>
         <div className="flex-grow p-6 overflow-y-auto custom-scrollbar">
           {children}

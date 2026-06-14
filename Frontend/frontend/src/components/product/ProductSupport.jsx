@@ -276,22 +276,22 @@ export const InstallmentModal = memo(({ isOpen, onClose, installments, interestF
     if (!isOpen || !installments || installments.length === 0) return null;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Opções de Parcelamento">
-            <div className="space-y-3">
+        <Modal isOpen={isOpen} onClose={onClose} title="Opções de Parcelamento" dark>
+            <div className="space-y-2">
                 {installments.map(p => (
-                    <div key={p.installments} className="flex justify-between items-center p-3 border border-gray-200 rounded-md transition-colors hover:bg-gray-50">
-                        <div>
-                            <p className="font-bold text-lg text-gray-800">
+                    <div key={p.installments} className="flex justify-between items-center gap-3 p-3 border border-gray-700/80 rounded-xl bg-black/30 transition-colors hover:bg-gray-800/50">
+                        <div className="min-w-0">
+                            <p className="font-bold text-base text-white leading-snug">
                                 {p.installments <= interestFreeInstallments
                                     ? `${p.installments}x de R$ ${p.installment_amount.toFixed(2).replace('.', ',')} sem juros`
                                     : p.recommended_message.replace('.', ',').replace('sem acréscimo', 'com juros').replace('sem juros', 'com juros')}
                             </p>
-                            <p className="text-sm text-gray-500">Total: R$ {p.total_amount.toFixed(2).replace('.', ',')}</p>
+                            <p className="text-sm text-gray-400 mt-0.5">Total: R$ {p.total_amount.toFixed(2).replace('.', ',')}</p>
                         </div>
                         {p.installments <= interestFreeInstallments ? (
-                            <span className="text-sm font-semibold text-green-600 bg-green-100 px-3 py-1 rounded-full whitespace-nowrap">Sem juros</span>
+                            <span className="text-xs font-semibold text-green-400 bg-green-900/30 border border-green-700/50 px-3 py-1 rounded-full whitespace-nowrap flex-shrink-0">Sem juros</span>
                         ) : (
-                             <span className="text-sm font-semibold text-orange-600 bg-orange-100 px-3 py-1 rounded-full whitespace-nowrap">Com juros</span>
+                             <span className="text-xs font-semibold text-amber-400 bg-amber-900/20 border border-amber-700/40 px-3 py-1 rounded-full whitespace-nowrap flex-shrink-0">Com juros</span>
                         )}
                     </div>
                 ))}
