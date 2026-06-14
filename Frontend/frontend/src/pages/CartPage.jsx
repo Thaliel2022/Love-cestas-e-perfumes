@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -35,6 +35,7 @@ export const CartPage = ({ onNavigate }) => {
     } = useShop();
     const notification = useNotification();
     const { isAuthenticated } = useAuth(); 
+    const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
 
     // --- NOVA INTELIGÊNCIA DE ESTOQUE (NÍVEL AMAZON) ---
     // Analisa o carrinho em tempo real para descobrir se algo esgotou
@@ -81,10 +82,14 @@ export const CartPage = ({ onNavigate }) => {
 
     const shippingCost = useMemo(() => autoCalculatedShipping ? autoCalculatedShipping.price : 0, [autoCalculatedShipping]);
 
-    const handleApplyCoupon = (e) => {
+    const handleApplyCoupon = async (e) => {
         e.preventDefault();
-        if (couponCode.trim()) {
-            applyCoupon(couponCode);
+        if (!couponCode.trim() || isApplyingCoupon) return;
+        setIsApplyingCoupon(true);
+        try {
+            await applyCoupon(couponCode);
+        } finally {
+            setIsApplyingCoupon(false);
         }
     }
 
@@ -367,7 +372,13 @@ export const CartPage = ({ onNavigate }) => {
                                         <>
                                         <form onSubmit={handleApplyCoupon} className="flex gap-2">
                                             <input value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())} type="text" placeholder="Cupom de Desconto" className="w-full p-3 bg-gray-800 border border-gray-700 text-white placeholder:text-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm transition-all" />
-                                            <button type="submit" className="px-5 bg-gray-800 text-white font-bold rounded-lg hover:bg-gray-700 text-sm transition-colors border border-gray-700">Aplicar</button>
+                                            <button
+                                                type="submit"
+                                                disabled={isApplyingCoupon || !couponCode.trim()}
+                                                className="px-5 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 text-sm transition-all duration-150 border border-amber-600/30 flex items-center justify-center min-w-[88px]"
+                                            >
+                                                {isApplyingCoupon ? <SpinnerIcon className="h-4 w-4 animate-spin" /> : 'Aplicar'}
+                                            </button>
                                         </form>
                                         {couponMessage && <p className={`text-xs mt-2 font-medium pl-1 ${couponMessage.includes('aplicado') ? 'text-green-400' : 'text-red-400'}`}>{couponMessage}</p>}
                                         </>
