@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BoxIcon, ExclamationCircleIcon, MapPinIcon, PlusCircleIcon, SpinnerIcon, TruckIcon } from '../icons';
 import { Modal } from '../ui/Modal';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -196,24 +196,28 @@ export const AddressForm = ({ initialData, onSave, onCancel, isFirstAddress = fa
         is_default: isEditing ? !!data.is_default : isFirstAddress,
     });
     const [isSaving, setIsSaving] = useState(false);
+    const [isLoadingCep, setIsLoadingCep] = useState(false);
+    const cepInputRef = useRef(null);
     const notification = useNotification();
 
     const handleCepLookup = useCallback(async (cepValue) => {
         const cep = cepValue.replace(/\D/g, '');
         if (cep.length !== 8) return;
-        
+
+        setIsLoadingCep(true);
         try {
             const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
             if (!response.ok) throw new Error('Falha na resposta da API de CEP.');
-            
-            const data = await response.json();
-            if (!data.erro) {
-                setFormData(prev => ({ 
-                    ...prev, 
-                    logradouro: data.logradouro, 
-                    bairro: data.bairro, 
-                    localidade: data.localidade, 
-                    uf: data.uf
+
+            const addressData = await response.json();
+            if (!addressData.erro) {
+                setFormData(prev => ({
+                    ...prev,
+                    cep: maskCEP(cep),
+                    logradouro: addressData.logradouro || prev.logradouro,
+                    bairro: addressData.bairro || prev.bairro,
+                    localidade: addressData.localidade || prev.localidade,
+                    uf: addressData.uf || prev.uf,
                 }));
             } else {
                 notification.show("CEP não encontrado.", "error");
@@ -221,8 +225,35 @@ export const AddressForm = ({ initialData, onSave, onCancel, isFirstAddress = fa
         } catch (error) {
             console.error("Erro ao buscar CEP:", error);
             notification.show("Não foi possível buscar o CEP. Tente novamente.", "error");
+        } finally {
+            setIsLoadingCep(false);
         }
     }, [notification]);
+
+    const syncCepFromInput = useCallback((rawValue) => {
+        const newCep = maskCEP(rawValue || '');
+        setFormData(prev => ({ ...prev, cep: newCep }));
+        if (newCep.replace(/\D/g, '').length === 8) {
+            handleCepLookup(newCep);
+        }
+    }, [handleCepLookup]);
+
+    useEffect(() => {
+        const input = cepInputRef.current;
+        if (!input) return;
+
+        const handleNativeChange = () => {
+            const domValue = input.value?.trim();
+            if (!domValue) return;
+            const cleanDom = domValue.replace(/\D/g, '');
+            if (cleanDom.length === 8) {
+                syncCepFromInput(domValue);
+            }
+        };
+
+        input.addEventListener('change', handleNativeChange);
+        return () => input.removeEventListener('change', handleNativeChange);
+    }, [syncCepFromInput]);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -233,10 +264,12 @@ export const AddressForm = ({ initialData, onSave, onCancel, isFirstAddress = fa
     };
 
     const handleCepChange = (e) => {
-        const newCep = maskCEP(e.target.value);
-        setFormData(prev => ({ ...prev, cep: newCep }));
-        if (newCep.replace(/\D/g, '').length === 8) {
-            handleCepLookup(newCep);
+        syncCepFromInput(e.target.value);
+    };
+
+    const handleCepBlur = () => {
+        if (formData.cep.replace(/\D/g, '').length === 8) {
+            handleCepLookup(formData.cep);
         }
     };
 
@@ -267,17 +300,34 @@ export const AddressForm = ({ initialData, onSave, onCancel, isFirstAddress = fa
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4 text-gray-200">
-            <input name="alias" value={formData.alias} onChange={handleChange} placeholder="Apelido do Endereço (ex: Casa, Trabalho)" className={inputClass} required />
-            <input name="cep" value={formData.cep} onChange={handleCepChange} placeholder="CEP" className={inputClass} required />
-            <input name="logradouro" value={formData.logradouro} onChange={handleChange} placeholder="Rua / Logradouro" className={inputClass} required />
-            <div className="flex space-x-4">
-                <input name="numero" value={formData.numero} onChange={handleChange} placeholder="Número" className={`w-1/2 ${inputClass}`} required />
-                <input name="complemento" value={formData.complemento} onChange={handleChange} placeholder="Complemento (Opcional)" className={`w-1/2 ${inputClass}`} />
+            <input name="alias" value={formData.alias} onChange={handleChange} placeholder="Apelido do Endereço (ex: Casa, Trabalho)" autoComplete="off" className={inputClass} required />
+            <div className="relative">
+                <input
+                    ref={cepInputRef}
+                    name="cep"
+                    value={formData.cep}
+                    onChange={handleCepChange}
+                    onInput={handleCepChange}
+                    onBlur={handleCepBlur}
+                    placeholder="CEP (00000-000)"
+                    autoComplete="postal-code"
+                    inputMode="numeric"
+                    className={inputClass}
+                    required
+                />
+                {isLoadingCep && (
+                    <SpinnerIcon className="h-5 w-5 text-amber-400 animate-spin absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                )}
             </div>
-            <input name="bairro" value={formData.bairro} onChange={handleChange} placeholder="Bairro" className={inputClass} required />
+            <input name="logradouro" value={formData.logradouro} onChange={handleChange} placeholder="Rua / Logradouro" autoComplete="address-line1" className={inputClass} required />
             <div className="flex space-x-4">
-                <input name="localidade" value={formData.localidade} onChange={handleChange} placeholder="Cidade" className={`flex-grow ${inputClass}`} required />
-                <input name="uf" value={formData.uf} onChange={handleChange} placeholder="UF" maxLength="2" className={`w-1/4 ${inputClass} uppercase`} required />
+                <input name="numero" value={formData.numero} onChange={handleChange} placeholder="Número" autoComplete="off" inputMode="numeric" className={`w-1/2 ${inputClass}`} required />
+                <input name="complemento" value={formData.complemento} onChange={handleChange} placeholder="Complemento (Opcional)" autoComplete="address-line3" className={`w-1/2 ${inputClass}`} />
+            </div>
+            <input name="bairro" value={formData.bairro} onChange={handleChange} placeholder="Bairro" autoComplete="address-level3" className={inputClass} required />
+            <div className="flex space-x-4">
+                <input name="localidade" value={formData.localidade} onChange={handleChange} placeholder="Cidade" autoComplete="address-level2" className={`flex-grow ${inputClass}`} required />
+                <input name="uf" value={formData.uf} onChange={handleChange} placeholder="UF" maxLength="2" autoComplete="address-level1" className={`w-1/4 ${inputClass} uppercase`} required />
             </div>
             <div className="flex items-center pt-2 px-1 py-2 rounded-lg bg-gray-800/50 border border-gray-700/80">
                 <input type="checkbox" id="is_default" name="is_default" checked={formData.is_default} onChange={handleChange} className="h-4 w-4 text-amber-500 bg-gray-900 border-gray-600 rounded focus:ring-amber-400 cursor-pointer" />
