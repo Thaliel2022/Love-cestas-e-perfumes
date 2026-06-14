@@ -272,21 +272,31 @@ export const ShopProvider = ({ children }) => {
         return false;
     }, []);
 
+    const clearCachedShippingLocation = useCallback(() => {
+        localStorage.removeItem('lovecestas_cached_location');
+        setShippingLocation({ cep: '', city: '', state: '', alias: '' });
+        setAutoCalculatedShipping(null);
+        setShippingOptions([]);
+    }, []);
+
     const determineShippingLocation = useCallback(async () => {
         let locationDetermined = false;
         if (isAuthenticated) {
             const userAddresses = await fetchAddresses();
             if (userAddresses && userAddresses.length > 0) {
                 locationDetermined = updateDefaultShippingLocation(userAddresses);
+            } else {
+                clearCachedShippingLocation();
+                return;
             }
         }
-        if (!locationDetermined) {
+        if (!locationDetermined && !isAuthenticated) {
             try {
                 const cachedLocStr = localStorage.getItem('lovecestas_cached_location');
                 if (cachedLocStr) {
                     const cachedLoc = JSON.parse(cachedLocStr);
                     if (cachedLoc && cachedLoc.cep && cachedLoc.cep.replace(/\D/g, '').length === 8) {
-                        if (!isAuthenticated && cachedLoc.alias && cachedLoc.alias !== 'Localização Atual' && !cachedLoc.alias.startsWith('CEP')) {
+                        if (cachedLoc.alias && cachedLoc.alias !== 'Localização Atual' && !cachedLoc.alias.startsWith('CEP')) {
                             cachedLoc.alias = `CEP ${cachedLoc.cep}`;
                         }
                         setShippingLocation(cachedLoc);
@@ -345,7 +355,27 @@ export const ShopProvider = ({ children }) => {
                 fetchGeoIP(); 
             }
         }
-    }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
+    }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation, clearCachedShippingLocation]);
+
+    useEffect(() => {
+        if (!isAuthenticated) return;
+
+        const isManualCep = shippingLocation.alias?.startsWith('CEP ') || shippingLocation.alias === 'Localização Atual';
+
+        if (addresses.length === 0) {
+            if (shippingLocation.cep && !isManualCep) {
+                clearCachedShippingLocation();
+            }
+            return;
+        }
+
+        const currentCep = shippingLocation.cep?.replace(/\D/g, '') || '';
+        const addressStillExists = addresses.some(addr => addr.cep?.replace(/\D/g, '') === currentCep);
+
+        if ((!currentCep || !addressStillExists) && !isManualCep) {
+            updateDefaultShippingLocation(addresses);
+        }
+    }, [addresses, isAuthenticated, shippingLocation.cep, shippingLocation.alias, updateDefaultShippingLocation, clearCachedShippingLocation]);
 
     useEffect(() => {
         if (shippingLocation && shippingLocation.cep && shippingLocation.cep.replace(/\D/g, '').length === 8) {
