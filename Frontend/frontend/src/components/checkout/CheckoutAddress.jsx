@@ -179,20 +179,21 @@ export const ShippingCalculator = memo(({ items: itemsFromProp }) => {
     );
 });
 
-export const AddressForm = ({ initialData = {}, onSave, onCancel, isFirstAddress = false }) => {
-    const isEditing = Boolean(initialData?.id);
+export const AddressForm = ({ initialData, onSave, onCancel, isFirstAddress = false }) => {
+    const data = initialData ?? {};
+    const isEditing = Boolean(data.id);
     const inputClass = "w-full p-3 bg-gray-800 border border-gray-700 text-white placeholder:text-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400/50 transition-all";
 
     const [formData, setFormData] = useState({
-        alias: initialData.alias || '',
-        cep: initialData.cep || '',
-        logradouro: initialData.logradouro || '',
-        numero: initialData.numero || '',
-        complemento: initialData.complemento || '',
-        bairro: initialData.bairro || '',
-        localidade: initialData.localidade || '',
-        uf: initialData.uf || '',
-        is_default: isEditing ? !!initialData.is_default : isFirstAddress,
+        alias: data.alias || '',
+        cep: data.cep || '',
+        logradouro: data.logradouro || '',
+        numero: data.numero || '',
+        complemento: data.complemento || '',
+        bairro: data.bairro || '',
+        localidade: data.localidade || '',
+        uf: data.uf || '',
+        is_default: isEditing ? !!data.is_default : isFirstAddress,
     });
     const [isSaving, setIsSaving] = useState(false);
     const notification = useNotification();
