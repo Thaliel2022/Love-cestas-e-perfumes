@@ -120,7 +120,7 @@ export const ProductCard = memo(({ product, onNavigate }) => {
                 const calculateShipping = async () => {
                     try {
                         const productsPayload = [{ id: String(product.id), price: currentPrice, quantity: 1 }];
-                        const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload }, { signal });
+                        const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload }, { signal, suppressAuthError: true });
 
                         let shippingOption = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
                         if (!shippingOption) {

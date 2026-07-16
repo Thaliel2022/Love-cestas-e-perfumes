@@ -463,7 +463,7 @@ export const ShopProvider = ({ children }) => {
                             finalOptions = [localDeliveryOption, pickupOption];
                         } else {
                             const productsPayload = itemsToCalculate.map(item => ({ id: String(item.id), price: item.is_on_sale && item.sale_price ? item.sale_price : item.price, quantity: item.qty || 1 }));
-                            const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload });
+                            const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload }, { suppressAuthError: true });
                             const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
                             if (pacOptionRaw) finalOptions.push({ ...pacOptionRaw, name: 'PAC' });
                             finalOptions.push(pickupOption);
