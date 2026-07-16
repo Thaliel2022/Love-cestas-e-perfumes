@@ -203,7 +203,11 @@ export function PWAUpdatePrompt({ currentPath, setAppLogo, setAppNameConfig }) {
                             </div>
 
                             <p className="mt-4 text-sm leading-6 text-gray-300">
-                                Atualizamos a identidade do aplicativo. Toque em atualizar para aplicar nome, ícone e arquivos novos automaticamente.
+                                Atualizamos a identidade do aplicativo. Toque em atualizar para aplicar os arquivos novos dentro do PWA.
+                            </p>
+
+                            <p className="mt-3 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-3 text-xs leading-5 text-amber-100">
+                                Observação: o ícone e o nome que ficam na tela inicial são atualizados pelo Android/iOS quando o sistema reprocessa o manifesto. Em alguns aparelhos, essa parte só muda removendo e instalando o atalho novamente.
                             </p>
 
                             {isUpdating && (

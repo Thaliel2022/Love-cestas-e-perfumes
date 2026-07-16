@@ -5840,6 +5840,13 @@ app.get('/manifest.json', async (req, res) => {
             ? rawIconUrl.replace('/upload/', '/upload/w_512,h_512,c_pad,f_png/')
             : rawIconUrl;
 
+        const manifestVersion = crypto
+            .createHash('sha256')
+            .update(JSON.stringify({ rawIconUrl, appNames }))
+            .digest('hex')
+            .slice(0, 16);
+        const withVersion = (url) => `${url}${url.includes('?') ? '&' : '?'}v=${manifestVersion}`;
+
         // --- ATUALIZAÇÃO CRÍTICA (RESOLVE O ERRO DO CONSOLE) ---
         // Pega o endereço exato do seu frontend de onde o usuário está acessando
         // e define como a URL inicial do aplicativo.
@@ -5857,13 +5864,14 @@ app.get('/manifest.json', async (req, res) => {
             "short_name": appNames.short_name,
             "name": appNames.name,
             "icons": [
-                { "src": icon192, "type": "image/png", "sizes": "192x192", "purpose": "any" },
-                { "src": icon192, "type": "image/png", "sizes": "192x192", "purpose": "maskable" },
-                { "src": icon512, "type": "image/png", "sizes": "512x512", "purpose": "any" },
-                { "src": icon512, "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
+                { "src": withVersion(icon192), "type": "image/png", "sizes": "192x192", "purpose": "any" },
+                { "src": withVersion(icon192), "type": "image/png", "sizes": "192x192", "purpose": "maskable" },
+                { "src": withVersion(icon512), "type": "image/png", "sizes": "512x512", "purpose": "any" },
+                { "src": withVersion(icon512), "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
             ],
             // Agora o start_url será dinâmico e apontará para o seu frontend
-            "start_url": appStartUrl, 
+            "id": appStartUrl,
+            "start_url": appStartUrl,
             "display": "standalone",
             "theme_color": "#D4AF37",
             "background_color": "#111827"
