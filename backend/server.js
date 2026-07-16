@@ -5733,39 +5733,6 @@ app.get('/api/settings/app-name', async (req, res) => {
     }
 });
 
-// (Público) Assinatura dinâmica para avisar o PWA quando nome/ícones mudarem
-app.get('/api/pwa/version', async (req, res) => {
-    try {
-        const [iconRows] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'app_icons'");
-        const [nameRows] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'app_name'");
-
-        const defaultIcons = {
-            favicon: { current: '', previous: null, default: '' },
-            pwa_icon: { current: '', previous: null, default: '' }
-        };
-        const defaultName = { short_name: 'Love Cestas', name: 'Love Cestas e Perfumes', logo_text: 'LovecestasePerfumes' };
-
-        const icons = iconRows.length > 0 ? JSON.parse(iconRows[0].setting_value) : defaultIcons;
-        const appName = nameRows.length > 0 ? JSON.parse(nameRows[0].setting_value) : defaultName;
-        const signaturePayload = JSON.stringify({ icons, appName });
-        const version = crypto.createHash('sha256').update(signaturePayload).digest('hex').slice(0, 16);
-
-        res.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-        res.header('Pragma', 'no-cache');
-        res.header('Expires', '0');
-        res.json({
-            version,
-            appName,
-            icons,
-            manifestUrl: `/manifest.json?v=${version}`,
-            updatedAt: new Date().toISOString()
-        });
-    } catch (err) {
-        console.error("Erro ao gerar versão do PWA:", err);
-        res.status(500).json({ message: "Erro ao verificar atualização do PWA." });
-    }
-});
-
 // (Admin) Atualiza configurações de nome do App
 app.put('/api/settings/app-name', verifyToken, verifyAdmin, async (req, res) => {
     const { nameConfig } = req.body;
@@ -5840,13 +5807,6 @@ app.get('/manifest.json', async (req, res) => {
             ? rawIconUrl.replace('/upload/', '/upload/w_512,h_512,c_pad,f_png/')
             : rawIconUrl;
 
-        const manifestVersion = crypto
-            .createHash('sha256')
-            .update(JSON.stringify({ rawIconUrl, appNames }))
-            .digest('hex')
-            .slice(0, 16);
-        const withVersion = (url) => `${url}${url.includes('?') ? '&' : '?'}v=${manifestVersion}`;
-
         // --- ATUALIZAÇÃO CRÍTICA (RESOLVE O ERRO DO CONSOLE) ---
         // Pega o endereço exato do seu frontend de onde o usuário está acessando
         // e define como a URL inicial do aplicativo.
@@ -5864,13 +5824,12 @@ app.get('/manifest.json', async (req, res) => {
             "short_name": appNames.short_name,
             "name": appNames.name,
             "icons": [
-                { "src": withVersion(icon192), "type": "image/png", "sizes": "192x192", "purpose": "any" },
-                { "src": withVersion(icon192), "type": "image/png", "sizes": "192x192", "purpose": "maskable" },
-                { "src": withVersion(icon512), "type": "image/png", "sizes": "512x512", "purpose": "any" },
-                { "src": withVersion(icon512), "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
+                { "src": icon192, "type": "image/png", "sizes": "192x192", "purpose": "any" },
+                { "src": icon192, "type": "image/png", "sizes": "192x192", "purpose": "maskable" },
+                { "src": icon512, "type": "image/png", "sizes": "512x512", "purpose": "any" },
+                { "src": icon512, "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
             ],
             // Agora o start_url será dinâmico e apontará para o seu frontend
-            "id": appStartUrl,
             "start_url": appStartUrl,
             "display": "standalone",
             "theme_color": "#D4AF37",

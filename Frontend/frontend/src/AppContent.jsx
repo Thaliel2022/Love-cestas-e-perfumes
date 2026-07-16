@@ -5,7 +5,6 @@ import { useAuth } from './contexts/AuthContext';
 import { InstallPWAButton } from './components/ui/InstallPWAButton';
 import { Minicart } from './components/cart/Minicart';
 import { Header } from './components/layout/Header';
-import { PWAUpdatePrompt } from './components/pwa/PWAUpdatePrompt';
 import { SeasonalAnimations } from './components/layout/SeasonalAnimations';
 import { ForgotPasswordPage, LoginPage, RegisterPage } from './pages/AuthPages';
 import { CategoriesPage } from './pages/CategoriesPage';
@@ -565,11 +564,6 @@ export function AppContent({ deferredPrompt }) {
       )}
       
       {deferredPrompt && !currentPath.startsWith('admin') && <InstallPWAButton deferredPrompt={deferredPrompt} />}
-      <PWAUpdatePrompt
-        currentPath={currentPath}
-        setAppLogo={setAppLogo}
-        setAppNameConfig={setAppNameConfig}
-      />
     </div>
   );
 }
