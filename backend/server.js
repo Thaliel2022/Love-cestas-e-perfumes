@@ -1689,8 +1689,10 @@ app.post('/api/shipping/calculate', checkMaintenanceMode, async (req, res) => {
         if (!apiResponse.ok) {
             console.error(`[FRETE] Erro da API Melhor Envio (Status: ${apiResponse.status}):`, JSON.stringify(data, null, 2));
             const errorMessage = data.message || (data.errors ? JSON.stringify(data.errors) : 'Erro desconhecido no cálculo de frete.');
-            const statusCode = apiResponse.status === 401 || apiResponse.status === 403 ? 502 : apiResponse.status;
-            return res.status(statusCode).json({ message: `Erro no cálculo do frete: ${errorMessage}` });
+            if (apiResponse.status === 401 || apiResponse.status === 403) {
+                return res.json([]);
+            }
+            return res.status(apiResponse.status).json({ message: `Erro no cálculo do frete: ${errorMessage}` });
         }
         
         const filteredOptions = data
