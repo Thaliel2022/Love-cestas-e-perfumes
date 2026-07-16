@@ -1624,10 +1624,10 @@ app.post('/api/logout', async (req, res) => {
 });
 
 // --- ROTA DE CÁLCULO DE FRETE ---
+let melhorEnvioAuthBlockedUntil = 0;
+
 app.post('/api/shipping/calculate', checkMaintenanceMode, async (req, res) => {
     const { cep_destino, products } = req.body;
-
-    console.log('[FRETE] Requisição recebida:', { cep_destino, products });
 
     if (!cep_destino || !products || !Array.isArray(products) || products.length === 0) {
         return res.status(400).json({ message: "CEP de destino e informações dos produtos são obrigatórios." });
@@ -1635,6 +1635,15 @@ app.post('/api/shipping/calculate', checkMaintenanceMode, async (req, res) => {
     
     try {
         const ME_TOKEN = process.env.ME_TOKEN;
+        const now = Date.now();
+
+        if (!ME_TOKEN || now < melhorEnvioAuthBlockedUntil) {
+            if (!ME_TOKEN && now >= melhorEnvioAuthBlockedUntil) {
+                console.warn('[FRETE] ME_TOKEN ausente. Calculo externo de frete desativado temporariamente.');
+                melhorEnvioAuthBlockedUntil = now + 5 * 60 * 1000;
+            }
+            return res.json([]);
+        }
         
         const productIds = products.map(p => p.id);
         const [dbProducts] = await db.query(`SELECT id, weight, width, height, length FROM products WHERE id IN (?)`, [productIds]);
@@ -1669,8 +1678,6 @@ app.post('/api/shipping/calculate', checkMaintenanceMode, async (req, res) => {
             })
         };
 
-        console.log('[FRETE] Payload enviado para Melhor Envio:', JSON.stringify(payload, null, 2));
-
         const ME_API_URL = 'https://www.melhorenvio.com.br/api/v2/me/shipment/calculate';
 
         const apiResponse = await fetch(ME_API_URL, {
@@ -1687,11 +1694,13 @@ app.post('/api/shipping/calculate', checkMaintenanceMode, async (req, res) => {
         const data = await apiResponse.json();
 
         if (!apiResponse.ok) {
-            console.error(`[FRETE] Erro da API Melhor Envio (Status: ${apiResponse.status}):`, JSON.stringify(data, null, 2));
             const errorMessage = data.message || (data.errors ? JSON.stringify(data.errors) : 'Erro desconhecido no cálculo de frete.');
             if (apiResponse.status === 401 || apiResponse.status === 403) {
+                console.warn('[FRETE] Melhor Envio recusou autenticacao. Verifique ME_TOKEN no Render. Calculo externo pausado por 5 minutos.');
+                melhorEnvioAuthBlockedUntil = Date.now() + 5 * 60 * 1000;
                 return res.json([]);
             }
+            console.error(`[FRETE] Erro da API Melhor Envio (Status: ${apiResponse.status}):`, JSON.stringify(data, null, 2));
             return res.status(apiResponse.status).json({ message: `Erro no cálculo do frete: ${errorMessage}` });
         }
         
@@ -1704,7 +1713,6 @@ app.post('/api/shipping/calculate', checkMaintenanceMode, async (req, res) => {
                 company: { name: option.company.name, picture: option.company.picture }
             }));
         
-        console.log('[FRETE] Cálculo bem-sucedido. Opções retornadas:', filteredOptions.length);
         res.json(filteredOptions);
 
     } catch (error) {
