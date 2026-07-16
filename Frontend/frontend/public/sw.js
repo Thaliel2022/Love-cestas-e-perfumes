@@ -1,11 +1,11 @@
-// public/sw.js - Service Worker Atualizado (v6)
+// public/sw.js - Service Worker Atualizado (v7)
 
-// v6 para forçar atualização do cache no celular e limpar resquícios da imagem antiga
-const CACHE_NAME = 'lovecestas-v6';
+// v7 adiciona comandos para atualização premium dentro do PWA
+const CACHE_NAME = 'lovecestas-v7';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
-  console.log('Service Worker: Instalado (v6)');
+  console.log('Service Worker: Instalado (v7)');
 });
 
 self.addEventListener('activate', (event) => {
@@ -22,7 +22,28 @@ self.addEventListener('activate', (event) => {
       );
     }).then(() => self.clients.claim())
   );
-  console.log('Service Worker: Ativo (v6)');
+  console.log('Service Worker: Ativo (v7)');
+});
+
+self.addEventListener('message', (event) => {
+  if (!event.data || !event.data.type) return;
+
+  if (event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+    return;
+  }
+
+  if (event.data.type === 'CLEAR_PWA_CACHE') {
+    event.waitUntil(
+      caches.keys()
+        .then((cacheNames) => Promise.all(cacheNames.map((cache) => caches.delete(cache))))
+        .then(() => {
+          if (event.source) {
+            event.source.postMessage({ type: 'PWA_CACHE_CLEARED' });
+          }
+        })
+    );
+  }
 });
 
 self.addEventListener('push', function(event) {

@@ -5733,6 +5733,39 @@ app.get('/api/settings/app-name', async (req, res) => {
     }
 });
 
+// (Público) Assinatura dinâmica para avisar o PWA quando nome/ícones mudarem
+app.get('/api/pwa/version', async (req, res) => {
+    try {
+        const [iconRows] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'app_icons'");
+        const [nameRows] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'app_name'");
+
+        const defaultIcons = {
+            favicon: { current: '', previous: null, default: '' },
+            pwa_icon: { current: '', previous: null, default: '' }
+        };
+        const defaultName = { short_name: 'Love Cestas', name: 'Love Cestas e Perfumes', logo_text: 'LovecestasePerfumes' };
+
+        const icons = iconRows.length > 0 ? JSON.parse(iconRows[0].setting_value) : defaultIcons;
+        const appName = nameRows.length > 0 ? JSON.parse(nameRows[0].setting_value) : defaultName;
+        const signaturePayload = JSON.stringify({ icons, appName });
+        const version = crypto.createHash('sha256').update(signaturePayload).digest('hex').slice(0, 16);
+
+        res.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.header('Pragma', 'no-cache');
+        res.header('Expires', '0');
+        res.json({
+            version,
+            appName,
+            icons,
+            manifestUrl: `/manifest.json?v=${version}`,
+            updatedAt: new Date().toISOString()
+        });
+    } catch (err) {
+        console.error("Erro ao gerar versão do PWA:", err);
+        res.status(500).json({ message: "Erro ao verificar atualização do PWA." });
+    }
+});
+
 // (Admin) Atualiza configurações de nome do App
 app.put('/api/settings/app-name', verifyToken, verifyAdmin, async (req, res) => {
     const { nameConfig } = req.body;
